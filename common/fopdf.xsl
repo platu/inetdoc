@@ -2,24 +2,24 @@
 
 <!--
 
-    This is the XSL FO configuration file for the [inetdoc.LINUX] reference
-    documentation. It defines a custom titlepage and the parameters for the A4
-    sized PDF printable output.
+    This is the XSL FO customization stylesheet file for the documents
+    published on the http://www.inetdoc.net website.
+    It defines a custom titlepage and parameters for PDF printable output.
 
     It took christian.bauer(at)bluemars.de days to figure out this stuff and
-    fix most of the obvious bugs in the DocBook XSL distribution, so as he uses
-    this stylesheet, he gives some credit back to the Hibernate project.
+    fix most of the obvious bugs in the DocBook XSL distribution, So as the
+    present work is based on his stylesheet, credit has to be given back to the
+    Hibernate project.
 
-    It also took me days to customize this stylesheet for the [inetdoc.LINUX]
-    project at http://www.linux-france.org ;)). I give some credit back to all
-    people who publish free XSL-FO customization samples 
+    It also took me days to customize this stylesheet and I have to give some
+    credit back to all people who publish free XSL-FO customization samples.
 
-    philippe.latu(at)linux-france.org
-    $Id: inetdoc_fopdf.xsl 1633 2011-04-26 09:29:04Z latu $
+    platu(at)inetdoc.net
 
 -->
 
 <!DOCTYPE xsl:stylesheet [
+  <!-- The below path is defined by the docbook-xsl-ns Debian package -->
   <!ENTITY db_xsl_path        "/usr/share/xml/docbook/stylesheet/docbook-xsl-ns/">
   <!ENTITY admon_gfx_path     "images/">
 ]>
@@ -96,118 +96,62 @@
 <!-- ### Page de titre article ### -->
     <xsl:template name="article.titlepage.recto">
       <fo:block>
-        <fo:block background-color="#333">
-          <fo:block color="#fff" text-align="right" font-family="DejaVuSans-Bold" font-size="18pt" margin-right="10mm">
+        <fo:block background-color="#333" padding="3pt">
+	  <fo:block color="#fff" text-align="right"
+		    font-family="DejaVuSans-Bold" font-size="18pt"
+                    margin-right="10mm">
             <xsl:value-of select="d:title|d:info/d:title" />
           </fo:block>
-          <fo:block color="#eee" text-align="right" font-family="DejaVuSans-Bold" font-size="12pt" margin-right="10mm">
+	  <fo:block color="#eee" text-align="right"
+		    font-family="DejaVuSans-Bold" font-size="12pt"
+                    margin-right="10mm">
             <xsl:value-of select="d:info/d:author/*/d:firstname"/>
             <xsl:text> </xsl:text>
             <xsl:value-of select="d:info/d:author/*/d:surname"/>
           </fo:block>
-          <fo:block color="#ddd" text-align="right" font-family="DejaVuSans" margin-right="10mm">
+	  <fo:block color="#ddd" text-align="right"
+                    font-family="DejaVuSans" margin-right="10mm">
             <xsl:value-of select="d:info/d:author/d:affiliation/d:address/d:email"/> 
           </fo:block>
+
+          <xsl:choose>
+            <xsl:when test="d:info/*/d:editor|d:info/d:editor">
+              <fo:block color="#ddd" text-align="right" 
+                        font-style="italic" margin-right="50mm">
+                <xsl:text>Publié par :</xsl:text>
+              </fo:block>
+            </xsl:when>
+          </xsl:choose>
+
+          <xsl:for-each select="d:info/*/d:editor|d:info/d:editor">
+            <fo:block color="#eee" text-align="right" 
+                      font-family="DejaVuSans-Bold" font-size="12pt"
+                      margin-right="10mm">
+              <xsl:value-of select="firstname"/>
+              <xsl:text> </xsl:text>
+              <xsl:value-of select="surname"/>
+            </fo:block>
+            <fo:block color="#ddd" text-align="right"
+                      font-family="DejaVuSans" margin-right="10mm">
+              <xsl:value-of select="d:affiliation/d:address/d:email"/> 
+            </fo:block>
+          </xsl:for-each>
         </fo:block>
 
-        <xsl:choose>
-          <xsl:when test="d:info/*/d:editor|d:info/d:editor">
-            <fo:block color="#333" 
-                      font-style="italic" text-align="right"
-		      margin-right="50mm">
-              <xsl:text>Publié par :</xsl:text>
-            </fo:block>
-          </xsl:when>
-        </xsl:choose>
-
-        <xsl:for-each select="d:info/*/d:editor|d:info/d:editor">
-          <fo:block text-align="right" font-family="DejaVuSans-Bold" font-size="12pt" margin-right="10mm">
-            <xsl:value-of select="firstname"/>
-            <xsl:text> </xsl:text>
-            <xsl:value-of select="surname"/>
-          </fo:block>
-          <fo:block text-align="right" font-family="DejaVuSans" margin-right="10mm">
-            <xsl:value-of select="d:affiliation/d:address/d:email"/> 
-          </fo:block>
-        </xsl:for-each>
-
-        <fo:block font-size="9pt"
-	          font-weight="bold"
-		  font-style="italic"
-		  background-color="#af0228"
-		  color="#fff"
-		  text-align="left"
-		  padding="3pt">
+	<fo:block color="#fff" background-color="#af0228" text-align="left"
+                  font-size="9pt" font-weight="bold" font-style="italic" padding="3pt">
           <xsl:text>http://www.inetdoc.net</xsl:text>
         </fo:block>
 
-        <fo:table font-size="8pt"
-	          space-before="2mm"
-	          text-align="start"
-                  table-layout="fixed"
-                  width="100%">
-          <fo:table-column column-number="1" 
-                           column-width="proportional-column-width(1)"/>
-          <fo:table-column column-number="2"
-                           column-width="proportional-column-width(2)"/>
-          <fo:table-column column-number="3"
-                           column-width="proportional-column-width(1)"/>
-          <fo:table-body>
-            <fo:table-row>
-              <fo:table-cell number-columns-spanned="3"
-	                     border="0.5pt solid #111"
-                             padding="3pt">
-                <fo:block font-family="DejaVuSans" font-weight="bold">
-                  <xsl:text>Historique des versions</xsl:text>
-                </fo:block>
-              </fo:table-cell>
-            </fo:table-row>
-            <xsl:for-each select="*/d:revhistory/d:revision">
-              <fo:table-row>
-                <fo:table-cell border="0.5pt solid #111"
-	                       padding="3pt">
-                  <fo:block font-family="DejaVuSansMono" font-weight="normal" font-size="6pt">
-                    <xsl:value-of select="d:revnumber"/>  
-                  </fo:block>
-                </fo:table-cell>
-                <fo:table-cell border="0.5pt solid #111"
-	                       padding="3pt">
-                  <fo:block font-family="DejaVuSansMono" font-weight="normal" font-size="6pt">
-                    <xsl:value-of select="d:date"/>  
-                  </fo:block>
-                </fo:table-cell>
-                <fo:table-cell border="0.5pt solid #111"
-	                       padding="3pt">
-                  <fo:block font-family="DejaVuSansMono" font-weight="normal" font-size="6pt">
-                    <xsl:value-of select="d:authorinitials"/>  
-                  </fo:block>
-                </fo:table-cell>
-              </fo:table-row>
-              <fo:table-row>
-                <fo:table-cell number-columns-spanned="3"
-                               border="0.5pt solid #111"
-		               padding="3pt">
-                  <fo:block font-family="DejaVuSansMono" font-weight="normal" font-size="6pt">
-                    <xsl:value-of select="d:revremark"/>  
-                  </fo:block>
-                </fo:table-cell>
-              </fo:table-row>
-            </xsl:for-each>
-      <xsl:choose>
-        <xsl:when test="*/d:abstract">
-            <fo:table-row>
-              <fo:table-cell number-columns-spanned="3"
-	                     border="0"
-                             padding-top="10pt">
-                <fo:block font-family="DejaVuSans" font-weight="bold">
-                  <xsl:value-of select="d:info/d:abstract"/> 
-                </fo:block>
-              </fo:table-cell>
-            </fo:table-row>
-        </xsl:when>
-      </xsl:choose>
-          </fo:table-body>
-        </fo:table>
+        <xsl:choose>
+          <xsl:when test="*/d:abstract">
+            <fo:block color="#333" text-align="left"
+		      font-family="DejaVuSans" font-weight="bold" padding="3pt"
+                      margin-top="6pt">
+              <xsl:value-of select="d:info/d:abstract"/> 
+            </fo:block>
+          </xsl:when>
+        </xsl:choose>
       </fo:block>
     </xsl:template>
 

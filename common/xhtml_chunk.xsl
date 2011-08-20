@@ -1,26 +1,32 @@
 <?xml version="1.0"?>
 <!-- 
-    This is the XSL HTML configuration file for the Hibernate
-    Reference Documentation. 
-    
-    It took me days to figure out this stuff and fix most of
-    the obvious bugs in the DocBook XSL distribution, so if you
-    use this stylesheet, give some credit back to the Hibernate
-    project.
-    
-    christian.bauer@bluemars.de
+
+    This is the XSL customization stylesheet file for the documents
+    published on the http://www.inetdoc.net website.
+
+    It took christian.bauer(at)bluemars.de days to figure out this stuff and
+    fix most of the obvious bugs in the DocBook XSL distribution, So as the
+    present work is based on his stylesheet, credit has to be given back to the
+    Hibernate project.
+
+    It also took me days to customize this stylesheet and I have to give some
+    credit back to all people who publish XSL customization samples.
+
+    platu(at)inetdoc.net
+
 -->
 
 <!DOCTYPE xsl:stylesheet [
+  <!-- The below path is defined by the docbook-xsl-ns Debian package -->
   <!ENTITY db_xsl_path        "/usr/share/xml/docbook/stylesheet/docbook-xsl-ns/">
   <!ENTITY callout_gfx_path   "images/">
   <!ENTITY admon_gfx_path     "images/">
 ]>
 
-<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-                version="1.0"
-                xmlns="http://www.w3.org/TR/xhtml1/transitional"
-                exclude-result-prefixes="#default">
+<xsl:stylesheet version="1.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns="http://www.w3.org/TR/xhtml1/transitional"
+  exclude-result-prefixes="#default">
 
 <xsl:import href="&db_xsl_path;/xhtml-1_1/chunk.xsl"/>
 
