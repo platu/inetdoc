@@ -1,0 +1,112 @@
+#/*--------------------------------------------------------------------------
+#* Variables globales
+#*---------------------------------------------------------------------------*/
+
+MAIN_DIR	:= $(HOME)/inetdoc
+CWD		:= $(shell pwd)
+
+STYLESHEET	:= inetdoc
+PAGEMENUITEM	:= $(subst $(MAIN_DIR),,$(CWD))
+PAGEMENUITEM	:= $(firstword $(shell echo $(PAGEMENUITEM) | sed 's/\// /'))
+
+TIDY		:= /usr/bin/tidy -m -q -asxhtml -wrap 79
+FOP		:= ~/SVN/fop/trunk/fop -l fr -c $(MAIN_DIR)/common/fop.xconf
+
+XSLT_STYLESHEET	:= $(MAIN_DIR)/common/xhtml_chunk.xsl
+
+#/*--------------------------------------------------------------------------
+#* Traitement des répertoires et sous-répertoires
+#*---------------------------------------------------------------------------*/
+
+# PROCESS contient la directive 'subdirs' : parcours des sous-répertoires
+subdirs: $(SUBDIRS)
+	@for dir in $(SUBDIRS); do \
+	    	( cd $$dir && $(MAKE) MAIN_DIR=$(MAIN_DIR)/$$dir ); \
+	done
+
+# Les directives clean et subdirs_clean effacent des fichiers intermédiares.
+# L'effacement est conditionné par le gestionnaire subversion via les
+# propriétés svn:ignore du répertoire courant
+.PHONY: clean
+clean: subdirs_clean
+	@for file in `svn pg svn:ignore . | tr '\n' ' '`; do \
+		rm -rf $$file ;\
+	done
+
+.PHONY: subdirs_clean
+subdirs_clean:
+ifdef SUBDIRS
+	@for dir in $(SUBDIRS); do \
+	    	(cd $$dir && $(MAKE) clean); \
+	done
+endif
+
+#/*--------------------------------------------------------------------------
+#* Traitement des liens symboliques
+#*---------------------------------------------------------------------------*/
+
+# PROCESS contient la directive 'symlink' : création des liens
+symlink:
+	@for link in $(SYMLINKS); do \
+		if [ -f $$link ] && [ ! -h `basename $$link` ]; then \
+			ln -sf $$link . ;\
+		fi ;\
+	done
+
+#/*--------------------------------------------------------------------------
+#* Gestion des feuilles de styles CSS
+#*---------------------------------------------------------------------------*/
+
+# La feuille de styles est éditée pour identifier la rubrique courante
+$(STYLESHEET).css: $(MAIN_DIR)/styles/$(STYLESHEET).css
+	@sed 's/.banner_menu #active/.banner_menu #$(PAGEMENUITEM)/' $< > $@
+
+#/*--------------------------------------------------------------------------
+#* Traitement des fichiers sources DocBook XML
+#*---------------------------------------------------------------------------*/
+
+ifeq (xml, $(findstring xml,$(PROCESS)))
+
+XHTML_OUTPUT	:= xhtml_output
+
+ifndef XML_FILES
+XML_FILES	:= $(wildcard *.xml)
+XML_FILES	:= $(filter-out $(notdir $(wildcard $(MAIN_DIR)/common/*.xml)), $(XML_FILES))
+endif
+
+BASENAME = $(basename $(firstword $(XML_FILES)))
+
+xml2xhtml: index.html $(STYLESHEET).css
+
+index.html: $(XML_FILES)
+	# Création du répertoire de travail
+	@if [ ! -d $(XHTML_OUTPUT) ]; then mkdir $(XHTML_OUTPUT); fi
+	# Validation XML de $(firstword $(XML_FILES))
+	@xmllint --encode utf-8 --noent --xinclude --postvalid $< > $(XHTML_OUTPUT)/$(BASENAME).xml
+	# Insertion du nom de fichier imprimable 
+	# Copie du fichier source complet dans le répertoire de téléchargement
+	# Transformation XHTML du résultat de la validation XML
+	( \
+	cd $(XHTML_OUTPUT) && \
+	sed -i 's/__printbasename__/$(BASENAME)\.pdf/g' $(BASENAME).xml && \
+	cp -a $(BASENAME).xml $(MAIN_DIR)/xml/ && \
+	xsltproc --stringparam html.stylesheet $(STYLESHEET).css $(XSLT_STYLESHEET) $(BASENAME).xml \
+	)
+	# Formatage des pages
+	@for file in `ls $(XHTML_OUTPUT)/*.html`; do \
+		( cd $(MAIN_DIR) && \
+		nb --title $(BASENAME) make-page $(CWD)/$$file $(CWD)/`echo $${file##*/}` ) ;\
+	done \
+	# Extraction de la table des matières 
+
+xml2pdf: $(MAIN_DIR)/pdf/$(BASENAME).pdf
+
+$(MAIN_DIR)/pdf/$(BASENAME).pdf: $(XML_FILES)
+	# Transformation FO du résultat de la validation XML
+	( \
+        cd $(XHTML_OUTPUT) && \
+	xsltproc --output $(BASENAME).fo $(MAIN_DIR)/common/fopdf.xsl $(BASENAME).xml && \
+	$(FOP) -fo $(BASENAME).fo -pdf $@ \
+	)
+
+endif
