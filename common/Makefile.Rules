@@ -29,7 +29,7 @@ subdirs: $(SUBDIRS)
 # propriétés svn:ignore du répertoire courant
 .PHONY: clean
 clean: subdirs_clean
-	@for file in `svn pg svn:ignore . | tr '\n' ' '`; do \
+	@for file in `cat .gitignore | tr '\n' ' '`; do \
 		rm -rf $$file ;\
 	done
 
@@ -78,30 +78,44 @@ BASENAME = $(basename $(firstword $(XML_FILES)))
 
 xml2xhtml: index.html $(STYLESHEET).css
 
-index.html: $(XML_FILES)
+$(XHTML_OUTPUT)/$(BASENAME).xml: $(XML_FILES)
 	# Création du répertoire de travail
 	@if [ ! -d $(XHTML_OUTPUT) ]; then mkdir $(XHTML_OUTPUT); fi
 	# Validation XML de $(firstword $(XML_FILES))
 	@xmllint --encode utf-8 --noent --xinclude --postvalid $< > $(XHTML_OUTPUT)/$(BASENAME).xml
+
+index.html: $(XHTML_OUTPUT)/$(BASENAME).xml
 	# Insertion du nom de fichier imprimable 
-	# Copie du fichier source complet dans le répertoire de téléchargement
+	# Copie du fichier source complet dans le répertoire de distribution
 	# Transformation XHTML du résultat de la validation XML
+	# Extraction de la table des matières 
 	( \
 	cd $(XHTML_OUTPUT) && \
 	sed -i 's/__printbasename__/$(BASENAME)\.pdf/g' $(BASENAME).xml && \
 	cp -a $(BASENAME).xml $(MAIN_DIR)/xml/ && \
-	xsltproc --stringparam html.stylesheet $(STYLESHEET).css $(XSLT_STYLESHEET) $(BASENAME).xml \
+	xsltproc --stringparam html.stylesheet $(STYLESHEET).css $(XSLT_STYLESHEET) $(BASENAME).xml && \
+	sed -n '/<div class=\"toc\">/,/<\/div>/p' $@ > toc.htm \
 	)
+	# Traitement de la table des matières
+	sed -i 's/<p>/<div class=\"sidetitle\">/;s/<\/p>/<\/div>/;s/<b>//;s/<\/b>//;/span/d' $(XHTML_OUTPUT)/toc.htm
 	# Formatage des pages
 	@for file in `ls $(XHTML_OUTPUT)/*.html`; do \
+		sed -i '/<title>/d;s/style=\"clear:* both\"//' $$file ;\
 		( cd $(MAIN_DIR) && \
 		nb --title $(BASENAME) make-page $(CWD)/$$file $(CWD)/`echo $${file##*/}` ) ;\
-	done \
-	# Extraction de la table des matières 
+	done
+	# Insertion de la table des matières dans la partie liens de chaque page
+	sed -i 's/<div class=\"toc\">/<div id=\"links\">/' $(XHTML_OUTPUT)/toc.htm
+	for file in `ls *.html`; do \
+		sed -n '1,/<div id=\"container\">/p' $$file >> $$file.tmp ;\
+		cat $(XHTML_OUTPUT)/toc.htm >> $$file.tmp ;\
+		sed -n '/<div id=\"content\">/,$$p' $$file >> $$file.tmp ;\
+		mv $$file.tmp $$file ;\
+	done
 
 xml2pdf: $(MAIN_DIR)/pdf/$(BASENAME).pdf
 
-$(MAIN_DIR)/pdf/$(BASENAME).pdf: $(XML_FILES)
+$(MAIN_DIR)/pdf/$(BASENAME).pdf: $(XHTML_OUTPUT)/$(BASENAME).xml
 	# Transformation FO du résultat de la validation XML
 	( \
         cd $(XHTML_OUTPUT) && \

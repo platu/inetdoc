@@ -12,8 +12,8 @@ SUBDIRS = \
 	formations	\
 
 # Type(s) de traitement
-PROCESS_TYPE = subdirs 
+PROCESS = subdirs 
 
-all: $(PROCESS_TYPE)
+all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
