@@ -21,7 +21,8 @@
 <!DOCTYPE xsl:stylesheet [
   <!-- The below path is defined by the docbook-xsl-ns Debian package -->
   <!ENTITY db_xsl_path        "/usr/share/xml/docbook/stylesheet/docbook-xsl-ns/">
-  <!ENTITY admon_gfx_path     "images/">
+  <!ENTITY callout_gfx_path   "&db_xsl_path;images/callouts/">
+  <!ENTITY admon_gfx_path     "&db_xsl_path;images/">
 ]>
 
 <xsl:stylesheet version="1.0"
@@ -90,10 +91,9 @@
     </xsl:attribute-set>
 
 <!--###################################################
-                   Custom Title Page
+                   Custom Article Title Page
     ################################################### --> 
     
-<!-- ### Page de titre article ### -->
     <xsl:template name="article.titlepage.recto">
       <fo:block>
         <fo:block background-color="#333" padding="3pt">
@@ -155,135 +155,73 @@
       </fo:block>
     </xsl:template>
 
-<!-- ### Page de titre book ### -->
+<!--###################################################
+                   Custom Book Title Page
+    ################################################### --> 
+
     <xsl:template name="book.titlepage.recto">
-      <fo:block background-color="#af0228"
-                color="#eee"
-		font-family="DejaVuSans"
-		font-size="24pt"
-		font-weight="bold" 
-		text-align="left"
-		padding="2pt">
-        <xsl:value-of select="d:info/d:title"/> 
-      </fo:block>
-      <xsl:for-each select="d:info/*/d:author|d:info/d:author">
-        <fo:block color="#333"
-	          font-family="DejaVuSans"
-		  font-size="14pt"
-		  font-weight="bold"
-		  text-align="right"
-		  margin-right="10mm">
-          <xsl:value-of select="d:firstname"/>
-          <xsl:text> </xsl:text>
-          <xsl:value-of select="d:surname"/>
-        </fo:block>
-        <fo:block color="#333"
-	          font-family="DejaVuSans"
-		  font-size="11pt"
-		  text-align="right"
-		  margin-right="10mm">
-          <xsl:value-of select="d:affiliation/d:address/d:email"/> 
-        </fo:block>
-      </xsl:for-each>
-
-      <xsl:choose>
-        <xsl:when test="d:info/*/d:editor|d:info/d:editor">
-          <fo:block color="#333" 
-	            font-style="italic"
-		    text-align="right"
-		    margin-right="50mm">
-            <xsl:text>Publié par :</xsl:text>
+      <fo:block>
+        <fo:block background-color="#333" padding="3pt">
+	  <fo:block color="#fff" text-align="right"
+		    font-family="DejaVuSans-Bold" font-size="18pt"
+                    margin-right="10mm" margin-bottom="5pt">
+            <xsl:value-of select="d:title|d:info/d:title" />
           </fo:block>
-        </xsl:when>
-      </xsl:choose>
 
-      <xsl:for-each select="d:info/*/d:editor|d:info/d:editor">
-        <fo:block text-align="right"
-	          font-family="DejaVuSans"
-		  font-size="14pt"
-		  font-weight="bold"
-		  margin-right="10mm">
-          <xsl:value-of select="d:firstname"/>
-          <xsl:text> </xsl:text>
-          <xsl:value-of select="d:surname"/>
+          <xsl:for-each select="//d:author">
+	    <fo:block color="#eee" text-align="right"
+	              font-family="DejaVuSans-Bold" font-size="10pt"
+                      margin-right="10mm">
+              <xsl:value-of select="d:personname/d:firstname"/>
+              <xsl:text> </xsl:text>
+              <xsl:value-of select="d:personname/d:surname"/>
+            </fo:block>
+	    <fo:block color="#ddd" text-align="right"
+		      font-family="DejaVuSans" font-size="9pt"
+                      margin-right="10mm">
+              <xsl:value-of select="d:affiliation/d:address/d:email"/> 
+            </fo:block>
+          </xsl:for-each>
+
+          <xsl:choose>
+            <xsl:when test="//d:editor">
+              <fo:block color="#ddd" text-align="right" 
+                        font-style="italic" margin-right="50mm">
+                <xsl:text>Publié par :</xsl:text>
+              </fo:block>
+            </xsl:when>
+          </xsl:choose>
+
+          <xsl:for-each select="//d:editor">
+	    <fo:block color="#eee" text-align="right"
+	              font-family="DejaVuSans-Bold" font-size="10pt"
+                      margin-right="10mm">
+              <xsl:value-of select="d:personname/d:firstname"/>
+              <xsl:text> </xsl:text>
+              <xsl:value-of select="d:personname/d:surname"/>
+            </fo:block>
+	    <fo:block color="#ddd" text-align="right"
+		      font-family="DejaVuSans" font-size="9pt"
+                      margin-right="10mm">
+              <xsl:value-of select="d:affiliation/d:address/d:email"/> 
+            </fo:block>
+          </xsl:for-each>
         </fo:block>
-        <fo:block text-align="right"
-	          font-family="DejaVuSans"
-		  font-size="11pt"
-		  margin-right="10mm">
-          <xsl:value-of select="d:affiliation/d:address/d:email"/> 
+
+	<fo:block color="#fff" background-color="#af0228" text-align="left"
+                  font-size="9pt" font-weight="bold" font-style="italic" padding="3pt">
+          <xsl:text>http://www.inetdoc.net</xsl:text>
         </fo:block>
-      </xsl:for-each>
 
-      <fo:block background-color="#af0228"
-                color="#eee" 
-                font-family="DejaVuSans"
-		font-size="9pt"
-		font-weight="bold"
-                text-align="left"
-		padding="2pt">
-        <xsl:text>http://www.inetdoc.net</xsl:text>
-      </fo:block>
-
-        <fo:table font-size="8pt"
-	          space-before="2pt"
-	          text-align="start"
-                  table-layout="fixed"
-                  width="100%">
-          <fo:table-column column-number="1" 
-                           column-width="proportional-column-width(1)"/>
-          <fo:table-column column-number="2"
-                           column-width="proportional-column-width(3)"/>
-          <fo:table-column column-number="3"
-                           column-width="proportional-column-width(1)"/>
-          <fo:table-body>
-            <fo:table-row>
-              <fo:table-cell number-columns-spanned="3"
-                             background-color="#eee"
-                             border-bottom="0.5pt solid #111"
-                             padding="3pt">
-                <fo:block>
-                  <xsl:text>Historique des versions</xsl:text>
-                </fo:block>
-              </fo:table-cell>
-            </fo:table-row>
-            <xsl:for-each select="*/d:revhistory/d:revision">
-              <fo:table-row>
-                <fo:table-cell border-bottom="0.5pt solid #111"
-	                       padding="3pt">
-                  <fo:block>
-                    <xsl:value-of select="d:revnumber"/>  
-                  </fo:block>
-                </fo:table-cell>
-                <fo:table-cell border-bottom="0.5pt solid #111"
-	                       padding="3pt">
-                  <fo:block>
-                    <xsl:value-of select="d:date"/>  
-                  </fo:block>
-                </fo:table-cell>
-                <fo:table-cell border-bottom="0.5pt solid #111"
-	                       padding="3pt">
-                  <fo:block>
-                    <xsl:value-of select="d:authorinitials"/>  
-                  </fo:block>
-                </fo:table-cell>
-              </fo:table-row>
-              <fo:table-row>
-                <fo:table-cell number-columns-spanned="3"
-                               border-bottom="0.5pt solid #111"
-		               padding="3pt">
-                  <fo:block>
-                    <xsl:value-of select="d:revremark"/>  
-                  </fo:block>
-                </fo:table-cell>
-              </fo:table-row>
-            </xsl:for-each>
-          </fo:table-body>
-        </fo:table>
-
-      <fo:block margin-left="10mm"
-		margin-right="10mm">
-        <xsl:value-of select="d:info/d:abstract"/> 
+        <xsl:choose>
+          <xsl:when test="*/d:abstract">
+            <fo:block color="#333" text-align="left"
+		      font-family="DejaVuSans" font-weight="bold" padding="3pt"
+                      margin-top="6pt">
+              <xsl:value-of select="d:info/d:abstract"/> 
+            </fo:block>
+          </xsl:when>
+        </xsl:choose>
       </fo:block>
     </xsl:template>
 
@@ -312,7 +250,7 @@
                       Custom Footer
     ################################################### -->     
 
-    <!-- This footer prints the Hibernate version number on the left side -->
+    <!-- This footer prints the Title on the left side -->
     <xsl:template name="footer.content">
         <xsl:param name="pageclass" select="''"/>
         <xsl:param name="sequence" select="''"/>
@@ -320,22 +258,15 @@
         <xsl:param name="gentext-key" select="''"/>
 
         <fo:block font-size="8pt">
-        <xsl:variable name="Version">
-          <xsl:choose>
-            <xsl:when test="//d:revnumber">
-	      <xsl:value-of select="//d:title"/><xsl:text> </xsl:text><xsl:value-of select="//d:revnumber"/>
-            </xsl:when>
-            <xsl:otherwise>
-              <!-- nop -->
-            </xsl:otherwise>
-          </xsl:choose>
+        <xsl:variable name="Title">
+          <xsl:value-of select="//d:title"/>
         </xsl:variable>
 
         <xsl:choose>
             <xsl:when test="$sequence='blank'">
             <xsl:choose>
                 <xsl:when test="$double.sided != 0 and $position = 'left'">
-                <xsl:value-of select="$Version"/>
+                <xsl:value-of select="$Title"/>
                 </xsl:when>
 
                 <xsl:when test="$double.sided = 0 and $position = 'center'">
@@ -365,15 +296,15 @@
             </xsl:when>
 
             <xsl:when test="$double.sided != 0 and $sequence = 'odd' and $position='left'">
-            <xsl:value-of select="$Version"/>
+            <xsl:value-of select="$Title"/>
             </xsl:when>
 
             <xsl:when test="$double.sided != 0 and $sequence = 'even' and $position='right'">
-            <xsl:value-of select="$Version"/>
+            <xsl:value-of select="$Title"/>
             </xsl:when>
 
             <xsl:when test="$double.sided = 0 and $position='left'">
-            <xsl:value-of select="$Version"/>
+            <xsl:value-of select="$Title"/>
             </xsl:when>
 
             <xsl:otherwise>
@@ -688,8 +619,9 @@
     ################################################### -->   
 
     <!-- Use images for callouts instead of (1) (2) (3) -->
-    <xsl:param name="callout.graphics" select="0" />
-    <xsl:param name="callout.graphics.path">&admon_gfx_path;</xsl:param>
+    <xsl:param name="callout.graphics" select="1" />
+    <xsl:param name="callout.graphics.path">&callout_gfx_path;</xsl:param>
+    <xsl:param name="callout.graphics.number.limit" select="15" />
     <xsl:param name="callout.unicode" select="1" />
     
     <!-- Place callout marks at this column in annotated areas -->

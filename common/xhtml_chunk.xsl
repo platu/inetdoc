@@ -19,8 +19,8 @@
 <!DOCTYPE xsl:stylesheet [
   <!-- The below path is defined by the docbook-xsl-ns Debian package -->
   <!ENTITY db_xsl_path        "/usr/share/xml/docbook/stylesheet/docbook-xsl-ns/">
-  <!ENTITY callout_gfx_path   "images/">
-  <!ENTITY admon_gfx_path     "images/">
+  <!ENTITY callout_gfx_path   "/images/">
+  <!ENTITY admon_gfx_path     "/images/">
 ]>
 
 <xsl:stylesheet version="1.0"
@@ -119,7 +119,7 @@
     <!-- Use images for callouts instead of (1) (2) (3) -->
     <xsl:param name="callout.graphics" select="1" />
     <xsl:param name="callout.graphics.path">&callout_gfx_path;</xsl:param>
-    <xsl:param name="callout.graphics.number.limit" select="10" />
+    <xsl:param name="callout.graphics.number.limit" select="15" />
     
     <!-- Place callout marks at this column in annotated areas -->
     <xsl:param name="callout.defaultcolumn">90</xsl:param>
