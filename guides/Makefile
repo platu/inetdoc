@@ -13,7 +13,8 @@ SUBDIRS = \
 	zebra.ospf \
 	iptables-tutorial \
 	tutoriel-secu \
-	amavisd-new
+	amavisd-new \
+	squid-guard
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
@@ -24,7 +25,8 @@ XML_FILES = \
 	zebra.statique/$(ABSTRACT_FILE) \
 	zebra.rip/$(ABSTRACT_FILE) \
 	zebra.ospf/$(ABSTRACT_FILE) \
-	amavisd-new/$(ABSTRACT_FILE)
+	amavisd-new/$(ABSTRACT_FILE) \
+	squid-guard/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 

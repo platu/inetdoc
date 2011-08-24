@@ -79,10 +79,10 @@ BASENAME = $(basename $(firstword $(XML_FILES)))
 xml2xhtml: index.html $(STYLESHEET).css $(XHTML_OUTPUT)/abstract.xml
 
 $(XHTML_OUTPUT)/$(BASENAME).xml: $(XML_FILES)
-	# Création du répertoire de travail
 	@if [ ! -d $(XHTML_OUTPUT) ]; then mkdir $(XHTML_OUTPUT); fi
 	# Validation XML de $(firstword $(XML_FILES))
-	@xmllint --encode utf-8 --noent --xinclude --postvalid $< > $(XHTML_OUTPUT)/$(BASENAME).xml
+	@xmllint --encode utf-8 --noent --noxincludenode --valid $< > $@ ;\
+	 if [ $$? -ne 0 ]; then rm -f $@; exit 1; fi
 
 index.html: $(XHTML_OUTPUT)/$(BASENAME).xml
 	# Insertion du nom de fichier imprimable 
@@ -92,7 +92,7 @@ index.html: $(XHTML_OUTPUT)/$(BASENAME).xml
 	cd $(XHTML_OUTPUT) && \
 	sed -i 's/__printbasename__/$(BASENAME)\.pdf/g' $(BASENAME).xml && \
 	cp -a $(BASENAME).xml $(MAIN_DIR)/xml/ && \
-	xsltproc --stringparam html.stylesheet $(STYLESHEET).css $(XSLT_STYLESHEET) $(BASENAME).xml \
+	xsltproc --xinclude --stringparam html.stylesheet $(STYLESHEET).css $(XSLT_STYLESHEET) $(BASENAME).xml \
 	)
 	# Formatage des pages XHTML
 	@for file in `ls $(XHTML_OUTPUT)/*.html`; do \
@@ -120,6 +120,7 @@ index.html: $(XHTML_OUTPUT)/$(BASENAME).xml
 	done
 
 $(XHTML_OUTPUT)/abstract.xml: $(BASENAME).xml
+	@if [ ! -d $(XHTML_OUTPUT) ]; then mkdir $(XHTML_OUTPUT); fi
 	@if egrep -qi -e "<abstract" $<; then \
 		echo '# Extraction du résumé' ;\
 		sed -n '/<abstract>/,/<\/abstract>/p' $< > $@ ;\
