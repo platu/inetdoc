@@ -102,17 +102,21 @@
                     margin-right="10mm">
             <xsl:value-of select="d:title|d:info/d:title" />
           </fo:block>
-	  <fo:block color="#eee" text-align="right"
-		    font-family="DejaVuSans-Bold" font-size="12pt"
-                    margin-right="10mm">
-            <xsl:value-of select="d:info/d:author/*/d:firstname"/>
-            <xsl:text> </xsl:text>
-            <xsl:value-of select="d:info/d:author/*/d:surname"/>
-          </fo:block>
-	  <fo:block color="#ddd" text-align="right"
-                    font-family="DejaVuSans" margin-right="10mm">
-            <xsl:value-of select="d:info/d:author/d:affiliation/d:address/d:email"/> 
-          </fo:block>
+
+          <xsl:for-each select="//d:author">
+	    <fo:block color="#eee" text-align="right"
+	              font-family="DejaVuSans-Bold" font-size="10pt"
+                      margin-right="10mm">
+              <xsl:value-of select="d:personname/d:firstname"/>
+              <xsl:text> </xsl:text>
+              <xsl:value-of select="d:personname/d:surname"/>
+            </fo:block>
+	    <fo:block color="#ddd" text-align="right"
+		      font-family="DejaVuSans" font-size="9pt"
+                      margin-right="10mm">
+              <xsl:value-of select="d:affiliation/d:address/d:email"/> 
+            </fo:block>
+          </xsl:for-each>
 
           <xsl:choose>
             <xsl:when test="d:info/*/d:editor|d:info/d:editor">
@@ -123,16 +127,17 @@
             </xsl:when>
           </xsl:choose>
 
-          <xsl:for-each select="d:info/*/d:editor|d:info/d:editor">
-            <fo:block color="#eee" text-align="right" 
-                      font-family="DejaVuSans-Bold" font-size="12pt"
+          <xsl:for-each select="//d:editor">
+	    <fo:block color="#eee" text-align="right"
+	              font-family="DejaVuSans-Bold" font-size="10pt"
                       margin-right="10mm">
-              <xsl:value-of select="firstname"/>
+              <xsl:value-of select="d:personname/d:firstname"/>
               <xsl:text> </xsl:text>
-              <xsl:value-of select="surname"/>
+              <xsl:value-of select="d:personname/d:surname"/>
             </fo:block>
-            <fo:block color="#ddd" text-align="right"
-                      font-family="DejaVuSans" margin-right="10mm">
+	    <fo:block color="#ddd" text-align="right"
+		      font-family="DejaVuSans" font-size="9pt"
+                      margin-right="10mm">
               <xsl:value-of select="d:affiliation/d:address/d:email"/> 
             </fo:block>
           </xsl:for-each>
