@@ -23,7 +23,8 @@ XML_FILES = \
 	lartc/$(ABSTRACT_FILE) \
 	zebra.statique/$(ABSTRACT_FILE) \
 	zebra.rip/$(ABSTRACT_FILE) \
-	zebra.ospf/$(ABSTRACT_FILE)
+	zebra.ospf/$(ABSTRACT_FILE) \
+	amavisd-new/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 
