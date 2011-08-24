@@ -1,0 +1,3836 @@
+  <chapter xml:id="tcpiprepetition">
+    <title xml:id="tcpiprepetition.title">Rappel TCP/IP</title>
+    <indexterm zone="tcpiprepetition">
+      <primary>TCP/IP</primary>
+    </indexterm>
+    <indexterm zone="tcpiprepetition">
+      <primary>TCP</primary>
+    </indexterm>
+    <indexterm zone="tcpiprepetition">
+      <primary>UDP</primary>
+    </indexterm>
+    <indexterm zone="tcpiprepetition">
+      <primary>ICMP</primary>
+    </indexterm>
+    <indexterm zone="tcpiprepetition">
+      <primary>IP</primary>
+    </indexterm>
+
+    <para>
+Iptables est un outil d'apprentissage très puissant. Parmi d'autres choses, 
+vous devez avoir une très bonne compréhension du protocole TCP/IP.
+    </para>
+
+    <para>
+Ce chapitre a pour but d'expliquer ce que vous <quote>devez savoir</quote>
+sur TCP/IP avant de commencer à utiliser iptables. Les choses que nous allons
+aborder concernent les protocoles IP, TCP, UDP et ICMP, leurs en-têtes, et
+l'utilisation générale de chacun des ces protocoles et comment ils sont
+corrélés entre eux. Iptables fonctionne au niveau des couches Internet
+et transport, et à cause de ça, ce chapitre mettra l'accent sur ces couches.
+    </para>
+
+    <para>
+Iptables peut aussi fonctionner sur des couches plus hautes, comme la
+couche application. Cependant, il n'a pas été conçu pour ça, et ne
+devrait pas être utilisé pour ce genre d'usage. J'en parlerai d'avantage
+dans le chapitre <xref linkend="ipfiltering"/>.
+    </para>
+
+    <section xml:id="tcpiplayers">
+      <title xml:id="tcpiplayers.title">Couches TCP/IP</title>
+      <indexterm zone="tcpiplayers">
+        <primary>TCP/IP</primary>
+	<secondary>Layers</secondary>
+      </indexterm>
+      <indexterm zone="tcpiplayers">
+        <primary>TCP/IP</primary>
+	<secondary>Stack</secondary>
+      </indexterm>
+      <indexterm zone="tcpiplayers">
+        <primary>OSI</primary>
+	<secondary>Reference model</secondary>
+      </indexterm>
+
+      <para>
+Comme déja établi, TCP/IP est multi-couches. Ceci indique que nous avons
+une fonctionnalité sur un niveau, et une autre à un autre niveau, etc.
+La raison pour laquelle nous avons toutes ces couches est très simple.
+      </para>
+
+      <para>
+La raison principale est que l'architecture globale est très extensible.
+Nous pouvons ajouter de nouvelles fonctionnalités aux couches application,
+par exemple, sans avoir a réimplémenter l'ensemble du code TCP/IP, ou
+inclure une pile TCP/IP complète dans l'application. Ainsi il est inutile
+de réécrire chaque programme chaque fois que nous installons une nouvelle
+carte d'interface réseau. Chaque couche devrait avoir une connaissance
+minimum des autres, pour qu'elles restent séparées.
+      </para>
+
+      <note>
+        <para>
+Quand nous parlons de code TCP/IP lequel est intégré dans le noyau, nous
+parlons souvent de pile TCP/IP. La pile TCP/IP indique toutes les sous-couches
+utilisées, depuis la couche réseau jusqu'à la couche application.
+        </para>
+      </note>
+
+      <para>
+Il existe deux architectures de base lorsque nous parlons de couches.
+Une des deux est le modèle OSI (Open System Interconnect) et consiste
+en 7 couches. Nous les verrons superficiellement ici, nous nous intéresserons
+plus particulièrement aux couches TCP/IP. Cependant, sur un plan historique
+il est intéressant de le connaître, en particulier si vous travaillez
+avec plusieurs types de réseaux différents. Voir la liste dans le
+ <link linkend="osireference">OSI Reference Model</link>.
+      </para>
+      
+      <note>
+        <para>
+Il existe certaines discussions au sujet de ces modèles, mais
+il semble que le modèle OSI reste le modèle de référence. Ceci peut
+dépendre de l'endroit où vous vivez, cependant, dans la plupart des
+pays européens et aux États-Unis on parle généralement de modèle OSI
+par défaut avec les techniciens et les vendeurs.
+        </para>
+        
+        <para>
+Cependant, dans ce document, nous nous référerons principalement au modèle
+TCP/IP, sauf si notation contraire.
+        </para>
+      </note>
+
+      <indexterm zone="osireference">
+        <primary>OSI</primary>
+	<secondary>Application layer</secondary>
+      </indexterm>
+
+      <indexterm zone="osireference">
+        <primary>OSI</primary>
+	<secondary>Presentation layer</secondary>
+      </indexterm>
+      <indexterm zone="osireference">
+        <primary>Presentation layer</primary>
+      </indexterm>
+
+      <indexterm zone="osireference">
+        <primary>OSI</primary>
+	<secondary>Session layer</secondary>
+      </indexterm>
+      <indexterm zone="osireference">
+        <primary>Session layer</primary>
+      </indexterm>
+
+      <indexterm zone="osireference">
+        <primary>OSI</primary>
+	<secondary>Transport layer</secondary>
+      </indexterm>
+      <indexterm zone="osireference">
+        <primary>Transport layer</primary>
+      </indexterm>
+
+      <indexterm zone="osireference">
+        <primary>OSI</primary>
+	<secondary>Network layer</secondary>
+      </indexterm>
+      <indexterm zone="osireference">
+        <primary>Network layer</primary>
+      </indexterm>
+
+      <indexterm zone="osireference">
+        <primary>OSI</primary>
+	<secondary>Data Link layer</secondary>
+      </indexterm>
+      <indexterm zone="osireference">
+        <primary>Data Link layer</primary>
+      </indexterm>
+
+      <indexterm zone="osireference">
+        <primary>OSI</primary>
+	<secondary>Physical layer</secondary>
+      </indexterm>
+      <indexterm zone="osireference">
+        <primary>Physical layer</primary>
+      </indexterm>
+ 
+      <orderedlist xml:id="osireference">
+        <title>Modélisation OSI</title>
+        <listitem>
+          <para>
+           Couche Application
+          </para>
+        </listitem>
+        
+        <listitem>
+          <para>
+            Couche Présentation
+          </para>
+        </listitem>
+        
+        <listitem>
+          <para>
+            Couche Session
+          </para>
+        </listitem>
+        
+        <listitem>
+          <para>
+            Couche Transport
+          </para>
+        </listitem>
+        
+        <listitem>
+          <para>
+            Couche Réseau
+          </para>
+        </listitem>
+        
+        <listitem>
+          <para>
+            Couche Liaison
+          </para>
+        </listitem>
+        
+        <listitem>
+          <para>
+            Couche Physique
+          </para>
+        </listitem>
+      </orderedlist>
+      
+      <para>
+Un paquet que nous envoyons, parcourt du sommet à la base cette liste, chaque
+couche ajoutant ses propres <emphasis>en-têtes</emphasis> au paquet, ce que 
+nous appelons la phase d'encapsulation. Lorsque le paquet rejoint sa 
+destination il parcourt en sens inverse la liste et les en-têtes sont supprimés
+du paquet, un à un, chaque en-tête donnant à l'hôte de destination toute
+l'information nécessaire jusqu'à ce que le paquet joigne l'application
+ou le programme pour lequel il était destiné.
+      </para>
+
+      <para>
+Le second et plus intéressant standard est le protocole TCP/IP, comme
+indiqué dans la liste. Il n'y a pas d'accord universel en ce qui concerne le 
+nombre de couches dans l'architecture TCP/IP. Cependant, on considère 
+généralement qu'il y a de 3 à 5 couches disponibles, nous en verrons 4 
+pour simplifier. 
+      </para>
+
+      <indexterm zone="tcpiplayers.list">
+        <primary>TCP/IP</primary>
+	<secondary>Application layer</secondary>
+      </indexterm>
+      <indexterm zone="tcpiplayers.list">
+        <primary>Application layer</primary>
+      </indexterm>
+
+      <indexterm zone="tcpiplayers.list">
+        <primary>TCP/IP</primary>
+	<secondary>Transport layer</secondary>
+      </indexterm>
+
+      <indexterm zone="tcpiplayers.list">
+        <primary>TCP/IP</primary>
+	<secondary>Internet layer</secondary>
+      </indexterm>
+      <indexterm zone="tcpiplayers.list">
+        <primary>Internet layer</primary>
+      </indexterm>
+
+      <indexterm zone="tcpiplayers.list">
+        <primary>TCP/IP</primary>
+	<secondary>Network Access layer</secondary>
+      </indexterm>
+      <indexterm zone="tcpiplayers.list">
+        <primary>Network Access layer</primary>
+      </indexterm>
+
+      <orderedlist xml:id="tcpiplayers.list">
+        <listitem>
+          <para>
+            Couche Application
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Couche Transport
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Couche Internet
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Couche Réseau
+          </para>
+        </listitem>
+      </orderedlist>
+
+      <para>
+Comme vous pouvez le voir, l'architecture du protocole TCP/IP est très
+proche du modèle OSI. De même qu'avec le modèle OSI, nous ajoutons
+et soustrayons les en-têtes pour chaque couche.
+      </para>
+
+      <para>
+Par exemple, utilisons une des analogies les plus communes pour les
+machines modernes en réseau, la lettre par courrier postal. Chaque chose
+est effectuée par étape, identique en TCP/IP.
+      </para>
+
+      <para>
+Vous désirez envoyer une lettre à quelqu'un en lui demandant comment il va,
+et qu'est-ce qu'il fait. Pour celà, vous devez poser des questions.
+Les questions seront situées à l'intérieur de la couche Application.
+      </para>
+
+      <para>
+Après ceci vous écrirez les questions sur une feuille de papier que vous 
+mettrez dans une enveloppe sur laquelle vous écrirez l'adresse de 
+destination. Peut-être quelque chose comme :
+      </para>
+
+      <literallayout>Attn: John Doe</literallayout>
+
+      <para>
+C'est l'équivalent de la couche Transport en TCP/IP. 
+      </para>
+
+      <para>
+À ce niveau nous écrivons l'adresse sur l'enveloppe, comme ceci :
+      </para>
+
+      <literallayout>V. Andersgardsgatan 2
+41715 Gothenburg</literallayout>
+
+      <para>
+Ça se passe dans l'analogie comme dans la couche Internet. La couche Internet
+contient les informations indiquant comment joindre le destinataire, ou l'hôte,
+dans un réseau TCP/IP. De la même façon qu'une enveloppe avec une adresse.
+C'est, en d'autres termes, l'équivalent de l'adresse IP (ex. IP 192.168.0.4).
+      </para>
+
+      <para>
+L'étape finale est de poster l'enveloppe dans une boîte aux lettres.
+Ce qui équivaut à peu près à envoyer un paquet dans la couche Réseau.
+La couche Réseau contient les fonctions et les routines pour accéder
+au réseau physique par lequel le paquet sera transporté.
+      </para>
+
+      <para>
+Quand finalement nous recevons la lettre, nous la retirerons de l'enveloppe
+(décapsulation). La lettre que nous recevons peut parfois demander une
+réponse ou non. Dans certains cas il peut y avoir une réponse du destinataire,
+alors le destinataire devient expéditeur, et l'expéditeur devient destinataire.
+      </para>
+
+      <note>
+        <para>
+Il est très important de comprendre qu'Iptables est spécifiquement construit
+pour travailler à l'intérieur des en-têtes des couches Internet et Transport.
+Il est possible de créer quelques filtres très basiques avec Iptables dans
+les couches Application et Réseau, mais il n'a pas été conçu pour cela, ni
+approprié.
+        </para>
+
+        <para>
+Par exemple, si nous utilisons une correspondance de chaîne et l'apparions
+pour une chaîne spécifique dans le paquet, disons  
+<command>get /index.html</command>. Ceci fonctionnera ? Normalement oui. 
+Cependant, si la taille du paquet est très petite, cela ne marchera
+pas. La raison en est que Iptables est construit pour fonctionner sur une
+base <emphasis>par paquet</emphasis>, qui indique que si la chaîne est divisée
+en plusieurs paquets séparés, Iptables ne verra pas l'ensemble de la chaîne.
+Pour cette raison, il est mieux d'utiliser un proxy pour faire le filtrage 
+au niveau de la couche Application. Nous verrons ces problèmes en détail 
+plus tard dans <xref linkend="ipfiltering"/>.
+        </para>
+      </note>
+
+      <para>
+Étant donné que Iptables et Netfilter opèrent principalement sur les couches
+Internet et Transport, ce sont les couches sur lesquelles nous insisterons
+le plus dans ce chapitre. Sous la couche Internet, nous verrons presque
+exclusivement le protocole IP. Il existe quelques ajouts à ceci, comme, par
+exemple, le protocole GRE, mais ils sont très rares. À cause de tous ces
+facteurs nous nous concentrerons sur le protocole IP de la couche Internet,
+et TCP, UDP, ICMP de la couche Transport.
+      </para>
+
+      <note>
+        <para>
+Le protocole ICMP est actuellement une sorte de mélange entre les deux couches.
+Il fonctionne dans la couche Internet, mais il possède exactement les mêmes
+en-têtes que le protocole IP, mais aussi quelques en-têtes supplémentaires.
+Nous verrons ceci plus en détail plus loin dans <xref linkend="icmpcharacteristics"/>.
+        </para>
+      </note>
+
+    </section>
+
+    <section xml:id="ipcharacteristics">
+      <title xml:id="ipcharacteristics.title">Caractéristiques IP</title>
+      <indexterm zone="ipcharacteristics">
+        <primary>IP</primary>
+	<secondary>Characteristics</secondary>
+      </indexterm>
+      <indexterm zone="ipcharacteristics">
+        <primary>Internet layer</primary>
+      </indexterm>
+
+      <para>
+Le protocole IP réside dans la couche Internet, comme nous l'avons déjà dit.
+C'est le protocole dans la pile TCP/IP qui permet à votre
+machine, routeur, switch, etc. de savoir vers où un paquet spécifique est
+envoyé. Ce protocole est véritablement le coeur de toute la pile TCP/IP, 
+et la base de tout sur Internet.
+      </para>
+
+      <para>
+Le protocole IP encapsule le paquet de la couche Transport avec l'information
+du protocole de la couche Transport, ainsi que d'autres informations utiles.
+Tout ceci, bien sûr, est très précisément standardisé. Nous allons en parler
+dans ce chapitre.
+      </para>
+
+      <para>
+Le protocole IP possède un couple de fonctionnalités de base qu'il doit
+être capable de traiter. Il doit être capable de définir le datagramme,
+lequel est le bloc de construction suivant créé par la couche Transport
+(ce qui en d'autres termes peut être TCP, UDP ou ICMP par esemple).
+Le Protocole IP définit aussi le système d'adressage Internet que nous
+utilisons aujourd'hui. Ceci indique que le protocole IP définit comment
+les hôtes peuvent se joindre entre eux, il indique aussi comment nous
+pouvons router les paquets, bien sûr. Les adresses dont nous parlons
+sont généralement appelées adresses IP. Usuellement, quand nous parlons
+d'adresses IP, nous parlons de chiffres avec des points (ex. 127.0.0.1).
+C'est principalement pour rendre l'adresse IP plus lisible pour l'oeil
+humain, car l'adresse IP est actuellement un champ de 32 bits de 1 et
+de 0 (127.0.0.1 pourrait désormais être lu comme 
+01111111000000000000000000000001 dans l'en-tête IP).
+      </para>
+
+      <para>
+Le protocole IP doit 
+aussi pouvoir décapsuler et encapsuler le datagramme IP (donnée IP) et
+envoyer ou recevoir le datagramme d'une couche Réseau, ou d'une couche 
+Transport. Ceci peut sembler évident, mais parfois ce ne l'est pas.
+Au sommet de tout ça, il possède deux fonctions qu'il doit exécuter
+correctement, ce qui est particulièrement intéressant pour le pare-feu
+et le routage. Le protocole IP est responsable du routage des paquets depuis
+un hôte vers un autre. La plupart du temps sur des réseaux uniques, c'est
+un processus simple. Nous avons deux options différentes, soit le paquet
+est destiné au réseau local, soit il passe par une passerelle. Mais lorsque
+vous commencez à travailler avec des pare-feux et des stratégies de sécurité
+conjointement avec de multiples interfaces réseau et différentes routes,
+ce peut être casse-tête pour les administrateurs. La dernière des
+responsabilités du protocole IP est qu'il doit fragmenter et ré-assembler 
+les datagrammes qui ont préalablement été fragmentés, ou qui nécessitent
+d'être fragmentés pour s'adapter à la taille du paquet pour la topologie
+du réseau sur lequel nous sommes connectés. Si ces fragments de paquet sont
+suffisamment petits, ils peuvent causer d'horribles maux de tête aux
+administrateurs. Le problème est, qu'une fois qu'ils sont
+fragmentés, nous commençons à avoir des soucis pour lire même les
+en-têtes du paquet.
+      </para>
+
+      <tip>
+        <para>
+Dans les séries 2.4 du noyau Linux, et Iptables, ceci ne représente pas
+un problème pour la plupart des pare-feux Linux. Le système de traçage
+de connexion utilisé par Iptables pour la vérification d'état, la
+traduction d'adresse, etc. doit être capable de lire les paquets
+défragmentés. À cause de ça, conntrack défragmente automatiquement
+tous les paquets avant qu'ils rejoignent la structure netfilter/iptables
+dans le noyau.
+        </para>
+      </tip>
+
+      <para>
+Le protocole IP est aussi un protocole en mode datagramme, ce qui indique
+que IP ne "négocie" pas une connexion. Un protocole orienté-connexion,
+en d'autres termes, négocie une "connexion" (appelée <emphasis>poignée
+de main - établissement de connexion</emphasis>) et lorsque toutes les 
+données ont été envoyées, stoppe la connexion. TCP est un exemple de ce 
+genre de protocole, cependant, il est implémenté au sommet du protocole IP. 
+Il y a plusieurs raisons pour lesquelles il n'est pas orienté-connexion, 
+mais parmi d'autres, l'établissement de connexion n'est pas nécessaire à ce 
+moment ce qui ne ferait qu'ajouter du temps système. Comme vous pouvez le 
+voir, envoyer une requête et ensuite attendre un moment pour la réponse 
+est préférable à envoyer un paquet pour dire que nous voulons établir 
+une connexion, ensuite recevoir le réponse nous disant que la connexion 
+est ouverte, et finalement accuser réception que nous sommes au courant 
+que la connexion est ouverte, et <emphasis>alors</emphasis> envoyer la 
+requête, et après renvoyer un autre paquet pour couper la connexion et 
+attendre une autre réponse.
+      </para>
+
+      <para>
+IP est également connu comme un <emphasis>protocole incertain</emphasis>, 
+c'est à dire qu'il ne permet pas de savoir si un paquet a été reçu ou non.
+Il reçoit simplement un paquet depuis la couche transport et le passe à
+la couche réseau, et ne fait rien de plus. il peut recevoir un paquet
+en retour, lequel passe de la couche réseau au protocole IP et ensuite
+à la couche transport. Cependant, il ne vérifie pas si c'est un paquet
+en réponse ou si le paquet a été reçu dans un autre but. La même chose
+s'applique en terme d'incertitude IP comme pour le mode datagramme, ce qui
+nécessitera l'envoi d'un paquet supplémentaire en retour pour chaque
+paquet envoyé. Par exemple, considérons une consultation de table DNS.
+Nous envoyons une requête DNS au serveur de nom. Si nous ne recevons pas
+de réponse, nous savons que quelque chose ne fonctionne pas et renvoyons
+une requête de consultation, mais dans l'usage normal nous envoyons une
+requête et obtenons une réponse en retour. Ajouter de la fiabilité à ce
+protocole signifierait que la requête nécessite deux paquets (une requête
+et une confirmation que le paquet a été reçu) et ensuite deux paquets pour
+la réponse (une réponse et un accusé-réception comme quoi le paquet a été
+reçu). En d'autres termes, nous doublons le nombre de paquets nécessaires,
+et bien sûr doublons le nombre de données à transmettre.
+      </para>
+
+    </section>
+
+    <section xml:id="ipheaders">
+      <title xml:id="ipheaders.title">En-Têtes IP</title>
+      <indexterm zone="ipheaders">
+        <primary>IP</primary>
+	<secondary>Headers</secondary>
+      </indexterm>
+      <indexterm zone="ipheaders">
+        <primary>RFC</primary>
+	<secondary>791</secondary>
+      </indexterm>
+      <indexterm zone="ipheaders">
+        <primary>RFC</primary>
+	<secondary>1349</secondary>
+      </indexterm>
+      <indexterm zone="ipheaders">
+        <primary>RFC</primary>
+	<secondary>2474</secondary>
+      </indexterm>
+      <indexterm zone="ipheaders">
+        <primary>RFC</primary>
+	<secondary>3168</secondary>
+      </indexterm>
+      <indexterm zone="ipheaders">
+        <primary>RFC</primary>
+	<secondary>3260</secondary>
+      </indexterm>
+      <indexterm zone="ipheaders">
+        <primary>RFC</primary>
+      </indexterm>
+
+      <para>
+Comme vous avez pû le comprendre dans l'introduction sur le protocole IP, un
+paquet IP contient différentes parties dans l'en-tête. Celui-ci est
+méticuleusement divisé en plusieurs parties, et chaque partie 
+est aussi petite que possible pour faire ce travail, ceci pour limiter
+le temps système au minimum. Vous verrez la configuration exacte d'une
+en-tête IP dans l'image <xref linkend="ipheaders"/>.
+      </para>
+
+      <note>
+        <para>
+Comprenez que les explications des différents en-têtes sont très brèves
+et que nous ne parlerons que des bases de ceux-ci. Pour chaque type d'en-tête
+dont nous parlons, nous indiquerons aussi sa RFC correspondante que vous
+devriez lire pour une meilleure compréhension et des explications
+techniques du protocole en question. En note marginale, les RFC 
+(Request For Comments), ont aujourd'hui une signification totalement
+différente dans la communauté Internet. Elles définissent et standardisent
+l'ensemble de l'Internet, par rapport à ce pourquoi elles ont été écrites
+à l'origine. Au départ, il ne s'agissait que de simples RFC dont le but
+était de poser des questions pour avoir l'avis des autres chercheurs. 
+        </para>
+      </note>
+
+      <para>
+Le protocole IP est décrit principalement dans <xref linkend="rfc791" endterm="rfc791.title"/>.
+Cependant, cette RFC est aussi mise à jour par la <xref linkend="rfc1349" endterm="rfc1349.title"/>,
+rendue obsolète par <xref linkend="rfc2474" endterm="rfc2474.title"/>, mise à jour par <xref
+linkend="rfc3168" endterm="rfc3168.title"/> et <xref linkend="rfc3260" endterm="rfc3260.title"/>.
+      </para>
+
+      <tip>
+        <para>
+Comme vous pouvez le voir, tous ces standards peuvent être un peu difficiles
+à suivre. Un tuyau, pour trouver les différentes RFC utilisez les
+fonctions de recherche disponibles sur <xref linkend="rfceditor.org" endterm='rfceditor.org.title'/>.
+Dans le cas du protocole IP, considérez que la RFC 791 est la RFC de base,
+toutes les autres sont simplement des mises à jour par rapport au standard.
+Nous parlerons de ceci plus en détail quand nous verrons les en-têtes
+spécifiques modifiés par ces nouvelles RFC.
+        </para>
+
+        <para>
+Une chose à retenir, quelquefois une RFC peut être obsolète
+(plus utilisée du tout). Normalement cela signifie que la RFC a été
+si rigoureusement mise à jour, qu'il est mieux de tout revoir. Elle
+peut aussi devenir obsolète pour d'autres raisons. Quand une RFC devient
+obsolète, un champ est ajouté à la RFC d'origine qui pointe vers la
+nouvelle.
+        </para>
+      </tip>
+
+        <mediaobject xml:id="ipheaders.img">
+          <imageobject>
+            <imagedata fileref="images/ip-headers.png" format='PNG' width='12cm' contentwidth='11.5cm'/>
+          </imageobject>
+        </mediaobject>
+
+      <para>
+Version
+<indexterm><primary>IP</primary><secondary>Version</secondary></indexterm>
+<indexterm><primary>Version</primary></indexterm> - bits 0-3. C'est le numéro de version du protocole IP en binaire.
+IPv4 est nommé par 0100, tandis que IPv6 par 0110. Ce champ n'est
+généralement pas très utilisé pour le filtrage. La version décrite
+dans la RFC 791 est IPv4.
+      </para>
+
+      <para>
+IHL (Longueur d'en-tête Internet) - bits 4-7. Ce champ nous indique la
+longueur de l'en-tête IP en 32 bits. Comme vous pouvez le voir, nous
+avons partagé l'en-tête (32 bits par ligne) dans l'image. Le champ Options
+est de longueur variable, ainsi nous ne pouvons jamais être absolument
+sûrs de la longueur totale de l'en-tête sans ce champ. 
+      </para>
+
+      <para>
+Type <indexterm><primary>IP</primary><secondary>Type de
+Service</secondary></indexterm> <indexterm><primary>Type of
+Service</primary></indexterm> of Service, DSCP,
+<indexterm><primary>IP</primary><secondary>DSCP</secondary></indexterm>
+<indexterm><primary>DSCP</primary></indexterm> ECN
+<indexterm><primary>IP</primary><secondary>ECN</secondary></indexterm>
+<indexterm><primary>ECN</primary></indexterm> -  bits 8-15. C'est une des 
+zones les plus complexes
+de l'en-tête IP pour la simple raison qu'elle a été mise à jour 3 fois.
+Elle a toujours eu la même utilisation de base, mais l'implémentation a
+changé plusieurs fois. En premier le champ fut appelé Type de Service.
+Le Bit 0-2 du champ fut appelé champ Précédence. Le Bit était de délai
+normal/bas, le Bit 4 de débit normal/haut, le Bit 5 de fiabilité
+normale/haute et le Bit 6-7 réservé pour un usage futur. Ceci est toujours
+en usage sur de nombreux sites qui ont du matériel ancien, ce qui cause
+toujours certains problèmes pour l'Internet. Parmi d'autres choses, 
+le Bit 6-7 est spécifié pour être placé à 0. Dans les mises à jour ECN
+(RFC, nous partons du principe que ces bits réservés sont désormais
+placés à la valeur 0. Mais nombre de pare-feux et routeurs ont été
+programmés pour vérifier si ces bits sont placés à 1, et si les paquets
+le sont, le paquet est supprimé. Aujourd'hui, c'est clairement une
+violation de la RFC, mais vous ne pouvez pas faire grand chose, excepté
+vous plaindre.
+      </para>
+
+      <para>
+La seconde itération fut lorsque le champ a été modifié dans
+le champ DS comme spécifié dans la RFC 2474. DS pour Differentiated Services.
+Selon ce standard les bits 8-14 sont Differentiated Services Code Point (DSCP)
+et les deux bits restants (15-16) sont toujours inutilisés. Le champ DSCP
+est à peu près utilisé comme le champ ToS avant, pour marquer pour quel type
+de service ce paquet serait traité comme si le routeur en question ne
+faisait pas de différence entre eux. Un gros changement est que le matériel
+doit ignorer les bits inutilisés pour être pleinement conforme à la RFC 2474,
+ce qui signifie que nous sommes délivrés des disputes comme expliqué
+précédemment, aussi longtemps que les fabriquants de matériel suivent
+cette RFC.
+      </para>
+
+      <para>
+Le troisième, et pratiquement dernier, changement du champ ToS a été quand
+les deux bits inutilisés furent utilisés par ECN (Explicit Congestion
+Notification), comme défini dans la RFC 3168. ECN est utilisé pour permettre
+de savoir s'il existe une congestion des routeurs, avant il démarre la 
+suppression des paquets, ainsi le noeud final pourra ralentir la transmission
+des données. Précédemment, la suppression de données était le seul moyen 
+qu'avait un routeur pour annoncer qu'il était en surcharge, et les noeuds 
+terminaux devaient faire un redémarrage lent pour chaque paquet supprimé, et
+ensuite accélérer de nouveau.
+Les deux bits sont appelés ECT (ECN Capable Transport) et CE (Congestion
+Experienced).
+      </para>
+
+      <para>
+L'itération finale de l'ensemble est la RFC 3260 qui apporte quelques
+terminologies et clarifications nouvelles pour l'utilisation du système
+DiffServ. Elle n'améliore pas énormément de choses, sauf la terminologie.
+La RFC est également utilisée pour clarifier certains points qui ont 
+été discutés entre développeurs.
+      </para>
+
+      <para>
+Total <indexterm><primary>IP</primary><secondary>Longueur totale
+</secondary></indexterm> <indexterm><primary>Total
+Length</primary></indexterm> Length - bits 16 - 31. Ce champ nous renseigne 
+sur la taille
+des paquets en octets, incluant les en-têtes. La taille maximum est
+65535 octets. La taille minimum d'un paquet est de 576 octets, sans
+prendre en compte si le paquet arrive en fragments ou non. Il est recommandé
+d'envoyer des paquets plus gros que cette limite seulement si il est garanti
+que l'hôte puisse les recevoir, selon la RFC 791. Cependant, actuellement
+la plupart des réseaux fonctionnent avec des tailles de paquets de 1500
+octets. Ceci inclut la majorité des connexions ethernet et Internet.
+      </para>
+
+      <para>
+Identification
+<indexterm><primary>IP</primary><secondary>Identification</secondary>
+</indexterm> <indexterm><primary>Identification</primary></indexterm> - bits
+32 - 46. Ce champ est utilisé pour aider a réassembler
+les paquets fragmentés.
+      </para>
+
+      <para>
+Fanions <indexterm><primary>IP</primary><secondary>Fanions</secondary>
+</indexterm> <indexterm><primary>Flags</primary></indexterm> - bits 47 - 49.
+Ce champ contient des fanions mélangés appartenant
+à la fragmentation. Le premier bit est réservé, mais toujours inutilisé,
+et doit être placé à 0. Le second bit est placé à 0 si le paquet peut être
+fragmenté, et à 1 s'il ne peut pas être fragmenté. Le troisième et dernier
+bit peut être placé à 0 s'il était le dernier fragment, et à 1 s'il n'y a 
+pas de fragments supplémentaires de ce même paquet.
+      </para>
+
+      <para>
+Fragment <indexterm><primary>IP</primary> <secondary>Fragment
+décalé</secondary></indexterm> <indexterm><primary>Fragment
+Offset</primary></indexterm> Offset - bits 50 - 63. Le champ fragment décalé 
+indique de quel
+datagramme le paquet dépend. Les fragments sont calculés sur 64 bits, et
+le premier fragment a un décalage zéro. 
+      </para>
+
+      <para>
+Durée de vie <indexterm><primary>IP</primary><secondary>Durée de 
+vie</secondary></indexterm> <indexterm><primary>Time to 
+live</primary></indexterm> - bits 64 - 72. Le champ TTL 
+(Time To Live) nous indique le
+durée de vie d'un paquet, ou combien de "sauts" (hops) il peut réaliser
+sur l'Internet. Chaque processus qui touche le paquet doit supprimer
+un point du champ TTL, et si le TTL atteint zéro, le paquet doit être
+détruit ou écarté. C'est un usage de base fonctionnant comme une sécurité
+car si le paquet n'est pas supprimé/écarté il peut se transformer en
+boucle incontrôlable entre un ou plusieurs hôtes. Pour la destruction
+l'hôte renverra un message ICMP "Destination Unreachable" à l'expéditeur.
+      </para>
+
+      <para>
+Protocole <indexterm><primary>IP</primary><secondary>Protocole</secondary>
+</indexterm> <indexterm><primary>Protocol</primary></indexterm> - bits 73 -
+80. Dans ce champ le protocole du niveau de la
+couche suivante est indiqué. Par exemple, ce peut être TCP, UDP ou ICMP
+parmi d'autres. Tous ces nombres sont définis par la Internet Assigned
+Numbers Authority (IANA). Ces nombres peuvent être retrouvés sur le site
+ <xref linkend="iana.org" endterm="iana.org.title"/>.
+      </para>
+
+      <para>
+Somme de contrôle d'en-tête <indexterm><primary>IP</primary><secondary>Somme de
+contrôle d'en-tête</secondary></indexterm> <indexterm><primary>Header
+checksum</primary></indexterm> - bits 81 - 96.  C'est un contrôle de 
+l'en-tête
+IP du paquet. Ce champ est recalculé au niveau de chaque hôte qui modifie
+l'en-tête, ce qui signifie à peu près chaque hôte que le paquet traverse,
+la modification se faisant le plus souvent au niveau du champ TTL.
+      </para>
+
+      <para>
+Adresse de l'expéditeur <indexterm><primary>IP</primary><secondary>Source
+address</secondary></indexterm> <indexterm><primary>Source
+address</primary></indexterm> - bits 97 - 128. C'est le champ adresse 
+de la source.
+Elle est généralement écrite sur 4 octets, traduite du binaire en nombres
+décimaux avec des points entre eux. Par exemple, 127.0.0.1. Le champ
+permet au destinataire de connaître l'adresse d'expédition du paquet.
+      </para>
+
+      <para>
+Adresse de destination <indexterm><primary>IP</primary><secondary>Destination
+address</secondary></indexterm> <indexterm><primary>Destination
+address</primary></indexterm> - bits 129 - 160.  Le champ adresse 
+contient l'adresse
+de destination, et surprise, il est formaté de la même façon que l'adresse
+de l'expéditeur.
+      </para>
+
+      <para>
+Options
+<indexterm><primary>IP</primary><secondary>Options</secondary></indexterm>
+<indexterm><primary>Options</primary></indexterm> - bits 161 - 192 &lt;&gt;
+478. Le champ options n'est pas optionnel,
+comme il pourrait le sembler. C'est un des champs les plus complexes dans
+les en-têtes IP. Le champ options contient divers réglages optionnels à
+placer dans l'en-tête, comme minuterie Internet, SACK ou enregistrement
+de route. Ces options sont toutes optionnelles, le champ options peut avoir 
+des longueurs différentes, et donc l'en-tête IP complet. Cependant, nous
+calculons toujours l'en-tête IP sur 32 bits, nous devons toujours clore
+l'en-tête sur un même nombre, qui est un multiple de 32. Le champ peut
+contenir zéro ou plusieurs options. 
+      </para>
+
+      <para>
+Le champ options démarre avec un champ de 8 bits qui nous permet de savoir
+quelles options ont été utilisées dans le paquet. Les options sont toutes
+listées dans la table <xref linkend="table.tcpoptions"/>, dans
+l'annexe <xref linkend="tcpoptions"/>.
+Pour plus d'information sur les différentes options, lisez les RFC 
+correspondantes. Pour une liste des options IP mises à jour, voir 
+<xref linkend="iana.org" endterm='iana.org.title'/>.
+      </para>
+
+      <para>
+Remplissage <indexterm><primary>IP</primary><secondary>Padding</secondary>
+</indexterm> <indexterm><primary>Padding</primary></indexterm> -  bits 
+variables. C'est un champ de remplissage utilisé pour
+la fin de l'en-tête à la frontière des 32 bits. Le champ doit toujours
+être une ligne de zéros jusqu'à la fin.
+      </para>
+
+    </section>
+
+    <section xml:id="tcpcharacteristics">
+      <title xml:id="tcpcharacteristics.title">Caractéristiques TCP</title>
+      <indexterm zone="tcpcharacteristics">
+        <primary>TCP</primary>
+	<secondary>Characteristics</secondary>
+      </indexterm>
+      <indexterm zone="tcpcharacteristics">
+        <primary>TCP</primary>
+	<secondary>Handshake</secondary>
+      </indexterm>
+      <indexterm zone="tcpcharacteristics">
+        <primary>TCP</primary>
+	<secondary>SYN</secondary>
+      </indexterm>
+ 
+      <para>
+Le protocole TCP réside au sommet du protocole IP. C'est un protocole
+architecture qui possède des fonctions natives pour vérifier si les données
+sont reçues correctement par les hôtes destinataires. Les buts principaux 
+du protocole TCP sont de vérifier que les données sont envoyées et reçues
+de façon fiable, que les données sont transportées entre la couche Internet
+et la couche Application correctement, et que les paquets joignent le bon
+programme dans la couche application, et dans le bon ordre. Tout ceci
+est possible grâce aux en-têtes TCP du paquet.
+      </para>
+      
+      <para>
+Le protocole TCP considère les données comme un flux continu avec un
+signal de début et de fin. Le signal qui indique qu'un nouveau flux
+est en attente d'ouverture est appelé établissement de connexion SYN à 
+trois voies dans TCP, et consiste en un paquet envoyé avec le bit SYN. 
+Les réponses se font soit avec SYN/ACK soit avec SYN/RST pour permettre 
+au client de savoir si la connexion a été acceptée ou refusée respectivement. 
+Si le client reçoit un paquet SYN/ACK, il peut de nouveau répondre, cette 
+fois avec un paquet ACK. À ce moment, la connexion est établie et les 
+données peuvent être envoyées. Pendant l'établissement de connexion 
+(handshake) initial, toutes les options spécifiques qui seront utilisées 
+à travers la connexion TCP sont aussi négociées, comme ECN, SACK, etc.
+      </para>
+      
+      <para>
+Tandis que le flux de données est actif, nous avons d'autres mécanismes
+à voir. C'est la partie fiabilité de TCP. Ceci est réalisé de façon simple, 
+en utilisant un numéro d'interclassement (sequence) dans le paquet. Chaque
+fois que nous envoyons un paquet, nous donnons une nouvelle valeur au
+numéro d'interclassement, et quand le destinataire reçoit le paquet, il
+envoie en retour un paquet ACK à l'expéditeur. Le paquet ACK accuse réception
+du paquet qui a été reçu correctement. Le numéro d'interclassement vérifie
+aussi que le paquet inséré dans un flux de données est en bon ordre.
+      </para>
+
+      <para>
+Ensuite la connexion est fermée, ce qui est fait en envoyant un paquet FIN 
+comme point final. Le destinataire répond alors en envoyant un paquet FIN/ACK.
+Plus aucune donnée ne peut alors être envoyée, mais l'expéditeur ou le
+destinataire peuvent toujours finir d'envoyer leurs données. Une fois que
+l'expéditeur ou le destinataire désire clore la connexion complètement, il
+envoie un paquet FIN en retour, et le correspondant répond avec un paquet
+FIN/ACK. Une fois cette procédure complète effectuée, la connexion est
+fermée proprement.
+      </para>
+      
+      <para>
+Comme nous le verrons plus tard, les en-têtes TCP contiennent des
+sommes de contrôle. La somme de contrôle consiste en une simple empreinte
+numérique du paquet. Avec cette empreinte numérique, nous pouvons avec
+une grande exactitude savoir si la paquet a été corrompu d'une façon ou
+d'une autre pendant le transit entre les hôtes.
+      </para>
+
+    </section>
+
+
+    <section xml:id="tcpheaders">
+      <title xml:id="tcpheaders.title">En-têtes TCP</title>
+      <indexterm zone="tcpheaders">
+        <primary>TCP</primary>
+	<secondary>Headers</secondary>
+      </indexterm>
+      
+      <para>
+Les en-têtes TCP doivent être capables d'exécuter toutes les tâches
+ci-dessus. Nous avons déjà expliqué quand et où certains de ces en-têtes
+sont utilisés, mais il y a encore d'autres zones que nous n'avons pas vu
+en détail. Ci-dessous vous avez une image de l'ensemble des en-têtes TCP.
+Il est formaté en 32 bits par ligne, comme vous pouvez le voir.
+      </para>
+
+        <mediaobject xml:id="tcpheaders.img">
+          <imageobject>
+            <imagedata fileref="images/tcp-headers.png" format='PNG' width='12cm' contentwidth='11.5cm'/>
+          </imageobject>
+        </mediaobject>
+
+      <para>
+Port expéditeur <indexterm><primary>TCP</primary> <secondary>Source
+port</secondary></indexterm> <indexterm><primary>Source
+port</primary></indexterm> - bit 0 - 15. C'est le port source du paquet. 
+Le port source était à l'origine lié directement au processus du système
+d'expédition. Aujourd'hui, nous utilisons une empreinte numérique entre
+les adresses IP, et les ports source et destination pour pouvoir les
+lier en une seule application ou programme.    
+      </para>
+
+      <para>
+Port destinataire <indexterm><primary>TCP</primary>
+<secondary>Destination port</secondary></indexterm>
+<indexterm><primary>Destination port</primary></indexterm> - bit 16 - 31.
+C'est le port de destination du paquet TCP.
+Avec le port source, il était lié à l'origine directement au processus du
+système de réception. Aujourd'hui, une empreinte numérique est utilisée,
+qui nous permet d'avoir d'avantage de connexions ouvertes en même temps.
+Quand un paquet est reçu, les ports source et destination sont renversés
+dans la réponse à l'hôte d'origine, ainsi le port de destination est
+maintenant le port source, et le port source devient le port de destination.
+      </para>
+
+      <para>
+Numéro d'interclassement - bit 32 - 63. Le champ numéro d'interclassement
+est utilisé pour mettre en place un numéro sur chaque paquet TCP de façon
+que le flux TCP puisse être proprement ordonnancé (i.e. les paquets
+s'ordonnent dans le bon ordre). Le numéro d'interclassement est alors
+renvoyé dans le champ ACK pour accuser réception que le paquet a été
+correctement reçu.
+      </para>
+
+      <para>
+Numéro d'accusé-reception <indexterm><primary>TCP</primary>
+<secondary>Acknowledgment Number</secondary></indexterm>
+<indexterm><primary>Acknowledgment Number</primary></indexterm> - bit
+64 - 95. Ce champ est utilisé quand nous
+accusons réception d'un paquet spécifique qu'un hôte a reçu. Par exemple, 
+nous recevons un paquet avec un numéro d'interclassement, et si tout est ok
+avec le paquet, nous répondons avec un paquet ACK et le numéro
+d'interclassement identique au numéro d'interclassement d'origine. 
+      </para>
+
+      <para>
+Décalage de données <indexterm><primary>TCP</primary>
+<secondary>Data Offset</secondary></indexterm>
+<indexterm><primary>Data Offset</primary></indexterm> - bit 96 - 99.
+Ce champ indique la longueur de l'en-tête
+TCP, et où la partie données du paquet démarre. Il est codé sur 4 bits, et
+mesure l'en-tête TCP en 32 bits. L'en-tête se termine toujours sur une
+limite de 32 bits, même avec différentes options. 
+      </para>
+
+      <para>
+Réservé <indexterm><primary>TCP</primary>
+<secondary>Reserved</secondary></indexterm>
+<indexterm><primary>Reserved</primary></indexterm> - bit 100 - 103. 
+Ces bits sont réservés pour un usage futur. Dans la
+RFC 793 les bits CWR et ECE sont également inclus. Selon la RFC 793 les
+bits 100-105 (i.e. ceci et les champs CWR et ECE) doivent être placés
+à zéro pour être pleinement compatibles. Plus tard, nous verrons cela 
+quand nous commencerons l'introduction de ECN. Ceci a causé nombre de 
+désagréments à cause de machines Internet comme des pare-feux et routeurs qui
+suppriment des paquets. C'est toujours vrai lors de la rédaction de ces lignes.
+      </para>
+    
+      <para>
+CWR <indexterm><primary>TCP</primary> <secondary>CWR</secondary></indexterm>
+<indexterm><primary>CWR</primary></indexterm> - bit 104. 
+Ce bit a été rajouté dans la RFC 3268 et est utilisé par ECN.
+CWR pour Congestion Window Reduced, est utilisé par la partie des données
+envoyées au destinataire pour l'informer que la fenêtre d'encombrement a été
+réduite. Quand la fenêtre d'encombrement est réduite, nous envoyons moins
+de données par unité de temps, pour pouvoir assurer la charge totale
+du réseau.
+      </para>
+    
+      <para>
+ECE <indexterm><primary>TCP</primary> <secondary>ECE</secondary></indexterm>
+<indexterm><primary>ECE</primary></indexterm> - bit 105. 
+Ce bit a aussi été rajouté avec la RFC 3268, il est
+utilisé par ECN. ECE pour ECN Echo. Il est utilisé par la pile TCP/IP
+sur l'hôte destinataire qui permet à l'expéditeur de savoir si un paquet
+CE a été reçu. La même chose s'applique ici, comme pour le bit CWR, qui
+était à l'origine une partie du champ réservé et à cause de ça, certains
+matériels réseau supprimaient les paquets si les champs contenaient autre
+chose que des zéros. C'est actuellement toujours vrai pour beaucoup
+de matériels, malheureusement. 
+      </para>
+
+      <para>
+URG <indexterm><primary>TCP</primary> <secondary>URG</secondary></indexterm>
+<indexterm><primary>URG</primary></indexterm> - bit 106. 
+Ce bit nous indique si nous utilisons le champ
+Urgent Pointer ou non. S'il est placé à 0, pas d'utilisation de Urgent Pointer,
+s'il est placé à 1, utilisation de Urgent Pointer.
+      </para>
+
+      <para>
+ACK <indexterm><primary>TCP</primary> <secondary>ACK</secondary></indexterm>
+<indexterm><primary>ACK</primary></indexterm> - bit 107. 
+ Ce bit est placé dans un paquet pour indiquer qu'il s'agit
+d'une réponse à un autre paquet que nous avons reçu, et qui contient des 
+données. Un paquet accusé-réception est toujours envoyé pour indiquer que
+nous avons reçu le paquet, et qu'il ne contient pas d'erreurs. Si ce bit est
+placé, l'expéditeur des données d'origine vérifiera le numéro 
+d'accusé-réception pour voir quel paquet est actuellement en
+accusé-réception, et ensuite videra les tampons.
+      </para>
+
+      <para>
+PSH <indexterm><primary>TCP</primary> <secondary>PSH</secondary></indexterm>
+<indexterm><primary>PSH</primary></indexterm> - bit 108. 
+Le fanion PUSH est utilisé pour prévenir le protocole
+TCP sur des hôtes intermédiaires d'envoyer les données à l'utilisateur
+actuel, incluant l'implémentation TCP sur l'hôte destinataire. Ceci
+expédie toutes les données.
+      </para>
+
+      <para>
+RST <indexterm><primary>TCP</primary> <secondary>RST</secondary></indexterm>
+<indexterm><primary>RST</primary></indexterm> - bit 109.
+Le fanion RESET est placé pour indiquer à l'hôte de
+relancer la connexion TCP. Ceci est dû à divers scénarios, les principales
+raisons étant que la connexion a été coupée, la connexion n'existe pas, ou
+le paquet contient des erreurs.
+      </para>
+
+      <para>
+SYN <indexterm><primary>TCP</primary> <secondary>SYN</secondary></indexterm>
+<indexterm><primary>SYN</primary></indexterm> - bit 110. 
+Le SYN (Synchronize Sequence Numbers) est utilisé pendant
+l'établissement initial de la connexion. Il est placé dans deux circonstances,
+le paquet initial qui ouvre la connexion, et le paquet SYN/ACK en réponse. 
+Il ne doit jamais être utilisé en dehors de ces cas.  
+      </para>
+
+      <para>
+FIN <indexterm><primary>TCP</primary> <secondary>FIN</secondary></indexterm>
+<indexterm><primary>FIN</primary></indexterm> - bit 111. 
+Le bit FIN indique que l'hôte qui envoie le bit FIN n'a
+plus de données à expédier. Quand l'hôte voit le bit FIN, il répond
+avec un FIN/ACK. Une fois cela fait, l'expéditeur du bit FIN ne peut
+plus envoyer de données. Cependant, l'hôte peut continuer à expédier
+les données jusqu'à ce qu'il ait fini, il enverra ensuite un paquet FIN
+en retour, et attendra le FIN/ACK final, après ça la connexion est
+en état CLOSED.       
+      </para>
+
+      <para>
+Window - bit 112 - 127. Le champ fenêtre est utilisé par l'hôte
+destinataire pour dire à l'expéditeur combien de données il autorise à
+cet instant. Ceci est fait en envoyant un ACK en retour, qui contient un
+numéro d'interclassement nécessaire pour l'accusé-réception, le champ
+fenêtre contient alors les numéros d'interclassement maximum acceptés que
+l'expéditeur peut utiliser avant de recevoir le prochain paquet ACK.
+Le paquet ACK suivant met à jour la fenêtre que l'expéditeur peut utiliser.
+      </para>
+
+      <para>
+Checksum <indexterm><primary>TCP</primary>
+<secondary>Checksum</secondary></indexterm>
+<indexterm><primary>Checksum</primary></indexterm> - bit 128 - 143. 
+ Ce champ contient la somme de contrôle
+de l'en-tête TCP complet. C'est un complément d'une somme de chaque mot
+de 16 bits dans l'en-tête. Si l'en-tête ne finit pas sur une limite de 16
+bits, le bit additionnel est placé à zéro. Tandis que la somme de contrôle
+est calculée, le champ somme de contrôle est placé à zéro. La somme de
+contrôle couvre également une pseudo en-tête de 96 bits contenant la
+Destination, Adresse source, protocole, et longueur TCP. Ceci pour des
+raisons de sécurité.
+      </para>
+
+      <para>
+Pointeur urgent <indexterm><primary>TCP</primary>
+<secondary>Urgent Pointer</secondary></indexterm>
+<indexterm><primary>Urgent Pointer</primary></indexterm> - bit 144 -
+159. Pointeur placé à la fin des données
+considérées comme urgentes. Si la connexion a d'importantes données qui
+doivent être exécutées le plus tôt possible par le destinataire, l'expéditeur
+peut placer un drapeau URG pour indiquer où les données urgentes finissent.
+      </para>
+
+      <para>
+Options <indexterm><primary>TCP</primary>
+<secondary>Options</secondary></indexterm>
+<indexterm><primary>Options</primary></indexterm> - bit 160 - **. Le champ 
+Options est un champ de longueur variable
+qui contient des en-têtes optionnels. De façon basique, ce champ contient
+3 sous-champs chaque fois. Un champ initial nous indique la longueur du
+champ Options, un second indique quelles options sont utilisées, et quand
+nous obtenons les options. Une liste complète de toutes les options TCP
+se trouve dans  
+<xref linkend="tcpoptions"/>.  
+      </para>
+
+      <para>
+Padding <indexterm><primary>TCP</primary>
+<secondary>Padding</secondary></indexterm>
+<indexterm><primary>Padding</primary></indexterm> - bit **.  Le champ 
+remplissage complète l'en-tête TCP jusqu'à
+ce que tout l'en-tête atteigne la limite de 32 bits. Ceci assure que la
+partie données du paquet débute sur une limite de 32 bits, et qu'aucune
+donnée n'est perdue dans le paquet. Le remplissage ne contient toujours
+que des zéros.
+      </para>
+
+    </section>
+
+    <section xml:id="udpcharacteristics">
+      <title xml:id="udpcharacteristics.title">Caractéristiques UDP</title>
+      <indexterm zone="udpcharacteristics">
+        <primary>UDP</primary>
+	<secondary>Characteristics</secondary>
+      </indexterm>
+      <indexterm zone="udpcharacteristics">
+        <primary>UDP</primary>
+      </indexterm>
+      <indexterm zone="udpcharacteristics">
+        <primary>RFC</primary>
+	<secondary>768</secondary>
+      </indexterm>
+ 
+      <para>
+Le User Datagram protocol (UDP protocol) est un protocole très basique
+et simple au sommet du protocole IP. Il a été développé pour permettre
+une transmission des données très simple sans détection d'erreur
+d'aucune sorte. Cependant, il est très bien adapté pour les applications
+de type requête/réponse, comme par exemple DNS, etc. car nous savons
+qu'à moins d'obtenir une réponse du serveur DNS, la requête sera perdue
+quelque part. Parfois il peut être utile de se servir du 
+protocole UDP au lieu de TCP, comme lorsque nous voulons seulement une 
+détection d'erreurs/pertes mais sans faire attention à l'ordre
+d'interclassement des paquets. Ceci supprime quelques en-têtes présents
+dans le protocole TCP. Nous pouvons aussi faire d'autres choses, créer
+notre propre protocole au sommet de UDP qui ne contient que l'interclassement,
+mais pas d'erreur ni de perte.
+      </para>
+      
+      <para>
+Le protocole UDP est spécifié dans la <xref linkend="rfc768" endterm='rfc768.title'/>. C'est une RFC très brève.
+      </para>
+
+    </section>
+
+    <section xml:id="udpheaders">
+      <title xml:id="udpheaders.title">En-têtes UDP</title>
+
+      <para>
+On peut dire que l'en-tête UDP est un en-tête TCP très basique
+et simplifié. Il contient la destination, le port source, la longueur
+d'en-tête et une somme de contrôle comme indiqué dans l'image ci-dessous.
+      </para>
+
+        <mediaobject xml:id="udpheaders.img">
+          <imageobject>
+            <imagedata fileref="images/udp-headers.png" format='PNG' width='12cm' contentwidth='11.5cm'/>
+          </imageobject>
+        </mediaobject>
+
+      <para>
+Port source <indexterm><primary>UDP</primary>
+<secondary>Source port</secondary></indexterm>
+<indexterm><primary>Source port</primary></indexterm> - bit 0-15. C'est 
+le port source du paquet, décrivant où
+un paquet en réponse sera envoyé. Par exemple, quelquefois nous
+n'exigeons pas de paquet en réponse, le paquet peut alors être placé
+à zéro en port source. Dans la plupart des implémentations, il est
+placé à un nombre quelconque. 
+      </para>
+      
+      <para>
+Port destination <indexterm><primary>UDP</primary>
+<secondary>Destination port</secondary></indexterm>
+<indexterm><primary>Destination port</primary></indexterm> - bit 16-31.
+Le port de destination du paquet. Nécessaire
+pour tous les paquets, à l'opposé du port source d'un paquet.
+      </para>
+
+      <para>
+Longueur <indexterm><primary>UDP</primary>
+<secondary>Length</secondary></indexterm>
+<indexterm><primary>Length</primary></indexterm> - bit 32-47. Le champ 
+longueur spécifie la taille de l'ensemble
+du paquet en octets, incluant les en-têtes et les données. Le plus
+petit paquet possible est de 8 octets.
+      </para>
+
+      <para>
+Somme de contrôle <indexterm><primary>UDP</primary>
+<secondary>Checksum</secondary></indexterm>
+<indexterm><primary>Checksum</primary></indexterm> - bit 48-63.  La somme de 
+contrôle est du même type
+que celle utilisée dans les en-têtes TCP, sauf qu'elle contient un
+ensemble de données différent. En d'autres termes, c'est un complément
+d'un complément de parties de l'en-tête IP, de l'ensemble de l'en-tête
+UDP, les données UDP et le remplissage avec des zéros lorsque nécessaire. 
+      </para>
+
+    </section>
+
+    <section xml:id="icmpcharacteristics">
+      <title xml:id="icmpcharacteristics.title">Caractéristiques ICMP</title>
+      <indexterm zone="icmpcharacteristics">
+        <primary>ICMP</primary>
+	<secondary>Characteristics</secondary>
+      </indexterm>
+      <indexterm zone="icmpcharacteristics">
+        <primary>ICMP</primary>
+      </indexterm>
+ 
+      <para>
+Les messages ICMP sont utilisés pour les types d'erreurs basiques
+rapportées entre hôtes, ou entre hôte et passerelle. Entre passerelles,
+un protocole appelé GGP (Gateway to gateway protocol) ou passerelle à
+passerelle doit normalement être utilisé pour le rapport d'erreur. Comme
+nous l'avons déjà vu, le protocole IP n'a pas été conçu pour parfaire
+le maniement d'erreur, mais les messages ICMP résolvent une partie de
+ces problèmes. Le gros problème de ce point de vue est que les en-têtes
+des messages ICMP sont plutôt compliqués, et diffèrent de message en message.
+Cependant, ce n'est pas une grosse difficulté du point de vue filtrage
+la plupart du temps. 
+      </para>
+      
+      <para>
+La forme de base du message contient l'en-tête IP standard, le type,
+le code et la somme de contrôle. Tous les messages ICMP contiennent
+ces champs. Le type spécifie le genre d'erreur du message de réponse, comme
+par exemple, destination injoignable, écho, réponse d'écho, ou message
+redirigé. Le code donne plus d'information si nécessaire. Si le paquet
+est de type destination injoignable, il y a plusieurs valeurs possibles
+comme réseau injoignable, hôte injoignable, ou port injoignable. La somme
+de contrôle est simplement une somme pour l'ensemble du paquet.
+      </para>
+      
+      <para>
+Comme vous avez pû le noter, j'ai mentionné explicitement l'en-tête IP
+pour le paquet ICMP. C'est dû au fait que l'en-tête IP actuel est une
+partie intégrale du paquet ICMP, et que le protocole ICMP est au même
+niveau, dans un sens, que le protocole IP. ICMP utilise le protocole
+IP comme s'il était à un niveau plus haut, mais en même temps ce n'est
+pas le cas. ICMP est une partie intégrale de IP, et ICMP doit être
+présent dans chaque implémentation de IP.
+      </para>
+
+    </section>
+
+    <section xml:id="icmpheaders">
+      <title xml:id="icmpheaders.title">En-têtes ICMP</title>
+      <indexterm zone="icmpheaders">
+        <primary>ICMP</primary>
+	<secondary>Headers</secondary>
+      </indexterm>
+      <indexterm zone="icmpheaders">
+        <primary>RFC</primary>
+	<secondary>792</secondary>
+      </indexterm>
+ 
+      <para>
+Comme déjà expliqué, les en-têtes de type ICMP diffèrent légèrement
+du type IP. La plupart des types ICMP permettent de les grouper
+par leurs en-têtes. À cause de cela, nous verrons en premier l'en-tête 
+de base, et ensuite chaque groupe de type spécifique.
+      </para>
+
+        <mediaobject xml:id="icmpbasicheaders">
+          <imageobject>
+            <imagedata fileref="images/icmp-basic-headers.png" format='PNG' width='12cm' contentwidth='11.5cm'/>
+          </imageobject>
+        </mediaobject>
+
+      <para>
+Tous les paquets contiennent des valeurs de base des en-têtes IP comme
+nous l'avons vu précédemment. 
+      </para>
+
+      <itemizedlist mark="opencircle">
+        <listitem>
+          <para>
+Version <indexterm><primary>ICMP</primary>
+<secondary>Version</secondary></indexterm>
+<indexterm><primary>Version</primary></indexterm> - Doit toujours être placé 
+à 4.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Longueur en-tête Internet <indexterm><primary>ICMP</primary> 
+<secondary>Internet Header
+Length</secondary></indexterm> <indexterm><primary>Internet Header
+Length</primary></indexterm> - Longueur de l'en-tête en mots de 
+32 bits.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Type de Service <indexterm><primary>ICMP</primary> <secondary>Type of
+Service</secondary></indexterm> <indexterm><primary>Type of
+Service</primary></indexterm> - Voir au-dessus. Doit être placé à 
+0, seule
+légitimité selon la <xref linkend="rfc792" endterm="rfc792.title"/>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Longueur totale <indexterm><primary>ICMP</primary>
+<secondary>Total Length</secondary></indexterm>
+<indexterm><primary>Total Length</primary></indexterm> - Longueur 
+totale de l'en-tête et de la partie données du paquet, compté en octets.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Décalages d'Identification de fanions et fragments <indexterm><primary>ICMP</primary>
+<secondary>Identification</secondary></indexterm>
+<indexterm><primary>Identification</primary></indexterm> - Issu du
+protocole IP.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Durée de vie <indexterm><primary>ICMP</primary>
+<secondary>Time To Live</secondary></indexterm>
+<indexterm><primary>Time To Live</primary></indexterm>  -  Nombre de sauts 
+que le paquet peut effectuer.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Protocole <indexterm><primary>ICMP</primary>
+<secondary>Protocol</secondary></indexterm>
+<indexterm><primary>Protocol</primary></indexterm> -  Quelle version de ICMP 
+est utilisée (doit toujours être à 1).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+ En-tête somme de contrôle <indexterm><primary>ICMP</primary>
+<secondary>Header Checksum</secondary></indexterm>
+<indexterm><primary>Header Checksum</primary></indexterm> Voir l'explication 
+IP.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Adresse source <indexterm><primary>ICMP</primary>
+<secondary>Source Address</secondary></indexterm>
+<indexterm><primary>Source Address</primary></indexterm> - L'adresse de la 
+source qui a envoyé le paquet.
+Ce n'est pas entièrement vrai, car le paquet peut avoir une autre adresse
+source, que celle située sur la machine en question. Les types ICMP
+peuvent produire cet effet, ce sera noté si nécessaire.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Adresse de destination <indexterm><primary>ICMP</primary>
+<secondary>Destination Address</secondary></indexterm>
+<indexterm><primary>Destination Address</primary></indexterm> - L'adresse de 
+destination du paquet.
+          </para>
+        </listitem>
+      </itemizedlist>
+
+      <para>
+Il existe aussi de nouveaux en-têtes utilisés par les types ICMP. Ce sont
+les suivants :
+      </para>
+
+      <itemizedlist mark="opencircle">
+        <listitem>
+          <para>
+Type <indexterm><primary>ICMP</primary>
+<secondary>Type</secondary></indexterm>
+<indexterm><primary>Type</primary></indexterm> -  Le champ type contient le 
+type ICMP du paquet.
+Par exemple les paquets ICMP Destination Injoignable auront un type 3
+placé. Pour une liste complète des différents types ICMP voir
+ <xref linkend="icmptypes"/>. 
+Ce champ contient 8 bits au total.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Code <indexterm><primary>ICMP</primary>
+<secondary>Code</secondary></indexterm>
+<indexterm><primary>Code</primary></indexterm> - Tous les types ICMP 
+contiennent différents codes.
+Certains types ont un code unique, tandis que d'autres ont plusieurs codes
+qu'ils peuvent utiliser. Par exemple, le type ICMP Destination Injoignable
+peut avoir au moins les codes 0, 1, 2, 3, 4 ou 5. Chaque code aura un
+comportement différent selon le contexte. Pour une liste complète des
+différents codes, voir <xref linkend="icmptypes"/>. Ce champ est de 8 bits de longueur totale. Nous verrons les différents 
+codes un peu plus en détail plus tard dans cette section.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Somme de contrôle <indexterm><primary>ICMP</primary>
+<secondary>Checksum</secondary></indexterm>
+<indexterm><primary>Checksum</primary></indexterm> - La somme de contrôle est 
+un champ de 16 bits
+contenant un complément de complément des en-têtes démarrant avec le type
+ICMP. Tandis que le calcul de la somme de contrôle s'effectue, le champ
+de celle-ci sera placé à zéro.
+          </para>
+        </listitem>
+      </itemizedlist>
+
+      <para>
+À ce point les en-têtes peuvent présenter un visage différent. Nous décrirons
+les types ICMP les plus communs un par un, avec un bref apperçu de leurs
+différents en-têtes et codes.
+      </para>
+
+      <section xml:id="icmpecho">
+        <title>Écho requête/réponse ICMP</title>
+	<indexterm zone="icmpecho">
+          <primary>ICMP</primary>
+	  <secondary>Echo Request/Reply</secondary>
+	  <seealso>Echo Request/Reply</seealso>
+        </indexterm>
+	<indexterm zone="icmpecho">
+          <primary>Echo Request/Reply</primary>
+        </indexterm>
+ 
+
+          <mediaobject xml:id="icmpechoreplyheaders">
+            <imageobject>
+              <imagedata fileref="images/icmp-echo-headers.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+        <para>
+J'ai choisi de parler des paquets ICMP écho requête et réponse, ils sont
+très proches l'un par rapport à l'autre. La différence est que l'écho requête
+est de type 8, alors que l'écho réponse est de type 0. Quand un hôte reçoit un
+type 8, il répond avec un type 0.
+        </para>
+
+        <para>
+Quand la réponse est envoyée, les adresses source et destination sont
+permutées. Après les deux changements effectués, la somme de contrôle
+est recalculée, et la réponse envoyée. Il y a un seul code pour les deux
+types, ils sont toujours placés à 0.
+        </para>
+
+        <itemizedlist mark="opencircle">
+          <listitem>
+            <para>
+Identifiant <indexterm><primary>ICMP</primary>
+<secondary>Identifier</secondary></indexterm>
+<indexterm><primary>Identifier</primary></indexterm> -  Il est placé dans le 
+paquet requête, et se retrouve en
+retour dans la réponse, il permet de synchroniser les différents pings
+de requête et de réponse.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+Numéro d'interclassement <indexterm><primary>ICMP</primary>
+<secondary>Sequence number</secondary></indexterm>
+<indexterm><primary>Sequence number</primary></indexterm> -  Le numéro 
+d'interclassement pour chaque hôte
+démarre généralement à 1 et est incrémenté de 1 pour chaque paquet.
+            </para>
+          </listitem>
+        </itemizedlist>
+
+        <para>
+Les paquets contiennent aussi une partie de données. Par défaut, la partie de
+données est généralement vide, mais elle peut contenir des données
+    au hasard spécifiées par l'utilisateur.
+        </para>
+
+      </section>
+
+
+      <section xml:id="icmpdestunreach">
+        <title>Destination Injoignable ICMP</title>
+	<indexterm zone="icmpdestunreach">
+          <primary>ICMP</primary>
+	  <secondary>Destination Unreachable</secondary>
+	  <seealso>Destination Unreachable</seealso>
+        </indexterm>
+        <indexterm zone="icmpdestunreach">
+          <primary>Destination Unreachable</primary>
+        </indexterm>
+ 
+          <mediaobject xml:id="icmpdstunreachheaders">
+            <imageobject>
+              <imagedata fileref="images/icmp-destination-unreachable-headers.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+        <para>
+Les trois premiers champs montrés dans l'image sont les mêmes que ceux
+précédemment décrits. Le type Destination Injoignable possède six codes
+de base qui peuvent être utilisés, comme indiqué ci-dessous.
+        </para>
+
+        <itemizedlist mark="opencircle">
+          <listitem>
+            <para>
+Code 0 - Réseau injoignable <indexterm><primary>Destination
+Unreachable</primary> <secondary>Network unreachable</secondary></indexterm> -
+Vous indique si un réseau spécifique est
+actuellement injoignable.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 1 - Hôte injoignable <indexterm><primary>Destination
+Unreachable</primary> <secondary>Host unreachable</secondary></indexterm> -
+Un hôte spécifique est actuellement injoignable.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 2 - Protocole injoignable <indexterm><primary>Destination
+Unreachable</primary> <secondary>Protocol unreachable</secondary></indexterm>
+- Ce code vous indique si un protocole
+spécifique (TCP, UDP, etc.) ne peut être joint pour l'instant.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 3 - Port injoignable <indexterm><primary>Destination
+Unreachable</primary> <secondary>Port unreachable</secondary></indexterm> - 
+Si un port (ssh, http, ftp, etc.) n'est pas 
+joignable vous obtenez ce message.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 4 - Fragmentation nécessaire et placement de DF <indexterm><primary>Destination
+Unreachable</primary> <secondary>Fragmentation needed and DF
+set</secondary></indexterm> - Si le paquet nécessite
+d'être fragmenté pour être délivré, mais que le bit "Do not Fragment" est
+placé dans le paquet, la passerelle retourne ce message.
+           </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 5 - Échec de la route source <indexterm><primary>Destination
+Unreachable</primary> <secondary>Source route failed</secondary></indexterm> -
+Si la route source échoue pour quelque
+raison, ce message est retourné.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 6 - Destination réseau inconnue <indexterm><primary>Destination
+Unreachable</primary> <secondary>Destination network
+unknown</secondary></indexterm> - S'il n'y a pas de route vers un
+réseau spécifique, ce message est retourné.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 7 - Destination hôte inconnue <indexterm><primary>Destination
+Unreachable</primary> <secondary>Destination host
+unknown</secondary></indexterm> -  S'il n'y a pas de route vers l'hôte
+spécifique, ce message est retourné.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 8 - Hôte source isolé (obsolète)<indexterm><primary>Destination
+Unreachable</primary> <secondary>Source host isolated</secondary></indexterm>
+- Si l'hôte est isolé, ce message
+sera retourné. Ce code est obsolète aujourd'hui.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 9 - Réseau de destination administrativement interdit 
+<indexterm><primary>Destination Unreachable</primary>
+<secondary>Destination network administratively
+prohibited</secondary></indexterm> -  Si un réseau
+est bloqué au niveau de la passerelle et que votre paquet est incapable
+de le joindre à cause de ça, vous obtiendrez ce code ICMP en retour.
+              </para>
+            </listitem>
+          <listitem>
+            <para>
+Code 10 - Hôte de destination administrativement interdit 
+<indexterm><primary>Destination Unreachable</primary>
+<secondary>Destination host administratively
+prohibited</secondary></indexterm> -  Si vous ne
+pouvez joindre l'hôte parce qu'il a été interdit administrativement 
+(ex. administration du routage), vous obtenez ce message.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 11 - Réseau injoignable pour TOS (Type de service) <indexterm><primary>Destination
+Unreachable</primary> <secondary>Network unreachable for
+TOS</secondary></indexterm> - Si un réseau
+est injoignable à cause d'un mauvais TOS placé dans votre paquet, ce code
+sera généré en retour.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 12 - Hôte injoignable pour TOS <indexterm><primary>Destination
+Unreachable</primary> <secondary>Host unreachable for
+TOS</secondary></indexterm> - Si votre paquet est incapable
+de joindre l'hôte à cause du TOS du paquet, ce message sera renvoyé.
+
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 13 -  Communication administrativement interdite par filtrage
+<indexterm><primary>Destination Unreachable</primary> <secondary>Communication
+administratively prohibited by filtering</secondary></indexterm> - Si le 
+paquet est interdit pour une raison de filtrage (ex. pare-feu), vous
+obtenez le code 13 en retour.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 14 - Violation de loi de précédence <indexterm><primary>Destination
+Unreachable</primary> <secondary>Host precedence
+violation</secondary></indexterm> - Envoyé par le premier routeur
+pour notifier à un hôte connecté que la précédence utilisée n'est pas
+autorisée pour la combinaison spécifique source/destination.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 15 - Effet de coupure de précédence <indexterm><primary>Destination
+Unreachable</primary> <secondary>Precedence cutoff in
+effect</secondary></indexterm> - Le premier routeur peut envoyer
+ce message à un hôte si le datagramme reçu a un niveau de précédence
+trop bas.
+            </para>
+          </listitem>
+        </itemizedlist>
+
+        <para>
+Au sommet de tout ça, il existe également une petite partie "données",
+qui devrait être l'en-tête Internet et le datagramme IP d'origine en 64 bits.
+Si le protocole de niveau suivant contient des ports, etc. il est
+supposé que les ports seront disponibles dans les 64 bits supplémentaires.
+        </para>
+      </section>
+
+      <section xml:id="sourcequench">
+        <title>Coupure de source</title>
+	<indexterm zone="sourcequench">
+          <primary>ICMP</primary>
+	  <secondary>Source Quench</secondary>
+	  <seealso>Source Quench</seealso>
+        </indexterm>
+	<indexterm zone="sourcequench">
+          <primary>Source Quench</primary>
+        </indexterm>
+
+          <mediaobject xml:id="icmpsourcequenchheaders">
+            <imageobject>
+              <imagedata fileref="images/icmp-source-quench-headers.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+        <para>
+Un paquet coupure de source peut être envoyé à l'expéditeur d'un paquet
+ou d'un flux de paquets trop lents pour permettre de continuer à envoyer
+des données. Notez que la passerelle ou l'hôte que les paquets traversent
+peuvent aussi décharger les paquets sans prévenir, au lieu d'envoyer des 
+paquets coupure de source.
+        </para>
+
+        <para>
+Ces paquets ne contiennent pas d'en-têtes supplémentaires sauf la partie
+données, laquelle contient l'en-tête Internet plus les 64 bits du
+datagramme de données d'origine. Ceci est utilisé pour harmoniser le
+message de coupure source au processus correct, lequel envoie des données
+à travers la passerelle ou vers l'hôte de destination.
+        </para>
+
+        <para>
+Tous les paquets coupure source ont leurs type ICMP placé à 4. Ils
+n'ont pas de codes sauf le 0.
+        </para>
+
+        <note>
+          <para>
+Aujourd'hui, il existe de nouveaux moyens de notifier à l'expéditeur
+ou au destinataire qu'une passerelle ou un hôte est en surcharge. 
+Par exemple avec le système ECN (Explicit Congestion Notification).
+          </para>
+        </note>
+      </section>
+
+      <section xml:id="redirect">
+        <title>Redirection</title>
+	<indexterm zone="redirect">
+          <primary>ICMP</primary>
+	  <secondary>Redirect</secondary>
+	  <seealso>Redirect</seealso>
+        </indexterm>
+	<indexterm zone="redirect">
+          <primary>Redirect</primary>
+        </indexterm>
+
+          <mediaobject xml:id="icmpredirectheaders">
+            <imageobject>
+              <imagedata fileref="images/icmp-redirect-headers.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+        <para>
+Le type redirection est envoyé dans un seul cas. Considerez ceci, vous avez un
+réseau (192.168.0.0/24) avec plusieurs clients et hôtes, et deux passerelles.
+Une passerelle sur un réseau 10.0.0.0/24, et une passerelle par défaut
+pour le reste de l'Internet. Maintenant considerez qu'un des hôtes soit
+sur le réseau 192.168.0.0./24 et n'ait pas de route vers 10.0.0.0/24, mais
+ait accès à la passerelle par défaut. Il envoie un paquet à la passerelle
+par défaut, laquelle bien sûr connait le réseau 10.0.0.0/24. Cette
+passerelle par défaut peut déduire qu'il est plus facile d'envoyer le paquet
+directement à la passerelle 10.0.0.0/24 car ce paquet entrera et quittera
+la passerelle par la même interface. La passerelle par défaut enverra
+désormais un paquet ICMP Redirect unique à l'hôte, à travers la passerelle
+10.0.0.0/24. L'hôte saura maintenant que la passerelle la plus proche
+est 10.0.0.0/24, et l'utilisera dans le futur.
+        </para>
+        
+        <para>
+L'en-tête principal du type Redirect est le champ Gateway Internet Address.
+Ce champ indique à l'hôte la passerelle correcte, qui sera réellement
+utilisée. Le paquet contient aussi l'en-tête IP du paquet original, et
+les premiers 64 bits de données dans le paquet d'origine, lequel est
+utilisé pour se connecter au processus qui envoie les données.
+        </para>
+        
+        <para>
+Le type Redirection possède 4 codes, qui sont les suivants.
+        </para>
+        
+        <itemizedlist mark="opencircle">
+          <listitem>
+            <para>
+Code 0 - Redirection pour le réseau <indexterm> <primary>Redirect</primary>
+<secondary>Redirect for network</secondary> </indexterm> - Seulement utilisé
+pour rediriger l'ensemble du réseau (voir l'exemple ci-dessus). 
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 1 - Redirection pour l'hôte <indexterm> <primary>Redirect</primary>
+<secondary>Redirect for host</secondary> </indexterm> -  Seulement utilisé 
+pour les redirections
+d'un hôte spécifique.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 2 - Redirection pour TOS et réseau <indexterm> <primary>Redirect</primary>
+<secondary>Redirect for TOS and network</secondary> </indexterm> - Seulement 
+utilisé pour rediriger
+un Type de Service spécifique et vers un ensemble réseau. Utilisé comme le
+code 0, mais aussi basé sur TOS.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 3 - Redirection pour TOS et hôte <indexterm> <primary>Redirect</primary>
+<secondary>Redirect for TOS and host</secondary> </indexterm> - Seulement 
+utilisé pour rediriger
+vers un Type de Service spécifique vers un hôte spécifique. utilisé comme
+le code 1, mais aussi basé sur le TOS.
+            </para>
+          </listitem>
+        </itemizedlist>
+
+      </section>
+
+      <section xml:id="ttleq0">
+        <title>TTL égale 0</title>
+	<indexterm zone="ttleq0">
+          <primary>ICMP</primary>
+	  <secondary>TTL equals zero</secondary>
+	  <seealso>TTL equals zero</seealso>
+        </indexterm>
+	<indexterm zone="ttleq0">
+          <primary>TTL equals zero</primary>
+        </indexterm>
+	<indexterm zone="ttleq0">
+          <primary>Time Exceeded Message</primary>
+        </indexterm>
+
+          <mediaobject xml:id="icmpttlequals0headers">
+            <imageobject>
+              <imagedata fileref="images/icmp-time-exceeded-headers.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+        <para>
+Le type ICMP TTL égale 0 est également connu comme "Time Exceeded Message"
+et possède le type 11, il a aussi 2 codes ICMP disponibles. Si le champ
+TTL atteint 0 pendant le transit à travers une passerelle ou un fragment
+réassemblé sur l'hôte de destination, le paquet doit être supprimé.
+Pour notifier ce problème à l'hôte expéditeur, nous  pouvons envoyer un
+paquet ICMP TTL égale 0. L'expéditeur peut augmenter le TTL des paquets
+sortants si nécessaire.
+        </para>
+        
+        <para>
+Le paquet contient seulement la partie supplémentaire des données. Le champ
+données contient l'en-tête Internet plus 64 bits de données du paquet IP.
+Comme précédemment mentionné, le type TTL égale 0 peut avoir deux codes.
+        </para>
+
+        <itemizedlist mark="opencircle">
+          <listitem>
+            <para>
+Code 0 - TTL égale 0 pendant le transit <indexterm> <primary>TTL equals
+zero</primary> <secondary>TTL equals 0 during transit</secondary> </indexterm> -
+Envoyé par l'expéditeur si le
+paquet TTL d'origine atteint 0 quand il est transféré par une passerelle.
+            </para>
+          </listitem>
+
+          <listitem>
+            <para>
+Code 1 - TTL égale 0 pendant le réassemblage<indexterm> <primary>TTL equals
+zero</primary> <secondary>TTL equals 0 during reassembly</secondary> </indexterm>
+- Envoyé si le paquet
+d'origine était fragmenté, et que le TTL atteint 0 pendant le
+réassemblage des fragments. Ce code doit être envoyé uniquement depuis
+le destinataire.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </section>
+      
+      <section xml:id="parameterproblem">
+        <title>Paramètre problème</title>
+	<indexterm zone="parameterproblem">
+          <primary>ICMP</primary>
+	  <secondary>Parameter problem</secondary>
+	  <seealso>Parameter problem</seealso>
+        </indexterm>
+	<indexterm zone="parameterproblem">
+          <primary>Parameter problem</primary>
+        </indexterm>
+
+          <mediaobject xml:id="icmpparameterproblemheaders">
+            <imageobject>
+              <imagedata fileref="images/icmp-parameter-problem-headers.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+        <para>
+Le paramètre problème ICMP utilise le type 12 et possède deux codes qu'il
+peut utiliser indifféremment. Les messages du paramètre problème sont
+utilisés pour indiquer à l'hôte que la passerelle ou le destinataire
+ont des problèmes de compréhension sur des parties d'en-tête IP, ou
+nécessitent des options qui ont été omises.
+        </para>
+        
+        <para>
+Le type paramètre problème contient un en-tête spécial, qui est un
+pointeur vers le champ qui a causé l'erreur dans le paquet d'origine,
+si le code est à 0. Les codes suivants sont disponibles:
+        </para>
+        
+        <itemizedlist mark="opencircle">
+          <listitem>
+            <para>
+Code 0 - Mauvais en-tête IP (catchall error) <indexterm> <primary>Parameter
+problem</primary> <secondary>IP header bad (catchall error)</secondary>
+</indexterm> - Nous avons vu ce message
+d'erreur ci-dessus. Avec le pointeur ce code est utilisé pour indiquer
+quelle partie de l'en-tête IP contient l'erreur.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+Code 1 - Options obligatoires omises <indexterm> <primary>Parameter
+problem</primary> <secondary>Required options missing</secondary> </indexterm>
+- Si une option IP obligatoire est omise, ce code est utilisé pour l'indiquer.
+            </para>
+          </listitem>
+        </itemizedlist>
+
+      </section>
+
+
+      <section xml:id="timestamp">
+        <title>Horodatage requête/réponse</title>
+	<indexterm zone="timestamp">
+          <primary>ICMP</primary>
+	  <secondary>Timestamp</secondary>
+	  <seealso>Timestamp</seealso>
+        </indexterm>
+	<indexterm zone="redirect">
+          <primary>Timestamp</primary>
+        </indexterm>
+
+          <mediaobject xml:id="icmptimestampheaders">
+            <imageobject>
+              <imagedata fileref="images/icmp-timestamp-headers.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+        <para>
+Le type horodatage est aujoud'hui obsolète, mais nous le verrons brièvement.
+La réponse et la requête ont un code unique (0). La requête est de type 13
+tandis que la réponse est de type 14. Les paquets horodatage contiennent
+3 fois 32 bits comptant les millisecondes depuis minuit en temps 
+universel (UT).
+        </para>
+        
+        <para>
+Le premier horodatage est l'horodatage d'origine, qui contient la dernière
+information sur l'expéditeur du paquet. L'horodatage de réception est
+l'information sur le premier hôte qui a reçu le paquet et l'horodatage
+de transmission le dernier horodatage sur l'envoi du paquet.
+        </para>
+        
+        <para>
+Chaque message d'horodatage contient aussi les mêmes identifiants et
+numéros d'ordre que les paquets ICMP écho.
+        </para>
+      </section>
+
+      <section xml:id="informationrequest">
+        <title>Requête/réponse information</title>
+	<indexterm zone="informationrequest">
+          <primary>ICMP</primary>
+	  <secondary>Information request</secondary>
+	  <seealso>Information request</seealso>
+        </indexterm>
+	<indexterm zone="informationrequest">
+          <primary>Information request</primary>
+        </indexterm>
+
+          <mediaobject xml:id="icmpinformationheaders">
+            <imageobject>
+              <imagedata fileref="images/icmp-information-headers.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+        <para>
+Les types requête/réponse information sont obsolètes depuis que les protocoles
+au sommet du protocole IP peuvent maintenant jouer ce rôle lorsque
+nécessaire (DHCP, etc.). La requête information génère une réponse depuis
+n'importe quel hôte interrogé sur le réseau.
+        </para>
+        
+        <para>
+L'hôte qui désire recevoir l'information crée un paquet avec l'adresse source
+du réseau dans lequel il est lié (exemple, 192.168.0.0), et le réseau
+destinataire est placé à 0. La réponse contiendra l'information au sujet
+du masque de réseau et de l'adresse IP.
+         </para>
+         
+         <para>
+La requête information est lancée à travers un type ICMP 15 alors que
+la réponse est envoyée via un type 16.
+         </para>
+      </section>
+
+    </section>
+    <section xml:id="sctpcharacteristics">
+      <title xml:id="sctpcharacteristics.title">Caractéristiques SCTP</title>
+      <indexterm zone="sctpcharacteristics">
+        <primary>SCTP</primary>
+	<secondary>Characteristics</secondary>
+      </indexterm>
+      <indexterm zone="sctpcharacteristics">
+        <primary>SCTP</primary>
+      </indexterm>
+      <indexterm zone="sctpcharacteristics">
+        <primary>RFC</primary>
+	<secondary>3286</secondary>
+      </indexterm>
+      <indexterm zone="sctpcharacteristics">
+        <primary>RFC</primary>
+	<secondary>2960</secondary>
+      </indexterm>
+ 
+      <para>
+<systemitem>Stream Control Transmission Protocol</systemitem> 
+(<systemitem>SCTP</systemitem>) est un protocole relativement nouveau,
+mais qui se développe beaucoup et vient en complément des protocoles
+TCP et UDP. Il possède un aussi haut niveau de fiabilité que TCP, mais utilise 
+moins de temps système.
+ 
+      </para>
+
+      <para>
+<systemitem>SCTP</systemitem> possède des fonctionnalités très intéressantes.
+Pour ceux qui veulent en savoir plus, voir la <xref linkend="rfc3286" endterm="rfc3286.title"/> et la
+<xref linkend="rfc2960" endterm="rfc2960.title"/>. Le premier document est une introduction à SCTP. Le
+second est la spécification du protocole, ce qui vous intéressera peut être
+moins sauf si vous êtes programmeur de ce protocole.
+      </para>
+
+      <para>
+Ce protocole fut à l'origine développé pour la téléphonie sur IP,
+ou voix sur IP (VoIP), et possède certains attributs intéressants qui en 
+proviennent. Le niveau de l'industrie VoIP requiert une très haute fiabilité,
+ce qui veut dire une grande faculté de récupération pour gérer les
+différentes sortes de problèmes. Ci-dessous une liste des fonctionnalités
+de base de SCTP.
+
+
+      </para>
+
+      <itemizedlist>
+       <listitem>
+        <para>
+<systemitem>Envoi individuel</systemitem> <indexterm> <primary>SCTP</primary>
+<secondary>Unicast</secondary> </indexterm> avec propriétés de 
+<systemitem>Multidiffusion</systemitem> <indexterm> <primary>SCTP</primary>
+<secondary>Multicast</secondary> </indexterm>. Ceci indique que c'est un 
+protocole "point-to-point" mais avec la possibilité d'utiliser plusieurs
+adressages pour le même destinataire. En d'autres termes, il peut utiliser 
+différents chemins pour joindre le destinataire. TCP, en comparaison, coupe 
+si le chemin s'interrompt, sauf si le protocole IP corrige cela.
+ 
+        </para>
+       </listitem>
+
+       <listitem>
+        <para>
+Transmission fiable. Il utilise les sommes de contrôle et SACK
+pour détecter les données corrompues, endommagées, dupliquées ou
+réordonnées. Il peut ensuite retransmettre les données si nécessaire.
+C'est à peu près comme TCP, mais SCTP est plus tolérant pour le
+réordonnancement des données et permet un captage plus rapide.
+        </para>
+       </listitem>
+       
+       <listitem>
+        <para>
+Orienté message. Chaque message peut être mis en trames et donc vous pouvez
+garder la structure et ordonner le flux de données. TCP est
+orienté octet et tout ce que vous obtenez est un flux d'octets sans aucun 
+ordre entre les différentes données. Vous avez donc besoin d'une couche 
+d'abstraction dans TCP.
+        </para>
+       </listitem>
+       
+       <listitem>
+        <para>
+Adaptatif au débit. Il est développé pour collaborer et coexister 
+avec TCP au niveau de la bande passante. Il l'augmente ou la réduit en
+fonction des conditions de charge du réseau comme TCP. Il a aussi le
+même algorithme pour les démarrages lents quand les paquets sont perdus.
+ECN est également supporté.
+        </para>
+       </listitem>
+       
+       <listitem>
+        <para>
+Rattachement multiple. Comme mentionné précédemment, SCTP est capable
+de mettre en place différents noeuds terminaux directement dans le
+protocole, et donc de ne pas avoir a relayer sur la couche IP pour la
+récupération.
+        </para>
+       </listitem>
+       
+       <listitem>
+        <para>
+Multi-flux. Permet le multi-flux simultané dans un même flux, d'où le
+nom Stream Control Transmission Protocol (Protocole de Contrôle de 
+Transmission de Flux). Un flux unique peut, par exemple, être ouvert pour 
+télécharger une simple page web, et ainsi les images et documents html
+seront chargés dans le même flux simultanément. Ou pourquoi pas un protocole
+de bases de données qui créera un contrôle de flux séparé et ensuite
+utilisera plusieurs flux pour recevoir les sorties des différentes
+requêtes simultanément.
+        </para>
+       </listitem>
+       
+       <listitem>
+        <para>
+Initialisation de connexion. 4 paquets d'initialisation de connexion où
+les paquets 3 et 4 peuvent être utilisés pour envoyer des données.
+L'équivalent des témoins de synchronisation (NdT. syncookies) est
+implémenté par défaut pour éviter les attaques en Déni de Service (NdT.DoS).
+Résolution des collisions INIT pour éviter plusieurs connexions SCTP
+simultannées.
+        </para>
+       </listitem>
+
+      </itemizedlist>
+
+      <para>
+Cette liste pourrait être plus longue. La plupart de ces informations
+est tirée de la <xref linkend="rfc3286" endterm="rfc3286.title"/>. 
+      </para>
+
+      <note>
+       <para>
+En terme de SCTP nous parlons de blocs d'information (chunks), pas de paquets 
+ni de fenêtres, (NdT. nous parlerons dorénavant de "bloc". Un bloc consistant
+en un en-tête et un contenu spécifique. Voir la RFC 2960).
+Une trame SCTP peut contenir plusieurs blocs différents car le 
+protocole est orienté message. Un bloc peut être soit un bloc de contrôle
+soit un bloc de données. Le bloc de contrôle est utilisée pour contrôler
+la session, et le bloc de données pour envoyer les données.
+       </para>
+      </note>
+
+      <section xml:id="sctpinit">
+        <title xml:id="sctp.init.title">Initialisation et association</title>
+	<indexterm zone="sctpinit">
+          <primary>SCTP</primary>
+	  <secondary>Initialization</secondary>
+        </indexterm>
+	<indexterm zone="sctpinit">
+          <primary>SCTP</primary>
+	  <secondary>COOKIE ECHO</secondary>
+        </indexterm>
+	<indexterm zone="sctpinit">
+          <primary>SCTP</primary>
+	  <secondary>INIT</secondary>
+        </indexterm>
+	<indexterm zone="sctpinit">
+          <primary>SCTP</primary>
+	  <secondary>INIT ACK</secondary>
+        </indexterm>
+	<indexterm zone="sctpinit">
+          <primary>SCTP</primary>
+	  <secondary>COOKIE ACK</secondary>
+        </indexterm>
+	
+        <para>
+Chaque connexion est initialisée en créant une association entre les
+deux hôtes qui désirent entrer en contact. Cette association est
+initialisée quand un utilisateur en a besoin.
+        </para>
+
+	<para>
+Cette initialisation est réalisée par 4 paquets. Le premier, un bloc INIT,
+est envoyé, en réponse il reçoit un INIT ACK contenant un témoin (cookie), 
+ensuite la connexion peut démarrer en envoyant les données. Cependant,
+deux paquets supplémentaires sont envoyés. Le témoin reçoit en réponse
+un bloc COOKIE ECHO, lequel reçoit enfin un bloc COOKIE ACK.
+	</para>
+
+      </section>
+
+      <section xml:id="sctpdata">
+        <title xml:id="sctp.data.title">Envoi de données et contrôle de session</title>
+        <indexterm zone="sctpdata"> 
+	  <primary>SCTP</primary> 
+	  <secondary>Data sending and control session</secondary> 
+	</indexterm>
+        <indexterm zone="sctpdata"> 
+	  <primary>SCTP</primary> 
+	  <secondary>SACK</secondary> 
+	</indexterm>
+        <indexterm zone="sctpdata"> 
+	  <primary>SCTP</primary> 
+	  <secondary>DATA</secondary> 
+	</indexterm>
+        <indexterm zone="sctpdata"> 
+	  <primary>SCTP</primary> 
+	  <secondary>HEARTBEAT</secondary> 
+	</indexterm>
+        <indexterm zone="sctpdata"> 
+	  <primary>SCTP</primary> 
+	  <secondary>HEARTBEAT ACK</secondary> 
+	</indexterm>
+        <indexterm zone="sctpdata"> 
+	  <primary>SCTP</primary> 
+	  <secondary>ERROR</secondary> 
+	</indexterm>
+
+	<para>
+SCTP, à ce niveau, peut envoyer des données. Dans SCTP il existe des blocs
+de contrôle et des blocs de données, comme vu précédemment. Les blocs de 
+données sont envoyés en utilisant le bloc DATA, auquel il est répondu
+par un bloc SACK. Ça fonctionne pratiquement de la même façon que
+TCP SACK. Les blocs SACK sont des blocs de contrôle.
+	</para>
+
+	<para>
+Au dessus de tout ça, il existe d'autres blocs de contrôle. Les blocs
+HEARTBEAT et HEARTBEAT ACK d'un côté, et les blocs ERROR de l'autre.
+Les blocs HEARTBEAT sont utilisées pour conserver la connexion active, 
+et les blocs ERROR sont utilisés pour informer des divers problèmes
+ou erreurs de connexion, comme un id de flux invalide ou des paramètres de 
+données obligatoires absents, etc.
+	</para>
+
+      </section>
+
+      <section xml:id="sctpshutdown">
+        <title xml:id="sctp.shutdown.title">Arrêt et abandon</title>
+        <indexterm zone="sctpshutdown"> 
+	  <primary>SCTP</primary> 
+	  <secondary>Shutdown and abort</secondary> 
+	</indexterm>
+        <indexterm zone="sctpshutdown"> 
+	  <primary>SCTP</primary> 
+	  <secondary>ABORT</secondary> 
+	</indexterm>
+        <indexterm zone="sctpshutdown"> 
+	  <primary>SCTP</primary> 
+	  <secondary>SHUTDOWN</secondary> 
+	</indexterm>
+        <indexterm zone="sctpshutdown"> 
+	  <primary>SCTP</primary> 
+	  <secondary>SHUTDOWN ACK</secondary> 
+	</indexterm>
+        <indexterm zone="sctpshutdown"> 
+	  <primary>SCTP</primary> 
+	  <secondary>SHUTDOWN COMPLETE</secondary> 
+	</indexterm>
+
+	<para>
+La connexion est finalement fermée soit par un bloc ABORT soit plus
+"poliment" par un bloc SHUTDOWN. SCTP ne possède pas d'état semi-fermé
+comme TCP, un côté ne peut pas continuer à envoyer des données tandis que 
+l'autre a fermé.
+        </para>
+
+	<para>
+Quand un utilisateur/application désire fermer le socket SCTP de façon 
+courtoise, il appelle le protocole SHUTDOWN. SCTP envoie alors toutes les
+données encore dans ses mémoires tampon, et ensuite envoie un bloc
+SHUTDOWN. Quand le destinataire reçoit le SHUTDOWN, il stoppera 
+l'acceptation des données provenant de l'application et cessera d'envoyer
+des données. Une fois obtenu tous les SACK pour les données, il enverra
+un bloc SHUTDOWN ACK, et une fois que le côté qui ferme la connexion
+a reçu ce bloc, il répondra par un bloc SHUTDOWN COMPLETE.
+La session est maintenant complètement fermée.
+	</para>
+
+	<para>
+Une autre façon de fermer une connexion est d'utiliser ABORT. Mais c'est
+un moyen pas très poli de supprimer une association SCTP.
+Quand une des deux parties désire arrêter une association SCTP instantanément,
+elle envoie un bloc ABORT avec toutes les valeurs correctes signées.
+Toutes les données dans les tampons seront déchargées et l'association 
+terminée. Le destinataire fera de même après vérification du bloc ABORT.
+	</para>
+      </section>
+
+    </section>
+
+    <section xml:id="sctpheaders">
+      <title xml:id="sctpheaders.title">En-têtes SCTP</title>
+      <indexterm zone="sctpheaders">
+        <primary>SCTP</primary>
+	<secondary>Headers</secondary>
+      </indexterm>
+ 
+      <para>
+Ce sera un brève introduction aux en-têtes SCTP. SCTP possède beaucoup
+de types de paquets différents, et j'essaierai de suivre au plus près la
+RFC en les décrivant, avec une vue générale des en-têtes
+applicables à tous les paquets SCTP.
+      </para>
+
+      <section xml:id="sctpheadergeneric">
+	<title xml:id="sctpheader.generic.title">Format d'en-têtes génériques SCTP</title>
+        <indexterm zone="sctpheadergeneric">
+          <primary>SCTP</primary>
+          <secondary>Generic Header format</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadergeneric">
+          <primary>SCTP</primary>
+          <secondary>INIT</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadergeneric">
+          <primary>SCTP</primary>
+          <secondary>INIT ACK</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadergeneric">
+          <primary>SCTP</primary>
+          <secondary>SHUTDOWN COMPLETE</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadergeneric">
+          <primary>SCTP</primary>
+          <secondary>DATA</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadergeneric">
+          <primary>SCTP</primary>
+          <secondary>MTU</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadergeneric">
+          <primary>MTU</primary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.genericheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-generic-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+C'est une vue générale de la façon dont est disposé un paquet SCTP.
+À la base, nous avons un premier en-tête commun avec une information
+décrivant l'ensemble du paquet, les ports source et destination, etc.
+Voir plus bas au sujet des en-têtes communs.
+	</para>
+
+	<para>
+Après l'en-tête commun un nombre variable de blocs est envoyé, jusqu'au
+maximum possible du MTU (NdT. Maximum Transmission Unit).
+Toutes les blocs peuvent être groupés sauf
+INIT, INIT ACK et SHUTDOWN COMPLETE, lesquels ne doivent pas être
+groupés.
+	</para>
+      </section>
+
+     <section xml:id="sctpheadercommon">
+	<title xml:id="sctpheader.common.title">En-tête communs et génériques SCTP</title>
+        <indexterm zone="sctpheadercommon">
+          <primary>SCTP</primary>
+          <secondary>Source port</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadercommon">
+          <primary>SCTP</primary>
+          <secondary>Destination port</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadercommon">
+          <primary>SCTP</primary>
+          <secondary>Verification tag</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadercommon">
+          <primary>SCTP</primary>
+          <secondary>INIT</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadercommon">
+          <primary>SCTP</primary>
+          <secondary>SHUTDOWN COMPLETE</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadercommon">
+          <primary>SCTP</primary>
+          <secondary>ABORT</secondary>
+        </indexterm>
+        <indexterm zone="sctpheadercommon">
+          <primary>SCTP</primary>
+          <secondary>Checksum</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.commonheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-common-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Chaque paquet SCTP contient l'en-tête commun comme vu précédemment.
+L'en-tête contient 4 champs différents et il est placé pour chaque
+paquet SCTP.
+	</para>
+
+	<para>
+Port source - bit 0-15. Ce champ renseigne sur le port source du paquet, 
+celui qui sera envoyé.
+	</para>
+
+	<para>
+Port destination - bit 16-31. Port destination du paquet. C'est la même
+chose que pour les ports destination de TCP et UDP.
+	</para>
+
+	<para>
+Repère de vérification - bit 32-63. Le repère de vérification est utilisé pour
+vérifier que le paquet provient du bon expéditeur. Il est toujours placé à la
+même valeur identique à la valeur reçue par les autres correspondants 
+(repère d'initialisation) pendant la phase d'initialisation d'association, avec
+quelques exceptions :
+	</para>
+
+	<itemizedlist>
+	  <listitem>
+	    <para>
+Un paquet SCTP contenant un bloc INIT doit avoir le repère de
+vérification placé à 0.
+            </para>
+	  </listitem>
+	  
+	  <listitem>
+	    <para>
+Un bloc SHUTDOWN COMPLETE avec le bit-T placé doit avoir le
+repère de vérification copié depuis le repère de vérification du bloc
+SHUTDOWN-ACK.
+            </para>
+	  </listitem>
+
+	  <listitem>
+	    <para>
+Les paquets contenant le bloc ABORT doivent voir un repère de
+vérification identique au repère de vérification du paquet responsable
+du ABORT.
+            </para>
+	  </listitem>
+	</itemizedlist>
+
+	<para>
+Somme de contrôle - bit 64-95. Une somme de contrôle calculée pour
+l'ensemble du paquet SCTP basée sur l'algorithme Adler-32. 
+Voir la <xref linkend='rfc2960' endterm='rfc2960.title'/>, index B pour plus d'information au sujet de 
+cet algorithme.
+        </para>
+
+          <mediaobject xml:id="sctp.chunk.genericheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunks-generic-fields.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+        <para>
+Tous les blocs SCTP ont une disposition spéciale qui fait qu'ils sont
+tous collés, comme on peut le voir ci-dessus. Ce n'est pas un en-tête
+réel, mais plutôt une formalisation de ce à quoi il ressemble.
+	</para>
+
+	<para>
+Type - bit 0-7. Ce champ spécifie le bloc type du paquet, par exemple, 
+est-ce un bloc INIT ou SHUTDOWN ? Chaque bloc type possède un numéro
+spécifique, comme est indiqué dans le tableau ci-dessous. 
+Voici une liste complète des blocs type :
+	</para>
+
+	<table frame='all' xml:id="table.sctptypes">
+	  <title xml:id="table.sctptypes.title">Types SCTP</title>
+	  <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+	    <colspec colwidth="1*"/>
+	    <colspec colwidth="8*"/>
+	    <thead>
+	      <row>
+	        <entry>Numéro de bloc</entry>
+		<entry>Nom de bloc</entry>
+	      </row>
+	    </thead>
+
+	    <tbody>
+	      <row>
+	        <entry>0</entry>
+		<entry>Données utiles (DATA)</entry>
+	      </row>
+
+	      <row>
+	        <entry>1</entry>
+		<entry>Initialisation (INIT)</entry>
+	      </row>
+
+	      <row>
+	        <entry>2</entry>
+		<entry>Accusé-réception d'initialisation (INIT ACK)</entry>
+	      </row>
+
+	      <row>
+	        <entry>3</entry>
+		<entry>Accusé-réception sélectif (SACK)</entry>
+	      </row>
+
+	      <row>
+	        <entry>4</entry>
+		<entry>Requête de détection de collision (HEARTBEAT)</entry>
+	      </row>
+
+	      <row>
+	        <entry>5</entry>
+		<entry>Accusé-réception sur requête de détection de collision (HEARTBEAT ACK)</entry>
+	      </row>
+
+
+	      <row>
+	        <entry>6</entry>
+		<entry>Abandon (ABORT)</entry>
+	      </row>
+
+	      <row>
+	        <entry>7</entry>
+		<entry>Fermeture (SHUTDOWN)</entry>
+	      </row>
+
+	      <row>
+	        <entry>8</entry>
+		<entry>Accusé-réception de fermeture (SHUTDOWN ACK)</entry>
+	      </row>
+
+	      <row>
+	        <entry>9</entry>
+		<entry>Erreur d'opération (ERROR)</entry>
+	      </row>
+
+	      <row>
+	        <entry>10</entry>
+		<entry>Témoin d'état (COOKIE ECHO)</entry>
+	      </row>
+
+	      <row>
+	        <entry>11</entry>
+		<entry>Accusé-réception de témoin (COOKIE ACK)</entry>
+	      </row>
+
+	      <row>
+	        <entry>12</entry>
+		<entry>Réservé pour écho de notification de congestion explicite (ECNE) </entry>
+	      </row>
+
+	      <row>
+	        <entry>13</entry>
+		<entry>Réservé pour fenêtre de congestion réduite (CWR)</entry>
+	      </row>
+
+	      <row>
+	        <entry>14</entry>
+		<entry>Arrêt complet (SHUTDOWN COMPLETE)</entry>
+	      </row>
+
+	      <row>
+	        <entry>15-62</entry>
+		<entry>Réservé pour l'IETF</entry>
+	      </row>
+
+	      <row>
+	        <entry>63</entry>
+		<entry>IETF-Blocs d'extension définis</entry>
+	      </row>
+
+	      <row>
+	        <entry>64-126</entry>
+		<entry>Réservé pour l'IETF</entry>
+	      </row>
+	      
+	      <row>
+	        <entry>127</entry>
+		<entry>IETF - Blocs d'extension définis</entry>
+	      </row>
+
+	      <row>
+	        <entry>128-190</entry>
+		<entry>Réservé pour l'IETF</entry>
+	      </row>
+
+	      <row>
+	        <entry>191</entry>
+		<entry>IETF - Blocs d'extension définis</entry>
+	      </row>
+	      <row>
+	        <entry>192-254</entry>
+		<entry>Réservé pour l'IETF</entry>
+	      </row>
+	      <row>
+	        <entry>255</entry>
+		<entry>IETF - Blocs d'extension définis</entry>
+	      </row>
+
+	    </tbody>
+	  </tgroup>
+	</table>
+
+	<para>
+Bloc fanions - bit 8-15. Le bloc fanion n'est en général pas utilisé
+mais il est placé pour une utilisation future. Il existe des blocs
+fanions spécifiques ou bits d'information qui peuvent être nécessaires
+pour d'autres correspondants. Selon les spécifications, les fanions sont
+utilisés seulement dans les paquets DATA, ABORT et SHUTDOWN COMPLETE
+pour l'instant. Ceci peut changer dans l'avenir.
+	</para>
+
+	<important>
+	  <para>
+Souvent lorsque vous lisez une RFC, vous êtes confrontés à certains
+vieux problèmes de provenance. 
+La <xref linkend="rfc2960" endterm="rfc2960.title"/>  en est un
+exemple, dans lequel elle spécifie que le bloc fanions devrait toujours
+être placée à 0 et ignoré à moins qu'il ne soit utilisé pour
+quelque chose. Ceci est écrit partout. Si vous faîtes du pare-feu ou
+du routage, prenez garde à ça, car les spécifications de champs peuvent
+changer dans le futur et causer des problèmes à votre pare-feu sans 
+raison légitime. Ceci survenait avant avec l'implémentation de ECN dans
+les en-têtes IP par exemple. 
+Voir la section <xref linkend="ipheaders"/> de ce chapitre.
+	  </para>
+	</important>
+
+	<para>
+Bloc longueur - bit 16-31. C'est le bloc longueur calculé en octets.
+Il contient tous les en-têtes, y compris le bloc type, le bloc fanions,
+et le bloc valeur. S'il n'y a pas de bloc valeur, le bloc longueur sera
+placé à 4 (octets).
+	</para>
+
+	<para>
+Bloc valeur - bit 32-n. Spécifique pour chaque bloc et peut contenir
+plusieurs fanions et données appartenant au bloc type. Parfois il
+peut être vide, auquel cas le bloc longueur sera placé à 4.
+	</para>
+      </section>
+
+     <section xml:id="sctpheaderabort">
+       <title xml:id="sctpheader.abort.title">Bloc SCTP ABORT</title>
+       <indexterm zone="sctpheaderabort">
+         <primary>SCTP</primary>
+         <secondary>ABORT</secondary>
+       </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.abortheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-abort-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc ABORT est utilisé pour abandonner une association comme décrit dans 
+la section <xref linkend="sctpshutdown"/> de ce chapitre.
+ABORT apparaît lors d'une erreur irrécupérable dans l'association comme des 
+en-têtes ou des données erronés.
+	</para>
+
+	<para>
+Type<indexterm> <primary>SCTP</primary> <secondary>Type</secondary>
+</indexterm> - bit 0-7. Toujours placé à 6 pour ce bloc type.
+	</para>
+
+	<para>
+Réservé - bit 8-14. Réservé pour de futurs blocs fanions mais non
+utilisés pour l'instant.
+Voir <xref linkend="sctpheadercommon"/> pour plus d'information sur les 
+blocs fanions.
+	</para>
+
+	<para>
+Bit-T - bit 15. Si ce bit est placé à 0, l'expéditeur avait un TCB associé
+avec ce paquet qui a été détruit. Si l'expéditeur n'avait pas de TCB le
+bit-T devrait être placé à 1.
+	</para>
+
+	<para>
+Longueur - bit 16-31. Place la longueur du bloc en octets en
+incluant les causes d'erreur.
+	</para>
+      </section>
+
+     <section xml:id="sctpheadercookie-ack">
+       <title xml:id="sctpheader.cookie-ack.title">Bloc SCTP COOKIE ACK</title>
+       <indexterm zone="sctpheadercookie-ack">
+         <primary>SCTP</primary>
+         <secondary>COOKIE ACK</secondary>
+       </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.cookieackheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-cookie-ack-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc COOKIE ACK est utilisé pendant l'initialisation de la connexion
+et jamais en dehors de cette phase dans la connexion. Il doit précéder
+tous les blocs DATA et SACK mais peut être envoyé dans le même
+paquet comme premier de tous les paquets.
+	</para>
+
+	<para>
+Type - bit 0-7. Toujours placé à 11 pour ce type.
+	</para>
+
+	<para>
+Blocs fanions - bit 8-15. Non utilisés. Devraient toujours être placés
+à 0 selon la <xref linkend="rfc2960" endterm="rfc2960.title"/>. Vous devriez toujours
+vérifier ces comportements spécifiques établis par les RFC car elles
+peuvent changer dans le futur, et même poser des problèmes à vos
+pare-feux. La chose est arrivée avec IP et ECN. Voir la section 
+ <xref linkend="sctpheadercommon"/>
+pour plus d'information.
+	</para>
+
+	<para>
+Longueur <indexterm> <primary>SCTP</primary> <secondary>Length</secondary>
+</indexterm>- bit 16-31.Devrait toujours être à 4 (octets) pour ce bloc.
+	</para>
+      </section>
+
+     <section xml:id="sctpheadercookie-echo">
+       <title xml:id="sctpheader.cookie-echo.title">Bloc SCTP COOKIE ECHO</title>
+       <indexterm zone="sctpheadercookie-echo">
+         <primary>SCTP</primary>
+         <secondary>COOKIE ECHO</secondary>
+       </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.cookieechoheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-cookie-echo-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc COOKIE ECHO est utilisé pendant l'initialisation de la connexion
+SCTP (par la partie qui répond au témoin envoyé par la partie en réponse
+dans le champ témoin du paquet INIT ACK.) Ils peuvent être envoyés
+ensemble avec les blocs DATA dans le même paquet, mais doivent prédéder
+les blocs DATA dans tous les cas.
+	</para>
+
+	<para>
+Type - bit 0-7. Le bloc type est toujours placée à 10.
+	</para>
+
+	<para>
+Bloc fanions - bit 8-15. Ce champ n'est pas utilisé aujourd'hui. La RFC
+spécifie que les fanions devraient toujours êtres placés à 0, mais ceci peut 
+poser des problèmes comme vous pouvez le voir dans le section 
+<xref linkend="sctpheadercommon"/> 
+ci-dessus, spécialement l'explication des blocs fanions.
+	</para>
+
+	<para>
+Longueur - bit 16-31. Spécifie la longueur du bloc, incluant le type, 
+le bloc fanions, les champs longueur et témoin en octets.
+	</para>
+
+	<para>
+Témoin - bit 32n. Ce champ contient le témoin envoyé dans le bloc INIT ACK
+prédédent. Il doit être identique au témoin envoyé par la partie
+correspondante pour pouvoir ouvrir la connexion. 
+La <xref linkend="rfc2960" endterm="rfc2960.title"/> spécifie que
+le témoin devrait être aussi petit que possible pour assurer
+l'interopérabilité, ce qui est assez vague.
+
+	</para>
+      </section>
+
+     <section xml:id="sctpheaderdata">
+       <title xml:id="sctpheader.data.title">Bloc SCTP DATA</title>
+        <indexterm zone="sctpheaderdata">
+          <primary>SCTP</primary>
+          <secondary>DATA</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.dataheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-data-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Les blocs DATA sont utilisés pour envoyer des données dans le flux
+et possèdent des en-têtes plutôt complexes par certains côtés, mais 
+pas vraiment pires que les en-têtes TCP en général. Chaque bloc DATA
+peut faire partie d'un flux différent, car chaque connexion SCTP peut
+traiter plusieurs flux différents.
+	</para>
+
+	<para>
+Type - bit 0-7. Le champ type devrait toujours être placé à 0 pour
+les blocs DATA.
+	</para>
+
+	<para>
+Réservé - bit 8-12. Pas utilisé aujourd'hui. Voir <xref
+linkend="sctpheadercommon"/> pour plus d'information.
+	</para>
+
+	<para>
+Bit-U - bit 13. Le bit U est utilisé pour indiquer s'il y a un bloc
+DATA désordonné. Si c'est le cas, le numéro d'inter-classement du flux
+de données doit être ignoré par le destinataire et les données envoyées
+au niveau de la couche la plus haute sans délai ni essai de réordonnancement 
+des blocs DATA. 
+	</para>
+
+	<para>
+Bit-B - bit 14. Le bit B est utilisé pour indiquer le début d'un
+bloc DATA fragmenté. Si ce bit est placé et le bit E (final) n'est pas placé,
+ceci indique que c'est le premier fragment d'un bloc qui a été fragmenté
+en plusieurs blocs DATA.
+	</para>
+
+	<para>
+Bit E - bit 15. Le bit E indique la fin d'un bloc DATA fragmenté. 
+Si ce fanion est envoyé sur un bloc, il signale au destinataire SCTP qu'il
+peut démarrer le réassemblage des fragments et les passer sur la couche la 
+plus haute. Si le paquet possède les bits B et E placés à 0, il signale
+que le bloc est semi-fragmenté. Si les deux bits B et E sont placés à 1
+ceci indique que le paquet est défragmenté et ne nécessite pas de
+réassemblage.
+	</para>
+
+	<para>
+Longueur - bit 16-31. La longueur du bloc DATA complet calculé en
+octets, incluant le champ bloc type jusqu'à la fin du bloc.
+	</para>
+
+	<para>
+TSN - bit 32-63. Le TSN (Transmission Sequence Number - numéro d'ordre
+d'inter-classement de transmission) est envoyé dans le bloc DATA, et l'hôte
+destinataire utilise TSN pour accuser-réception que le bloc est arrivé
+correctement en renvoyant un bloc ACK. C'est une donnée générale pour
+l'association SCTP complète.
+	</para>
+
+	<para>
+Identifiant de flux - bit 64-79. L'identifiant de flux est envoyé avec
+le bloc DATA pour identifier avec quel flux le bloc DATA est associé.
+Ceci est utilisé depuis que SCTP peut transporter plusieurs flux dans
+une association unique. 
+	</para>
+
+	<para>
+Numéro d'ordre d'inter-classement de flux - bit 80-95. C'est le numéro d'ordre
+d'inter-classement du bloc du flux spécifique identifié par l'identifiant
+de flux. Le numéro d'ordre d'inter-classement est spécifique pour chaque
+identifiant de flux. Si un bloc a été fragmenté, le numéro d'ordre
+d'inter-classement doit être le même pour tous les fragments du bloc
+d'origine.
+	</para>
+
+	<para>
+Identifiant de protocole données utiles - bit 96-127. Cette valeur est
+renseignée dans les couches les plus hautes, ou les applications utilisant
+le protocole SCTP pour identifier le contenu de chaque bloc DATA. Le champ
+doit toujours être envoyé. Si la valeur est placée à 0, c'est qu'elle  
+n'était pas placée dans les plus hautes couches.
+	</para>
+
+	<para>
+Donnée utilisateur - bit 128n. Donnée que transporte le bloc. Elle peut être
+variable en longueur, finissant par un octet identique. Ce sont les données
+à l'intérieur du flux comme spécifié par le numéro d'ordre d'inter-classement
+N dans le flux S.
+	</para>
+      </section>
+
+     <section xml:id="sctpheadererror">
+	<title xml:id="sctpheader.error.title">Bloc SCTP ERROR</title>
+        <indexterm zone="sctpheadererror">
+          <primary>SCTP</primary>
+          <secondary>ERROR</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.errorheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-error-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc ERROR est envoyé pour informer le correspondant d'un problème
+dans le flux. Chaque bloc ERROR, peut contenir une ou plusieurs causes
+d'erreurs, lesquelles sont détaillées dans la 
+<xref linkend="rfc2960" endterm="rfc2960.title"/>. Je n'irai pas plus
+dans le détail que les blocs ERROR de base, car ça nécessite trop 
+d'information.
+Le bloc ERROR n'est pas fatal en lui-même, mais il détaille une erreur
+qui est survenue. Il peut cependant être utilisé avec un bloc ABORT
+pour informer le correspondant de l'erreur avant de couper la connexion.
+	</para>
+
+	<para>
+Type - bit 0-7. Cette valeur est toujours placée à 9 pour les blocs ERROR.
+	</para>
+
+	<para>
+Bloc fanions - bit 8-15. Non utilisé actuellement. Voir 
+<xref linkend="sctpheadercommon"/> pour plus d'information.
+	</para>
+
+	<para>
+Longueur - bit 16-31. Spécifie la longueur du bloc en octets, incluant
+toutes les causes d'erreurs.
+	</para>
+
+	<para>
+Causes d'erreur - bit 32-n. Chaque bloc ERROR peut contenir une ou plusieurs
+causes d'erreur, lesquelles avertissent le correspondant d'un problème
+dans la connexion. Chaque cause d'erreur est d'un format spécifique, comme 
+décrit dans la <xref linkend="rfc2960" endterm="rfc2960.title"/>. 
+Nous n'irons pas plus loin ici, sauf pour indiquer qu'ils contiennent
+tous un code de cause, une longueur de cause et un champ d'information
+spécifique. Les causes d'erreur suivantes sont possibles :  
+	</para>
+<indexterm zone="tableerrorcauses">
+  <primary>SCTP</primary>
+  <secondary>ERROR</secondary>
+  <tertiary>Invalid Stream Identifier</tertiary>
+</indexterm>
+<indexterm zone="tableerrorcauses">
+  <primary>SCTP</primary>
+  <secondary>ERROR</secondary>
+  <tertiary>Missing Mandatory Parameter</tertiary>
+</indexterm>
+<indexterm zone="tableerrorcauses">
+  <primary>SCTP</primary>
+  <secondary>ERROR</secondary>
+  <tertiary>Stale Cookie Error</tertiary>
+</indexterm>
+<indexterm zone="tableerrorcauses">
+  <primary>SCTP</primary>
+  <secondary>ERROR</secondary>
+  <tertiary>Out of Resource</tertiary>
+</indexterm>
+<indexterm zone="tableerrorcauses">
+  <primary>SCTP</primary>
+  <secondary>ERROR</secondary>
+  <tertiary>Unresolvable Address</tertiary>
+</indexterm>
+<indexterm zone="tableerrorcauses">
+  <primary>SCTP</primary>
+  <secondary>ERROR</secondary>
+  <tertiary>Unrecognized Chunk Type</tertiary>
+</indexterm>
+<indexterm zone="tableerrorcauses">
+  <primary>SCTP</primary>
+  <secondary>ERROR</secondary>
+  <tertiary>Invalid Mandatory Parameter</tertiary>
+</indexterm>
+<indexterm zone="tableerrorcauses">
+  <primary>SCTP</primary>
+  <secondary>ERROR</secondary>
+  <tertiary>Unrecognized Parameters</tertiary>
+</indexterm>
+<indexterm zone="tableerrorcauses">
+  <primary>SCTP</primary>
+  <secondary>ERROR</secondary>
+  <tertiary>No User Data</tertiary>
+</indexterm>
+<indexterm zone="tableerrorcauses">
+  <primary>SCTP</primary>
+  <secondary>ERROR</secondary>
+  <tertiary>Cookie Received While Shutting Down</tertiary>
+</indexterm>
+
+	<table frame='all' xml:id="tableerrorcauses">
+	  <title xml:id="table.errorcauses.title">Causes d'erreur</title>
+	  <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+	    <colspec colwidth="1*"/>
+	    <colspec colwidth="8*"/>
+	    <thead>
+	      <row>
+	        <entry>Valeur cause</entry>
+		<entry>Code bloc</entry>
+	      </row>
+	    </thead>
+
+	    <tbody>
+	      <row>
+	        <entry>1</entry>
+		<entry>Identifiant de flux de données invalide</entry>
+	      </row>
+	      
+	      <row>
+	        <entry>2</entry>
+		<entry>Paramètre de données obligatoires absent</entry>
+	      </row>
+
+	      <row>
+	        <entry>3</entry>
+		<entry>Erreur de témoin</entry>
+	      </row>
+
+	      <row>
+	        <entry>4</entry>
+		<entry>Hors service</entry>
+	      </row>
+
+	      <row>
+	        <entry>5</entry>
+		<entry>Adresse non résolvable</entry>
+	      </row>
+
+	      <row>
+	        <entry>6</entry>
+		<entry>Bloc Type inconnu</entry>
+	      </row>
+
+	      <row>
+	        <entry>7</entry>
+		<entry>Paramètre de données obligatoires invalide</entry>
+	      </row>
+
+	      <row>
+	        <entry>8</entry>
+		<entry>Paramètres non reconnus</entry>
+	      </row>
+
+	      <row>
+	        <entry>9</entry>
+		<entry>Absence de données utilisateur</entry>
+	      </row>
+
+	      <row>
+	        <entry>10</entry>
+		<entry>Témoin reçu pendant une fermeture</entry>
+	      </row>
+	    </tbody>
+	  </tgroup>
+	</table>
+
+      </section>
+
+      <section xml:id="sctpheaderheartbeat">
+	<title xml:id="sctpheader.heartbeat.title">Bloc SCTP HEARTBEAT</title>
+        <indexterm zone="sctpheaderheartbeat">
+          <primary>SCTP</primary>
+          <secondary>HEARTBEAT</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.heartbeatheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-heartbeat-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc HEARTBEAT est envoyé par un des correspondants pour vérifier
+si une adresse finale SCTP est active. Envoyé aux
+différentes adresses négociées durant la phase d'initialisation de
+l'association pour vérifier qu'elles sont toujours actives.
+	</para>
+
+	<para>
+Type - bit 0-7. Le type est toujours placé à 0 pour les blocs HEARTBEAT.
+	</para>
+
+	<para>
+Bloc fanions - bit 8-15. Non utilisé aujourd'hui. Voir 
+<xref linkend="sctpheadercommon"/> pour plus d'information.
+	</para>
+
+	<para>
+Longueur - bit 16-31. Longueur du bloc complet, incluant l'information
+Heartbeat TLV.
+	</para>
+
+	<para>
+Information Heartbeat TLV - bit 32-n. C'est un paramètre de longueur variable
+comme défini dans la <xref linkend="rfc2960" endterm="rfc2960.title"/>.
+C'est un paramètre de données obligatoires pour les blocs HEARTBEAT qui
+contient trois champs, info type = 1, info longueur et un paramètre
+d'information Heartbeat spécifique-expéditeur. Le dernier champ devrait être
+un champ d'information spécifique expéditeur, par exemple, le temps passé 
+depuis l'envoi du Heartbeat jusqu'à l'adresse IP de destination. Ensuite il
+est retourné un bloc HEARTBEAT ACK.
+        </para>
+
+      </section>
+
+      <section xml:id="sctpheaderheartbeat-ack">
+	<title xml:id="sctpheader.heartbeat-ack.title">Bloc SCTP HEARTBEAT ACK</title>
+        <indexterm zone="sctpheaderheartbeat-ack">
+          <primary>SCTP</primary>
+          <secondary>HEARTBEAT ACK</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.heartbeatackheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-heartbeat-ack-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le HEARTBEAT ACK est utilisé pour accuser réception qu'un HEARTBEAT a
+été reçu et que la connexion fonctionne correctement. Le bloc est
+toujours envoyé à la même adresse IP à l'origine de la requête.
+	</para>
+
+	<para>
+Type - bit 0-7. Toujours placé à 5 pour les blocs HEARTBEAT ACK.
+	</para>
+
+	<para>
+Bloc fanions - bit 8-15. Non utilisé aujourd'hui. Voir  
+<xref linkend="sctpheadercommon"/> pour plus d'information.
+	</para>
+
+	<para>
+Bloc longueur - bit 16-31. La longueur du bloc HEARTBEAT ACK, incluant
+l'information Heartbeat TLV, calculé en octets. 
+	</para>
+
+	<para>
+Information Heartbeat TLV - bit 32-n. Ce champ doit contenir le paramètre
+Heartbeat Information envoyé au bloc HEARTBEAT d'origine.
+	</para>
+      </section>
+
+      <section xml:id="sctpheaderinit">
+	<title xml:id="sctpheader.init.title">Bloc SCTP INIT</title>
+        <indexterm zone="sctpheaderinit">
+          <primary>SCTP</primary>
+          <secondary>INIT</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.initheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-init-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc INIT est utilisé pour initialiser une nouvelle association avec
+un hôte destinataire, c'est le premier bloc à être envoyé par l'hôte
+qui initialise la connexion. Le bloc INIT contient plusieurs données
+obligatoires fixant les paramètres de longueur, et certains paramètres
+optionnels de longueur variable. Les paramètres de données obligatoires
+de longueur sont déjà dans les en-têtes ci-dessus, et correspondent au
+témoin d'émission, avertissement du crédit de fenêtre, nombre de flux sortants,
+nombre de flux entrants et TSN initial. Après ceci vient un couple de
+paramètres optionnels, lesquels seront présentés dans le paragraphe des
+paramètres optionnels ci-dessous.
+	</para>
+
+	<para>
+Type - bit 0-7. Le champ type est toujours placé à 1 pour les blocs INIT.
+	</para>
+
+	<para>
+Bloc fanions - bit 8-15. Non utilisé aujourd'hui. Voir 
+<xref linkend="sctpheadercommon"/> pour plus d'information.
+	</para>
+
+	<para>
+Bloc longueur - bit 16-31. Le bloc longueur est la longueur du paquet
+complet, incluant tout dans les en-têtes, ainsi que les paramètres optionnels.
+	</para>
+
+	<para>
+Témoin d'émission - bit 32-63. Le témoin d'émission est placé dans le bloc INIT
+et doit être utilisé par le destinataire pour accuser réception de tous
+les paquets, dans le témoin de vérification de l'association établie. Le
+témoin d'émission peut prendre toutes les valeurs sauf 0. Si la valeur est à 0,
+le destinataire doit réagir en émettant un ABORT.
+	</para>
+
+	<para>
+Avertissement de crédit d'ouverture de fenêtre (a_rwnd) - bit 64-95.
+C'est le tampon minimum de réception que l'expéditeur d'un bloc INIT
+allouera pour cette association, en octets. Ceci peut alors être utilisé
+par le destinataire d'un a_rwnd pour savoir combien de données il peut
+envoyer sans être en SACK. Cette fenêtre ne devrait pas être diminuée, mais
+elle peut l'être en envoyant un nouveau a_rwnd dans un bloc SACK.
+	</para>
+
+	<para>
+Nombre de flux sortants - bit 96-111. Spécifie le nombre maximum de flux
+sortants que l'hôte expéditeur désire envoyer au destinataire. La valeur
+ne doit pas être 0, et si c'est le cas, le destinataire devra faire un ABORT
+sur l'association immédiatement. Il n'y a pas de négociation sur le
+nombre minimum de flux sortants, il est simplement placé
+au niveau le plus bas que le correspondant a placé dans l'en-tête.
+	</para>
+
+	<para>
+Nombre de flux entrants <indexterm> <primary>SCTP</primary>
+<secondary>Number of Inbound Streams</secondary></indexterm> - bit 112-127.
+Spécifie le nombre maximum de connexions entrantes que l'expéditeur
+permet pour créer l'association. Il ne doit pas être placé à 0, ou le
+destinataire devra faire un ABORT sur la connexion. Il n'y a pas de
+négociation sur le nombre minimum de flux entrants, il est 
+simplement placé au niveau le plus bas que le correspondant a placé dans
+l'en-tête.
+	</para>
+
+	<para>
+TSN Initial <indexterm> <primary>SCTP</primary> <secondary>Initial
+TSN</secondary></indexterm> - bit 128-159. Cette valeur place le TSN
+(Transmit Sequence Number) que l'expéditeur utilisera lors de l'envoi
+des données. Le champ peut être mis à la même valeur que le repère 
+d'initialisation.
+	</para>
+
+	<para>
+Au sommet des données obligatoires de longueur d'en-têtes, il existe
+certains paramètres de longueur variables, et au moins un des paramètres 
+IPv4 et IPv6 ou nom d'hôte doit être placé. Un seul nom d'hôte doit être
+indiqué, et si le nom d'hôte est placé, aucun paramètre IPv4 ou IPv6 
+ne doit être placé. Des paramètres multiples IPv4 ou IPv6 peuvent être
+placés dans le même bloc INIT. Ces paramètres sont utilisés pour 
+déterminer quelle adresse sera utilisée pour se connecter au destinataire 
+dans l'association. Ci-dessous la liste complète des paramètres variables
+dans le bloc INIT :
+	</para>
+
+<indexterm zone="tableinitparameters">
+  <primary>SCTP</primary>
+  <secondary>INIT</secondary>
+  <tertiary>Variable Parameters</tertiary>
+</indexterm>
+
+	<table frame='all' xml:id="tableinitparameters">
+	  <title xml:id="table.initparameters.title">Paramètres variables INIT</title>
+	  <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	    <colspec colwidth="4*"/>
+	    <colspec colwidth="2*"/>
+	    <colspec colwidth="2*"/>
+	    <thead>
+	      <row>
+	        <entry>Nom du paramètre</entry>
+		<entry>Statuts</entry>
+		<entry>Valeur type</entry>
+	      </row>
+	    </thead>
+
+	    <tbody>
+	      <row>
+		<entry>Adresse IPv4</entry>
+	        <entry>Optionnelle</entry>
+	        <entry>5</entry>
+	      </row>
+
+	      <row>
+		<entry>Adresse IPv6</entry>
+	        <entry>Optionnelle</entry>
+	        <entry>6</entry>
+	      </row>
+
+	      <row>
+		<entry>Protection témoin</entry>
+	        <entry>Optionnelle</entry>
+	        <entry>9</entry>
+	      </row>
+
+	      <row>
+		<entry>Adresse de nom d'hôte</entry>
+	        <entry>Optionnelle</entry>
+	        <entry>11</entry>
+	      </row>
+
+	      <row>
+		<entry>Types d'adresses supportées</entry>
+	        <entry>Optionnelle</entry>
+	        <entry>12</entry>
+	      </row>
+
+	      <row>
+		<entry>Réservé pour possibilité ECN</entry>
+	        <entry>Optionnelle</entry>
+	        <entry>32768</entry>
+	      </row>
+
+	    </tbody>
+	  </tgroup>
+	</table>
+
+	<para>
+Ci-dessous nous décrivons les trois paramètres les plus communs
+utilisés dans le bloc INIT.
+	</para>
+	
+
+          <mediaobject xml:id="sctp.chunk.init.paramipv4.headers">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-init-param-ipv4-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le paramètre IPv4 est utilisé pour envoyer une adresse IPv4 au bloc
+INIT. L'adresse IPv4 peut être utilisée pour envoyer des données dans 
+l'association.
+Des adresses IPv4 et IPv6 multiples peuvent spécifiées dans une
+association SCTP unique.
+	</para>
+
+	<para>
+Paramètre Type - bit 0-15. Toujours placé à 5 pour les paramètres
+d'adresses IPv4.
+	</para>
+
+	<para>
+Longueur - bit 16-31. Toujours placé à 8 pour les paramètres d'adresses
+IPv4.
+	</para>
+
+	<para>
+Adresse IPv4 - bit 32-63. Adresse IPv4 d'envoi de fin.
+	</para>
+
+          <mediaobject xml:id="sctp.chunk.init.paramipv6.headers">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-init-param-ipv6-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Ce paramètre est utilisé pour envoyer les adresses IPv6 dans le bloc INIT.
+Ces adresses peuvent servir à contacter le destinataire de cette
+association.
+	</para>
+
+	<para>
+Type - bit 0-15. Toujours placé à 6 pour les paramètres IPv6.
+	</para>
+
+	<para>
+Longueur - bit 16-31. Toujours placé à 20 pour les paramètres IPv6.
+	</para>
+
+	<para>
+Adresse IPv6 - bit 32-159. Adresse IPv6 de l'expéditeur qui peut être 
+utilisée pour la connexion par le destinataire.
+	</para>
+
+          <mediaobject xml:id="sctp.chunk.init.paramhostname.headers">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-init-param-host-name-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le paramètre Nom d'hôte est utilisé pour envoyer un Nom d'hôte unique comme
+adresse. Le destinataire doit alors vérifier le Nom d'hôte et utiliser
+certaines, ou toutes, les adresses qu'il reçoit de cet expéditeur.
+Si un paramètre Nom d'hôte est envoyé, aucun autre paramètre IPv4 ou
+IPv6 ou un autre Nom d'hôte ne doit être envoyé.
+	</para>
+
+	<para>
+Type - bit 0-15. Toujours placé à 11 pour les paramètres Nom d'hôte.
+	</para>
+
+	<para>
+Longueur - bit 16-31. Longueur du paramètre complet, y compris les champs
+type, longueur et Nom d'hôte. Le champ Nom d'hôte est de longueur variable.
+Elle est comptée en octets.
+	</para>
+
+	<para>
+Nom d'hôte - bit 32-n. Paramètre de longueur variable contenant un Nom d'hôte.
+Ce Nom d'hôte est résolu par le destinataire qui reçoit les adresses qui
+pourront être utilisées pour contacter l'expéditeur.
+	</para>
+
+      </section>
+      
+     <section xml:id="sctpheaderinit-ack">
+	<title xml:id="sctpheader.init-ack.title">Bloc SCTP INIT ACK</title>
+        <indexterm zone="sctpheaderinit-ack">
+          <primary>SCTP</primary>
+          <secondary>INIT ACK</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.initackheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-init-ack-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc INIT ACK est envoyé en réponse à un bloc INIT et contient à la
+base les mêmes en-têtes, mais avec les valeurs du destinataire du
+bloc INIT d'origine. De plus, il possède deux variables longueur
+supplémentaires, les paramètres état cookie et le paramètre non-reconnu. 
+
+	</para>
+
+	<para>
+Type - bit 0-7. Cet en-tête est toujours placé à 2 pour les blocs INIT ACK.
+	</para>
+
+	<para>
+Bloc fanions - bit 8-15. Non utilisé aujourd'hui. 
+Voir <xref linkend="sctpheadercommon"/> pour plus d'information.
+	</para>
+
+	<para>
+Bloc longueur - bit 16-31. Le bloc longueur représente la longueur de
+l'ensemble du paquet, y compris tout ce que contiennent les en-têtes, 
+et les paramètres optionnels.
+	</para>
+
+	<para>
+Repère d'émission - bit 32-63. Le destinataire du repère
+d'émission du bloc INIT ACK doit sauvegarder cette valeur et la
+copier dans le champ repère de vérification de chaque paquet qu'il envoie
+à l'expéditeur du bloc INIT ACK. Le repère d'émission ne doit pas
+être placé à 0, et si c'est le cas, le destinataire du bloc INIT ACK doit
+fermer la connexion par un ABORT. 
+	</para>
+
+	<para>
+Publication de réception de crédit de fenêtre (a_rwnd) - bit 64-95.
+Les tampons dédiés que l'expéditeur de ce bloc a placé pour le trafic, 
+compté en octets. Les tampons dédiés ne devraient pas être inférieurs ou
+supérieurs à ces valeurs.
+	</para>
+
+	<para>
+Nombre de flux sortants - bit 96-111. Combien de flux sortants l'expéditeur
+désire créer. Ne doit pas être à 0, sinon le destinataire du INIT ACK
+doit faire un ABORT sur l'association. Il n'y a pas de négociation sur
+le nombre minimum de flux sortants, c'est simplement placé 
+au niveau le plus bas que chaque hôte a mis dans l'en-tête.
+	</para>
+
+	<para>
+Nombre de flux entrants - bit 112-127. Combien de flux entrants l'expéditeur
+final consent à accepter. Ne doit pas être à 0, sinon le destinataire du
+INIT ACK devra faire un ABORT sur l'association. Il n'y a pas de négociation
+sur le nombre minimum des flux entrants, simplement placé au
+niveau le plus bas que chaque hôte a mis dans l'en-tête.
+	</para>
+
+	<para>
+TSN Initial - bit 128-159. Numéro de séquence de transmission initial qui
+sera utilisé par la partie expéditrice de l'association au démarrage.
+	</para>
+
+	<para>
+Après cela, le bloc INIT ACK continue avec des paramètres optionnels
+de longueur variable. Ces paramètres sont exactement les mêmes que
+pour le bloc INIT, à l'exception de l'ajout des paramètres état cookie et 
+paramètre inconnu, et la suppression du paramètre Type d'Adresses Supportées.
+Cette liste ressemble à ceci :
+	</para>
+
+<indexterm zone="tableinitackparameters">
+  <primary>SCTP</primary>
+  <secondary>INIT ACK</secondary>
+  <tertiary>Variable Parameters</tertiary>
+</indexterm>
+
+	<table frame='all' xml:id="tableinitackparameters">
+	  <title xml:id="table.initackparameters.title">Variables des paramètres INIT ACK</title>
+	  <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	    <colspec colwidth="4*"/>
+	    <colspec colwidth="2*"/>
+	    <colspec colwidth="2*"/>
+	    <thead>
+	      <row>
+	        <entry>Nom de paramètre</entry>
+		<entry>Status</entry>
+		<entry>Type de valeur</entry>
+	      </row>
+	    </thead>
+
+	    <tbody>
+	      <row>
+		<entry>Adresse IPv4</entry>
+	        <entry>Optionnel</entry>
+	        <entry>5</entry>
+	      </row>
+
+	      <row>
+		<entry>Adresse IPv6</entry>
+	        <entry>Optionnel</entry>
+	        <entry>6</entry>
+	      </row>
+
+	      <row>
+		<entry>État Cookie</entry>
+	        <entry>Obligatoire</entry>
+	        <entry>7</entry>
+	      </row>
+
+	      <row>
+		<entry>Paramètre inconnu</entry>
+	        <entry>Optionnel</entry>
+	        <entry>8</entry>
+	      </row>
+
+	      <row>
+		<entry>Conservateur de cookie</entry>
+	        <entry>Optionnel</entry>
+	        <entry>9</entry>
+	      </row>
+
+	      <row>
+		<entry>Nom adresse de l'hôte</entry>
+	        <entry>Optionnel</entry>
+	        <entry>11</entry>
+	      </row>
+
+	      <row>
+		<entry>Reservé pour ECN</entry>
+	        <entry>Optionnel</entry>
+	        <entry>32768</entry>
+	      </row>
+
+	    </tbody>
+	  </tgroup>
+	</table>
+	
+          <mediaobject xml:id="sctp.chunk.initack.param.statecookieheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-init-ack-param-state-cookie-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+L'état cookie est utilisé dans l'INIT ACK pour envoyer un cookie au
+destinataire, et jusqu'à ce que ce destinataire ait répondu par un bloc 
+COOKIE ECHO, l'association n'est pas garantie. Ceci pour prévenir une
+attaque SYN dans le protocole TCP. 
+	</para>
+
+	<para>
+Type - bit 0-15. Toujours placé à 7 pour tous les paramètres état cookie.
+	</para>
+
+	<para>
+Longueur - bit 16-31. La taille du paramètre complet, y compris le type, la 
+longueur et le champ état cookie en octets.
+	</para>
+
+	<para>
+État Cookie - bit 31-n. Ce paramètre contient un cookie de longueur
+variable. Pour une description voir la <xref linkend="rfc2960" endterm="rfc2960.title"/>. 
+	</para>
+
+      </section>
+     
+      <section xml:id="sctpheadersack">
+	<title xml:id="sctpheader.sack.title">Bloc SCTP SACK</title>
+        <indexterm zone="sctpheadersack">
+          <primary>SCTP</primary>
+          <secondary>SACK</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.sackheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-sack-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc SACK est utilisé pour indiquer à l'expéditeur de blocs DATA quels 
+blocs ont été reçus et à quel endroit il y a eu un trou dans le flux, 
+basé sur les TSN reçus. Le bloc SACK accuse réception qu'il a reçu les 
+données jusqu'à un certain point (paramètre TSN Ack cumulé), et ajoute 
+ensuite des blocs Gap Ack pour toutes les données qu'il a reçues après le 
+point TSN Ack cumulé. Un bloc SACK ne doit pas être envoyé plus d'une fois 
+pour chaque bloc DATA qui est reçu.
+	</para>
+
+	<para>
+Type - bit 0-7. Cet en-tête est toujours placé à 3 pour les blocs SACK.
+	</para>
+
+	<para>
+Bloc fanions - bit 8-15. Non utilisé aujourd'hui. Voir 
+ <xref linkend="sctpheadercommon"/> pour plus d'information.
+	</para>
+
+	<para>
+Bloc longueur - bit 16-31. Le bloc longueur est la longueur du bloc
+complet, y compris tous les en-têtes et tous les paramètres.
+	</para>
+
+	<para>
+TSN Ack cumulé - bit 32-63. C'est le paramètre TSN Ack cumulé qui est
+utilisé pour accuser réception des données. Le destinataire du bloc DATA 
+utilisera ce champ pour indiquer à l'expéditeur qu'il a reçu toutes les données
+jusqu'à cette étape de l'association. Ensuite, toutes les données qui n'ont
+pas été spécifiquement accusées réception par les blocs Gap Ack seront, 
+en gros, considérées comme perdues.
+	</para>
+
+	<para>
+Avertissement de réception de crédit de fenêtre (a_rwnd) - bit 64-95.
+Le champ a_rwnd est le même que le a_rwnd des blocs INIT et INIT ACK,
+mais peut être utilisé pour augmenter ou diminuer la valeur a_rwnd.
+Voir la <xref linkend="rfc2960" endterm="rfc2960.title"/> à ce sujet. 
+        </para>
+
+	<para>
+Nombre de blocs Gap Ack - bit 96-111. Le nombre de Gap Ack listés
+dans ce bloc. Chaque Gap Ack prend plus de 32 bits dans le bloc.
+	</para>
+
+	<para>
+Nombre de TSN dupliqués - bit 112-127. Le nombre de blocs DATA qui ont été
+dupliqués. Chaque TSN dupliqué est listé après les Gap Ack dans le bloc, et
+chaque TSN prend 32 bits.
+	</para>
+
+	<para>
+Gap Ack Block #1 Start - bit 128-143. Premier Gap Ack Block dans le bloc
+SACK. S'il n'y a pas de trous dans les numéros TSN des blocs DATA reçus, 
+il n'y aura pas de Gap Ack Block du tout. Cependant, si les blocs DATA
+sont reçus en désordre ou si certains blocs DATA sont perdus pendant le
+transfert vers le destinataire, il y aura des trous. Ces trous seront
+rapportés par les Gap Ack Block. Le point de démarrage du Gap Ack Block
+est calculé par l'ajout du paramètre Gap Ack Block Start à la valeur
+TSN cumulée. 
+	</para>
+
+	<para>
+Gap Ack Block #1 End - bit 144-159. Cette valeur rapporte la fin du
+premier Gap Ack Block du flux de données. Tous les blocs DATA avec le TSN
+entre le Gap Ack Block Start et le Gap Ack Block End ont été reçues.
+La valeur du Gap Ack Block End est ajoutée au TSN cumulé, comme le 
+paramètre Start, pour obtenir le dernier TSN.
+	</para>
+
+	<para>
+Gap Ack Block #N Start - bits variables. Pour chaque Gap Ack Block
+compté dans le paramètre nombre de Gap Ack Blocks, un Gap Ack Block
+est ajouté, jusqu'au N block final. C'est-à-dire, si le nombre de Gap Ack
+Blocks = 2, il y aura deux Gap Ack Blocks dans le bloc SACK. Il contient
+le même type de valeur que le Gap Ack Block #1 Start.
+	</para>
+
+	<para>
+Gap Ack Block #N End - bits variables. Identique au Gap Ack Block #N Start
+mais pour la fin du Gap.
+	</para>
+
+	<para>
+TSN #1 dupliqué - bits variables. Ce champ rapporte un TSN dupliqué, ce
+qui indique que nous avons déja reçu un bloc spécifique, mais que
+nous recevons de nouveau le même TSN plusieurs fois. Ceci étant dû soit
+à un problème de routeur (qui retransmet des données déja envoyées) soit
+un cas de retransmission de l'expéditeur, ou encore d'autres possibilités.
+Chaque cas de TSN dupliqué devrait être rapporté. Par exemple, si 2 TSN
+dupliqués ont été reçus après le premier accusé-réception, chacun de ces
+TSN dupliqués devrait être envoyé dans le message SACK suivant. Si un TSN
+dupliqué apparaît encore après le second ACK envoyé, les nouveaux TSN
+dupliqués seront ajoutés dans le message ACK suivant, et ainsi de suite.
+	</para>
+
+	<para>
+TSN #X dupliqué - bits variables. C'est le dernier paramètre TSN dupliqué,
+qui contient le même type d'information que le premier paramètre.
+	</para>
+
+      </section>
+      
+      <section xml:id="sctpheadershutdown">
+	<title xml:id="sctpheader.shutdown.title">Bloc SCTP SHUTDOWN</title>
+        <indexterm zone="sctpheadershutdown">
+          <primary>SCTP</primary>
+          <secondary>SHUTDOWN</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.shutdownheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-shutdown-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc SHUTDOWN apparaît quand un des points terminaux d'une connexion
+désire fermer l'association en cours. La partie qui envoie doit vider
+tous ses tampons avant d'expédier le bloc SHUTDOWN, et ne doit pas envoyer
+d'autres blocs DATA ensuite. Le destinataire doit également vider ses
+tampons d'envoi et ensuite expédier le bloc SHUTDOWN ACK correspondant. 
+	</para>
+
+	<para>
+Type - bit 0-7. Cet en-tête est toujours placé à 7 pour les blocs SHUTDOWN.
+	</para>
+
+        <para>
+Bloc fanions - bit 8-15. Non utilisé actuellement.
+Voir <xref linkend="sctpheadercommon"/> pour plus d'information.
+	</para>
+
+	<para>
+Bloc longueur - bit 16-31. Ce bloc est la longueur du paquet complet, incluant
+le paramètre TSN Ack cumulé. La longueur du bloc SHUTDOWN devrait toujours
+être à 8.
+	</para>
+
+	<para>
+TSN Ack cumulé - bit 32-63. C'est le champ TSN Ack cumulé, le même que dans
+le bloc SACK. Le TSN Ack cumulé accuse réception du dernier TSN reçu dans
+la séquence de l'expéditeur. Ce paramètre ne doit pas, comme pour la suite
+du bloc SHUTDOWN, accuser réception des Gap Ack Blocks. L'absence 
+de Gap Ack Block dans le bloc SHUTDOWN qui a été accusé-réception
+précédemment ne doit pas être interprété comme si le bloc accusé-réception 
+précédent était perdu.
+
+	</para>
+      </section>
+
+      <section xml:id="sctpheadershutdownack">
+	<title xml:id="sctpheader.shutdownack.title">Bloc SCTP SHUTDOWN ACK</title>
+        <indexterm zone="sctpheadershutdownack">
+          <primary>SCTP</primary>
+          <secondary>SHUTDOWN ACK</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.shutdownackheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-shutdown-ack-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc SHUTDOWN ACK est utilisé pour accuser réception d'un bloc SHUTDOWN
+reçu. Avant que le bloc SHUTDOWN ACK soit envoyé, toutes les données dans
+les tampons d'envoi doivent être expédiées, les tampons ne doivent plus
+accepter aucune donnée provenant de l'application. SCTP ne supporte pas
+les connexions semi-ouvertes à l'inverse de TCP. 
+	</para>
+
+	<para>
+Type - bit 0-7. Cet en-tête est toujours placé à 8 pour les blocs SHUTDOWN ACK.
+	</para>
+
+	<para>
+Bloc fanions - bit 8-15. Non utilisé actuellement. Voir 
+<xref linkend="sctpheadercommon"/> pour plus d'information.
+	</para>
+
+	<para>
+Bloc longueur - bit 16-31. C'est la longueur du bloc complet. Cette longueur
+du bloc SHUTDOWN ACK devrait toujours être placée à 4.
+	</para>
+
+      </section>
+
+      <section xml:id="sctpheadershutdowncomplete">
+	<title xml:id="sctpheader.shutdowncomplete.title">Bloc SCTP SHUTDOWN COMPLETE</title>
+        <indexterm zone="sctpheadershutdowncomplete">
+          <primary>SCTP</primary>
+          <secondary>SHUTDOWN COMPLETE</secondary>
+        </indexterm>
+
+          <mediaobject xml:id="sctp.chunk.shutdowncompleteheaders">
+            <imageobject>
+              <imagedata fileref="images/sctp-chunk-shutdown-complete-header.png"  format='PNG' width='12cm' contentwidth='11.5cm'/>
+            </imageobject>
+          </mediaobject>
+
+	<para>
+Le bloc SHUTDOWN COMPLETE est envoyé, par l'expéditeur du SHUTDOWN, en réponse
+au bloc SHUTDOWN ACK. Il est expédié pour accuser réception que l'association
+est totalement fermée.
+	</para>
+
+	<para>
+Type - bit 0-7. Toujours placé à 7 pour les blocs SHUTDOWN COMPLETE.
+	</para>
+
+	<para>
+Réservé - bit 8-14. Non utilisé actuellement. Voir
+<xref linkend="sctpheadercommon"/> pour plus d'information.
+	</para>
+
+	<para>
+T-bit - bit 15. Le T-bit n'est pas placé, pour indiquer que l'expéditeur
+a un TCB (Transmission Control Block) associé avec la connexion et qu'il est 
+détruit. Si le T-bit était placé, il n'y aurait pas de TCB à détruire.
+	</para>
+
+	<para>
+Longueur - bit 16-31. Toujours placé à 4 pour les blocs SHUTDOWN COMPLETE,
+car le bloc ne doit jamais être plus long, aussi longtemps que les
+standards l'admettent.
+	</para>
+      </section>
+
+    </section>
+    
+    <section xml:id="tcpipdstdrivenrouting">
+      <title xml:id="tcpipdstdrivenrouting.title">Destination TCP/IP par routage</title>
+      <indexterm zone="tcpipdstdrivenrouting">
+        <primary>TCP/IP routing</primary>
+      </indexterm>
+      <indexterm zone="tcpipdstdrivenrouting">
+        <primary>Routing</primary>
+      </indexterm>
+      <indexterm zone="tcpipdstdrivenrouting">
+        <primary>Advanced routing</primary>
+      </indexterm>
+
+      <para>
+TCP/IP s'est accru en complexité quand il est devenu une partie du routage.
+Au début, la plupart des gens pensaient que la destination donnée par
+le routage était suffisante. Ces dernières années, c'est devenu de plus
+en plus complexe. Aujourd'hui, Linux peut router de façon basique
+chaque champ ou bit dans l'en-tête IP, mais également les en-têtes basés sur
+TCP, UDP ou ICMP. Ceci est appelé gestion de réseau à base de règles, ou
+routage avancé.
+      </para>
+      
+      <para>
+Il ne s'agit ici que d'un survol du routage. Quand nous envoyons un
+paquet depuis un expéditeur, le paquet est créé. Après ça, l'ordinateur
+regarde l'adresse de destination du paquet et la compare à sa table de
+routage. Si l'adresse de destination est locale, le paquet est envoyé
+directement via l'adresse MAC du matériel (Ndt. interface réseau).
+Si le paquet est de l'autre côté de la passerelle il est envoyé via
+l'adresse MAC de la passerelle. Celle-ci regardera alors les en-têtes IP
+et verra l'adresse de destination du paquet. L'adresse de destination
+est consultée dans la table de routage, et le paquet envoyé à la
+passerelle suivante, etc. jusqu'à sa destination finale.
+      </para>
+      
+      <para>
+Comme vous pouvez le voir, ce routage est très basique. Avec le routage
+avancé, et la gestion de réseau à base de règles, ceci devient plus
+complexe. Nous  pouvons router des paquets qui diffèrent dans leur
+adresse source par exemple, ou leur valeur TOS, etc.      
+      </para>
+    </section>
+
+    <section xml:id="tcpiprep.summary">
+      <title xml:id="tcpiprep.summary.title">Prochaine étape</title>
+
+      <para>
+Nous avons vu les points suivants :
+      </para>
+      
+      <itemizedlist mark='opencircle'>
+        <listitem>
+          <para>
+Structure TCP/IP
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Fonctionnalité du protocole IP et en-têtes.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Fonctionnalité du protocole TCP et en-têtes.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Fonctionnalité du protocole UDP et en-têtes.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Fonctionnalité du protocole ICMP et en-têtes.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+Destination TCP/IP par routage.
+          </para>
+        </listitem>
+      </itemizedlist>
+      
+      <para>
+Tout ceci sera revu plus tard quand nous aborderons les tables de règles
+des pare-feux. Toutes ces informations s'imbriquent ensemble, pour permettre
+une meilleure configuration des pare-feux.
+      </para>
+
+    </section>
+
+  </chapter>
+

@@ -1,0 +1,369 @@
+<appendix xml:id="commonproblems">
+<title xml:id="commonproblems.title">Problèmes et questions courants</title>
+<indexterm zone="commonproblems">
+  <primary>Common problems</primary>
+</indexterm>
+<indexterm zone="commonproblems">
+  <primary>Debugging</primary>
+  <secondary>Common problems</secondary>
+</indexterm>
+
+<section xml:id="moduleproblems">
+<title xml:id="moduleproblems.title">Problèmes de chargement des modules</title>
+<indexterm zone="moduleproblems">
+  <primary>Common problems</primary>
+  <secondary>Modules</secondary>
+</indexterm>
+<indexterm zone="moduleproblems">
+  <primary>Debugging</primary>
+  <secondary>Modules</secondary>
+</indexterm>
+
+<para>
+Vous pouvez rencontrer quelques problèmes lors du chargement des modules.
+Par exemple, obtenir des messages indiquant qu'il n'existe pas de module
+de ce nom, etc. Ils peuvent ressembler à ça :
+</para>
+
+<screen width='80'>insmod: iptable_filter: no module by that name found</screen>
+
+   <para>
+Ces modules peuvent avoir été compilés statiquement dans le noyau. C'est
+la première des choses à regarder pour résoudre ce problème. Le moyen le
+plus simple pour vérifier si ces modules sont déjà chargés ou sont
+compilés en statique dans le noyau, est d'essayer une commande qui utilise
+ces fonctionnalités. Dans le cas ci-dessus, nous ne pouvons pas charger
+la table filter. Si cette fonctionnalité n'est pas présente, nous ne pourrons
+pas l'utiliser. Pour le vérifier, faites ceci :
+   </para>
+
+<screen width='80'>
+<command>iptables -t filter -L</command></screen>
+
+   <para>
+Ce qui afficherait soit la liste de toutes les chaînes de la table filtre,
+soit un échec. Si tout est correct, regarder si vous avez des règles
+insérées ou non.
+   </para>
+
+    <screen>Chain INPUT (policy ACCEPT)
+target     prot opt source               destination
+
+Chain FORWARD (policy ACCEPT)
+target     prot opt source               destination
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination</screen>
+
+   <para>
+Si la table filtre n'est pas chargée, vous pouvez obtenir une erreur
+de ce genre :
+   </para>
+
+    <screen width='80'>iptables v1.2.5: can't initialize iptables table `filter': Table \
+     does not exist (do you need to insmod?)
+Perhaps iptables or your kernel needs to be upgraded.</screen>
+
+    <para>
+Ceci est un peu plus sérieux car, en premier lieu, la fonctionnalité n'est
+pas compilée dans le noyau, en second lieu, le module n'est pas trouvé
+dans le chemin normal. Ce qui peut indiquer que soit vous avez oublié
+d'installer les modules, ou vous avez oublié d'exécuter un 
+<command>depmod -a</command> pour mettre à jour la base de données de vos
+modules, soit vous n'avez pas compilé cette fonctionnalité en module ou
+statiquement dans le noyau. Il peut y avoir d'autres raisons pour que le
+module ne soit pas chargé, mais c'est une des principales. La plupart de
+ces problèmes sont aisément solvables. Le premier peut être réglé en faisant 
+un simple <command>make modules_install</command> dans le répertoire source
+du noyau (si le source a déjà été compilé et que les modules sont présents).
+Le second problème est résolu en exécutant <command>depmod -a</command> 
+et en regardant si ça fonctionne ensuite. Le troisième cas est un peu hors
+sujet ici. Vous trouverez plus d'information sur 
+<link linkend="tldp" endterm="tldp.title"></link>.
+   </para>
+
+   <para>
+Une autre erreur qui peut survenir est celle-ci :
+   </para>
+
+   <screen>iptables: No chain/target/match by that name</screen>
+
+   <para>
+Cette erreur nous indique qu'il n'y a pas de chaîne, cible ou correspondance.
+Ceci peut dépendre de beaucoup de facteurs, le plus courant étant que vous
+avez mal nommé la chaîne, cible ou correspondance en question. Également,
+ça peut arriver si vous essayez d'utiliser une correspondance non disponible,
+soit parce que le bon module n'est pas chargé, ou non compilé dans le noyau,
+soit iptables n'arrive pas à charger automatiquement le module. En général, 
+il faut vérifier avec les solutions ci-dessus, mais aussi regarder si
+les cibles sont bien nommées dans vos règles.
+   </para>
+
+  </section>
+
+  <section xml:id="newnotsyn">
+   <title xml:id="newnotsyn.title">Paquets NEW non-SYN</title>
+   <indexterm zone="newnotsyn">
+     <primary>Common problems</primary>
+     <secondary>NEW not SYN</secondary>
+   </indexterm>
+   <indexterm zone="newnotsyn">
+     <primary>Debugging</primary>
+     <secondary>NEW not SYN</secondary>
+   </indexterm>
+
+   <para>
+Il y a certaines <emphasis>fonctionnalités</emphasis> 
+d'<command>iptables</command> qui ne sont pas très bien documentées et qui
+peuvent être laissées de côté par certaines personnes (y compris moi).
+Si vous utilisez l'état <command>NEW</command>, les paquets avec le bit SYN
+non placé traverseront votre pare-feu. Cette fonctionnalité existe car
+dans certains cas nous pouvons considérer qu'un paquet peut faire partie
+d'une connexion déjà <command>ESTABLISHED</command> sur, par exemple, un autre
+pare-feu. Cette fonctionnalité offre la possibilité d'avoir deux ou plusieurs
+pare-feux, et un des pare-feux peut être désactivé sans perte de données.
+Le pare-feu du sous-réseau peut alors être remplacé par un pare-feu
+secondaire. Ceci peut conduire cependant au fait que l'état 
+<command>NEW</command> autorisera toute sorte de connexion TCP, sans se
+soucier si c'est un établissement de liaison à trois voies ou non.
+Pour surveiller ce problème nous ajoutons les règles suivantes à nos pare-feux
+dans les chaînes INPUT, OUTPUT et FORWARD.
+   </para>
+
+<screen width='80'>
+<command>$IPTABLES -A INPUT -p tcp ! --syn -m state --state NEW -j LOG \
+     --log-prefix "New not syn:"
+$IPTABLES -A INPUT -p tcp ! --syn -m state --state NEW -j DROP</command></screen>
+
+   <caution>
+    <para>
+Les règles ci-dessus surveillent ce problème. C'est un comportement
+mal documenté du projet 
+<command>Netfilter</command>/<command>iptables</command> qui devrait être
+mis en avant. 
+    </para>
+   </caution>
+
+
+   <para>
+Notez qu'il existe certains problèmes avec les règles ci-dessus
+et les mauvaises implémentations TCP/IP de Microsoft. Ces règles peuvent
+provoquer dans certaines conditions que des paquets générés par des produits
+Microsoft soient labellisés avec l'état <command>NEW</command> et soient
+journalisés et supprimés. À ma connaissance, ça ne produit cependant pas
+de coupure de connexion. Le problème survient lorsque la connexion est
+fermée, le FIN/ACK final est envoyé, la machine d'état de 
+<command>Netfilter</command> ferme la connexion et n'apparaît plus dans
+la table conntrack. À ce moment l'implémentation Microsoft envoie un autre
+paquet considéré comme <command>NEW</command> mais il manque le bit SYN, il est
+donc examiné par les règles. En d'autres termes, ne vous inquiétez pas trop
+à propos de cette règle, ou alors placez l'option 
+<command>--log-headers</command> dans la règle et journalisez les en-têtes,
+ainsi vous aurez une meilleure vision de ce à quoi ressemble le paquet.
+
+
+   </para>
+
+   <para>
+Il y a un problème plus connu avec ces règles. Si quelqu'un est connecté
+au pare-feu, depuis le LAN, et que vos scripts sont prévus pour s'activer
+lors du lancement d'une connexion PPP. Dans ce cas, quand vous démarrez une
+connexion PPP, la personne connectée depuis le LAN sera plus ou moins
+supprimée. Ceci s'applique seulement quand vous travaillez avec les codes
+nat et conntrack en modules, et que les modules sont chargés et déchargés
+chaque fois que vous lancez le script. Une autre façon de rencontrer ce
+problème est de lancer le script <filename>rc.firewall.txt</filename> par
+une connexion en telnet depuis un hôte non présent sur ce pare-feu. Pour
+l'ajouter simplement, connectez vous en <command>telnet</command> ou autre
+type de connexion. Démarrez la connexion en traçant les modules, ensuite 
+chargez les règles de paquet <command>NEW</command> non-SYN.
+Enfin, le <command>client telnet</command> ou le <command>démon</command> 
+tentera d'envoyer quelque chose. Le code du traçage de connexion ne
+reconnaîtra pas cette connexion comme légale car il n'a pas vu les paquets
+dans aucune direction auparavant, ainsi il n'y aura aucun bit SYN de placé
+car ce n'est pas le premier paquet de la connexion. Ce paquet sera examiné 
+avec les règles, journalisé et ensuite supprimé.
+   </para>
+  </section>
+
+  <section xml:id="synackandnew">
+   <title xml:id="synackandnew.title">SYN/ACK et les paquets NEW</title>
+   <indexterm zone="synackandnew">
+     <primary>Common problems</primary>
+     <secondary>SYN/ACK and NEW</secondary>
+   </indexterm>
+   <indexterm zone="synackandnew">
+     <primary>Debugging</primary>
+     <secondary>SYN/ACK and NEW</secondary>
+   </indexterm>
+   <indexterm zone="synackandnew">
+     <primary>SYN</primary>
+   </indexterm>
+   <indexterm zone="synackandnew">
+     <primary>Spoofing</primary>
+   </indexterm>
+
+   <para>
+Certaines attaques par mystification TCP utilisent une technique appelée
+Sequence Number Prediction. Dans ce type d'attaque, l'attaquant mystifie
+certaines adresses IP d'hôtes, et essaie de prédire la suite de chiffres
+utilisée. 
+   </para>
+
+   <para>
+Regardons un cas typique de mystification TCP (TCP spoofing) par prédiction
+de suite de chiffres. Les joueurs : "l'attaquant" [A], tente d'envoyer des
+paquets à la "victime" [V], prétendant être un "autre hôte" [O].
+   </para>
+
+   <orderedlist>
+<listitem><para>[A] envoie un SYN vers [V] avec l'adresse IP source de [O].</para></listitem>
+<listitem><para>[V] répond à [O] par un SYN/ACK.</para></listitem>
+<listitem><para>donc [O] répondra à un SYN/ACK inconnu par RST et l'attaque
+sera réussie, mais nous supposons que [O] est déconnecté.</para></listitem>
+<listitem><para>[A] peut maintenant parler à [V] en prétendant être [O]
+tant qu'il peut prédire correctement la séquence de chiffres.</para></listitem>
+   </orderedlist>
+
+   <para>
+Tant que nous n'envoyons pas le paquet RST au SYN/ACK inconnu à l'étape 3,
+nous permettons à [V] d'être attaqué, et nous mêmes seront incriminés.
+La courtoisie serait désormais, d'envoyer le RST à [V] de façon correcte.
+Si nous utilisons les règles NEW non-SYN spécifiées dans la table de règles,
+les paquets SYN/ACK seront supprimés. Nous aurons donc les règles suivantes
+dans la chaîne bad_tcp_packets,  juste au-dessus des règles NEW non-SYN :
+   </para>
+
+<screen width='80'>
+<command>iptables -A bad_tcp_packets -p tcp --tcp-flags SYN,ACK SYN,ACK \
+-m state --state NEW -j REJECT --reject-with tcp-reset</command></screen>
+
+   <para>
+Une chance serait que [O] dans ce scenario soit relativement petit, mais
+ces règles seront sûres dans la plupart des cas. Sauf quand vous utilisez
+plusieurs pare-feux redondants qui prennent la suite des paquets ou des flux
+de chacun des autres. Dans ces cas là, certaines connexions peuvent être 
+bloquées, même si elles sont légales. Cette règle peut aussi autoriser 
+certains balayages de port, pour voir ce qui apparaît au niveau de notre 
+pare-feu, mais elle ne pourra pas en dévoiler d'avantage.
+   </para>
+
+  </section>
+
+  <section xml:id="ispwhouseassignedip">
+   <title xml:id="ispwhouseassignedip.title">Fournisseurs d'accès Internet qui utilisent des adresses IP assignées</title>
+   <indexterm zone="ispwhouseassignedip">
+     <primary>Common problems</primary>
+     <secondary>ISP using private IP's</secondary>
+   </indexterm>
+   <indexterm zone="ispwhouseassignedip">
+     <primary>Debugging</primary>
+     <secondary>ISP using private IP's</secondary>
+   </indexterm>
+
+<para>
+J'ai ajouté ceci, car un ami m'a dit quelque chose que j'avais complètement
+oublié. Certains fournisseurs d'accès Internet stupides utilisent des
+adresses IP assignées par l'<emphasis>IANA</emphasis> pour leurs réseaux
+locaux sur lesquels vous vous connectez. Par exemple, le suédois Telia
+utilise ce processus sur ses serveurs DNS, lesquels se servent de la plage
+d'adresses IP 10.x.x.x. Un problème courant que vous pouvez rencontrer lors
+de l'écriture de vos scripts, est que vous n'autorisez pas les connexions
+depuis la plage d'adresses IP 10.x.x.x vers vous-même, à cause des
+possibilités de spoofing. C'est malheureusement un de ces exemples avec
+lesquels vous pouvez avoir des problèmes avec ces règles. Vous pouvez juste
+insérer une règle <command>ACCEPT</command> au-dessus de la section concernant
+le spoofing pour autoriser le trafic depuis ces serveurs DNS, ou désactiver
+cette partie du script. Ça ressemble à ceci :
+   </para>
+
+<screen width='80'>
+<command>/usr/local/sbin/iptables -t nat -I PREROUTING -i eth1 -s \
+     10.0.0.1/32 -j ACCEPT</command></screen>
+
+   <para> 
+Je voudrais prendre un moment pour parler de ces fournisseurs d'accès Internet
+(FAI). Ces plages d'adresses IP ne sont pas destinées pour votre usage à 
+discrétion, du moins à ma connaissance. Pour de gros sites d'entreprises
+c'est plus que d'accord, ou pour votre réseau local, mais vous n'êtes pas
+supposés nous forcer à les utiliser juste par caprice de votre part. 
+Vous êtes de gros FAIs, et si vous ne pouvez pas vous payer 3-4 adresses IP 
+pour vos serveurs DNS, je n'ai pas très confiance en vous.
+   </para>
+
+  </section>
+
+  <section xml:id="lettingdhcprequests">
+   <title xml:id="lettingdhcprequests.title">Laisser les requêtes DHCP traverser iptables</title>
+   <indexterm zone="lettingdhcprequests">
+     <primary>Common problems</primary>
+     <secondary>DHCP</secondary>
+   </indexterm>
+   <indexterm zone="lettingdhcprequests">
+     <primary>Debugging</primary>
+     <secondary>DHCP</secondary>
+   </indexterm>
+
+   <para>
+C'est réellement une tâche facile, une fois que vous savez comment DHCP
+fonctionne, cependant, vous devez prendre des précautions sur ce que vous
+laissez passer ou non. En premier lieu, vous devez savoir que DHCP fonctionne
+sur le protocole UDP. Donc, c'est la première chose à voir. En second lieu,
+vous devez vérifier depuis quelle interface les requêtes sont envoyées et
+reçues. Par exemple, si votre interface eth0 est activée par DHCP, vous 
+n'autoriserez pas les requêtes DHCP sur eth1. Pour rendre la règle un peu
+plus précise, vous n'autoriserez que les ports UDP utilisés par DHCP, qui sont
+les ports 67 et 68. Ce sont les critères que nous choisissons pour 
+sélectionner les paquets, et que nous autorisons.
+   </para>
+
+<screen width='80'>
+<command>$IPTABLES  -I INPUT -i $LAN_IFACE -p udp --dport 67:68 --sport \
+     67:68 -j ACCEPT</command></screen>
+
+   <para>
+Notez que nous autorisons tout le trafic depuis et vers les ports 67 et 68,
+cependant, ce n'est pas un gros problème car nous n'acceptons que les
+requêtes des hôtes établissant la connexion depuis les ports 67 et 68.
+Cette règle peut, bien sûr, être encore plus restrictive, mais elle semble 
+suffisante pour accepter les requêtes DHCP sans ouvrir de larges failles.
+   </para>
+  </section>
+
+  <section xml:id="mircdcc">
+   <title xml:id="mircdcc.title">Problèmes avec le DCC de mIRC</title>
+   <indexterm zone="mircdcc">
+     <primary>Common problems</primary>
+     <secondary>IRC DCC</secondary>
+   </indexterm>
+   <indexterm zone="mircdcc">
+     <primary>Debugging</primary>
+     <secondary>IRC DCC</secondary>
+   </indexterm>
+
+   <para>
+mIRC utilise un réglage spécial qui permet de se connecter à travers un
+pare-feu pour établir une connexion DCC sans que le pare-feu en ait
+connaissance. Si cette option est utilisée avec iptables et en particulier
+avec les modules ip_conntrack_irc et ip_nat_irc, il ne fonctionnera pas.
+Le problème est que mIRC NATe automatiquement les paquets pour vous, et
+quand ces paquets atteignent le pare-feu, celui-ci ne sait pas quoi en faire.
+mIRC ne s'attend pas à ce que le pare-feu soit suffisamment sensible pour
+analyser ceci en expédiant une requête au serveur IRC au sujet de cette
+adresse IP et en envoyant les requêtes DCC avec cette adresse.
+   </para>
+
+   <para>
+Activer l'option de configuration "je suis derrière un pare-feu" et utiliser
+les modules ip_conntrack_irc et ip_nat_irc permettra à Netfilter de créer
+des entrées de logs avec le contenu suivant "Forged DCC send packet".
+   </para>
+
+   <para>
+La solution la plus simple est de désactiver cette option de mIRC et de laisser
+iptables faire le travail. Ce qui veut dire, que vous indiquerez à mIRC 
+qu'il n'est <emphasis>pas</emphasis> derrière un pare-feu.
+   </para>
+  </section>
+
+ </appendix>

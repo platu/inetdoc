@@ -1,0 +1,774 @@
+ <chapter xml:id="howaruleisbuilt">
+  <title xml:id="howaruleisbuilt.title">Création d'une règle</title>
+  <indexterm zone="howaruleisbuilt">
+    <primary>How a rule is built</primary>
+  </indexterm>
+  <indexterm zone="howaruleisbuilt">
+    <primary>Rules</primary>
+  </indexterm>
+ 
+  <para>
+Ce chapitre présentera en détail comment créer vos propres règles. 
+Une règle peut être décrite comme une directive au pare-feu et donc, 
+son comportement au niveau du blocage ou de de l'autorisation des
+différentes connexions et paquets dans une chaîne spécifique. Chaque
+ligne que vous écrirez est insérée dans une chaîne qui sera considérée
+comme une règle. Nous verrons également les modules de base disponibles,
+comment les utiliser, de même que les diverses cibles et la façon de
+créer de nouvelles cibles (i.e., nouvelles sous-chaînes).
+  </para>
+  
+  <para>
+Ce chapitre montrera les lignes de base, comment une règle est créée, 
+comment vous devrez l'écrire de façon à ce qu'elle soit acceptée par le
+programme domaine utilisateur de <command>iptables</command>, les différentes
+tables, de même que les commandes à exécuter. Après ça nous verrons dans 
+le chapitre suivant tous les modules disponibles pour  
+<command>iptables</command>, et en détail chaque type de cible et de saut.
+  </para>
+
+  <section xml:id="basics">
+   <title xml:id="basics.title">Bases de la commande iptables</title>
+    <indexterm zone="basics">
+      <primary>Iptables</primary>
+      <secondary>Basics</secondary>
+    </indexterm>
+    <indexterm zone="basics">
+      <primary>Rules</primary>
+      <secondary>Basics</secondary>
+    </indexterm>
+    <indexterm zone="basics">
+      <primary>Target</primary>
+      <secondary>Basics</secondary>
+    </indexterm>
+    <indexterm zone="basics">
+      <primary>Match</primary>
+      <secondary>Basics</secondary>
+    </indexterm>
+   
+   <para>
+Comme ceci a déjà été evoqué, chaque règle est une ligne lue par le noyau
+pour en déduire ce qu'il convient de faire d'un paquet. Si tous les
+critères - ou les correspondances - sont remplis, on exécute l'instruction
+donnée par la cible - ou le saut. Normalement, on écrit les règles dans une
+syntaxe qui ressemble à celle-ci :
+   </para>
+
+   <para>
+    <cmdsynopsis>
+     <command>iptables</command>
+     <arg>-t <replaceable>table</replaceable></arg>
+     <arg choice='plain'>commande</arg>
+     <arg>correspondance</arg>
+     <arg>cible/saut</arg>
+    </cmdsynopsis>
+   </para>
+
+   <para>
+Rien ne vous oblige à mettre l'instruction de cible en fin de la ligne.
+Toutefois, vous devriez préférer cette syntaxe qui améliore la lisibilité.
+En tout cas, la plupart des règles que vous découvrirez sont écrites de cette
+façon. Ainsi, si vous lisez le script de quelqu'un d'autre, vous reconnaitrez
+très probablement la syntaxe et comprendrez plus facilement la règle.
+   </para>
+
+   <para>
+Si vous voulez utiliser une autre table que la table standard,
+insérer la spécification de table à la place de la mention [table].
+Cependant, il n'est pas indispensable de déclarer explicitement la table à
+utiliser, puisqu'<command>iptables</command> utilise par défaut la table
+<systemitem>filter</systemitem> sur laquelle sont implémentées toutes les
+commandes. Vous n'êtes pas non plus obligé de spécifier la table à cet
+endroit dans la règle. Elle peut tout aussi bien être placée ailleurs dans la
+ligne. Malgré tout, il est plus ou moins habituel de placer la spécification
+de table au début.
+   </para>
+
+   <para>
+Il y a une chose qu'il faut garder à l'esprit : la commande devrait toujours 
+être en première position, ou à la rigueur juste après la spécification 
+de table. 
+La "commande" indique au programme ce qu'il doit faire, par exemple
+insérer une règle, ajouter une règle en fin de chaîne, ou encore supprimer une
+règle. Tout ceci est approfondi ultérieurement.
+   </para>
+
+   <para>
+La correspondance est la partie de la règle qui est envoyée au noyau pour
+identifier la caractéristique particulière du paquet, c'est-à-dire ce qui le
+distingue de tous les autres paquets. On peut donc spécifier l'adresse IP dont
+provient le paquet, de quelle interface réseau, l'adresse IP à atteindre,
+un port, un protocole ou quoi que ce soit d'autre. Il existe un éventail de
+correspondances que l'on peut utiliser et qui seront développées au cours de ce
+chapitre.
+   </para>
+
+   <para>
+Enfin, on trouve la cible du paquet. Si toutes les correspondances sont
+satisfaites pour un paquet, on informe le noyau de l'action à accomplir.
+Par exemple, vous pouvez stipuler au noyau d'envoyer le paquet à une
+autre chaîne créée par vous-même, et qui appartient à cette table. Vous pouvez
+aussi notifier au noyau de supprimer le paquet et de ne faire aucun autre
+traitement, ou encore d'envoyer une réponse particulière à l'expéditeur.
+Comme pour les autres aspects de cette section, la cible est analysée en
+profondeur plus loin dans ce chapitre.
+   </para>
+
+  </section>
+
+  <section xml:id="tables">
+   <title xml:id="tables.title">Les tables</title>
+   <indexterm zone="tables">
+     <primary>Tables</primary>
+   </indexterm>
+   <indexterm zone="tables">
+     <primary>Basics</primary>
+     <secondary>Tables</secondary>
+   </indexterm>
+ 
+   <para>
+L'option <command>-t</command> précise la table à utiliser. Par défaut, il
+s'agit de la table <systemitem>filter</systemitem>. On peut spécifier une des
+tables suivantes avec l'option <command>-t</command>. Remarquez que c'est une
+présentation extrêmement rapide du contenu du chapitre
+<link linkend="traversingoftables" endterm="traversingoftables.title"></link>.
+   </para>
+
+   <indexterm zone="table.tables">
+     <primary>Raw table</primary>
+   </indexterm>
+   <indexterm zone="table.tables">
+     <primary>Basics</primary>
+     <secondary>Raw table</secondary>
+   </indexterm>
+   <indexterm zone="table.tables">
+     <primary>Filter table</primary>
+   </indexterm>
+   <indexterm zone="table.tables">
+     <primary>Basics</primary>
+     <secondary>Filter table</secondary>
+   </indexterm>
+   <indexterm zone="table.tables">
+     <primary>Mangle table</primary>
+   </indexterm>
+   <indexterm zone="table.tables">
+     <primary>Basics</primary>
+     <secondary>Mangle table</secondary>
+   </indexterm>
+   <indexterm zone="table.tables">
+     <primary>Nat table</primary>
+   </indexterm>
+   <indexterm zone="table.tables">
+     <primary>Network address translation (NAT)</primary>
+   </indexterm>
+   <indexterm zone="table.tables">
+     <primary>Basics</primary>
+     <secondary>Nat table</secondary>
+   </indexterm>
+   <table frame='all' xml:id="table.tables">
+    <title xml:id="table.tables.title">Tables</title>
+    <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+    <colspec colwidth='1.5*'/>
+    <colspec colwidth='8*'/>
+      <thead>
+       <row>
+        <entry>Table</entry>
+        <entry>Explication</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry>nat</entry>
+	<entry><para>
+La table <systemitem>nat</systemitem> sert principalement à
+faire de la <systemitem>traduction d'adresse réseau</systemitem>. Les paquets
+soumis au NAT voient leur adresse modifiée, en accord avec les règles
+concernées. Les paquets d'un flux ne traversent cette table qu'une seule fois.
+En effet, le sort du premier paquet d'un flux conditionne celui des autres.
+Si le premier paquet est accepté, les autres paquets du flux sont soumis
+automatiquement au <systemitem>NAT</systemitem> (ou au camouflage, etc.), donc
+subissent les mêmes actions que le premier paquet. Par conséquent, ils ne
+passeront pas par cette table, mais seront néanmoins traités de la même façon 
+que le premier paquet du flux. C'est pour cette raison qu'on déconseille le
+filtrage dans cette table.
+La chaîne <systemitem>PREROUTING</systemitem> permet de modifier les paquets
+dès qu'ils entrent dans le pare-feu. La chaîne
+<systemitem>OUTPUT</systemitem> permet de modifier les paquets générés
+localement (c-à-d. dans le pare-feu) avant qu'ils n'accèdent à la décision
+de routage. En dernier lieu, la chaîne <systemitem>POSTROUTING</systemitem>
+offre la possibilité de modifier les paquets juste avant qu'ils ne quittent
+le pare-feu.
+   </para></entry>
+       </row>
+
+       <row>
+        <entry>mangle</entry>
+        <entry><para>
+Cette table sert à transformer les paquets. Entre autres, on
+peut modifier le contenu de differents paquets et celui de leurs en-têtes.
+Par exemple, on peut changer les champs <command>TTL</command>,
+<command>TOS</command> ou <command>MARK</command>. Notez que le champ
+<command>MARK</command> n'est pas à proprement parlé un changement sur le
+paquet, mais une valeur de marquage définie dans l'espace du noyau.
+D'autres règles ou programmes peuvent s'appuyer sur ce marquage à l'intérieur
+du pare-feu pour filtrer ou opérer un routage évolué, tc en est un
+exemple.
+Cette table est constituée de cinq chaînes pré-définies, qui sont nommées
+<systemitem>PREROUTING</systemitem>, <systemitem>POSTROUTING</systemitem>, 
+<systemitem>OUTPUT</systemitem>, <systemitem>INPUT</systemitem> et 
+<systemitem>FORWARD</systemitem>. La chaîne
+<systemitem>PREROUTING</systemitem> permet de modifier les paquets juste quand
+ils entrent dans le pare-feu mais avant qu'ils n'atteignent la décision de
+routage. La chaîne <systemitem>POSTROUTING</systemitem> permet de modifier
+les paquets juste après toutes les décisions de routage.
+La chaîne <systemitem>OUTPUT</systemitem> s'utilise pour transformer les
+paquets générés localement avant qu'ils ne sollicitent la décision de routage.
+La chaîne <systemitem>INPUT</systemitem> permet de modifier les paquets
+une fois qu'ils ont été routés vers la machine locale, mais avant que
+l'application de l'espace utilisateur n'ait réceptionné les données.
+La chaîne <systemitem>FORWARD</systemitem> permet de modifier les paquets
+après la première décision de routage mais avant la dernière.
+Notez que la table mangle ne peut en aucun cas servir à une forme de
+<systemitem>traduction d'adresse réseau</systemitem> ou de
+<systemitem>camouflage</systemitem>, la table nat a été conçue pour ce genre
+d'opérations.
+	 </para></entry>
+       </row>
+       <row>
+        <entry>filter</entry>
+        <entry><para>
+La table <systemitem>filter</systemitem> devrait être
+exclusivement consacrée à filtrer les paquets. Par exemple, elle permet de
+détruire (<command>DROP</command>), journaliser (<command>LOG</command>),
+accepter (<command>ACCEPT</command>) ou rejeter (<command>REJECT</command>)
+des paquets sans aucun problème, de la même manière que dans les autres
+tables. Cette table est constituée de trois chaînes pré-définies.
+La première se nomme <systemitem>FORWARD</systemitem> et s'applique à tous les
+paquets qui ne sont ni générés localement, ni destinés à l'hôte local (c-à-d.
+le pare-feu). La chaîne <systemitem>INPUT</systemitem> s'applique à tous les
+paquets destinés à l'hôte local (le pare-feu), et au final,
+<systemitem>OUTPUT</systemitem> s'applique à tous les paquets générés
+localement.
+	 </para></entry>
+       </row>
+       <row>
+         <entry>raw</entry>
+	 <entry><para>
+La table raw et ses chaînes sont utilisées avant tout autre table dans
+Netfilter. Elle fût introduite pour utiliser la cible NOTRACK. Cette table
+est plutôt récente et seulement disponible, si compilée, avec les derniers 
+noyaux 2.6. La table raw contient deux chaînes. Les chaînes PREROUTING et
+OUTPUT, qui modifient les paquets avant qu'ils atteignent les autres
+sous-systèmes de Netfilter. La chaîne PREROUTING peut être utilisée pour
+tous les paquets entrants sur la machine, ou qui sont transférés (forward), 
+tandis que la chaîne OUTPUT peut être utilisée pour modifier les paquets
+générés localement avant qu'ils atteignent les autres sous-systèmes de 
+Netfilter.
+	 </para></entry>
+       </row>
+     </tbody>
+     </tgroup>
+    </table>
+
+    <para>
+Les explications précédentes devraient avoir fourni des notions
+fondamentales concernant les trois tables disponibles. Celles-ci s'emploient
+dans des situations complètement différentes, et vous devez
+maîtriser l'utilisation des différentes chaînes qui composent ces tables.
+Si vous ne comprenez pas leur utilisation, vous pourriez créer une faille
+dans votre pare-feu, dans laquelle quelqu'un peut s'engouffrer et vous nuire
+s'il la découvre.
+Les tables et chaînes indispensables ont déjà été présentées en détails dans
+le chapitre <link linkend="traversingoftables"
+endterm="traversingoftables.title"></link>. Si vous ne l'avez pas parfaitement
+assimilé, je vous conseille de vous y replonger.
+   </para>
+
+  </section>
+  
+  <section xml:id="commands">
+    <title xml:id="commands.title">Commandes</title>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Basics</primary>
+      <secondary>Commands</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--append</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--delete</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--replace</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--insert</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--list</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--zero</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--flush</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--new-chain</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--delete-chain</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--policy</secondary>
+    </indexterm>
+    <indexterm zone="commands">
+      <primary>Commands</primary>
+      <secondary>--rename-chain</secondary>
+    </indexterm>
+   
+    <para>
+Cette section expose les différentes commandes et ce qu'elles permettent de
+réaliser. La commande signifie à <command>iptables</command> ce qu'il faut
+faire du reste de la règle qui est envoyée à l'interpréteur. Typiquement, il
+s'agit soit d'ajouter, soit d'effacer quelque-chose dans une table quelconque.
+Les commandes suivantes sont disponibles pour <command>iptables</command> :
+   </para>
+
+   <table frame='all' xml:id="table.commands">
+    <title xml:id="table.commands.title">Commandes</title>
+    <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+     <colspec colwidth='1.5*'/>
+     <colspec colwidth='8*'/>
+
+      <tbody>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-A</command>, <command>--append</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A INPUT ...</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette commande ajoute une règle à la fin d'une chaîne. La
+règle sera donc placée en dernière position dans la table de règles, et par
+conséquent vérifiée en dernier, sauf si vous ajoutez par la suite des règles
+supplémentaires.
+</entry>
+       </row>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-D</command>, <command>--delete</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry>
+          <command>iptables -D INPUT --dport 80 -j DROP</command>,
+          <command>iptables -D INPUT 1</command>
+        </entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette commande supprime une règle dans une chaîne. Il existe
+deux moyens de le faire; soit en précisant la règle complète (comme dans
+le premier exemple), soit en indiquant le numéro de la règle que vous visez.
+Si vous optez pour la première méthode, votre règle doit correspondre
+exactement avec celle présente dans la chaîne. Avec la seconde méthode,
+vous devez pointer le numéro de la règle à effacer. Les règles sont numérotées
+à partir de 1 en commençant au début de chaque chaîne.
+</entry>
+       </row>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-R</command>, <command>--replace</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -R INPUT 1 -s 192.168.0.1 -j
+DROP</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette commande remplace la règle présente à la ligne indiquée.
+Elle fonctionne comme la commande <command>--delete</command>, mais au lieu de
+supprimer complètement la règle, elle la remplace par une nouvelle. Cette
+commande est particulièrement commode dans une phase d'expérimentation
+d'<command>iptables</command>.
+</entry>
+       </row>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-I</command>, <command>--insert</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -I INPUT 1 --dport 80 -j
+ACCEPT</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette commande insère une règle quelque-part dans une chaîne.
+La règle est insérée à l'emplacement donné par le numéro spécifié. En
+l'occurence, l'exemple précédent insère dans la chaîne
+<systemitem>INPUT</systemitem> la règle numéro 1, qui devient ainsi la toute
+première règle de la chaîne.
+</entry>
+       </row>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-L</command>, <command>--list</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -L INPUT</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette commande dresse la liste des entrées de la chaîne donnée.
+Dans l'exemple précédent, on liste toutes les règles de la chaîne
+<systemitem>INPUT</systemitem>. Il est aussi possible de ne spécifier aucune
+chaîne. Dans ce cas, la commande listera toutes les chaînes de la table
+spécifiée (pour spécifier la table, voir la section
+<link linkend="tables" endterm="tables.title"></link>).
+La sortie exacte dépend des autres options envoyées à l'interpréteur, par
+exemple les options <command>-n</command> et <command>-v</command>, etc.
+</entry>
+       </row>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-F</command>, <command>--flush</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -F INPUT</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette commande vide la chaîne donnée de toutes ses règles.
+Elle équivaut à effacer les règles une à une, mais se révèle un peu plus
+rapide. Appelée sans option, cette commande revient à supprimer toutes les
+règles de toutes les chaînes dans la table spécifiée.
+
+</entry>
+       </row>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-Z</command>, <command>--zero</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -Z INPUT</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette commande permet de mettre à zéro tous les compteurs dans
+une chaîne spécifique ou dans toutes les chaînes. Si vous utilisez l'option
+<command>-v</command> avec la commande <command>-L</command>, vous afficherez
+le compteur de paquets au début de chaque champ. Pour mettre à zéro le
+compteur de paquets, utilisez l'option <command>-Z</command>. Elle fonctionne
+de la même façon que <command>-L</command>, sauf que <command>-Z</command> 
+ne liste pas les règles. Si <command>-L</command> et <command>-Z</command>
+sont utilisées ensemble (ce qui est autorisé), les chaînes sont dans un
+premier temps listées, puis les compteurs de paquets sont mis à zéro.
+</entry>
+       </row>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-N</command>, <command>--new-chain</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -N allowed</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette commande stipule au noyau de créer une nouvelle chaîne
+avec le nom indiqué dans la table spécifiée. Dans l'exemple ci-dessus, on crée
+une chaîne nommée <command>allowed</command>. Notez qu'aucune chaîne ou cible
+de ce nom ne doit préalablement exister.
+</entry>
+       </row>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-X</command>, 
+<command>--delete-chain</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -X allowed</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette commande efface de la table la chaîne spécifiée. Pour
+que cette commande fonctionne, il ne doit subsister aucune règle faisant
+référence à la chaîne à effacer. Autrement dit, vous devez remplacer ou
+supprimer toutes les règles qui pourraient se référer à la chaîne concernée
+avant de pouvoir l'effacer. Appelée sans option, cette commande efface
+toutes les chaînes de la table spécifiée, exceptées les chaînes pré-définies.
+</entry>
+       </row>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-P</command>, <command>--policy</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -P INPUT DROP</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette commande indique au noyau de configurer une cible par
+défaut - ou une stratégie - sur une chaîne. Ceci conditionne le comportement
+par défaut de la chaîne. Les paquets qui n'établissent de correspondance
+avec aucune règle sont contraintes de suivre la stratégie de la chaîne. Les
+seules cibles autorisées sont <command>DROP</command> et <command>ACCEPT</command> (il pourrait y en avoir d'autres, écrivez-moi si c'était le cas).
+</entry>
+       </row>
+       <row>
+        <entry>Commande</entry>
+        <entry><command>-E</command>, 
+<command>--rename-chain</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -E allowed disallowed</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+La commande <command>-E</command> stipule à
+<command>iptables</command> de modifier le nom d'une chaîne du premier nom
+vers le second. Dans l'exemple fourni, on change le nom de la chaîne 
+<varname>allowed</varname> en <varname>disallowed</varname>. Remarquez que
+ceci n'affecte en rien le fonctionnement actuel de la table. C'est juste une
+modification cosmétique du contenu de la table.
+</entry>
+       </row>
+     </tbody>
+     </tgroup>
+    </table>
+
+    <para>
+Chaque ligne de commande doit être saisie entièrement, sauf si vous
+souhaitez seulement bénéficier de l'aide en ligne d'<command>iptables</command>
+ou obtenir la version de la commande. Utilisez l'option <command>-v</command>
+pour afficher la version, et <command>-h</command> pour visualiser l'aide.
+Ci-dessous sont présentées quelques options utilisables avec des commandes
+diverses. On décrit l'effet des options et les commandes qu'elles
+concernent. Notez que les options incluses ici n'affectent ni les règles,
+ni les correspondances. Néanmoins, les correspondances et les cibles sont
+examinées dans une section ultérieure de ce chapitre.
+    </para>
+
+    <indexterm zone="table.options">
+      <primary>Options</primary>
+      <secondary>--verbose</secondary>
+    </indexterm>
+    <indexterm zone="table.options">
+      <primary>Options</primary>
+      <secondary>--exact</secondary>
+    </indexterm>
+    <indexterm zone="table.options">
+      <primary>Options</primary>
+      <secondary>--numeric</secondary>
+    </indexterm>
+    <indexterm zone="table.options">
+      <primary>Options</primary>
+      <secondary>--line-numbers</secondary>
+    </indexterm>
+    <indexterm zone="table.options">
+      <primary>Options</primary>
+      <secondary>--set-counters</secondary>
+    </indexterm>
+    <indexterm zone="table.options">
+      <primary>Options</primary>
+      <secondary>--modprobe</secondary>
+    </indexterm>
+    <table frame='all' xml:id="table.options">
+     <title xml:id="table.options.title">Options</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+       <row>
+        <entry>Option</entry>
+        <entry><command>-v</command>, <command>--verbose</command></entry>
+       </row>
+       <row>
+        <entry>Commandes comptatibles</entry>
+        <entry><command>--list</command>, <command>--append</command>,
+<command>--insert</command>, <command>--delete</command>,
+<command>--replace</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette option correspond au mode verbeux qui délivre un
+affichage détaillé. Elle est surtout utilisée avec la commande
+<command>--list</command> ; dans ce cas, elle affiche l'adresse
+de l'interface, les options des règles et les masques de TOS. Elle inclut
+également un compteur d'octets et de paquets pour chaque règle.
+Ces compteurs intègrent les suffixes multiplicateurs K (x1000), M (x1.000.000)
+et G (x1.000.000.000). Vous pouvez suspendre ce mode et obtenir les valeurs
+exactes avec l'option <command>-x</command>, décrite plus loin.
+Quand l'option <command>--verbose</command> est utilisée avec une des
+commandes <command>--append</command>, <command>--insert</command>,
+<command>--delete</command> ou <command>--replace</command>, le programme
+fournit des informations détaillées sur la façon dont la règle est
+interprétée, si elle est insérée correctement, etc.
+</entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>-x</command>, <command>--exact</command></entry>
+       </row>
+       <row>
+        <entry>Commandes compatibles</entry>
+        <entry><command>--list</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette option affine les valeurs numériques. En d'autres
+termes, la commande <command>--list</command> n'affiche plus les suffixes
+multiplicateurs K, M ou G. A la place, elle délivre les valeurs exactes des
+compteurs donnant le nombre de paquets et d'octets qui ont correspondu à
+chaque règle. Notez que cette option ne fonctionnne qu'avec la commande
+<command>--list</command>, et qu'elle n'est applicable avec aucune autre
+commande.
+</entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>-n</command>, <command>--numeric</command></entry>
+       </row>
+       <row>
+        <entry>Commandes compatibles</entry>
+        <entry><command>--list</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette option indique à <command>iptables</command> de sortir
+les informations en format numérique. Les adresses IP et numéros de port sont 
+affichés sous forme de valeurs numériques au lieu des noms d'hôtes, de 
+réseaux ou d'applications. Cette option s'applique seulement à la commande
+<command>--list</command>. Elle se substitue au comportement par défaut qui
+tente de résoudre toutes les valeurs numériques en noms d'hôtes ou de
+services dès que c'est possible.
+</entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--line-numbers</command></entry>
+       </row>
+       <row>
+        <entry>Commandes compatibles</entry>
+        <entry><command>--list</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--line-numbers</command> associée à
+la commande <command>--list</command> permet d'afficher aussi les numéros de
+ligne. Avec cette option, chaque règle est donc affichée avec son numéro, ce
+qui s'avère pratique pour identifier les règles et leur numéro avant
+d'insérer d'autres règles. Cette option ne fonctionne qu'avec la commande
+<command>--list</command>.
+</entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>-c</command>, 
+<command>--set-counters</command></entry>
+       </row>
+       <row>
+        <entry>Commandes compatibles</entry>
+        <entry><command>--insert</command>, <command>--append</command>,
+<command>--replace</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette option est utile lors d'une création de règle ou de
+certaines modifications. Elle permet d'initialiser les compteurs de
+paquets et d'octets pour une règle. La syntaxe ressemble à
+<command>--set-counters 20 4000</command>, ce qui stipule au noyau de mettre
+le compteur de paquets à 20 et le compteur d'octets à 4000.
+</entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--modprobe</command></entry>
+       </row>
+       <row>
+        <entry>Commandes compatibles</entry>
+        <entry>Toutes</entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--modprobe</command> permet de préciser
+à <command>iptables</command> quel module utiliser lorsqu'il détecte les
+modules ou qu'il cherche à en ajouter au noyau. Elle est aussi pratique si
+la commande <command>modprobe</command> n'est pas accessible par défaut
+sur votre système.
+Dans certains cas, spécifier cette option est nécessaire pour que le
+programme sache quoi faire lorsqu'un module utile n'est pas chargé. Elle
+est utilisable avec toutes les commandes.
+</entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+  </section>
+
+  <section>
+    <title>Chapitre suivant</title>
+
+    <para>
+Le chapitre suivant traitera des correspondances disponibles dans
+Iptables et Netfilter. C'est un chapitre assez long et lourd. Je vous
+suggère humblement de ne pas apprendre tout dans le détail, sauf les
+parties que vous allez utiliser.
+    </para>
+
+  </section>
+  
+</chapter>
+

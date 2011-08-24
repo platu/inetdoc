@@ -2,36 +2,28 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
+ABSTRACT_FILE = xhtml_output/abstract.xml
+
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
-	autodoc
-
-#	lartc				\
-	rnis				\
-	iptables-tutorial		\
-	zebra.statique			\
-	zebra.rip			\
-	zebra.ospf
+	autodoc \
+	lartc \
+	zebra.statique \
+	zebra.rip \
+	zebra.ospf \
+	iptables-tutorial
 
 # Type(s) de traitement
-PROCESS = subdirs xml2xhtml
+PROCESS = subdirs xml2xhtml xml2pdf
 
 FILES = Advanced-routing-Howto
 
 XML_FILES = \
-	biblio.xml
-
-#	guides.biblio.xml \
-	lartc/status.xml \
-	lartc/abstract.xml \
-	rnis/status.xml \
-	rnis/abstract.xml \
-	zebra.statique/status.xml \
-	zebra.statique/abstract.xml \
-	zebra.ospf/status.xml \
-	zebra.ospf/abstract.xml \
-	zebra.rip/status.xml \
-	zebra.rip/abstract.xml \
+	biblio-guides.xml \
+	lartc/$(ABSTRACT_FILE) \
+	zebra.statique/$(ABSTRACT_FILE) \
+	zebra.rip/$(ABSTRACT_FILE) \
+	zebra.ospf/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 

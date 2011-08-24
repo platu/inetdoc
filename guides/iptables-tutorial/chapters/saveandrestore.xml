@@ -1,0 +1,406 @@
+ <chapter xml:id="saveandrestore">
+  <title xml:id="saveandrestore.title">Sauvegarde et restauration des tables
+de règles importantes</title>
+  <indexterm zone="saveandrestore">
+    <primary>iptables-save</primary>
+  </indexterm>
+  <indexterm zone="saveandrestore">
+    <primary>Basics</primary>
+    <secondary>iptables-save</secondary>
+  </indexterm>
+  <indexterm zone="saveandrestore">
+    <primary>iptables-restore</primary>
+  </indexterm>
+  <indexterm zone="saveandrestore">
+    <primary>Basics</primary>
+    <secondary>iptables-restore</secondary>
+  </indexterm>
+  <indexterm zone="saveandrestore">
+    <primary>Saving rulesets</primary>
+  </indexterm>
+  <indexterm zone="saveandrestore">
+    <primary>Restoring rulesets</primary>
+  </indexterm>
+ 
+  <para>
+Le paquetage <command>iptables</command> est fourni avec deux outils très
+utiles, spécialement si vous utilisez des tables de règles importantes.
+Ces deux outils sont appelés <command>iptables-save</command> et
+<command>iptables-restore</command> et sont utilisés pour la sauvegarde
+et la restauration des tables de règles dans un format spécifique qui
+semble un peu différent du code shell standard que nous avons vu dans
+ce didacticiel.
+  </para>
+
+  <tip>
+   <para>
+iptables-restore peut être utilisé en conjonction avec des langages
+de script. Le gros problème est que vous devrez envoyer les résultats dans
+le stdin de iptables-restore. Si vous avez créé une très grosse table de
+règles (plusieurs milliers de règles) ce peut être une bonne idée, car il est
+plus rapide d'insérer toutes les nouvelles règles. Par exemple, vous pourrez 
+exécuter make_rules.sh | iptables-restore.
+   </para>
+  </tip>
+
+  <section xml:id="speedconsiderations">
+   <title xml:id="speedconsiderations.title">Considérations de vitesse</title>
+   <indexterm zone="speedconsiderations">
+     <primary>Speed considerations</primary>
+   </indexterm>
+   <indexterm zone="speedconsiderations">
+     <primary>Basics</primary>
+     <secondary>Speed considerations</secondary>
+   </indexterm>
+   <indexterm zone="speedconsiderations">
+     <primary>iptables-restore</primary>
+     <secondary>Speed considerations</secondary>
+   </indexterm>
+   <indexterm zone="speedconsiderations">
+     <primary>iptables-save</primary>
+     <secondary>Speed considerations</secondary>
+   </indexterm>
+
+   <para>
+Une des principales raisons d'utiliser <command>iptables-save</command> 
+et <command>iptables-restore</command> est qu'elles améliorent la vitesse
+de chargement et de restauration des tables de règles importantes.
+Le problème principal lors du lancement de scripts shell contenant des règles
+<command>iptables</command> est que chaque invocation 
+d'<command>iptables</command> dans le script extraira l'ensemble des règles 
+de l'espace Netfilter du noyau, et après cela, inserrera les règles, ou toute
+autre action en réponse à la commande spécifique. Enfin, ajoutera les
+nouvelles règles issues de sa propre mémoire dans l'espace noyau.
+L'utilisation d'un script shell, créé pour chacune des règles que vous
+voulez insérer, prend plus de temps pour l'extraction et l'insertion
+de la table de règles.
+   </para>
+
+   <para>
+Pour résoudre ce problème, il existe les commandes 
+<command>iptables-save</command> et
+<command>restore</command>. La commande <command>iptables-save</command> 
+est utilisée pour sauvegarder la table de règles dans un fichier texte
+au format spécial, et la commande <command>iptables-restore</command> est
+utilisée pour charger ce fichier à nouveau dans le noyau.
+Le plus intéressant de ces commandes est qu'elles chargent et sauvegardent
+la table de règles en une seule action.
+<command>iptables-save</command> récupérera la table de règles du noyau
+et la sauvegardera dans un fichier en une seule action.
+<command>iptables-restore</command> enverra la table de règles au noyau 
+en une seule action pour chaque table. En d'autres termes, au lieu d'effacer
+la table de règles du noyau quelques 30 000 fois, ce qui arrive pour les
+tables de règles importantes, et ensuite la renvoyer au noyau, nous pouvons
+maintenant sauvegarder cet ensemble dans un fichier en une ou deux actions.
+   </para>
+
+   <para>
+Comme vous pouvez le comprendre, ces outils sont définitivement faits
+pour vous si vous utilisez un vaste ensemble de règles. Cependant, elles
+ont des inconvénients, comme nous le verrons dans la section suivante.
+   </para>
+
+  </section>
+
+  <section xml:id="drawbackswithrestore">
+   <title xml:id="drawbackswithrestore.title">Inconvénients avec restore</title>
+   <indexterm zone="drawbackswithrestore">
+     <primary>Drawbacks with iptables-restore</primary>
+   </indexterm>
+   <indexterm zone="drawbackswithrestore">
+     <primary>Basics</primary>
+     <secondary>Drawbacks with restore</secondary>
+   </indexterm>
+   <indexterm zone="drawbackswithrestore">
+     <primary>iptables-restore</primary>
+     <secondary>drawbacks</secondary>
+   </indexterm>
+   <indexterm zone="drawbackswithrestore">
+     <primary>iptables-save</primary>
+     <secondary>drawbacks</secondary>
+   </indexterm>
+
+   <para>
+Comme vous avez pû vous en étonner, <command>iptables-restore</command> 
+fonctionne-t-il avec toutes sortes de scripts ? De loin, non, il ne pourra
+probablement jamais le faire. C'est le principal défaut d'
+<command>iptables-restore</command> car il n'est pas capable de faire
+beaucoup de choses avec ces fichiers. Par exemple, si vous avez une
+connexion qui utilise une IP dynamique et que vous voulez récupérer cette IP
+à chaque démarrage de la machine et ensuite insérer cette valeur dans
+vos scripts ? Avec <command>iptables-restore</command>, c'est plus ou moins
+impossible.
+   </para>
+
+   <para>
+Une possibilté pour faire ceci est de créer un petit script qui récupère
+les valeurs que vous voulez utiliser, ensuite faire un sed du fichier 
+<command>iptables-restore</command> pour ces mots-clé spécifiques et
+les remplacer avec les valeurs collectées via le petit script.
+À ce point, vous pouvez les sauvegarder dans un fichier temporaire, et
+ensuite utiliser <command>iptables-restore</command> pour charger ces
+nouvelles valeurs. Ceci provoque cependant certains problèmes, et vous
+serez incapables de vous servir de <command>iptables-save</command> 
+correctement car il effacera probablement vos mots-clé ajoutés à la main
+dans le script de restauration. C'est une solution maladroite.
+   </para>
+
+   <para>
+Une autre solution est de charger les scripts
+ <command>iptables-restore</command> en premier, et ensuite charger les
+scripts qui insèrent les règles plus dynamiques à leur place. Bien sûr,
+comme vous pouvez le comprendre, c'est juste une reprise maladroite de 
+la première solution. <command>iptables-restore</command> n'est tout simplement
+pas très bien adapté pour les configurations dans lesquelles les adresses
+IP sont assignées dynamiquement.
+   </para>
+
+   <para>
+Un autre inconvénient avec <command>iptables-restore</command> et 
+<command>iptables-save</command> est qu'il ne sont pas aussi complètement
+fonctionnels que si vous faites un script. Le problème est simplement que pas
+beaucoup de personnes l'utilisent et donc qu'il n'y a pas énormément
+de rapports de bugs. Même si ces problèmes existent, je vous recommande
+fortement d'utiliser ces outils qui fonctionnent très bien pour la plupart 
+des tables de règles tant qu'elles ne contiennent pas certains nouveaux
+modules ou cibles qu'ils ne savent pas gérer correctement.
+   </para>
+
+  </section>
+
+  <section xml:id="iptables-save">
+   <title xml:id="iptables-save.title">iptables-save</title>
+   <indexterm zone="iptables-save">
+     <primary>iptables-save</primary>
+   </indexterm>
+
+   <para>
+La commande <command>iptables-save</command> est, comme nous l'avons déjà
+expliqué, un outil pour sauvegarder dans la table de règles un fichier que
+<command>iptables-restore</command> peut utiliser. Cette commande est tout 
+à fait simple, et prend seulement deux arguments. Regardons l'exemple
+suivant pour comprendre la syntaxe :
+   </para>
+
+    <cmdsynopsis>
+     <command>iptables-save</command>
+     <arg choice="opt">-c</arg>
+     <arg choice="opt">-t <replaceable>table</replaceable></arg>
+    </cmdsynopsis>
+
+   <para>
+L'argument <command>-c</command> indique à <command>iptables-save</command> 
+de conserver les valeurs spécifiées dans les compteurs de bits et de paquets.
+Ce qui pourrait être utile si vous voulez redémarrer votre pare-feu
+principal, mais sans perdre les compteurs de bits et de paquets que nous
+pourrions utiliser dans un but de statistiques. Exécuter une commande 
+<command>iptables-save</command> avec l'argument <command>-c</command> 
+nous permet de redémarrer sans briser les routines de statistique et
+de comptage. La valeur par défaut est, bien sûr, de ne pas garder les
+compteurs intacts quand cette commande est exécutée.
+   </para>
+
+   <para>
+L'argument <command>-t</command> indique à la commande 
+<command>iptables-save</command> quelle table sauvegarder. Sans cet
+argument toutes les tables disponibles dans le fichier seront automatiquement
+sauvegardées. Ci-dessous, un exemple de ce que donne une commande 
+<command>iptables-save</command> sans avoir chargé de table de règles.
+   </para>
+
+<programlisting># Generated by iptables-save v1.2.6a on Wed Apr 24 10:19:17 2002
+*filter
+:INPUT ACCEPT [404:19766]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [530:43376]
+COMMIT
+# Completed on Wed Apr 24 10:19:17 2002
+# Generated by iptables-save v1.2.6a on Wed Apr 24 10:19:17 2002
+*mangle
+:PREROUTING ACCEPT [451:22060]
+:INPUT ACCEPT [451:22060]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [594:47151]
+:POSTROUTING ACCEPT [594:47151]
+COMMIT
+# Completed on Wed Apr 24 10:19:17 2002
+# Generated by iptables-save v1.2.6a on Wed Apr 24 10:19:17 2002
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [3:450]
+:OUTPUT ACCEPT [3:450]
+COMMIT
+# Completed on Wed Apr 24 10:19:17 2002
+</programlisting>
+
+   <para>
+Les commentaires débutent avec la signe #. Chaque table est marquée par 
+*&lt;table-name&gt;, par exemple, <computeroutput>*mangle</computeroutput>. 
+Dans chaque table nous avons les spécifications de chaînes et les règles.
+Une spécification de chaîne ressemble à :
+&lt;chain-name&gt; &lt;chain-policy&gt; 
+[&lt;packet-counter&gt;:&lt;byte-counter&gt;]. Le   
+<computeroutput>chain-name</computeroutput> peut être, par exemple, 
+<systemitem>PREROUTING</systemitem>, la règle d'action est décrite avant
+et peut être, par exemple, <systemitem>ACCEPT</systemitem>. Enfin les
+compteurs d'octets et de paquets sont les mêmes que dans la sortie de la
+commande <command>iptables -L -v</command>. Chaque déclaration de table
+se termine avec un mot-clé <computeroutput>COMMIT</computeroutput>.
+Le mot-clé <computeroutput>COMMIT</computeroutput> indique qu'à ce niveau
+toutes les règles seront envoyées au noyau par l'opérateur de transfert 
+de données.
+   </para>
+
+   <indexterm zone="saveandrestore.iptsave">
+     <primary>Example scripts</primary>
+     <secondary>iptsave-ruleset.txt</secondary>
+   </indexterm>
+   <para xml:id="saveandrestore.iptsave">
+L'exemple ci-dessus est tout à fait basique, et je crois qu'il est
+approprié de montrer un bref exemple qui contient un petit <link
+linkend="iptsave-ruleset" endterm="iptsave-ruleset.title"></link>. 
+Si nous voulons lancer <command>iptables-save</command> sur celui-ci,
+la sortie de la commande sera :
+   </para>
+
+<programlisting># Generated by iptables-save v1.2.6a on Wed Apr 24 10:19:55 2002
+*filter
+:INPUT DROP [1:229]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT 
+-A FORWARD -i eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT 
+-A FORWARD -i eth1 -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT 
+-A OUTPUT -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT 
+COMMIT
+# Completed on Wed Apr 24 10:19:55 2002
+# Generated by iptables-save v1.2.6a on Wed Apr 24 10:19:55 2002
+*mangle
+:PREROUTING ACCEPT [658:32445]
+:INPUT ACCEPT [658:32445]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [891:68234]
+:POSTROUTING ACCEPT [891:68234]
+COMMIT
+# Completed on Wed Apr 24 10:19:55 2002
+# Generated by iptables-save v1.2.6a on Wed Apr 24 10:19:55 2002
+*nat
+:PREROUTING ACCEPT [1:229]
+:POSTROUTING ACCEPT [3:450]
+:OUTPUT ACCEPT [3:450]
+-A POSTROUTING -o eth0 -j SNAT --to-source 195.233.192.1 
+COMMIT
+# Completed on Wed Apr 24 10:19:55 2002
+</programlisting>
+
+   <para>
+Comme on peut le voir, chaque commande a été préfixée avec les
+compteurs d'octets et de paquets car nous avons utilisé l'argument 
+<command>-c</command>. Excepté pour ceci, la ligne de commande est tout
+à fait identique au script. Le seul problème, est de savoir comment sauvegarder
+la sortie dans un fichier. Vraiment simple, et vous devriez savoir le faire
+si vous avez utilisé Linux auparavant. Il suffit d'utiliser un "pipe" 
+(canal de communication) pour enregistrer la sortie de la commande
+dans le fichier. Ça ressemblera à cela :
+   </para>
+
+   <para>
+    <command>iptables-save -c > /etc/iptables-save</command>
+   </para>
+
+   <para>
+La commande ci-dessus fera une sauvegarde de toute la table de règles
+appelée <filename>/etc/iptables-save</filename> avec les compteurs d'octets
+et de paquets toujours intacts.
+   </para>
+
+  </section>
+
+  <section xml:id="iptables-restore">
+   <title xml:id="iptables-restore.title">iptables-restore</title>
+   <indexterm zone="iptables-restore">
+     <primary>iptables-restore</primary>
+   </indexterm>
+   <indexterm zone="iptables-restore">
+     <primary>Basics</primary>
+     <secondary>iptables-restore</secondary>
+   </indexterm>
+
+   <para>
+La commande <command>iptables-restore</command> est exécutée pour restaurer
+la table de règles de <command>iptables</command> qui a été sauvegardée par
+la commande <command>iptables-save</command>. Elle prend toutes les
+entrées standard mais ne peut faire de restauration depuis un fichier
+de règles écrit à la main (script), malheureusement. La syntaxe de 
+cette commande :
+   </para>
+
+   <para>
+    <cmdsynopsis>
+     <command>iptables-restore</command>
+     <arg choice="opt">-c</arg>
+     <arg choice="opt">-n</arg>
+    </cmdsynopsis>
+   </para>
+
+   <para>
+L'argument <command>-c</command> restaure les compteurs d'octets et de
+paquets et doit être utilisé si vous voulez garder les compteurs
+précédemment enregistrés avec <command>iptables-save</command>. Cet argument
+peut aussi s'écrire avec sa forme de nom long <command>--counters</command>.
+   </para>
+
+   <para>
+L'argument <command>-n</command> indique à <command>iptables-restore</command> 
+de ne pas écraser les règles précédemment écrites dans la table,
+ou les tables. Le comportement par défaut de 
+<command>iptables-restore</command> est d'effacer et supprimer toutes
+les règles inscrites auparavant. L'argument court <command>-n</command> 
+peut être remplacé par son format long <command>--noflush</command>.
+   </para>
+
+   <para>
+Pour charger une table de règles avec la commande 
+<command>iptables-restore</command>, il existe plusieurs solutions,
+mais nous ne verrons que la plus simple et la plus commune :
+   </para>
+
+<screen width='80'>
+<command>cat /etc/iptables-save | iptables-restore -c</command></screen>
+   
+   <para>
+Ceci fonctionnera également :
+   </para>
+   
+<screen width='80'>
+<command>iptables-restore -c &lt; /etc/iptables-save</command></screen>
+
+   <para>
+Ceci concaténera la table de règles située dans le fichier 
+<filename>/etc/iptables-save</filename> et ensuite l'enverra vers 
+<command>iptables-restore</command> qui récupérera cette table de règles
+sur l'entrée standard et la restaurera, en incluant les compteurs d'octets
+et de paquets. Cette commande peut varier à l'infini et nous pourrions
+montrer les diverses possibilités de "piping", cependant, c'est un peu
+hors du sujet de ce chapitre, et nous laisserons ceci comme exercice
+pour le lecteur.
+   </para>
+
+   <para>
+La table de règles devrait maintenant être chargée correctement dans
+le noyau et fonctionnelle. Sinon, vous avez peut être fait une erreur
+dans ces commandes.
+   </para>
+  </section>
+
+  <section>
+    <title>Prochain chapitre</title>
+
+    <para>
+Le prochain chapitre sera consacré à la syntaxe des règles iptables
+et comment écrire proprement des tables de règles. Il montrera également
+certains styles de codage de base.
+    </para>
+  </section>
+
+ </chapter>

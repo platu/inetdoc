@@ -1,0 +1,1357 @@
+ <chapter xml:id="rcfirewallfile">
+  <title xml:id="rcfirewallfile.title">Fichier rc.firewall</title>
+  <indexterm zone="rcfirewallfile">
+    <primary>rc.firewall explanation</primary>
+  </indexterm>
+  <indexterm zone="rcfirewallfile">
+    <primary>Example scripts</primary>
+    <secondary>rc.firewall.txt</secondary>
+  </indexterm>
+
+  <para>
+Ce chapitre présente un exemple de configuration de pare-feu et un fichier
+script. Nous avons utilisé une des configurations de base et regardé
+comment ça fonctionne et ce que nous pouvons faire avec. Ceci vous 
+donnera une idée de comment résoudre les différents problèmes. Il peut être
+utilisé tel quel en changeant les variables, mais je ne le vous conseille pas
+car il peut ne pas fonctionner avec la configuration de votre réseau.
+  </para>
+
+  <note>
+   <para>
+Notez qu'il y a des moyens plus efficaces de configurer des tables de règles,
+cependant, le script a été écrit pour plus de lisibilité sans devoir
+connaître en détail la syntaxe du Bash.
+    </para>
+  </note>
+
+  <section xml:id="examplercfirewall">
+   <title xml:id="examplercfirewall.title">exemple de rc.firewall</title>
+   <indexterm zone="examplercfirewall">
+     <primary>Example scripts</primary>
+     <secondary>Structure</secondary>
+   </indexterm>
+   <indexterm zone="examplercfirewall">
+     <primary>Example scripts</primary>
+     <secondary>Structure</secondary>
+     <seealso>Example structure</seealso>
+   </indexterm>
+ 
+   <para>
+Cet exemple <xref linkend="rcfirewalltxt"/> (également inclu dans <xref
+linkend="examplecode"/>) est assez important mais n'a pas beaucoup de
+commentaires. Au lieu de regarder les commentaires, je suggère que vous lisiez
+le script pour voir à quoi il ressemble, et ensuite revenir ici pour le
+détailler.
+   </para>
+
+  </section>
+
+  <section xml:id="explanationofrcfirewall">
+   <title xml:id="explanationofrcfirewall.title">Explication du rc.firewall</title>
+
+   <section xml:id="configoptions">
+    <title xml:id="configoptions.title">Options de configuration</title>
+    <indexterm zone="configoptions">
+      <primary>Example structure</primary>
+      <secondary>Configuration</secondary>
+    </indexterm>
+    <indexterm zone="configoptions">
+      <primary>$INET_IP</primary>
+    </indexterm>
+    <indexterm zone="configoptions">
+      <primary>Interface</primary>
+    </indexterm>
+    <indexterm zone="configoptions">
+      <primary>LAN</primary>
+    </indexterm>
+    <indexterm zone="configoptions">
+      <primary>DHCP</primary>
+    </indexterm>
+    <indexterm zone="configoptions">
+      <primary>PPPoE</primary>
+    </indexterm>
+ 
+    <para>
+La première section de l'exemple 
+<xref linkend="rcfirewalltxt"/> est
+la section de configuration. Elle devra toujours être modifiée car elle
+contient des informations vitales pour votre configuration. Par exemple, 
+votre adresse IP changera. Le <command>$INET_IP</command> devra toujours
+être une adresse IP totalement valide, si vous en avez une (sinon regardez
+de plus près le <xref linkend="rcDHCPfirewalltxt"/>).
+Également, la variable <command>$INET_IFACE</command> devra pointer vers
+le matériel utilisé pour votre connexion Internet. Ce peut être eth0, eth1, 
+ppp0, tr0, etc., pour citer quelques noms d'interfaces.
+    </para>
+
+    <para>
+Ce script ne contient aucune option de configuration spéciale pour DHCP ou
+PPPoE, c'est pourquoi ces sections sont vides. Même chose pour toutes les
+sections vides, elles sont cependant indiquées, ainsi vous pouvez voir
+la différence entre les scripts de façon plus efficace. Si vous avez besoin
+de ces parties, vous pouvez toujours créer un mélange des différents scripts,
+ou créer le votre entièrement. 
+    </para>
+
+    <para>
+La section concernant votre réseau local contient la plupart des options
+de configuration nécessaires. Par exemple, vous avez besoin de spécifier
+l'adresse IP d'une interface physique connectée au LAN de même que la
+plage IP que le LAN utilise et l'interface par laquelle la machine est
+connectée au réseau.
+    </para>
+
+    <para>
+Ainsi, vous pouvez voir qu'il y a une section pour la configuration
+de l'hôte local. Nous vous la fournissons, cependant vous n'effecturez
+à 99% aucun changement dans ces valeurs car on utilise presque toujours
+l'adresse IP 127.0.0.1 et l'interface nommée lo. Juste après la
+configuration de l'hôte local, vous trouverez une brève section qui
+appartient à iptables. Cette section concerne les variables 
+<command>$IPTABLES</command>, qui pointent le script vers l'endroit exact
+où se trouve l'application <command>iptables</command>. Ceci peut varier
+un peu, et l'endroit par défaut lors de la compilation à la main est 
+<filename>/usr/local/sbin/iptables</filename>.
+Cependant, plusieurs distributions placent l'application à un autre endroit 
+comme <filename>/usr/sbin/iptables</filename> ou 
+<filename>/sbin/iptables</filename>.
+    </para>
+
+   </section>
+
+   <section xml:id="initialloading">
+    <title xml:id="initialloading.title">Chargement initial des modules 
+supplémentaires</title>
+    <indexterm zone="initialloading">
+      <primary>Modules</primary>
+    </indexterm>
+    <indexterm zone="initialloading">
+      <primary>Modules</primary>
+      <secondary>IRC</secondary>
+    </indexterm>
+    <indexterm zone="initialloading">
+      <primary>Modules</primary>
+      <secondary>FTP</secondary>
+    </indexterm>
+    <indexterm zone="initialloading">
+      <primary>Modules</primary>
+      <secondary>H.323</secondary>
+    </indexterm>
+    <indexterm zone="initialloading">
+      <primary>Modules</primary>
+      <secondary>Patch-o-matic</secondary>
+    </indexterm>
+    <indexterm zone="initialloading">
+      <primary>Basics</primary>
+      <secondary>Modules</secondary>
+      <seealso>Modules</seealso>
+    </indexterm>
+
+    <para>
+Premièrement, regardons si les fichiers des dépendances des modules
+sont à jour en exécutant la commande <command>/sbin/depmod -a</command>.
+Après ça chargeons les modules nécessaires au script. Évitez toujours
+de charger des modules dont vous n'avez pas besoin. C'est pour des raisons
+de sécurité, car il sera plus difficile d'établir des règles supplémentaires
+de cette façon. Maintenant, par exemple, si vous voulez avoir le support
+des cibles <command>LOG</command>, <command>REJECT</command> et 
+<command>MASQUERADE</command> et ne les avez pas compilées statiquement
+dans le noyau, vous devrez charger ces modules comme suit :
+    </para>
+
+<screen width='80'>
+<command>/sbin/insmod ipt_LOG
+/sbin/insmod ipt_REJECT
+/sbin/insmod ipt_MASQUERADE
+</command></screen>
+
+    <caution>
+     <para>
+Dans ces scripts, nous chargeons les modules de force, ce qui peut conduire
+à des problèmes. Si un module ne se charge pas, ce qui peut dépendre
+de plusieurs facteurs, il enverra un message d'erreur. Si certains modules
+les plus basiques ne se chargent pas, l'erreur la plus probable est
+que le module, ou la fonctionnalité, est compilée statiquement
+dans le noyau. Pour plus d'information sur ce sujet, lisez la section 
+<xref linkend="moduleproblems"/> dans l'annexe <xref linkend="commonproblems"/>.
+     </para>
+    </caution>
+
+
+    <para>
+Ensuite c'est le module <computeroutput>ipt_owner</computeroutput> à charger, 
+qui peut, par exemple, être utilisé pour permettre à certains utilisateurs
+de réaliser certaines connexions, etc. Je n'utilise pas ce module dans
+l'exemple, mais vous pouvez autoriser seulement root à se connecter
+en FTP et HTTP à redhat.com et <command>DROP</command>er tous les autres.
+Vous pouvez aussi interdire tous les utilisateurs sauf vous et root à 
+se connecter depuis votre machine vers l'Internet. Ça peut être ennuyeux
+pour les autres, mais vous aurez plus de sécurité par rapport aux attaques
+où le cracker utilise seulement votre machine comme hôte intermédiaire.
+Pour plus d'information sur <computeroutput>ipt_owner</computeroutput> 
+regardez la section 
+<xref linkend="ownermatch"/> dans le chapitre <xref linkend="howaruleisbuilt"/>.
+    </para>
+
+    <para>
+Vous pouvez aussi charger des modules supplémentaires pour le code de
+correspondance d'état ici. Tous les modules additionnels au code de
+correspondance d'état et au code de traçage de connexion sont appelés
+ip_conntrack_* et ip_nat_*. Les assistants de traçage de connexion sont
+des modules spéciaux qui indiquent au noyau comment tracer correctement
+les connexions spécifiques. Sans ces assistants, le noyau ne sait pas
+quoi chercher quand il essaie de tracer des connexions. Les assistants NAT
+d'un autre côté, sont des extensions des assistants de traçage de connexion
+qui indiquent au noyau que rechercher dans des paquets spécifiques et
+comment traduire ceux-ci dans les connexions en cours. Par exemple, FTP
+est un protocole complexe par définition, il envoie des informations de
+connexion dans les données utiles du paquet. Donc, si une de vos machines
+NATées se connecte à un serveur FTP sur l'Internet, elle enverra sa propre
+adresse IP du réseau local dans les données utiles du paquet, et indiquera
+au serveur FTP de se connecter à cette adresse. Étant donné que 
+l'adresse du réseau locale n'est pas valide en dehors de votre propre réseau,
+le serveur FTP ne saura pas que faire avec elle et la connexion sera coupée.
+Les assistants FTP NAT font les traductions qui permettent au serveur FTP
+de savoir où se connecter. La même chose s'applique pour les transferts de
+fichiers en DCC dans les chats IRC. Créer ce genre de connexions nécessite
+une adresse IP et des ports à envoyer au protocole IRC, lequel en retour
+demande que certaines traductions soient faites. Sans ces assistants, FTP
+et IRC fonctionneront sans doute, cependant, certaines autres choses ne
+marcheront pas. Par exemple, vous pouvez recevoir des fichiers par DCC,
+mais pas en envoyer. Ceci est dû à la façon dont DCC démarre une connexion.
+En premier, vous indiquez au destinataire que vous voulez envoyer un fichier
+et où il devra se connecter. Sans les assistants, la connexion DCC 
+ressemblera à une tentative du destinataire de connecter certains hôtes
+au propre réseau local de ce destinataire. La connexion sera coupée. 
+Cependant, ça peut fonctionner sans défaut, car l'expéditeur vous enverra 
+(probablement) la bonne adresse pour vous connecter.
+    </para>
+
+    <note><para>
+Si vous rencontrez des problèmes avec le DCC de mIRC et que tout
+fonctionne correctement avec d'autres clients IRC,  lisez la section 
+<xref linkend="mircdcc"/> dans l'annexe 
+<xref linkend="commonproblems"/>.
+     </para>
+    </note>
+
+    <para>
+Comme nous l'avons écrit, c'est seulement l'option de chargement des modules
+qui ajoute le support pour les protocoles FTP et IRC. Pour une explication
+plus détaillée des modules conntrack et nat, lisez l'annexe 
+<xref linkend="commonproblems"/>. 
+Il existe aussi les assistants conntrack H.323 dans le patch-o-matic,
+comme d'autres assistants conntrack et NAT. Pour pouvoir vous en servir, 
+vous devez utiliser le patch-o-matic et compiler votre propre noyau.
+Pour une explication plus complète, voir le chapitre 
+<link linkend="preparations" endterm="preparations.title"></link>.
+    </para>
+
+    <note>
+     <para>
+Notez que vous devrez charger ip_nat_irc et ip_nat_ftp si vous voulez
+que la traduction d'adresse réseau fonctionne correctement avec les
+protocoles FTP et IRC. Vous aurez également besoin de charger les modules
+ip_conntrack_irc et ip_conntrack_ftp avant de charger les modules NAT.
+Ils sont utilisés de la même façon que les modules conntrack, mais
+ils vous permettront de faire du NAT sur ces deux protocoles.
+     </para>
+    </note>
+
+   </section>
+
+   <section xml:id="procsetup">
+    <title xml:id="procsetup.title">Réglage du proc</title>
+    <indexterm zone="procsetup">
+      <primary>Proc set up</primary>
+    </indexterm>
+    <indexterm zone="procsetup">
+      <primary>Basics</primary>
+      <secondary>Proc set up</secondary>
+    </indexterm>
+    <indexterm zone="procsetup">
+      <primary>File</primary>
+      <secondary>Ip_forward</secondary>
+    </indexterm>
+    <indexterm zone="procsetup">
+      <primary>File</primary>
+      <secondary>Ip_dynaddr</secondary>
+    </indexterm>
+ 
+    <para>
+À ce niveau nous démarrons le IP Forwarding avec un écho placé à 1 dans 
+<filename>/proc/sys/net/ipv4/ip_forward</filename> de cette façon : 
+    </para>
+
+    <para>
+     <command>echo "1" > /proc/sys/net/ipv4/ip_forward</command>
+    </para>
+
+    <warning>
+     <para>
+Il peut être intéressant de réfléchir où et quand nous devons placer l'IP
+forwarding (transfert IP). Dans ce script, et dans tous les autres de
+ce didacticiel, nous le plaçons avant de créer les autres filtres IP 
+(i.e., les règles de <command>iptables</command>). Ceci conduit à une brève
+période de temps pendant laquelle le pare-feu accepte le transfert de tout 
+le trafic, entre une milliseconde et une minute selon le script.
+Ceci peut permettre à des personnes malicieuses d'essayer de passer le
+pare-feu. En d'autres termes, cette option doit être activée 
+<emphasis>après</emphasis> la création de toutes les règles, cependant, 
+j'ai choisi de l'activer avant de charger d'autres règles pour des
+raisons de concordance avec le script.
+     </para>
+    </warning>
+
+    <para>
+Dans le cas où vous auriez besoin du support d'adresse IP dynamique, par
+exemple vous utilisez SLIP, PPP ou DHCP, vous devrez activer l'option 
+<filename>ip_dynaddr</filename> en faisant :
+    </para>
+
+    <para>
+     <command>echo "1" > /proc/sys/net/ipv4/ip_dynaddr</command>
+    </para>
+
+    <para>
+S'il y a d'autres options que vous voulez activer vous suivez cette
+procédure. Il existe d'autres documentations sur ces domaines mais c'est
+hors du sujet de ce didacticiel. Il existe un bon mais bref document sur
+le système proc disponible dans le noyau, également disponible dans
+l'annexe 
+<xref linkend="otherresources"/>. 
+L'annexe 
+<xref linkend="otherresources"/> est
+généralement un bon endroit pour rechercher l'information que vous ne trouvez
+pas ici.
+    </para>
+
+    <note>
+     <para>
+Le script <filename>rc.firewall.txt</filename>, et tous les autres scripts 
+de ce didacticiel, contient une petite section sur la mise en place
+des proc qui ne sont pas requises. Ce peut être là qu'il faut regarder 
+quand quelque chose ne fonctionne pas comme vous le voulez, cependant, 
+ne changez pas les valeurs avant de savoir ce qu'elles représentent.
+     </para>
+    </note>
+
+   </section>
+
+   <section xml:id="displacement">
+    <title xml:id="displacement.title">Déplacement des règles vers les différentes chaînes</title>
+    <indexterm zone="displacement">
+      <primary>Displacement</primary>
+    </indexterm>
+    <indexterm zone="displacement">
+      <primary>Basics</primary>
+      <secondary>Displacement</secondary>
+    </indexterm>
+
+
+    <para>
+Cette section décrit brièvement mes choix en fonction des scripts
+spécifiques du <filename>rc.firewall.txt</filename>. 
+Certains des chemins d'accès indiqués ici peuvent être faux selon un
+ou un autre aspect. Aussi, cette section jette en bref regard en arrière sur
+le chapitre 
+<link linkend="traversingoftables" endterm="traversingoftables.title"></link>.
+Nous nous souviendrons de la façon dont les tables et les chaînes sont
+traversées dans un exemple réel.
+    </para>
+
+    <para> 
+J'ai modifié toutes les différentes chaînes utilisateur de façon à 
+économiser le plus possible de CPU, mais en même temps en mettant l'accent
+principal sur la sécurité et la fiabilité. Au lieu de laisser un paquet TCP
+traverser les règles ICMP, UDP et TCP, j'ai simplement sélectionné tous les
+paquets TCP et laissé ces paquets TCP traverser les chaînes spécifiées
+par l'utilisateur. De cette façon nous ne consommons pas trop de temps
+système. L'image ci-dessous tente d'expliquer comment un paquet entrant
+traverse Netfilter. Avec ces images et explications, j'essaie de clarifier
+les buts de ce script. Nous ne verrons cependant aucun détail spécifique,
+ceci sera fait plus loin dans le chapitre. C'est une image plutôt triviale
+en comparaison de celle du chapitre 
+<link linkend="traversingoftables" endterm="traversingoftables.title"></link>
+dans lequel nous parlons de la traversée complète des tables et des chaînes en
+profondeur. 
+    </para>
+
+     <mediaobject>
+      <imageobject>
+       <imagedata fileref="images/packet_traverse.png" format='PNG' width='12cm' contentwidth='11.5cm'/>
+      </imageobject>
+     </mediaobject>
+
+    <indexterm zone="displacementdhcp">
+      <primary>DHCP</primary>
+    </indexterm>
+    <indexterm zone="displacementdhcp">
+      <primary>SLIP</primary>
+    </indexterm>
+    <indexterm zone="displacementdhcp">
+      <primary>PPP</primary>
+    </indexterm>
+    <para xml:id="displacementdhcp">
+Nous fondant sur cette image, clarifions nos buts. C'est un exemple complet
+de script basé sur la supposition que notre scenario contient un réseau
+local, un pare-feu et une connexion Internet connectée à ce pare-feu.
+Cet exemple est aussi basé sur la supposition que nous avons une adresse
+IP statique vers l'Internet (à l'opposé de DHCP, PPP, SLIP et autres). 
+Dans ce cas, nous voulons autoriser le pare-feu à agir comme serveur pour
+certains services sur l'Internet, et nous faisons pleinement confiance à
+notre réseau local et donc ne bloquons pas le trafic provenant de celui-ci.
+Pour faire ceci, nous plaçons les stratégies des chaînes par défaut à DROP.
+Ce qui effectivement bloquera toutes les connexions et tous les paquets que
+nous n'avons pas explicitement autorisés dans notre réseau ou notre pare-feu.
+
+    </para>
+
+    <para>
+Dans le cas de ce scenario, nous laisserons notre réseau local se connecter
+à l'Internet. Comme nous avons pleine confiance dans notre réseau, nous
+permettons toute sorte de trafic depuis ce réseau local vers l'Internet.
+Cependant, l'Internet n'est pas un réseau de confiance et donc nous
+voulons bloquer les connexions venant de celui-ci et allant vers notre
+réseau. En fonction de ces suppositions, regardons ce que nous devons
+faire et ne pas faire.
+    </para>
+
+     <mediaobject>
+      <imageobject>
+       <imagedata fileref="images/packet_traverse_FORWARD.png" format='PNG' width='8cm' contentwidth='7.5cm'/>
+      </imageobject>
+     </mediaobject>
+
+    <indexterm zone="displacementsnat">
+      <primary>SNAT target</primary>
+    </indexterm>
+    <indexterm zone="displacementsnat">
+      <primary>POSTROUTING</primary>
+    </indexterm>
+    <indexterm zone="displacementsnat">
+      <primary>Chain</primary>
+      <secondary>FORWARD</secondary>
+    </indexterm>
+ 
+    <para xml:id="displacementsnat">
+En priorité, nous voulons que notre réseau local puisse se connecter
+à l'Internet, bien sûr. Pour cela, nous devons NATer tous les paquets
+car aucune de nos machines locales n'a d'adresse IP routable. Tout ceci
+est effectué dans la chaîne POSTROUTING, créée en dernier dans le script.
+Nous devons aussi faire du filtrage dans la chaîne FORWARD car nous devons
+permettre un accès complet à notre réseau local. Nous avons confiance
+dans notre réseau local, et pour ça nous autorisons tout le trafic
+provenant de celui-ci et allant vers l'Internet. Comme personne sur
+l'Internet ne sera autorisé à se connecter aux ordinateurs de notre réseau
+local, nous bloquerons tout le trafic provenant de l'Internet vers le
+réseau local sauf les connexions déjà établies, qui autorisent le trafic
+en réponse.
+    </para>
+
+     <mediaobject>
+      <imageobject>
+       <imagedata fileref="images/packet_traverse_INPUT.png" format='PNG' width='12cm' contentwidth='11.5cm'/>
+      </imageobject>
+     </mediaobject>
+
+    <indexterm zone="displacementinput">
+      <primary>Chain</primary>
+      <secondary>INPUT</secondary>
+    </indexterm>
+    <indexterm zone="displacementinput">
+      <primary>Chain</primary>
+      <secondary>OUTPUT</secondary>
+    </indexterm>
+    <indexterm zone="displacementinput">
+      <primary>Http</primary>
+    </indexterm>
+    <indexterm zone="displacementinput">
+      <primary>Ssh</primary>
+    </indexterm>
+    <indexterm zone="displacementinput">
+      <primary>Identd</primary>
+    </indexterm>
+ 
+    <para xml:id="displacementinput">
+Comme pour notre pare-feu, nous n'avons peut-être pas trop de moyens, et ne 
+voulons offrir que quelques services sur l'Internet. Nous avons décidé de
+permettre les accès HTTP, FTP, SSH et IDENTD dans notre pare-feu. Tous ces
+protocoles sont disponibles dans le pare-feu, et seront donc autorisés
+par la chaîne INPUT, ainsi que nous autoriserons le trafic en retour à 
+travers la chaîne OUTPUT. Cependant, nous avons pleinement confiance
+dans notre réseau local, et le matériel local et l'adresse IP sont
+également sûrs. Donc, nous pouvons ajouter des règles spéciales pour
+permettre le trafic depuis le réseau local comme depuis la boucle locale.
+De même, nous n'autoriserons pas certains paquets spécifiques, ni certaines
+plages d'adresses IP à joindre le pare-feu depuis l'Internet. Par exemple,
+la plage d'adresses IP 10.0.0.0/8 est réservée à notre réseau local et donc
+nous ne voulons pas autoriser les paquets provenant d'une de ces adresses
+car ils risqueraient à 99% une usurpation d'adresse. Cependant, avant
+d'implémenter ceci, nous devons noter que certains fournisseurs d'accès
+Internet (FAI) utilisent ces plages d'adresses IP dans leur propre réseau.
+Pour plus de détails, voir le chapitre  
+<xref linkend="commonproblems"/>.
+    </para>
+
+    <para>
+Comme nous avons un serveur FTP actif, et que nous voulons traverser
+certaines règles, nous ajoutons une règle qui permet le trafic établi et
+relié au début de la chaîne INPUT. Pour la même raison, nous divisons
+les règles en sous-chaînes. En faisant ça, nos paquets n'auront besoin
+de traverser que quelques chaînes. En traversant moins de chaînes, nous
+consommons moins de temps pour chaque paquet, et réduisons la latence
+dans le réseau.
+    </para>
+
+    <para>
+Dans ce script, nous choisissons de diviser les différents paquets par
+leur famille de protocole, par exemple TCP, UDP ou ICMP. Tous les paquets
+TCP traversent une chaîne spécifique nommée tcp_packets, qui contient les
+règles pour tous les ports et protocoles TCP que nous voulons autoriser.
+Ainsi, si nous voulons faire certaines vérifications supplémentaires sur
+les paquets TCP, nous devrons créer une sous-chaîne pour tous les paquets
+acceptés qui utilisent des numéros de port valides vers le pare-feu.
+Cette chaîne que nous choisissons d'appeler chaîne autorisée, contiendra
+certaines vérifications supplémentaires avant d'accepter le paquet. Pour
+les paquets ICMP, ils traversent la chaîne icmp_packets. Quand nous avons
+décidé de créer cette chaîne, nous n'avons pas vu le besoin de vérifications
+supplémentaires avant d'accepter les paquets s'ils sont conformes au code
+ICMP, et donc les acceptons directement. Enfin, nous avons les paquets UDP
+qui doivent être distribués avec. Nous envoyons ces paquets vers la chaîne
+udp_packets qui traite tous les paquets UDP entrants. Tous les paquets
+UDP entrants doivent être envoyés à cette chaîne, et s'ils sont d'un type
+autorisé nous les acceptons immédiatement sans vérification supplémentaire.
+    </para>
+
+    <para>
+Comme nous sommes sur un réseau relativement petit, cette machine étant
+également utilisée comme station de travail secondaire, nous voulons
+autoriser certains protocoles spécifiques à joindre le pare-feu, comme 
+<command>speak freely</command> et <command>ICQ</command>.
+    </para>
+
+     <mediaobject>
+      <imageobject>
+       <imagedata fileref="images/packet_traverse_OUTPUT.png" format='PNG' width='12cm' contentwidth='11.5cm'/>
+      </imageobject>
+     </mediaobject>
+
+    <indexterm zone="displacementoutput">
+      <primary>ACCEPT target</primary>
+    </indexterm>
+
+    <para xml:id="displacementoutput">
+Enfin, nous avons la chaîne OUTPUT. Comme nous faisons confiance à notre
+pare-feu, nous autorisons tout le trafic quittant celui-ci. Nous ne bloquons
+aucun utilisateur, ni aucun protocole spécifique. Cependant, nous ne voulons
+pas que des personnes utilisent cette machine pour usurper les paquets
+quittant le pare-feu, et donc autorisons uniquement le trafic depuis les
+adresses assignées au pare-feu. Nous implémenterons ceci en ajoutant des
+règles qui ACCEPTent tous les paquets quittant le pare-feu lorsque ceux-ci
+proviennent des adresses assignées, s'ils ne sont pas supprimés par
+défaut dans la chaîne OUTPUT.
+    </para>
+
+   </section>
+
+   <section xml:id="defaultpolicies">
+    <title xml:id="defaultpolicies.title">Mise en place des actions par défaut</title>
+    <indexterm zone="defaultpolicies">
+      <primary>Policy</primary>
+    </indexterm>
+    <indexterm zone="defaultpolicies">
+      <primary>Basics</primary>
+      <secondary>Policy</secondary>
+    </indexterm>
+
+    <para>
+Très tôt dans le processus de création de nos règles, nous avons placé
+nos stratégies par défaut. Nous implémentons nos stratégies par défaut
+dans les différentes chaînes avec une commande très simple, décrite 
+ci-dessous : 
+    </para>
+
+    <para>
+     <cmdsynopsis>
+      <command>iptables</command>
+      <arg>-P <arg choice="req">chain</arg> <arg choice="req">policy</arg></arg>
+     </cmdsynopsis>
+    </para>
+
+    <para>
+La stratégie par défaut est utilisée chaque fois que les paquets
+ne correspondent pas à une règle dans une chaîne. Par exemple, nous avons un
+paquet qui ne correspond à aucune règle dans notre table de règles. Si ça se
+produit, nous devons décider quoi faire du paquet en question, et c'est là
+qu'intervient la stratégie par défaut. Elle est utilisée sur tous les paquets
+qui ne correspondent avec aucune règle dans notre table de règles.
+    </para>
+
+    <caution>
+     <para>
+Faîtes attention avec la stratégie par défaut que vous placez sur des
+chaînes dans d'autres tables, car elle n'est pas conçue pour le filtrage, 
+et peut provoquer des comportements étranges.
+     </para>
+    </caution>
+
+   </section>
+
+
+   <section xml:id="settingupuser">
+    <title xml:id="settingupuser.title">Implémentation des chaînes utilisateur dans la table filter</title>
+    <indexterm zone="settingupuser">
+      <primary>User specified chains</primary>
+    </indexterm>
+    <indexterm zone="settingupuser">
+      <primary>Basics</primary>
+      <secondary>User specified chains</secondary>
+    </indexterm>
+
+    <para>
+Maintenant que nous avons une bonne image de ce que nous voulons faire avec
+ce pare-feu, voyons l'implémentation de la table de règles. C'est le
+moment de faire attention à l'implémentation des règles et des chaînes que
+nous voulons créer, de même que pour les tables de règles dans les chaînes.
+    </para>
+
+    <para>
+Après cela, nous créons les différentes chaînes spéciales que nous voulons 
+utiliser avec la commande <command>-N</command>. Les nouvelles chaînes
+sont créées et implémentées sans aucune règle à l'intérieur.
+Les chaînes que nous utilisons sont, comme précédemment décrit, icmp_packets,
+tcp_packets, udp_packets et les chaînes autorisées, qui sont utilisées
+par la chaîne tcp_packets. Les paquets entrants sur 
+<command>$INET_IFACE</command>, de type ICMP, seront redirigés vers la
+chaîne icmp_packets. Les paquets de type TCP, seront redirigés vers la
+chaîne tcp_packets et les paquets entrants de type UDP venant de 
+<command>$INET_IFACE</command> iront vers la chaîne udp_packets. Tout ceci
+sera expliqué en détail dans la section 
+<link linkend="inputchain" endterm="inputchain.title"></link> ci-dessous.
+Créer une chaîne est tout à fait simple et consiste seulement en une
+déclaration de chaîne comme ceci :
+    </para>
+
+    <para>
+     <cmdsynopsis>
+      <command>iptables</command>
+      <arg>-N <replaceable>chain</replaceable></arg>
+     </cmdsynopsis>
+    </para>
+
+    <para>
+Dans les sections suivantes nous verrons les chaînes définies par
+l'utilisateur que nous avons créées. Regardons à quoi elles ressemblent, 
+quelles règles elles contiennent et ce que nous pouvons faire avec.
+    </para>
+
+    <section xml:id="badtcppackets">
+    <title xml:id="badtcppackets.title">La chaîne bad_tcp_packets</title>
+    <indexterm zone="badtcppackets">
+      <primary>Bad_tcp_packets</primary>
+    </indexterm>
+    <indexterm zone="badtcppackets">
+      <primary>TCP</primary>
+    </indexterm>
+    <indexterm zone="badtcppackets">
+      <primary>SYN</primary>
+    </indexterm>
+    <indexterm zone="badtcppackets">
+      <primary>State match</primary>
+      <secondary>NEW</secondary>
+    </indexterm>
+    <indexterm zone="badtcppackets">
+      <primary>State match</primary>
+      <secondary>INVALID</secondary>
+    </indexterm>
+    <indexterm zone="badtcppackets">
+      <primary>REJECT target</primary>
+    </indexterm>
+
+     <para>
+La chaîne bad_tcp_packets est destinée à contenir les règles qui sélectionnent 
+les paquets entrants avec des en-têtes mal formés ou d'autres problèmes.
+Nous avons choisi d'inclure seulement un filtre de paquet qui bloque
+tous les paquets TCP entrants qui sont considérés comme 
+<command>NEW</command> mais n'ont pas le bit SYN placé, et une règle
+qui bloque les paquets SYN/ACK considérés comme NEW. Cette chaîne peut être
+utilisée pour vérifier toutes les contradictions possibles, comme ci-dessus
+ou les balayages de port <emphasis>XMAS</emphasis>, etc. Nous pourrions
+de même ajouter des règles pour l'état <command>INVALID</command>.
+     </para>
+
+     <para>
+Si vous voulez pleinement comprendre le NEW non SYN, regardez la section 
+<xref linkend="newnotsyn"/> dans l'annexe 
+<xref linkend="commonproblems"/> en
+relation avec NEW et les paquets non-SYN. Ces paquets seront autorisés dans
+certaines circonstances mais dans 99% des cas nous n'en aurons pas besoin.
+Nous pouvons les journaliser et ensuite les supprimer.
+     </para>
+
+     <para>
+La raison pour laquelle nous rejetons les paquets SYN/ACK qui sont
+considérés comme NEW est très simple. C'est décrit en détail dans la section 
+<link linkend="synackandnew" endterm="synackandnew.title"></link> de 
+l'annexe
+<xref linkend="commonproblems"/>.
+     </para>
+     
+    </section>
+
+
+    <section xml:id="allowedchain">
+    <title xml:id="allowedchain.title">La chaîne allowed</title>
+
+     <para>
+Si un paquet de type TCP arrive sur l'interface <command>$INET_IFACE</command>, il traverse la chaîne tcp_packets et si la connexion est sur un port sur
+lequel nous voulons autoriser le trafic, nous ferons certaines vérifications
+finales sur ce port pour savoir s'il est actuellement autorisé ou non. 
+Toutes ces vérifications finales sont faites dans la chaîne allowed.
+     </para>
+
+    <para>
+En premier, nous vérifions si le paquet est un paquet SYN. Si c'est le cas, 
+il y a de fortes chances pour que ce soit le premier paquet d'une
+nouvelle connexion, nous l'autorisons. Ensuite nous vérifions si le paquet
+provient d'une connexion <command>ESTABLISHED</command> ou 
+<command>RELATED</command>, et si c'est encore le cas nous l'autorisons aussi. 
+Une connexion <command>ESTABLISHED</command> est une connexion qui a 
+observé le trafic dans les deux sens, et donc nous avons un paquet SYN, cette 
+connexion doit être dans l'état <command>ESTABLISHED</command>, selon
+la machine d'état. La dernière règle dans cette chaîne 
+<command>DROP</command> tout le reste. Dans ce cas ceci indique que tout
+le trafic n'a pas été forcément observé dans les deux directions, i.e.,
+nous n'avons pas répondu au paquet SYN, ou qu'il y a eu une tentative
+de connexion sans paquet SYN. <emphasis>Il n'y a pas</emphasis>, dans la 
+pratique, de démarrage de connexion sans paquet SYN, sauf dans le cas où
+des personnes font du balayage de port. Actuellement, il n'y a pas 
+d'implémentation TCP/IP qui supporte l'ouverture d'une connexion TCP avec 
+autre chose qu'un paquet SYN à ma connaissance, donc nous faisons un 
+<command>DROP</command> car nous sommes à 99% sûrs qu'il s'agit alors
+d'un scan de port.
+    </para>
+
+    <note>
+      <para>
+La chaîne concernant les paquets <command>ESTABLISHED,RELATED</command> est
+actuellement redondante dans ce script et ne sera pas utilisée, mais elle
+a été inclue pour que l'exemple soit complet. La règle qui sera utilisée est 
+placée au début de la chaîne INPUT, et contient 
+<command>ESTABLISHED,RELATED</command>.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="tcpchain">
+    <title xml:id="tcpchain.title">La chaîne TCP</title>
+    <indexterm zone="tcpchain">
+      <primary>TCP</primary>
+    </indexterm>
+    <indexterm zone="tcpchain">
+      <primary>tcp_chain</primary>
+    </indexterm>
+    <indexterm zone="tcpchain">
+      <primary>State match</primary>
+      <secondary>ESTABLISHED</secondary>
+    </indexterm>
+    <indexterm zone="tcpchain">
+      <primary>State match</primary>
+      <secondary>RELATED</secondary>
+    </indexterm>
+
+    <para>
+La chaîne tcp_packets spécifie quels ports provenant de l'Internet sont
+autorisés dans le pare-feu. Il y a cependant, quelques vérifications
+supplémentaires à faire, ainsi nous envoyons chaque paquet vers la chaîne
+autorisée, comme décrit précédemment.
+    </para>
+
+    <para>
+<command>-A tcp_packets</command> indique à <command>iptables</command> dans 
+quelle chaîne ajouter la nouvelle règle, celle-ci étant ajoutée à la fin
+de la chaîne. 
+<command>-p TCP</command> indique d'examiner les paquets TCP et 
+<command>-s 0/0</command> examine toutes les adresses source provenant de 
+0.0.0.0 avec un masque de réseau de 0.0.0.0, en d'autres termes 
+<emphasis>toutes</emphasis> les adresses source. C'est le comportement 
+par défaut mais je l'utilise ici pour rendre les choses les plus claires 
+possibles. <command>--dport 21</command> indique le port de destination 21,
+si le paquet est destiné au port 21 il est aussi vérifié. Si tous les
+critères correspondent, le paquet sera dirigé vers la chaîne autorisée.
+S'ils ne correspondent à aucune des règles, ils seront renvoyés à la chaîne
+qui a expédié le paquet vers la chaîne tcp_packets.
+    </para>
+
+    <para>
+Comme cela maintenant, il autorise le port TCP 21, ou le port de contrôle
+FTP, qui sert à contrôler les connexions FTP et plus tard les connexions 
+<command>RELATED</command>, ainsi nous autorisons les
+connexions PASSIVE et ACTIVE car le module ip_conntrack_ftp est chargé.
+Si nous ne voulons pas du tout autoriser le FTP, nous pouvons décharger
+le module ip_conntrack_ftp et supprimer la ligne 
+<command>$IPTABLES -A tcp_packets -p TCP -s 0/0 --dport 21 -j allowed
+</command> du fichier <filename>rc.firewall.txt</filename>.
+    </para>
+
+    <para>
+Le port 22 est le port SSH, il est beaucoup mieux de l'utiliser que
+de permettre le telnet sur le port 23 si vous voulez autoriser quelqu'un
+de l'extérieur à utiliser un shell sur votre machine. Notez que c'est toujours
+une mauvaise idée de permettre à quelqu'un d'autre que vous même d'avoir
+accès à une machine pare-feu. 
+    </para>
+
+    <para>
+Le port 80 est le port HTTP, en d'autres termes votre serveur web, supprimez
+le si vous ne voulez pas exécuter un serveur web directement sur votre
+pare-feu.
+    </para>
+
+    <para>
+Enfin, nous autorisons le port 113, qui est le IDENTD et peut être
+nécessaire pour certains protocoles comme IRC, etc. Notez qu'il peut être
+intéressant d'utiliser le paquetage <command>oidentd</command> si vous faites
+du NAT sur plusieurs hôtes de votre réseau local. 
+<command>oidentd</command> possède un support pour faire du relais des
+requêtes IDENTD vers les bonnes machines de votre réseau local.
+    </para>
+
+    <para>
+Si vous voulez ajouter d'autres ports dans ce script, c'est le moment. 
+Simplement, copiez et collez une des autres lignes de la chaîne
+tcp_packets et modifiez la en fonction des ports que vous voulez ouvrir.
+    </para>
+
+   </section>
+
+   <section xml:id="udppacketschain">
+    <title xml:id="udppacketschain.title">La chaîne UDP</title>
+    <indexterm zone="udppacketschain">
+      <primary>UDP</primary>
+    </indexterm>
+    <indexterm zone="udppacketschain">
+      <primary>udp_packets</primary>
+    </indexterm>
+    <indexterm zone="udppacketschain">
+      <primary>UDP match</primary>
+    </indexterm>
+    <indexterm zone="udppacketschain">
+      <primary>DNS</primary>
+    </indexterm>
+    <indexterm zone="udppacketschain">
+      <primary>NTP</primary>
+    </indexterm>
+    <indexterm zone="udppacketschain">
+      <primary>ACCEPT target</primary>
+    </indexterm>
+    <indexterm zone="udppacketschain">
+      <primary>LOG target</primary>
+    </indexterm>
+    <indexterm zone="udppacketschain">
+      <primary>DROP target</primary>
+    </indexterm>
+
+    <para>
+Si nous obtenons un paquet UDP dans la chaîne INPUT, nous l'envoyons
+alors vers udp_packets où il sera de nouveau sélectionné pour le 
+protocole UDP avec <command>-p UDP</command> et ensuite examiné avec l'adresse
+source 0.0.0.0 et le masque de réseau 0.0.0.0. Sauf que cette fois, nous
+n'acceptons que les ports UDP spécifiques que nous voulons ouvrir pour les
+hôtes de l'Internet. Notez que nous ne créons pas de trous sur le port
+source des hôtes expéditeurs, car il en sera pris soin par la machine
+d'état. Nous n'avons besoin d'ouvrir des ports sur notre hôte que si nous
+devons faire tourner un serveur sur un port UDP, comme le DNS, etc.
+Les paquets entrants dans le pare-feu et qui font partie d'une connexion
+déjà établie (par notre réseau local) seront automatiquement acceptés par
+les règles --state ESTABLISHED,RELATED au début de la chaîne INPUT.
+    </para>
+
+    <para>
+Ainsi, nous ne plaçons pas le <command>ACCEPT</command> sur les paquets
+UDP entrants provenant du port 53, celui qui est utilisé pour le DNS.
+La règle existe mais elle est commentée par défaut. Si vous voulez que
+votre pare-feu agisse comme serveur DNS, décommentez la.
+    </para>
+
+    <para>
+J'ai personnellement autorisé le port 123, port NTP ou network Time Protocol.
+Ce protocole est utilisé pour synchroniser l'horloge de votre machine avec
+des serveurs de temps qui sont <emphasis>très</emphasis> précis. La
+plupart d'entre vous n'utilise sans doute pas ce protocole et je ne l'ai donc
+pas autorisé par défaut. Il suffit aussi de décommenter la règle pour
+l'activer.
+    </para>
+
+    <para>
+Nous n'autorisons pas le port 2074, utilisé par certains programmes 
+<emphasis>multimedia</emphasis> comme <command>speak freely</command> qui
+servent à parler avec d'autres personnes en temps réel en utilisant des
+haut-parleurs et des microphones, ou même un casque d'écoute. Si vous
+voulez vous en servir décommentez simplement la ligne.
+
+    </para>
+
+    <para>
+Le port 4000 est celui du protocole ICQ. C'est un protocole très bien connu
+qui est utilisé par le programme Mirabilis nommé <command>ICQ</command>. 
+Il existe au moins 2 ou 3 clones de <command>ICQ</command> pour Linux et
+c'est un des programmes de chat les plus utilisés dans le monde.
+Je doute qu'il soit besoin d'en expliquer d'avantage.
+    </para>
+
+    <para> 
+À ce point, deux règles supplémentaires sont disponibles si vous avez
+fait l'expérience de certaines entrées de journaux dans certaines
+circonstances. La première règle bloque la diffusion des paquets vers les
+ports de destination 135 à 139. Ils sont utilisés par NETBIOS, ou SMB
+pour les utilisateurs de Microsoft. Ceci bloque toutes les entrées de
+journaux provenant de iptables qui journalise l'activité de réseaux
+Microsoft à l'extérieur de notre pare-feu. La seconde règle a été créée
+pour prévenir les problèmes de journalisation excessive, et prend soin
+des requêtes DHCP provenant de l'extérieur. Ceci est particulièrement vrai
+si votre réseau extérieur est de type Ethernet non-commuté, dans lequel
+les clients obtiennent leur adresses IP par DHCP. Dans ces circonstances
+vous pouvez avoir beaucoup d'entrées de journal juste pour ça.
+    </para>
+
+    <note>
+     <para>
+Notez que ces deux dernières règles sont désactivées car certaines
+personnes peuvent être intéressées par ce genre de logs. Si vous
+rencontrez des problèmes avec une journalisation excessive, essayez
+de supprimer ce type de paquetages à ce niveau. Il y a aussi beaucoup de
+règles de ce type juste avant les règles de log dans la chaîne INPUT.
+     </para>
+    </note>
+
+   </section>
+
+   <section xml:id="icmpchain">
+    <title xml:id="icmpchain.title">La chaîne ICMP</title>
+    <indexterm zone="icmpchain">
+      <primary>ICMP</primary>
+    </indexterm>
+    <indexterm zone="icmpchain">
+      <primary>icmp_packets</primary>
+    </indexterm>
+    <indexterm zone="icmpchain">
+      <primary>ICMP match</primary>
+    </indexterm>
+    <indexterm zone="icmpchain">
+      <primary>TTL</primary>
+    </indexterm>
+    <indexterm zone="icmpchain">
+      <primary>State match</primary>
+      <secondary>RELATED</secondary>
+    </indexterm>
+    <indexterm zone="icmpchain">
+      <primary>Chain</primary>
+      <secondary>INPUT</secondary>
+    </indexterm>
+    <indexterm zone="icmpchain">
+      <primary>RFC</primary>
+      <secondary>792</secondary>
+    </indexterm>
+
+    <para>
+C'est là que nous décidons quels types ICMP autoriser. Si un paquet de type
+ICMP arrive sur eth0 dans la chaîne INPUT, nous le redirigeons vers la
+chaîne <computeroutput>icmp_packets</computeroutput> comme expliqué plus haut.
+Ici nous consignons quels types ICMP autoriser. Pour le moment, j'autorise
+seulement les requêtes écho ICMP entrantes, TTL égale 0 pendant le transit
+et TTL égale 0 pendant le réassemblage. La raison pour laquelle nous
+n'autorisons aucun autre type ICMP par défaut, est que la plupart des
+autres types ICMP seront pris en charge par les règles d'état RELATED.
+    </para>
+
+    <note>
+     <para>
+Si un paquet ICMP est envoyé en réponse à un paquet déjà existant il est
+considéré comme RELATED par rapport au flux d'origine.
+Pour plus d'information sur les états, voir le chapitre 
+<link linkend="statemachine" endterm="statemachine.title"></link>.
+     </para>
+    </note>
+
+    <para>
+La raison pour laquelle j'autorise ces paquets ICMP est la suivante, les
+Requêtes Écho servent aux réponses écho, utilisées principalement pour
+"pinguer" d'autres hôtes, pour voir s'ils sont disponibles sur les réseaux. 
+Sans cette règle, d'autres hôtes ne pourraient pas nous "pinguer" pour
+vérifier que nous sommes présent dans une connexion réseau. Notez que
+certaines personnes ont tendance à supprimer cette règle, car ils ne
+veulent pas être vus sur Internet. Supprimer cette règle rend effectivement 
+inefficace tous les pings vers notre pare-feu depuis l'Internet car le
+pare-feu ne répondra tout simplement pas.
+    </para>
+
+    <para>
+Time Exceeded (i.e., TTL égale 0 pendant le transit et TTL égale 0 pendant
+le réassemblage), est autorisé dans le cas où nous voulons faire
+du traçage de route sur certains hôtes ou si un paquet a un TTL placé à 0,
+nous obtiendrons une réponse en retour. Par exemple, quand vous faites
+un traceroute sur quelqu'un, vous commencez avec un TTL = 1, et il obtient
+en retour un 0 au premier saut de son chemin, et un Time Exceeded est 
+envoyé depuis la première passerelle de la route vers l'hôte que vous
+voulez tracer, ensuite le TTL = 2 et la seconde passerelle envoie un 
+Time Exceeded, et ainsi de suite jusqu'à ce que vous obteniez une réponse
+de l'hôte que vous vouliez joindre. De cette façon nous obtenons une
+réponse de chaque hôte sur notre chemin, et pouvons voir quel hôte
+ne répond pas.
+    </para>
+
+    <para>
+Pour une liste complète de tous les types ICMP, voir l'annexe 
+<link linkend="icmptypes" endterm="icmptypes.title"></link>. Pour plus
+d'information sur ICMP lisez les documents et rapports :
+
+    </para>
+
+    <para>
+     <itemizedlist>
+      <listitem>
+       <para>
+<link linkend="rfc792" endterm="rfc792.title"></link> par J. Postel.
+       </para>
+      </listitem>
+     </itemizedlist>
+    </para>
+
+    <note>
+     <para>
+Une erreur peut apparaître chez vous quand vous bloquez certains types ICMP, 
+mais dans mon cas tout fonctionne parfaitement quand je bloque tous les
+types ICMP non autorisés.
+     </para>
+    </note>
+
+    </section>
+
+   </section>
+
+   <section xml:id="inputchain">
+    <title xml:id="inputchain.title">Chaîne INPUT</title>
+    <indexterm zone="inputchain">
+      <primary>Chain</primary>
+      <secondary>INPUT</secondary>
+    </indexterm>
+    <indexterm zone="inputchain">
+      <primary>bad_tcp_packets</primary>
+    </indexterm>
+    <indexterm zone="inputchain">
+      <primary>State match</primary>
+      <secondary>ESTABLISHED</secondary>
+    </indexterm>
+    <indexterm zone="inputchain">
+      <primary>State match</primary>
+      <secondary>RELATED</secondary>
+    </indexterm>
+
+    <para>
+La chaîne INPUT, utilise la plupart du temps les autres chaînes pour faire
+le plus gros du travail. De cette façon nous n'avons pas trop de charge
+provenant d'iptables, qui fonctionnera mieux sur les machines lentes.
+Ceci se fait en vérifiant les détails spécifiques qui peuvent être
+identiques pour beaucoup de paquets différents, et ensuite en envoyant ces 
+paquets dans les chaînes spécifiées par l'utilisateur. En faisant ça, 
+nous réduisons notre table de règles qui ne contient que le nécessaire
+pour le transit des paquets, et donc le pare-feu aura moins de charge
+pour filtrer les paquets.
+
+    </para>
+
+    <para>
+En premier nous vérifions les mauvais paquets. Ceci est réalisé en envoyant
+tous les paquets TCP vers la chaîne bad_packets. Cette chaîne contient
+des règles qui examinent les paquets mal formés ou d'autres anomalies.
+Pour une explication complète sur la chaîne bad_tcp_packets, regardez dans 
+<link linkend="badtcppackets" endterm="badtcppackets.title"></link> de
+ce chapitre.
+    </para>
+
+    <para>
+À ce niveau nous recherchons le trafic généré par les réseaux de confiance.
+Ce qui inclut l'adaptateur réseau et tout le trafic provenant de celui-ci,
+ainsi que le trafic entrant et sortant de la boucle locale (loopback),
+avec toutes les adresses IP assignées (toutes les adresses y compris
+notre adresse IP Internet). Ainsi, nous avons choisi de placer la règle
+qui autorise l'activité du LAN vers le pare-feu en premier, car notre
+réseau local génère plus de trafic que la connexion Internet. Ceci permet
+d'avoir moins de charge système pour examiner chaque paquet avec chaque
+règle, et c'est toujours une bonne idée de regarder quel type de trafic
+traverse principalement le pare-feu. En faisant cela nous rendons les règles
+plus efficaces, avec moins de charge sur le pare-feu et moins de congestion
+sur notre réseau.
+    </para>
+
+    <para>
+Avant de nous attaquer aux règles "réelles" dans lesquelles nous déciderons
+quoi autoriser depuis l'Internet, nous avons placé une règle pour
+réduire la charge système. C'est une règle d'état qui autorise tous les
+paquets d'un flux ESTABLISHED ou RELATED vers l'adresse IP Internet.
+Cette règle a une équivalence dans la chaîne autorisée, qui est 
+redondante à celle-ci. Cependant, la règle 
+<command>--state ESTABLISHED,RELATED</command> dans la chaîne autorisée 
+a été conservée pour plusieurs raisons, vous pouvez donc copier-coller
+cette fonction.
+    </para>
+
+    <para>
+Après ça, nous sélectionnons tous les paquets TCP de la chaîne INPUT qui
+arrivent dans l'interface <command>$INET_IFACE</command>, et les envoyons vers 
+<computeroutput>tcp_packets</computeroutput>, comme précédemment décrit. Nous
+faisons maintenant la même chose pour les paquets UDP sur l'interface 
+<command>$INET_IFACE</command> et les envoyons vers la chaîne udp_packets,
+ensuite tous les paquets ICMP sont envoyés vers la chaîne icmp_packets.
+Normalement, un pare-feu devrait être plus difficile à attaquer par des
+paquets TCP, que par des paquets UDP et ICMP. C'est le cas normal, mais 
+souvenez vous, ça peut être différent pour vous. La même chose peut être
+observée ici, comme avec les règles réseau spécifiques. Lesquelles génèrent
+le plus de trafic ? Sur les réseaux générant un important volume de
+données, c'est une absolue nécessité de vérifier cela, car une machine
+de type Pentium III peut être saturée par une simple table de règles
+contenant 100 règles avec une carte réseau ethernet 100 Mbit fonctionnant
+à sa pleine capacité, si la table de règles est mal écrite. Il est 
+important de regarder ça de près.
+    </para>
+
+    <para>
+Ici nous avons une règle supplémentaire, qui est par défaut désactivée,
+et qui peut être utilisée pour évitez une journalisation excessive dans
+le cas où nous avons un réseau Microsoft à l'extérieur de notre pare-feu
+Linux. Les clients Microsoft ont la mauvaise habitude d'envoyer des
+tonnes de packets multicast vers la plage 224.0.0.0/8, donc nous avons
+la possibilité de bloquer ces paquets ici. Il existe deux autres règles
+faisant à peu près la même chose sur la chaîne udp_packets décrite dans 
+<link linkend="udppacketschain" endterm="udppacketschain.title"></link>.
+    </para>
+
+    <para>
+Avant de tester la stratégie par défaut de la chaîne INPUT, nous la
+journalisons pour savoir s'il existe des problèmes/bugs. Ce peut être
+soit un paquet que nous ne voulons pas autoriser, soit une chose qui
+peut se révéler néfaste pour nous, ou finalement un problème dans notre
+pare-feu qui n'autorise pas le trafic qui devrait être autorisé. Nous ne
+journalisons pas plus de 3 paquets par minute car nous ne voulons pas
+surcharger nos journaux, ainsi nous plaçons un préfixe pour toutes les
+entrées de journalisation et savons donc d'où ils proviennent.
+    </para>
+
+    <para>
+Tout ce qui n'a pas été capturé sera <command>DROP</command>é par 
+la stratégie par défaut de la chaîne INPUT. Voir la section 
+<link linkend="defaultpolicies" endterm="defaultpolicies.title"></link> 
+dans ce chapitre.
+    </para>
+
+   </section>
+
+   <section xml:id="forwardchain">
+    <title xml:id="forwardchain.title">Chaîne FORWARD</title>
+    <indexterm zone="forwardchain">
+      <primary>Chain</primary>
+      <secondary>FORWARD</secondary>
+    </indexterm>
+    <indexterm zone="forwardchain">
+      <primary>LAN</primary>
+    </indexterm>
+    <indexterm zone="forwardchain">
+      <primary>$LAN_IFACE</primary>
+    </indexterm>
+    <indexterm zone="forwardchain">
+      <primary>DROP target</primary>
+    </indexterm>
+    <indexterm zone="forwardchain">
+      <primary>LOG target</primary>
+    </indexterm>
+    <indexterm zone="forwardchain">
+      <primary>Policy</primary>
+    </indexterm>
+
+    <para>
+La chaîne FORWARD contient quelques règles dans notre scenario. Nous
+avons une seule règle qui envoie tous les paquets vers la chaîne
+bad_tcp_packets, laquelle est également utilisée dans la chaîne INPUT comme
+décrit précédemment. La chaîne bad_tcp_packets est construite de façon
+qu'elle puisse être utilisée dans plusieurs chaînes, sans regarder quel
+paquet la traverse.
+    </para>
+
+    <para>
+Après cette vérification des mauvais paquets TCP, nous avons les règles
+principales dans la chaîne FORWARD. La première règle autorise tout le
+trafic depuis notre <command>$LAN_IFACE</command> vers n'importe quelle
+autre interface librement, sans restrictions. En d'autres termes, cette
+règle autorise tout le trafic depuis le LAN vers l'Internet. La seconde règle 
+autorise le trafic en retour <command>ESTABLISHED</command> et 
+<command>RELATED</command> à travers le pare-feu. Ce qui veut dire qu'elle
+autorise les connexions initiées par notre réseau local à circuler librement
+dans le LAN. Ces règles sont nécessaires pour que notre réseau local puisse
+accéder à l'Internet, car la stratégie par défaut de la chaîne FORWARD est 
+placée à <command>DROP</command>. C'est adroit, car elle autorise les hôtes
+de notre réseau local à se connecter à des hôtes sur Internet, mais en même 
+temps elle bloque les hôtes depuis Internet leur interdisant de se connecter
+aux hôtes de notre réseau interne. 
+    </para>
+
+    <para>
+Enfin, nous avons également une chaîne de journalisation pour tous les
+paquets qui ne sont pas autorisés dans un sens ou dans l'autre à traverser
+la chaîne FORWARD. Ceci concerne principalement les paquets mal formés 
+ou autre problème. Une cause peut être une attaque de cracker, et une
+autre des paquets mal formés. C'est exactement la même règle que celle
+utilisée dans la chaîne INPUT sauf pour le préfixe de journalisation, 
+<command>"IPT FORWARD packet died: "</command>. Le préfixe de journalisation
+est principalement utilisé pour séparer les entrées de journaux, et peut
+être utilisé pour savoir d'où les paquets ont été journalisés et 
+connaître certaines options d'en-tête.
+    </para>
+
+   </section>
+
+   <section xml:id="outputchain">
+    <title xml:id="outputchain.title">Chaîne OUTPUT</title>
+    <indexterm zone="outputchain">
+      <primary>Chain</primary>
+      <secondary>OUTPUT</secondary>
+    </indexterm>
+    <indexterm zone="outputchain">
+      <primary>$LOCALHOST_IP</primary>
+    </indexterm>
+    <indexterm zone="outputchain">
+      <primary>$STATIC_IP</primary>
+    </indexterm>
+    <indexterm zone="outputchain">
+      <primary>$LAN_IP</primary>
+    </indexterm>
+    <indexterm zone="outputchain">
+      <primary>DROP target</primary>
+    </indexterm>
+
+    <para>
+Comme nous utilisons notre machine en partie comme pare-feu et en partie
+comme station de travail, nous autorisons tout ce qui sort de cette machine
+qui a une adresse source <command>$LOCALHOST_IP</command>, 
+<command>$LAN_IP</command> ou <command>$STATIC_IP</command>. Enfin nous
+journalisons tout ce qui est DROPé. S'il y a des paquets DROPés, nous
+voulons savoir quelle action entreprendre contre ce problème. Soit c'est
+une erreur, soit c'est un paquet mystérieux qui peut être usurpé. Enfin nous 
+<command>DROP</command>ons le paquet dans la stratégie par défaut.
+    </para>
+   </section>
+
+   <section xml:id="preroutingchain">
+    <title xml:id="preroutingchain.title">Chaîne PREROUTING de la table nat</title>
+    <indexterm zone="preroutingchain">
+      <primary>Chain</primary>
+      <secondary>PREROUTING</secondary>
+    </indexterm>
+    <indexterm zone="preroutingchain">
+      <primary>Chain</primary>
+      <secondary>FORWARD</secondary>
+    </indexterm>
+    <indexterm zone="preroutingchain">
+      <primary>DNAT target</primary>
+    </indexterm>
+
+    <para>
+La chaîne PREROUTING fait à peu près ce qu'elle indique, elle traduit
+les adresses réseau sur les paquets avant la décision de routage qui les
+envoie vers les chaînes INPUT ou FORWARD dans la table de filtrage.
+La seule raison que nous avons de parler de cette chaîne ici est que
+nous ne faisons aucun filtrage dans celle-ci. La chaîne PREROUTING
+est traversée seulement par le premier paquet d'un flux, ce qui veut dire que
+tous les autres paquets ne seront pas examinés dans cette chaîne. Dans ce
+script, nous n'utilisons pas du tout la chaîne PREROUTING, cependant, c'est
+le bon endroit si nous voulons faire du DNAT sur des paquets spécifiques,
+par exemple si nous voulons héberger notre serveur web dans notre réseau
+local. Pour plus d'information sur la chaîne PREROUTING, lire le chapitre 
+<link linkend="traversingoftables" endterm="traversingoftables.title"></link>.
+    </para>
+
+    <caution>
+     <para>
+La chaîne PREROUTING ne doit pas être utilisée pour quelque filtrage
+que ce soit, car parmi d'autres choses, elle n'est traversée que par
+le premier paquet d'un flux. Elle devrait être utilisée uniquement pour
+la traduction d'adresse réseau, à moins que vous ne sachiez réellement
+ce que vous faites.
+     </para>
+    </caution>
+
+   </section>
+
+
+   <section xml:id="startingsnat">
+    <title xml:id="startingsnat.title">Démarrage de SNAT et de la chaîne POSTROUTING</title>
+    <indexterm zone="startingsnat">
+      <primary>SNAT target</primary>
+    </indexterm>
+    <indexterm zone="startingsnat">
+      <primary>Chain</primary>
+      <secondary>POSTROUTING</secondary>
+    </indexterm>
+    <indexterm zone="startingsnat">
+      <primary>NAT</primary>
+    </indexterm>
+    <indexterm zone="startingsnat">
+      <primary>MASQUERADE target</primary>
+    </indexterm>
+
+    <para> 
+Notre dernière mission est d'activer la traduction d'adresse réseau.
+En premier nous ajoutons une règle à la table nat, dans la chaîne
+POSTROUTING qui NAT tous les paquets provenant de notre interface
+et allant vers Internet. Pour moi c'est eth0. Cependant, il existe des
+variables spécifiques ajoutées aux scripts d'exemples qui peuvent être 
+utilisées automatiquement pour configurer cela. L'option 
+<command>-t</command> indique à <command>iptables</command> dans quelle table
+insérer la règle, dans notre cas c'est la table nat. La commande -A indique
+que nous voulons lier une nouvelle règle à une chaîne existante nommée 
+POSTROUTING et <command>-o $INET_IFACE</command> nous dit de sélectionner tous
+les paquets sortants sur l'interface <command>INET_IFACE</command> 
+(ou eth0, par défaut dans ce script) et enfin nous plaçons la cible pour
+faire du <command>SNAT</command> sur les paquets. Ainsi tous les paquets
+qui correspondent à cette règle seront SNATés pour vérifier s'ils viennent
+de l'interface Internet. Notez que vous devez indiquer l'adresse IP à donner
+aux paquets sortants avec l'option <command>--to-source</command> envoyée
+à la cible SNAT.
+    </para>
+
+    <para>
+Dans ce script nous avons choisi d'utiliser la cible <command>SNAT</command>
+au lieu de <command>MASQUERADE</command> pour deux raisons. La première
+est que ce script est supposé s'exécuter sur un pare-feu qui possède une 
+adresse IP fixe. La raison suivante est qu'il est plus rapide et
+plus efficace d'utiliser la cible SNAT si possible. Bien sûr, nous
+l'utilisons aussi pour montrer comment elle fonctionne dans un exemple réel.
+Si nous n'avons pas d'adresse IP statique, nous utiliserons la cible 
+<command>MASQUERADE</command> car elle offre des fonctions simples et
+faciles pour faire du NAT, et elle récupère automatiquement l'adresse IP
+qui sera utilisée. Ceci consomme un peu plus de temps système, mais c'est
+très avantageux si vous utilisez DHCP. Si vous voulez avoir une vue
+plus détaillée de la cible <command>MASQUERADE</command>, regardez le script 
+<link linkend="rcDHCPfirewalltxt" endterm="rcDHCPfirewalltxt.title"></link>.
+    </para>
+   </section>
+
+  </section>
+
+  <section>
+    <title>Chapitre suivant</title>
+
+
+    <para>
+Dans le prochain chapitre nous verons une brève introduction aux différents
+scripts disponibles dans ce document.Ils vous donnerons quelques idées de
+base sur les divers scénarios, et vous pourrez ensuite faire le reste
+vous-même. Tous ces scripts sont également disponibles en téléchargement
+sur le site principal de ce document.
+    </para>
+  </section>
+
+ </chapter>

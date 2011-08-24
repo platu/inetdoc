@@ -1,0 +1,459 @@
+<chapter xml:id="natintro">
+  <title xml:id="natintro.title">Introduction à la traduction d'adresse réseau</title>
+  <indexterm zone="natintro">
+    <primary>NAT</primary>
+  </indexterm>
+  <indexterm zone="natintro">
+    <primary>Basics</primary>
+    <secondary>NAT</secondary>
+  </indexterm>
+  <indexterm zone="natintro">
+    <primary>Introduction</primary>
+    <secondary>NAT</secondary>
+  </indexterm>
+ 
+  <para>
+Le NAT est une des plus grosses attractions de Linux et Iptables aujourd'hui.
+Au lieu d'utiliser une troisième solution coûteuse comme Cisco PIX, etc.
+nombre de petites entreprises et d'utilisateurs privés ont choisi de
+fonctionner avec ces solutions. Une des principales raisons est qu'elle est
+bon marché et sûre. Elle peut fonctionner sur un ordinateur ancien, une
+distribution Linux récente que vous pouvez télécharger gratuitement sur
+l'Internet, une carte réseau ou deux, et le cablage.
+  </para>
+  
+  <para>
+Ce chapitre décrira la théorie de base sur le NAT, comment il peut être
+utilisé, comment fonctionne-t-il et ce à quoi vous devez réfléchir avant
+de commencer à travailler sur ces sujets.
+  </para>
+  
+  <section xml:id="natusage">
+    <title xml:id="natusage.title">Comment le Nat est utilisé, termes et 
+expressions de base</title>
+    <indexterm zone="natusage">
+      <primary>Terms</primary>
+      <secondary>NAT</secondary>
+    </indexterm>
+    <indexterm zone="natusage">
+      <primary>SNAT</primary>
+    </indexterm>
+    <indexterm zone="natusage">
+      <primary>PNAT</primary>
+    </indexterm>
+    <indexterm zone="natusage">
+      <primary>DNAT</primary>
+    </indexterm>
+    <indexterm zone="natusage">
+      <primary>Fast-NAT</primary>
+    </indexterm>
+    <indexterm zone="natusage">
+      <primary>Netfilter-NAT</primary>
+    </indexterm>
+
+    <para>
+À la base, le NAT permet à un ou plusieurs hôtes de partager la
+même adresse IP. Par exemple, vous avez un réseau local composé de
+5-10 clients. Leur adresse de passerelle par défaut pointe vers un serveur
+NAT. Normalement le paquet sera simplement transmis par la machine 
+passerelle, mais dans le cas d'un serveur NAT c'est un peu différent.
+    </para>
+  
+    <para>
+Les serveurs NAT traduisent les adresses source et destination des
+paquets en adresses différentes. Le serveur NAT reçoit le paquet, 
+réécrit les adresses source et/ou destination et ensuite recalcule 
+la somme de contrôle du paquet. Une des utilisations les plus courantes du
+NAT est la fonction SNAT (Traduction d'Adresse Réseau Source). De façon
+basique, il est utilisé dans l'exemple au-dessus si nous n'avons pas
+les moyens ou ne voyons pas l'intérêt d'avoir une adresse IP publique
+pour chacun des clients. Dans ce cas, nous utilisons une de nos IP privées
+du réseau local (par exemple, 192.168.1.0/24). SNAT traduira toutes les
+adresses 192.168.1.0 en sa propre IP publique (par exemple, 217.115.95.34).
+De cette façon, il y aura 5-10 clients ou beaucoup plus qui utiliserons
+la même IP partagée. 
+    </para>
+
+    <para>
+Il existe aussi une chose appelée DNAT, qui peut être extrêment utile
+quand elle est utilisée avec la configuration des serveurs. En premier, vous
+pouvez en attendre le plus grand bien pour économiser de l'espace IP, ensuite, 
+vous pouvez rendre plus ou moins impénétrable un pare-feu entre votre
+serveur et le serveur réel de façon aisée, ou simplement partager une IP
+entre plusieurs serveurs séparés physiquement. Par exemple, nous pouvons
+faire tourner un serveur web et ftp sur la même machine, tandis qu'il
+existe une machine physiquement distincte contenant différents services
+d'IRC que les employés travaillant à domicile ou étant sur la route
+peuvent utiliser en relation avec le personnel sur le site de l'entreprise.
+Nous pouvons alors faire fonctionner tous ces services sur la même IP 
+depuis l'extérieur via DNAT.
+    </para>
+    
+    <para>
+L'exemple ci-dessus est aussi basé sur des ports séparés, souvent
+appelé PNAT. Nous ne nous référons pas très souvent à ce terme car 
+il est inclu dans les fonctionnalités DNAT et SNAT de Netfilter.
+    </para>
+    
+    <para>
+Dans Linux, il existe actuellement deux types séparés de NAT, Fast-NAT
+ou Netfilter-NAT. Fast-NAT est implémenté dans le code du routage IP du
+noyau Linux, tandis que Netfilter-NAT est aussi implémenté dans le noyau, 
+mais à l'intérieur du code netfilter. Dans ce didacticiel nous ne verrons
+pas en détail le code du routage IP, sauf pour quelques notes. Fast-NAT est
+généralement appelé par ce nom car il est plus rapide que le code
+NAT netfilter. Il ne garde pas la trace des connexions. Le traçage de
+connexion prend de la puissance processeur, et le ralenti, ce qui est une des
+principales raisons pour laquelle Fast-NAT soit plus rapide que Netfilter-NAT.
+Comme nous l'avons dit, le mauvais côté de Fast-NAT est qu'il ne trace pas
+les connexions, ce qui indique qu'il ne sera pas capable de faire du SNAT
+correctement pour l'ensemble des réseaux, ni capable de faire du NAT sur
+des protocoles complexes comme FTP, IRC et d'autres que
+Netfilter-NAT est capable de faire très bien. 
+    </para>
+    
+    <para>
+Un mot pour finir, un synonyme de SNAT est le terme Masquerade
+(masquage/usurpation). Dans Netfilter, masquerade est à peu près la
+même chose que SNAT avec la différence que le masquerading traduira
+automatiquement la nouvelle IP source en adresse IP par défaut de
+l'interface réseau externe.
+    </para>
+    
+  </section>
+  
+  <section xml:id="natcaveats">
+    <title xml:id="natcaveats.title">Divergences sur l'utilisation du NAT</title>
+    <indexterm zone="natcaveats">
+      <primary>NAT</primary>
+      <secondary>Caveats</secondary>
+    </indexterm>
+
+    <para>
+Comme nous l'avons vu, il existe quelques divergences mineures sur 
+l'utilisation du NAT. Le problème principal est que certains protocoles et 
+applications peuvent ne pas fonctionner du tout. Heureusement, ces 
+applications ne sont pas très communes dans les réseaux que vous administrez, 
+et dans certains cas, ça ne créera pas de soucis.
+    </para>
+    
+    <para>
+Le second problème est que les applications et protocoles ne fonctionneront
+que partiellement. Ces protocoles sont plus communs que ceux qui ne
+fonctionnent pas du tout. Si des protocoles complexes continuent à être
+développés, c'est un problème continuel avec lequel nous devrons vivre.
+Spécialement si les protocoles ne sont pas standardisés.
+    </para>
+    
+    <para>
+Le troisième, et plus gros problème, à mon point de vue, est que l'utilisateur
+qui est situé derrière un serveur NAT pour accéder à une connexion Internet,
+aura du mal à exécuter son propre serveur. Il pourra le faire, mais ça lui
+coûtera beaucoup de temps et de travail pour le mettre en place.
+Dans les entreprises, ceci est préférable plutôt que d'avoir des tonnes de
+serveurs lancés par différents employés joignables depuis l'Internet, sans
+aucune supervision.
+     </para>
+     
+     <para>
+En dernière remarque sur les divergences à propos du NAT, il devrait être
+fait mention que le NAT est actuellement plus ou moins du bidouillage.
+Le NAT est une bouée de sauvetage car le IANA et d'autres organisations
+ont prévenus que l'Internet croissant de façon exponentielle, les adresses
+IP seront bientôt limitées. Le NAT est une solution au problème d'IPv4
+(IP dont nous parlons jusqu'à présent fait partie d'IPv4, c'est à dire
+Internet Protocol version 4). La solution à long terme est le protocole
+IPv6, qui résout également beaucoup d'autres problèmes. IPv6 assigne les
+adresses sur 128 bits, tandis que IPv4 sur 32 bits seulement. C'est
+un énorme accroissement de l'espace d'adressage. Il peut sembler ridicule
+d'avoir suffisamment d'adresses pour fournir une adresse IP à chaque
+atome de la planète, mais d'un autre côté, l'adressage IPv4 est trop
+réduit maintenant. (NdT. Le protocole IPv6 devrait être déployé à peu
+près partout aujourd'hui, mais nous avons à faire à la politique des
+FAIs qui freinent ce déploiement pour pouvoir vendre plus cher les adresses
+en IPv4...).
+     </para>
+      
+  </section>
+  
+  <section xml:id="examplenatmachine">
+    <title xml:id="examplenatmachine.title">Exemple d'une machine NAT en théorie</title>
+    <indexterm zone="examplenatmachine">
+      <primary>Example scripts</primary>
+      <secondary>NAT</secondary>
+    </indexterm>
+    <indexterm zone="examplenatmachine">
+      <primary>NAT</primary>
+      <secondary>Examples</secondary>
+    </indexterm>
+ 
+    <para>
+Un petit scenario théorique dans lequel nous voulons faire du NAT entre
+2 réseaux différents et une connexion Internet. Nous voulons connecter
+les deux réseaux ensemble, ces deux réseaux ayant accès l'un à l'autre
+et à l'Internet. Nous verrons les questions de matériel auxquelles vous
+devrez penser avant d'implémenter une machine NAT.
+    </para>
+
+    <section xml:id="whatisneededtobuildnat">
+      <title xml:id="whatisneededtobuildnat.title">Ce qui est nécessaire pour une machine NAT</title>
+      <indexterm zone="whatisneededtobuildnat">
+        <primary>NAT</primary>
+	<secondary>Hardware</secondary>
+      </indexterm>
+      <indexterm zone="whatisneededtobuildnat">
+        <primary>Example</primary>
+	<secondary>Hardware requirements</secondary>
+      </indexterm>
+      <indexterm zone="whatisneededtobuildnat">
+        <primary>Hardware</primary>
+	<secondary>Requirements</secondary>
+      </indexterm>
+ 
+      <para>
+Avant d'aller plus loin, regardons d'abord quel type de matériel est
+nécessaire pour assembler une machine Linux faisant du NAT. Pour la plupart
+des petits réseaux, ce n'est pas un problème, mais si vous considérez des
+grands réseaux ça peut en devenir un. Le plus gros problème avec le NAT
+est qu'il consomme des ressources très rapidement. Pour un petit réseau
+privé avec 1-10 utilisateurs, un <emphasis>486</emphasis> avec<emphasis> 32 Mo</emphasis> de RAM devrait suffire.
+Cependant, si vous avez 100 ou plus utilisateurs, vous devrez
+reconsiderez le choix du matériel. Bien sûr, il faut aussi considérer
+la bande passante, et combien de connexions seront ouvertes en même temps.
+Généralement, des ordinateurs anciens et mis au rebus, devraient faire
+l'affaire. En utilisant un ordinateur ancien, vous aurez un pare-feu
+très bon marché en comparaison d'autres pare-feux.
+      </para>
+      
+      <para>
+Vous devez également penser au problème des cartes réseau. Combien
+de réseaux séparés seront connectés à votre machine NAT/pare-feu ?
+La plupart du temps il est simplement suffisant de connecter un réseau
+à une connexion Internet. Si vous vous connectez à l'Internet via ethernet,
+vous devrez en principe avoir deux cartes ethernet, etc. Ce peut être
+une bonne idée de choisir des cartes réseau 10/100 mbits de bonne marque
+pour l'extensibilité, mais la plupart des cartes réseau feront l'affaire
+pour autant que les pilotes soient intégrés dans le noyau Linux.
+Un mot sur ce sujet : évitez d'utiliser des cartes réseau qui n'ont pas
+de pilote intégré dans le noyau des distributions Linux. J'ai trouvé
+en plusieurs occasions des cartes réseau de marques qui distribuent
+séparément les drivers et qui fonctionnent mal. Ils ne sont souvent pas
+très bien maintenus, et si vous utilisez ce type de matériel vous avez
+une chance très mince qu'il fonctionne correctement avec les mises à jour
+successives des noyaux Linux. Ce qui veut dire, que vous avez intérêt à
+payer un petit peu plus cher pour vos cartes réseau, mais ça se justifie.
+      </para>
+      
+      <para>
+Notez que, si vous installez un pare-feu sur du matériel très ancien, 
+essayez au moins d'utiliser les bus PCI ou mieux si possible.
+En priorité, les cartes réseau pourront être utilisées dans le futur
+lorsque vous ferez des mises à jour. Ainsi, les bus ISA sont extrêmement
+lents et lourds en ressources processeur. 
+      </para>
+      
+      <para>
+Enfin, une chose à considérer c'est combien de mémoire vous mettrez sur
+la machine NAT/pare-feu. Le mieux est de mettre au moins 64 Mo,
+même s'il est possible de tourner avec 32 Mo. Le NAT ne consomme pas
+énormément de mémoire, mais il peut être prudent d'en ajouter juste dans
+le cas où le trafic serait plus important que prévu. (NdT. Le problème
+ne devrait plus se poser maintenant que le "standard" en RAM est de 512 Mo
+voire 1024 Mo). 
+      </para>
+      
+      <para>
+Comme vous pouvez le voir, il y a plusieurs choses à considérer quand
+on parle de matériel. Mais, pour être honnête, dans la plupart des cas
+ça ne posera pas de problème, à moins que vous installiez une machine NAT
+pour un gros réseau. Pour un usage domestique vous pouvez plus ou moins
+utiliser le matériel que vous avez sous la main.
+      </para>
+    </section>
+
+    <section xml:id="natplacement">
+      <title xml:id="natplacement.title">Emplacement des machines NAT</title>
+      <indexterm zone="natplacement">
+        <primary>NAT</primary>
+	<secondary>Placement</secondary>
+      </indexterm>
+      <indexterm zone="natplacement">
+        <primary>Example</primary>
+	<secondary>Machine placement</secondary>
+      </indexterm>
+      <indexterm zone="natplacement">
+        <primary>Hardware</primary>
+	<secondary>Machine placement</secondary>
+      </indexterm>
+      
+      <para>
+Ceci pourrait sembler simple, cependant, ce peut être plus ardu qu'on ne
+le penserait sur des gros réseaux. En général, la machine NAT devrait être
+située en périphérie du réseau. Ceci, la plupart du temps, veut dire que
+les machines NAT et de filtrage sont les mêmes machines, bien sûr.
+Ainsi, si vous avez de très grands réseaux, il peut être utile de séparer
+le réseau en plusieurs réseaux plus petits et assigner une machine NAT pour
+chacun de ces réseaux. Le NAT prenant beaucoup de temps processeur, ceci
+vous aidera à conserver la durée de rotation (RTT, Round Trip Time : temps
+que met un paquet pour joindre sa destination et envoyer un paquet en retour),
+la plus courte possible.
+      </para>
+      
+      <para>
+Dans notre exemple de réseau décrit ci-dessus, avec deux réseaux et une 
+connexion Internet, nous devrons considérer la taille des deux réseaux.
+Si nous les considérons comme petits, 
+200 clients ne seront pas un problème pour une machine NAT décente.
+D'un autre côté, nous auront à fractionner la charge sur plusieurs machines
+en plaçant les IP publiques sur des machines NAT plus petites, chacune
+maintenant son propre segment de réseau et laissant se rassembler le
+trafic sur une seule machine de routage spécifique. Ceci bien sûr, prenant
+en considération le fait que vous devez avoir suffisamment d'IP publiques
+pour toutes vos machines NAT, et qu'elles soient routées à travers votre
+machine routeur.
+      </para>
+    </section>
+
+    <section xml:id="natproxies">
+      <title xml:id="natproxies.title">Comment placer les proxies ?</title>
+      <indexterm zone="natproxies">
+        <primary>Proxy</primary>
+	<secondary>Placement</secondary>
+      </indexterm>
+      <indexterm zone="natproxies">
+        <primary>Hardware</primary>
+	<secondary>Placement</secondary>
+      </indexterm>
+      <indexterm zone="natproxies">
+        <primary>Hardware</primary>
+	<secondary>Structure</secondary>
+      </indexterm>
+      
+      <para>
+Les proxies sont généralement un problème lorsqu'ils sont accompagnés
+de NAT dans beaucoup de cas malheureusement, spécialement les proxies
+transparents. Un proxy normal ne causera pas trop de problèmes, mais
+en créant un proxy transparent c'est plus compliqué, spécialement dans
+les grands réseaux. Le premier problème est que les proxies prennent
+beaucoup de temps processeur, comme le NAT. Placer les deux sur la même
+machine n'est pas judicieux si vous avez à assurer un gros trafic réseau.
+Le second problème est que si vous traduisez l'IP source ainsi que l'IP
+destination, le proxy ne sera pas capable de savoir quel hôte contacter.
+Exemple, quel serveur est le client à contacter ? Localement, ceci a été
+résolu en ajoutant l'information dans les structures internes de données
+créées pour les paquets, ainsi les proxies comme Squid peuvent obtenir
+cette information.
+      </para>
+      
+      <para>
+Comme vous pouvez le voir, le problème est que vous n'avez pas beaucoup
+de choix si vous voulez utiliser un proxy transparent. Il existe, bien sûr,
+des possibilités mais elles ne sont pas réellement recommandables. 
+Une possibilité est d'installer un proxy à l'extérieur du pare-feu et créer
+une entrée qui route tout le trafic web à travers cette machine, et 
+localement NATer les paquets sur les bons ports pour le proxy. De cette
+façon, l'information est préservée pour le proxy et toujours disponible
+pour lui. 
+      </para>
+      
+      <para>
+Le seconde possibilité est de simplement créer un proxy à l'extérieur du
+pare-feu, qui bloque tout le trafic web sauf le trafic venant du proxy.
+Comme ça, vous forcerez tous les utilisateurs à passer par le proxy.
+C'est un peu fruste comme moyen de faire, mais ça peut fonctionner.
+      </para>
+    </section>
+    
+    <section xml:id="natfinalstage">
+      <title xml:id="natfinalstage.title">Étape finale pour votre machine NAT</title> 
+      <para>
+Dernière étape, réunissons toutes ces informations ensemble, et voyons
+comment nous pouvons installer une machine NAT. Regardons la figure des
+réseaux et voyons ce qu'elle dit. Nous avons décidé de placer un proxy
+à l'extérieur d'une machine NAT comme décrit plus haut. Cette zone peut
+être considérée comme une DMZ dans un sens, avec la machine NAT faisant
+routeur entre la DMZ et les deux réseaux de l'entreprise. Vous pouvez
+voir la topologie exacte dans l'image ci-dessous.
+      </para>
+      
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="images/nat-machine.png" format='PNG' width='8cm' contentwidth='7.5cm'/>
+          </imageobject>
+        </mediaobject>
+      
+      <para>
+Tout le trafic normal provenant des réseaux NATés seront envoyés, à travers
+la DMZ, directement au routeur, qui adressera le trafic vers l'Internet.
+Sauf, le trafic web de la partie netfilter de la machine NAT, routé vers
+la machine proxy. De quoi parlons nous ? Un paquet http est analysé par
+la machine NAT. La table Mangle peut alors être utilisée pour marquer
+le paquet avec une marque de filtrage (nfmark). Même plus tard quand nous
+voudrons router des paquets vers notre routeur, nous pourrons vérifier
+la marque de filtrage dans les tables de routage, et basé sur cette marque,
+nous pourrons choisir de router les paquets http vers le serveur proxy.
+Le serveur proxy fera alors son travail sur les paquets. Nous verrons
+ce sujet en détail plus loin.
+      </para>
+      
+      <para>
+La machine NAT possède une IP réelle disponible sur Internet, de même que
+le routeur et n'importe quelle autre machine présente sur l'Internet.
+Toutes les machines à l'intérieur de réseaux NATés auront des adresses
+IP privées, économisant de l'argent, et des adresses Internet.
+      </para>      
+    </section>
+  </section>
+  
+  <section xml:id="natwhatsnext">
+    <title xml:id="natwhatsnext.title">Prochain chapitre</title>
+    
+    <para>
+Nous avons expliqué dans ce chapitre le NAT et sa théorie. En particulier
+les divers points de vue, et quelques uns des problèmes pouvant survenir
+de l'utilisation du NAT et des proxies ensemble. les zones suivantes :
+    </para>
+    
+    <itemizedlist mark='opencircle'>
+      <listitem>
+        <para>
+Utilisation du NAT
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+Composants du NAT
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+Histoire du NAT
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+Termes utilisés à propos du NAT
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+Examens du matériel en rapport avec le NAT
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+Problèmes avec le NAT
+        </para>
+      </listitem>
+    </itemizedlist>
+    
+    <para>
+Tout ceci sera utilisé quand nous travaillerons avec Netfilter et Iptables.
+Le NAT est très largement utilisé dans les réseaux aujourd'hui, même
+si c'est seulement une solution intermédiaire pour un problème inattendu.
+Nous parlerons plus en détail du NAT plus loin lorsque nous verrons
+l'implémentation de Netfilter et Iptables.
+    </para>
+  </section>
+</chapter>
+

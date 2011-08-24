@@ -76,7 +76,7 @@ endif
 
 BASENAME = $(basename $(firstword $(XML_FILES)))
 
-xml2xhtml: index.html $(STYLESHEET).css
+xml2xhtml: index.html $(STYLESHEET).css $(XHTML_OUTPUT)/abstract.xml
 
 $(XHTML_OUTPUT)/$(BASENAME).xml: $(XML_FILES)
 	# Création du répertoire de travail
@@ -94,23 +94,23 @@ index.html: $(XHTML_OUTPUT)/$(BASENAME).xml
 	cp -a $(BASENAME).xml $(MAIN_DIR)/xml/ && \
 	xsltproc --stringparam html.stylesheet $(STYLESHEET).css $(XSLT_STYLESHEET) $(BASENAME).xml \
 	)
-	# Formatage des pages
+	# Formatage des pages XHTML
 	@for file in `ls $(XHTML_OUTPUT)/*.html`; do \
 		sed -i '/<title>/d;s/style=\"clear:* both\"//' $$file ;\
 		( cd $(MAIN_DIR) && \
 		nb --title $(BASENAME) make-page $(CWD)/$$file $(CWD)/`echo $${file##*/}` ) ;\
 	done
 	# Extraction et transformation de la table des matières 
-	echo '<div id="links">' >$(XHTML_OUTPUT)/toc.htm
-	echo '<div class="sidetitle">Formats</div>' >>$(XHTML_OUTPUT)/toc.htm
-	echo '<div class="side">' >>$(XHTML_OUTPUT)/toc.htm
-	echo '<a href="/xml/$(BASENAME).xml" class="xml-small">Source DocBook XML</a>' >>$(XHTML_OUTPUT)/toc.htm
-	echo '<a href="/pdf/$(BASENAME).pdf" class="pdf-small">Fichier imprimable PDF</a>' >>$(XHTML_OUTPUT)/toc.htm
-	echo '<a href="https://github.com/platu/inetdoc/commits/master$(PAGEMENUITEM)/$(BASENAME).xml" class="git-small">Historique des versions</a>' >>$(XHTML_OUTPUT)/toc.htm
-	echo '</div>' >> $(XHTML_OUTPUT)/toc.htm
+	@echo '<div id="links">' >$(XHTML_OUTPUT)/toc.htm
+	@echo '<div class="sidetitle">Formats</div>' >>$(XHTML_OUTPUT)/toc.htm
+	@echo '<div class="side">' >>$(XHTML_OUTPUT)/toc.htm
+	@echo '<a href="/xml/$(BASENAME).xml" class="xml-small">Source DocBook XML</a>' >>$(XHTML_OUTPUT)/toc.htm
+	@echo '<a href="/pdf/$(BASENAME).pdf" class="pdf-small">Fichier imprimable PDF</a>' >>$(XHTML_OUTPUT)/toc.htm
+	@echo '<a href="https://github.com/platu/inetdoc/commits/master$(PAGEMENUITEM)/$(BASENAME).xml" class="git-small">Historique des versions</a>' >>$(XHTML_OUTPUT)/toc.htm
+	@echo '</div>' >> $(XHTML_OUTPUT)/toc.htm
 	@sed -n '/<div class=\"toc\">/,/<\/div>/p' $(XHTML_OUTPUT)/$@ >> $(XHTML_OUTPUT)/toc.htm 
 	@sed -i -f $(MAIN_DIR)/common/docbook-xml-toc.sed $(XHTML_OUTPUT)/toc.htm
-	echo '</div>' >> $(XHTML_OUTPUT)/toc.htm
+	@echo '</div>' >> $(XHTML_OUTPUT)/toc.htm
 	# Insertion de la table des matières dans la partie liens de chaque page
 	@for file in `ls *.html`; do \
 		sed -n '1,/<div id=\"container\">/p' $$file >> $$file.tmp ;\
@@ -119,12 +119,20 @@ index.html: $(XHTML_OUTPUT)/$(BASENAME).xml
 		mv $$file.tmp $$file ;\
 	done
 
+$(XHTML_OUTPUT)/abstract.xml: $(BASENAME).xml
+	# Extraction du résumé
+	@if egrep -qi -e "<abstract" -e "<revhsitory" $<; then \
+		sed -n '/<abstract>/,/<\/abstract>/p' $< > $@ ;\
+		sed -i 's/<abstract>//;s/<\/abstract>//' $@ ;\
+	fi
+
 xml2pdf: $(MAIN_DIR)/pdf/$(BASENAME).pdf
 
 $(MAIN_DIR)/pdf/$(BASENAME).pdf: $(XHTML_OUTPUT)/$(BASENAME).xml
 	# Transformation FO du résultat de la validation XML
 	@( \
         cd $(XHTML_OUTPUT) && \
+	if [ -d ../images ] && [ ! -h images ]; then ln -s ../images; fi && \
 	xsltproc --output $(BASENAME).fo $(MAIN_DIR)/common/fopdf.xsl $(BASENAME).xml && \
 	$(FOP) -fo $(BASENAME).fo -pdf $@ \
 	)
