@@ -103,7 +103,7 @@
             <xsl:value-of select="d:title|d:info/d:title" />
           </fo:block>
 
-          <xsl:for-each select="//d:author">
+          <xsl:for-each select="d:info/*/d:author">
 	    <fo:block color="#eee" text-align="right"
 	              font-family="DejaVuSans-Bold" font-size="10pt"
                       margin-right="10mm">
@@ -127,7 +127,7 @@
             </xsl:when>
           </xsl:choose>
 
-          <xsl:for-each select="//d:editor">
+          <xsl:for-each select="d:info/*/d:editor">
 	    <fo:block color="#eee" text-align="right"
 	              font-family="DejaVuSans-Bold" font-size="10pt"
                       margin-right="10mm">
@@ -357,10 +357,13 @@
     
     <!-- Show only Sections up to level 3 in the TOCs -->
     <xsl:param name="toc.section.depth">3</xsl:param>
+    <xsl:param name="generate.section.toc.level" select="3" />
     
     <!-- Dot and Whitespace as separator in TOC between Label and Title-->
     <xsl:param name="autotoc.label.separator" select="'.  '"/>
 
+    <!-- simplesects are used in bibliographic pages -->
+    <xsl:param name="simplesect.in.toc" select="1" />
 
 <!--###################################################
                    Paper & Page Size

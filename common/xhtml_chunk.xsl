@@ -103,6 +103,9 @@
     <xsl:param name="toc.section.depth" select="3" />
     <xsl:param name="generate.section.toc.level" select="3" />
 
+    <!-- simplesects are used in bibliographic pages -->
+    <xsl:param name="simplesect.in.toc" select="1" />
+
 <!--###################################################
                          Labels
     ################################################### -->   

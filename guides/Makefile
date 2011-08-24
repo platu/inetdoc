@@ -11,12 +11,11 @@ SUBDIRS = \
 	zebra.statique \
 	zebra.rip \
 	zebra.ospf \
-	iptables-tutorial
+	iptables-tutorial \
+	tutoriel-secu
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
-
-FILES = Advanced-routing-Howto
 
 XML_FILES = \
 	biblio-guides.xml \
