@@ -12,7 +12,8 @@ SUBDIRS = \
 	zebra.rip \
 	zebra.ospf \
 	iptables-tutorial \
-	tutoriel-secu
+	tutoriel-secu \
+	amavisd-new
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
