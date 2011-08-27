@@ -6,7 +6,8 @@ ABSTRACT_FILE = transform_output/abstract.xml
 
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
-	stockage-reseau
+	stockage-reseau \
+	network-filesystems
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
