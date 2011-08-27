@@ -9,7 +9,7 @@ STYLESHEET	:= inetdoc
 PAGEMENUITEM	:= $(subst $(MAIN_DIR),,$(CWD))
 PAGEMENUCAT	:= $(firstword $(shell echo $(PAGEMENUITEM)| sed 's/\// /g'))
 
-TIDY		:= /usr/bin/tidy -m -q -asxhtml -wrap 79
+TIDY		:= /usr/bin/tidy -q -asxhtml -utf8
 FOP		:= ~/SVN/fop/trunk/fop -l fr -c $(MAIN_DIR)/common/fop.xconf
 
 XSLT_STYLESHEET	:= $(MAIN_DIR)/common/xhtml_chunk.xsl
@@ -41,6 +41,11 @@ ifdef SUBDIRS
 	done
 endif
 
+dist_dirs: $(MAIN_DIR)/odp $(MAIN_DIR)/pdf $(MAIN_DIR)/xml
+
+$(MAIN_DIR)/odp $(MAIN_DIR)/pdf $(MAIN_DIR)/xml:
+	mkdir $@
+
 #/*--------------------------------------------------------------------------
 #* Traitement des liens symboliques
 #*---------------------------------------------------------------------------*/
@@ -67,7 +72,7 @@ $(STYLESHEET).css: $(MAIN_DIR)/styles/$(STYLESHEET).css
 
 ifeq (xml, $(findstring xml,$(PROCESS)))
 
-XHTML_OUTPUT	:= transform_output
+OUTPUT	:= transform_output
 
 ifndef XML_FILES
 XML_FILES	:= $(wildcard *.xml)
@@ -76,66 +81,165 @@ endif
 
 BASENAME = $(basename $(firstword $(XML_FILES)))
 
-xml2xhtml: index.html $(STYLESHEET).css $(XHTML_OUTPUT)/abstract.xml
+xml2xhtml: \
+	dist_dirs \
+	index.html \
+	$(STYLESHEET).css \
+	$(OUTPUT)/abstract.xml
 
-$(XHTML_OUTPUT)/$(BASENAME).xml: $(XML_FILES)
-	@if [ ! -d $(XHTML_OUTPUT) ]; then mkdir $(XHTML_OUTPUT); fi
+$(OUTPUT)/$(BASENAME).xml: $(XML_FILES)
+	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
 	# Validation XML de $(firstword $(XML_FILES))
 	@xmllint --encode utf-8 --noent --noxincludenode --valid $< > $@ ;\
 	 if [ $$? -ne 0 ]; then rm -f $@; exit 1; fi
 
-index.html: $(XHTML_OUTPUT)/$(BASENAME).xml
+index.html: $(OUTPUT)/$(BASENAME).xml
 	# Insertion du nom de fichier imprimable 
 	# Copie du fichier source complet dans le répertoire de distribution
 	# Transformation XHTML du résultat de la validation XML
 	@( \
-	cd $(XHTML_OUTPUT) && \
+	cd $(OUTPUT) && \
 	sed -i 's/__printbasename__/$(BASENAME)\.pdf/g' $(BASENAME).xml && \
 	cp -a $(BASENAME).xml $(MAIN_DIR)/xml/ && \
 	xsltproc --stringparam html.stylesheet $(STYLESHEET).css $(XSLT_STYLESHEET) $(BASENAME).xml \
 	)
 	# Formatage des pages XHTML
-	@for file in `ls $(XHTML_OUTPUT)/*.html`; do \
+	@for file in `ls $(OUTPUT)/*.html`; do \
 		sed -i '/<title>/d;s/style=\"clear:* both\"//' $$file ;\
 		( cd $(MAIN_DIR) && \
 		nb --title $(BASENAME) make-page $(CWD)/$$file $(CWD)/`echo $${file##*/}` ) ;\
 	done
 	# Extraction et transformation de la table des matières 
-	@echo '<div id="links">' >$(XHTML_OUTPUT)/toc.htm
-	@echo '<div class="sidetitle">Formats</div>' >>$(XHTML_OUTPUT)/toc.htm
-	@echo '<div class="side">' >>$(XHTML_OUTPUT)/toc.htm
-	@echo '<a href="/xml/$(BASENAME).xml" class="xml-small">Source DocBook XML</a>' >>$(XHTML_OUTPUT)/toc.htm
-	@echo '<a href="/pdf/$(BASENAME).pdf" class="pdf-small">Fichier imprimable PDF</a>' >>$(XHTML_OUTPUT)/toc.htm
-	@echo '<a href="https://github.com/platu/inetdoc/commits/master$(PAGEMENUITEM)/$(BASENAME).xml" class="git-small">Historique des versions</a>' >>$(XHTML_OUTPUT)/toc.htm
-	@echo '</div>' >> $(XHTML_OUTPUT)/toc.htm
-	@sed -n '/<div class=\"toc\">/,/<\/div>/p' $(XHTML_OUTPUT)/$@ >> $(XHTML_OUTPUT)/toc.htm 
-	@sed -i -f $(MAIN_DIR)/common/docbook-xml-toc.sed $(XHTML_OUTPUT)/toc.htm
-	@echo '</div>' >> $(XHTML_OUTPUT)/toc.htm
+	@echo '<div id="links">' >$(OUTPUT)/toc.htm
+	@echo '<div class="sidetitle">Formats</div>' >>$(OUTPUT)/toc.htm
+	@echo '<div class="side">' >>$(OUTPUT)/toc.htm
+	@echo '<a href="/xml/$(BASENAME).xml" class="xml-small">Source DocBook XML</a>' >>$(OUTPUT)/toc.htm
+	@echo '<a href="/pdf/$(BASENAME).pdf" class="pdf-small">Fichier imprimable PDF</a>' >>$(OUTPUT)/toc.htm
+	@echo '<a href="https://github.com/platu/inetdoc/commits/master$(PAGEMENUITEM)/$(BASENAME).xml" class="git-small">Historique des versions</a>' >>$(OUTPUT)/toc.htm
+	@echo '</div>' >> $(OUTPUT)/toc.htm
+	@sed -n '/<div class=\"toc\">/,/<\/div>/p' $(OUTPUT)/$@ >> $(OUTPUT)/toc.htm 
+	@sed -i -f $(MAIN_DIR)/common/docbook-xml-toc.sed $(OUTPUT)/toc.htm
+	@echo '</div>' >> $(OUTPUT)/toc.htm
 	# Insertion de la table des matières dans la partie liens de chaque page
 	@for file in `ls *.html`; do \
 		sed -n '1,/<div id=\"container\">/p' $$file >> $$file.tmp ;\
-		cat $(XHTML_OUTPUT)/toc.htm >> $$file.tmp ;\
+		cat $(OUTPUT)/toc.htm >> $$file.tmp ;\
 		sed -n '/<div id=\"content\">/,$$p' $$file >> $$file.tmp ;\
 		mv $$file.tmp $$file ;\
 	done
 
-$(XHTML_OUTPUT)/abstract.xml: $(BASENAME).xml
-	@if [ ! -d $(XHTML_OUTPUT) ]; then mkdir $(XHTML_OUTPUT); fi
+$(OUTPUT)/abstract.xml: $(BASENAME).xml
+	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
 	@if egrep -qi -e "<abstract" $<; then \
 		echo '# Extraction du résumé' ;\
 		sed -n '/<abstract>/,/<\/abstract>/p' $< > $@ ;\
 		sed -i 's/<abstract>//;s/<\/abstract>//' $@ ;\
 	fi
 
-xml2pdf: $(MAIN_DIR)/pdf/$(BASENAME).pdf
+xml2pdf: \
+	dist_dirs \
+	$(MAIN_DIR)/pdf/$(BASENAME).pdf
 
-$(MAIN_DIR)/pdf/$(BASENAME).pdf: $(XHTML_OUTPUT)/$(BASENAME).xml
+$(MAIN_DIR)/pdf/$(BASENAME).pdf: $(OUTPUT)/$(BASENAME).xml
 	# Transformation FO du résultat de la validation XML
 	@( \
-        cd $(XHTML_OUTPUT) && \
+        cd $(OUTPUT) && \
 	if [ -d ../images ] && [ ! -h images ]; then ln -s ../images; fi && \
 	xsltproc --output $(BASENAME).fo $(MAIN_DIR)/common/fopdf.xsl $(BASENAME).xml && \
 	$(FOP) -fo $(BASENAME).fo -pdf $@ \
 	)
+
+endif
+
+#/*--------------------------------------------------------------------------
+#* Traitement des fichiers sources Libreoffice ODP
+#*---------------------------------------------------------------------------*/
+
+ifeq (odp, $(findstring odp,$(PROCESS)))
+
+libreoffice	:= $(shell which libreoffice)
+
+OUTPUT		:= transform_output
+
+ifndef ODP_FILES
+ODP_FILES	:= $(wildcard *.odp)
+endif
+
+BASENAME = $(basename $(firstword $(ODP_FILES)))
+
+#odp2xhtml: $(BASENAME).pdf $(BASENAME)-01.ppm $(BASENAME)-01.idx.png $(BASENAME)-01.png $(BASENAME).html $(BASENAME)-01.html
+odp2xhtml: \
+	dist_dirs \
+	$(STYLESHEET).css \
+	$(MAIN_DIR)/odp/$(BASENAME).odp \
+	$(MAIN_DIR)/pdf/$(BASENAME).pdf \
+	$(OUTPUT)/$(BASENAME)-01.ppm \
+	$(BASENAME)-01.idx.png \
+	$(BASENAME)-01.png \
+	index.html
+
+$(MAIN_DIR)/odp/$(BASENAME).odp: $(BASENAME).odp
+	cp $< $@
+
+$(MAIN_DIR)/pdf/%.pdf: %.odp
+	@if [ -z $(libreoffice) ]; then echo 'libreoffice indisponible'; exit 1; fi
+	@if [ ! -f $(HOME)/bin/DocumentConverter.py ]; then echo 'script de conversion PDF indisponible'; exit 1; fi
+	# Génération du fichier imprimable PDF
+	@$(libreoffice) -headless -nofirststartwizard -nologo -norestore -accept="socket,port=8100;urp;" &
+	@sleep 5s
+	@python $(HOME)/bin/DocumentConverter.py $? $@
+	@killall soffice
+
+$(OUTPUT)/$(BASENAME)-01.ppm: $(MAIN_DIR)/pdf/$(BASENAME).pdf
+	# Génération d'un fichier image par vue
+	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
+	@pdftoppm $? $(OUTPUT)/$(BASENAME)
+
+$(BASENAME)-01.idx.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(OUTPUT)/$(BASENAME)-01.ppm
+	# Génération d'une vignette par vue
+	@for file in `ls $(OUTPUT)/*.ppm`; do \
+		convert -thumbnail 200x150 $$file `basename $$file .ppm`.idx.png ;\
+	done
+
+$(BASENAME)-01.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(OUTPUT)/$(BASENAME)-01.ppm
+	# Génération d'une image par vue
+	@for file in `ls $(OUTPUT)/*.ppm`; do \
+		convert -resize 800x600 $$file `basename $$file .ppm`.png ;\
+	done
+
+index.html: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(BASENAME)-01.idx.png $(BASENAME)-01.png
+	# Formatage XHTML de la page d'index
+	$(MAIN_DIR)/common/odp2index.sh $(BASENAME) $(OUTPUT)/$@.tmp
+	@( cd $(MAIN_DIR) && \
+	nb --title $(BASENAME) make-page $(CWD)/$(OUTPUT)/$@.tmp $(CWD)/$(OUTPUT)/$@ \
+	)
+	@rm $(OUTPUT)/$@.tmp
+	# Formatage XHTML des pages de vues
+	$(MAIN_DIR)/common/odp2slidepages.sh $(BASENAME) $(OUTPUT)
+	@for file in `ls $(OUTPUT)/$(BASENAME)*.html`; do \
+		mv $$file $$file.tmp ;\
+		( cd $(MAIN_DIR) && \
+		nb --title $(BASENAME) make-page $(CWD)/$$file.tmp $(CWD)/$$file \
+		) ;\
+		rm $$file.tmp ;\
+	done
+	# Insertion de la feuille de styles
+	# Insertion des liens de distribution
+	@for file in `ls $(OUTPUT)/*.html`; do \
+		if ! egrep -qi -e "$(STYLESHEET).css" $$file; then \
+			sed -i 's/<\/head>/<link rel=\"stylesheet\" href=\"$(STYLESHEET).css\" type=\"text\/css\" media=\"all\" \/>&/' $$file ;\
+		fi ;\
+		sed -n '1,/<div id=\"container\">/p' $$file > $$file.tmp ;\
+		echo '<div id="links">' >> $$file.tmp ;\
+		echo '<div class="sidetitle">Formats</div>' >> $$file.tmp ;\
+		echo '<div class="side">' >> $$file.tmp ;\
+		echo '<a href="/odp/$(BASENAME).odp" class="odp-small">Fichier OpenDocument</a>' >> $$file.tmp ;\
+		echo '<a href="/pdf/$(BASENAME).pdf" class="pdf-small">Fichier imprimable PDF</a>' >> $$file.tmp ;\
+		echo '</div> <!-- /side div -->' >> $$file.tmp ;\
+		echo '</div> <!-- /links div -->' >> $$file.tmp ;\
+		sed -n '/<div id=\"content\">/,$$p' $$file >> $$file.tmp ;\
+		mv $$file.tmp $$file ;\
+	done
+	cp $(OUTPUT)/*.html .
 
 endif
