@@ -5,11 +5,11 @@ endif
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
 	images \
-	guides
+	guides \
+	presentations
 
 #	articles	\
 	cours		\
-	guides		\
 	formations	\
 
 # Type(s) de traitement
