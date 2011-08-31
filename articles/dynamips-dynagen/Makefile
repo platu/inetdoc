@@ -10,7 +10,9 @@ SYMLINKS = \
         $(MAIN_DIR)/common/legal.xml \
         $(MAIN_DIR)/common/inetdoc.urls.xml
 
-XML_FILES = dynamips-dynagen.xml
+XML_FILES = \
+	dynamips-dynagen.xml \
+	inetdoc.urls.xml
 
 all: $(PROCESS)
 
