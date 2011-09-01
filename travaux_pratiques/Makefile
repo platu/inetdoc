@@ -2,17 +2,17 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
+ABSTRACT_FILE = transform_output/abstract.xml
+
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
-	images \
-	articles \
-	formations \
-	guides \
-	presentations \
-	travaux_pratiques
+	archi.tp
 
 # Type(s) de traitement
-PROCESS = subdirs 
+PROCESS = subdirs xml2xhtml xml2pdf
+
+XML_FILES = \
+	biblio-travaux_pratiques.xml
 
 all: $(PROCESS)
 
