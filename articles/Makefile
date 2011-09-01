@@ -9,6 +9,7 @@ SUBDIRS = \
 	infosecconcepts \
 	dynamips-dynagen \
 	devmgmt \
+	modelisation \
 	adressage.ipv4
 
 # Type(s) de traitement
@@ -19,6 +20,7 @@ XML_FILES = \
 	infosecconcepts/$(ABSTRACT_FILE) \
 	dynamips-dynagen/$(ABSTRACT_FILE) \
 	devmgmt/$(ABSTRACT_FILE) \
+	modelisation/$(ABSTRACT_FILE) \
 	adressage.ipv4/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
