@@ -8,7 +8,8 @@ ABSTRACT_FILE = transform_output/abstract.xml
 SUBDIRS = \
 	infosecconcepts \
 	dynamips-dynagen \
-	devmgmt
+	devmgmt \
+	adressage.ipv4
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
@@ -17,7 +18,8 @@ XML_FILES = \
 	biblio-articles.xml \
 	infosecconcepts/$(ABSTRACT_FILE) \
 	dynamips-dynagen/$(ABSTRACT_FILE) \
-	devmgmt/$(ABSTRACT_FILE)
+	devmgmt/$(ABSTRACT_FILE) \
+	adressage.ipv4/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 

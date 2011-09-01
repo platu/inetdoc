@@ -1,0 +1,1787 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY phl 		SYSTEM "author.xml">
+<!ENTITY legal 		SYSTEM "legal.xml">
+
+<!ENTITY vlsm		SYSTEM "files/vlsm.txt">
+
+<!-- urls -->
+<!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.understanding.ipv4
+	'<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.inetdoc.net/pdf/501302.pdf">
+	<citetitle>Comprendre l&#39;adressage IP</citetitle></link>'>
+
+<!ENTITY url.iana
+	'<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.iana.org/">
+	<citetitle>Internet Assigned Numbers Authority</citetitle></link>'>
+]>
+
+<article xmlns="http://docbook.org/ns/docbook" xml:id='adressage.ipv4' xml:lang='fr'>
+<info>
+  <title>Adressage IPv4</title>
+  &phl;
+  <abstract>
+    <para>Le système d'adressage défini avec le protocole réseau du
+    modèle TCP/IP est incontournable dans la mise en œuvre des réseaux
+    actuels. L'objet de cet article est de décrire succinctement le
+    fonctionnement et les possibilités de l'adressage
+    <acronym>IP</acronym>.</para>
+  </abstract>
+  <keywordset>
+    <keyword>GNU</keyword>
+    <keyword>Linux</keyword>
+    <keyword>address</keyword>
+    <keyword>adressage</keyword>
+    <keyword>exercices</keyword>
+    <keyword>inet</keyword>
+    <keyword>ip</keyword>
+    <keyword>interdomaine</keyword>
+    <keyword>internet</keyword>
+    <keyword>internetworking</keyword>
+    <keyword>nat</keyword>
+    <keyword>network</keyword>
+    <keyword>rfc950</keyword>
+    <keyword>rfc1918</keyword>
+    <keyword>rfc1631</keyword>
+    <keyword>subnetting</keyword>
+    <keyword>cidr</keyword>
+  </keywordset>
+</info>
+
+<sect1 xml:id='adressage.ipv4.meta'>
+  &legal;
+  <sect2 xml:id='adressage.ipv4.meta.print'>
+    <title>Méta-information</title>
+
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </sect2>
+
+  <sect2 xml:id='adressage.ipv4.meta.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='adressage.ipv4.layer3'>
+  <title>Le protocole IP de la couche Réseau</title>
+
+  <para>Le rôle fondamental de la couche réseau (niveau 3 du <link
+  linkend='adressage.ipv4.modelisations'>modèle <acronym>OSI</acronym></link>)
+  est de déterminer la <emphasis>route</emphasis> que doivent emprunter les
+  paquets. Cette fonction de recherche de chemin nécessite une identification
+  de tous les hôtes connectés au réseau. De la même façon que l'on repère
+  l'adresse postale d'un bâtiment à partir de la ville, la rue et un numéro
+  dans cette rue, on identifie un hôte réseau par une
+  <emphasis>adresse</emphasis> qui englobe les mêmes informations.</para>
+
+  <para>Le modèle <acronym>TCP/IP</acronym> utilise un système particulier
+  d'adressage qui porte le nom de la couche réseau de ce modèle :
+  <citetitle>l'adressage IP</citetitle>. Le but de cet article est de présenter
+  le fonctionnement de cet adressage dans sa version la plus utilisée 
+  <acronym>IPv4</acronym>.</para>
+
+  <para>De façon très académique, on débute avec le <link
+  linkend='adressage.ipv4.format'>format des adresses
+  <acronym>IP</acronym></link>. On définit ensuite les <link
+  linkend='adressage.ipv4.class'>classes d'adresses <acronym>IP</acronym></link>,
+  le premier mode de découpage de l'espace d'adressage. Comme ce mode de
+  découpage ne convenait pas du tout au développement de l'Internet, on passe
+  en revue la chronologie des améliorations apportées depuis 1980 : <link
+  linkend='adressage.ipv4.subnet'>les sous-réseaux ou
+  <wordasword>subnetting</wordasword></link>, <link
+  linkend='adressage.ipv4.nat'>la traduction d'adresses ou <wordasword>Native
+  Address Translation</wordasword></link> (<acronym>NAT</acronym>) et enfin
+  <link linkend='adressage.ipv4.cidr'>le routage interdomaine sans
+  classe</link>.</para>
+</sect1>
+
+<sect1 xml:id="adressage.ipv4.format">
+  <title>Le format des adresses IP</title>
+
+  <para>Les adresses <acronym>IP</acronym> sont composées de 4 octets. Par
+  convention, on note ces adresses sous forme de 4 nombres décimaux de 0 à 255
+  séparés par des points.</para>
+
+  <para>L'originalité de ce format d'adressage réside dans l'association de
+  l'identification du réseau avec l'identification de l'hôte.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>La partie réseau est commune à l'ensemble des hôtes d'un même
+    réseau,</para>
+    </listitem>
+    <listitem>
+    <para>La partie hôte est unique à l'intérieur d'un même réseau.</para>
+  </listitem>
+  </itemizedlist>
+
+  <para>Prenons un exemple d'adresse <acronym>IP</acronym> pour en identifier
+  les différentes parties :</para>
+
+<table xml:id='adressage.ipv4.format.example' pgwide="1" frame="all">
+  <title>Exemple : adresse IP <systemitem
+  class='ipaddress'>192.168.1.1</systemitem></title>
+  <tgroup cols="2" align="left" colsep="1" rowsep="1">
+    <colspec colnum="1" colwidth="1*"/>
+    <colspec colnum="2" colwidth="1*"/>
+  <thead>
+    <row>
+      <entry>Adresse complète</entry>
+      <entry align='left'><systemitem
+      class='ipaddress'>192.168.  1.  1</systemitem></entry>
+    </row>
+  </thead>
+  <tbody>
+    <row>
+      <entry>Masque de réseau</entry>
+      <entry align='left'><systemitem
+      class='ipaddress'>255.255.255.  0</systemitem></entry>
+    </row>
+    <row>
+      <entry>Partie réseau</entry>
+      <entry align='left'><systemitem
+      class='ipaddress'>192.168.  1.</systemitem></entry>
+    </row>
+    <row>
+      <entry>Partie hôte</entry>
+      <entry align='left'><systemitem
+      class='ipaddress'>              1</systemitem></entry>
+    </row>
+    <row>
+      <entry>Adresse Réseau</entry>
+      <entry align='left'><systemitem
+      class='ipaddress'>192.168.  1.  0</systemitem></entry>
+    </row>
+    <row>
+      <entry>Adresse de diffusion</entry>
+      <entry align='left'><systemitem
+      class='ipaddress'>192.168.  1.255</systemitem></entry>
+    </row>
+  </tbody>
+  </tgroup>
+</table>
+
+  <variablelist>
+    <varlistentry xml:id='adressage.ipv4.format.mask'>
+    <term>Le masque de réseau</term>
+    <listitem>
+    <para>Le masque de réseau sert à séparer les parties réseau et hôte d'une
+    adresse. On retrouve l'adresse du réseau en effectuant un ET logique bit à
+    bit entre une adresse complète et le masque de réseau.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry xml:id='adressage.ipv4.format.broadcast'>
+    <term>L'adresse de diffusion</term>
+    <listitem>
+    <para>Chaque réseau possède une adresse particulière dite de
+    <emphasis>diffusion</emphasis>. Tous les paquets avec cette adresse de
+    destination sont traités par tous les hôtes du réseau local. Certaines
+    informations telles que les annonces de service ou les messages d'alerte
+    sont utiles à l'ensemble des hôtes du réseau.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Voici le même exemple obtenu avec l'affichage de la configuration des
+  interfaces réseau d'un hôte avec un système GNU/Linux :</para>
+
+<screen width='80'># ifconfig
+eth0      Lien encap:Ethernet  HWaddr 00:04:75:FD:13:CD
+          inet adr:192.168.1.1<co xml:id='eth0.ipv4addr'/>  Bcast:192.168.1.255<co xml:id='eth0.broadcast'/>  Masque:255.255.255.0<co xml:id='eth0.mask'/>
+          adr inet6: fe80::204:75ff:fefd:13cd/64 Scope:Lien
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:158 errors:0 dropped:0 overruns:0 carrier:158
+          collisions:0 lg file transmission:1000
+          RX bytes:0 (0.0 b)  TX bytes:9558 (9.3 KiB)
+          Interruption:5 Adresse de base:0xe800
+
+lo        Lien encap:Boucle locale
+          inet adr:127.0.0.1  Masque:255.0.0.0<co xml:id='lo.ipv4addr'/>
+          adr inet6: ::1/128 Scope:Hôte
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:4649 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:4649 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 lg file transmission:0
+          RX bytes:1728470 (1.6 MiB)  TX bytes:1728470 (1.6 MiB)
+</screen>
+
+  <calloutlist>
+    <callout arearefs='eth0.ipv4addr'>
+    <para>Les informations qui nous intéressent sont placées sur cette ligne.
+    L'adresse <systemitem class='ipaddress'>192.168.1.1</systemitem> est
+    l'adresse <acronym>IP</acronym> affectée à l'interface Ethernet
+    <systemitem>eth0</systemitem>.</para>
+    </callout>
+    <callout arearefs='eth0.broadcast'>
+    <para>L'adresse de diffusion est <systemitem
+    class='ipaddress'>192.168.1.255</systemitem> compte tenu du masque
+    réseau.</para>
+    </callout>
+    <callout arearefs='eth0.mask'>
+    <para>Le masque réseau à pour valeur : <systemitem
+    class='ipaddress'>255.255.255.0</systemitem>.</para>
+    </callout>
+    <callout arearefs='lo.ipv4addr'>
+    <para>L'interface de boucle locale <systemitem>lo</systemitem> joue un rôle
+    très particulier. Elle est utilisée pour les communications réseau entre
+    les processus locaux exécutés sur le système. Ces communications ne
+    nécessitant aucun «contact» avec l'extérieur, aucune interface réseau
+    physique ne doit être sollicitée.</para>
+    </callout>
+  </calloutlist>
+
+  <para>Pour plus d'informations voir <xref
+  linkend='adressage.ipv4.config.interface.lan'/>.</para>
+</sect1>
+
+<sect1 xml:id="adressage.ipv4.class">
+  <title>Les classes d'adresses</title>
+  
+  <para>À l'origine, plusieurs groupes d'adresses ont été définis dans le but
+  d'optimiser le cheminement (ou le <emphasis>routage</emphasis>) des paquets
+  entre les différents réseaux. Ces groupes ont été baptisés <emphasis>classes
+  d'adresses IP</emphasis>. Ces classes correspondent à des regroupements en
+  réseaux de même taille. Les réseaux de la même classe ont le même nombre
+  d'hôtes maximum.</para>
+
+  <mediaobject>
+    <imageobject>
+      <imagedata fileref='images/classes.adresses.ipv4.png' format='PNG' width='13cm' contentwidth='12.5cm' align='left'/>
+    </imageobject>
+    <textobject>
+      <phrase>Classes d'adresses IPv4</phrase>
+    </textobject>
+    <caption>
+      <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.inetdoc.net/articles/adressage.ipv4/images/classes.adresses.ipv4.png'>Classes d'adresses IPv4 - image seule</link></para>
+    </caption>
+  </mediaobject>
+
+  <variablelist>
+    <varlistentry xml:id='a.class'>
+    <term>Classe A</term>
+    <listitem>
+    <para>Le premier octet a une valeur comprise entre 1 et 126 ; soit un bit
+    de poids fort égal à <literal>0</literal>. Ce premier octet désigne le
+    numéro de réseau et les 3 autres correspondent à l'adresse de
+    l'hôte.</para>
+    <para>L'adresse réseau <systemitem class='ipaddress'>127.0.0.0</systemitem>
+    est réservée pour les communications en boucle locale.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry xml:id='b.class'>
+    <term>Classe B</term>
+    <listitem>
+    <para>Le premier octet a une valeur comprise entre 128 et 191 ; soit 2 bits
+    de poids fort égaux à <literal>10</literal>. Les 2 premiers octets
+    désignent le numéro de réseau et les 2 autres correspondent à l'adresse de
+    l'hôte.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry xml:id='c.class'>
+    <term>Classe C</term>
+    <listitem>
+    <para>Le premier octet a une valeur comprise entre 192 et 223 ; soit 3 bits
+    de poids fort égaux à <literal>110</literal>. Les 3 premiers octets
+    désignent le numéro de réseau et le dernier correspond à l'adresse de
+    l'hôte.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry xml:id='d.class'>
+    <term>Classe D</term>
+    <listitem>
+    <para>Le premier octet a une valeur comprise entre 224 et 239 ; soit 3 bits
+    de poids fort égux à <literal>111</literal>. Il s'agit d'une zone
+    d'adresses dédiées aux services de multidiffusion vers des groupes d'hôtes
+    (<wordasword>host groups</wordasword>).</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry xml:id='e.class'>
+    <term>Classe E</term>
+    <listitem>
+    <para>Le premier octet a une valeur comprise entre 240 et 255. Il s'agit d'une zone
+    d'adresses réservées aux expérimentations. Ces adresses ne doivent pas être
+    utilisées pour adresser des hôtes ou des groupes d'hôtes.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+<table xml:id='adressage.ipv4.class.space' pgwide="1" frame="all"
+cellpadding='0.5em'>
+  <title>Espace d'adressage</title>
+  <tgroup cols="5" align="right" colsep="1" rowsep="1">
+    <colspec colnum="1" colwidth="1*"/>
+    <colspec colnum="2" colwidth="2*"/>
+    <colspec colnum="3" colwidth="3*"/>
+    <colspec colnum="4" colwidth="2*"/>
+    <colspec colnum="5" colwidth="2*"/>
+    <thead>
+      <row>
+        <entry>Classe</entry>
+	<entry>Masque réseau</entry>
+	<entry>Adresses réseau</entry>
+	<entry>Nombre de réseaux</entry>
+	<entry>Nombre d'hôtes par réseau</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+	<entry>A</entry>
+	<entry align="right">255.0.0.0</entry>
+	<entry align="right">1.0.0.0 - 126.255.255.255</entry>
+	<entry align="right">126</entry>
+	<entry align="right">16777214</entry>
+      </row>
+      <row>
+	<entry>B</entry>
+	<entry align="right">255.255.0.0</entry>
+	<entry align="right">128.0.0.0 - 191.255.255.255</entry>
+	<entry align="right">16384</entry>
+	<entry align="right">65534</entry>
+      </row>
+      <row>
+	<entry>C</entry>
+	<entry align="right">255.255.255.0</entry>
+	<entry align="right">192.0.0.0 - 223.255.255.255</entry>
+	<entry align="right">2097152</entry>
+	<entry align="right">254</entry>
+      </row>
+      <row>
+	<entry>D</entry>
+	<entry align="right">240.0.0.0</entry>
+	<entry align="right">224.0.0.0 - 239.255.255.255</entry>
+	<entry align="right">adresses uniques</entry>
+	<entry align="right">adresses uniques</entry>
+      </row>
+    </tbody>
+  </tgroup>
+</table>
+
+  <para>Le tableau ci-dessus montre que la distribution de l'espace d'adressage
+  est mal répartie. On ne dispose pas de classe intermédiaire entre A et B
+  alors que l'écart entre les valeurs du nombre d'hôte par réseau est
+  énorme. La répartition en pourcentages de l'espace total d'adressage
+  <acronym>IP</acronym> est :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Classes A - 50%</para>
+    </listitem>
+    <listitem>
+    <para>Classes B - 25%</para>
+    </listitem>
+    <listitem>
+    <para>Classes C - 12.5%</para>
+    </listitem>
+    <listitem>
+    <para>Classes D - 12.5%</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>À cette mauvaise distribution de l'espace d'adressage, il faut
+  ajouter les nombreuses critiques sur la façon dont les attributions de
+  classes <acronym>IP</acronym> ont été gérées dans les premières années de
+  l'Internet. Comme les classes ont souvent été attribuées sur demande sans
+  corrélation avec les besoins effectifs, on parle d'un grand
+  «gaspillage».</para>
+
+  <para>Au cours des années, plusieurs générations de solutions ont été
+  apportées pour tenter de compenser les problèmes de distribution de l'espace
+  d'adressage. Les sections suivantes présentent ces solutions dans l'ordre
+  chronologique.</para>
+</sect1>
+
+<sect1 xml:id='adressage.ipv4.subnet'>
+  <title>Le découpage d'une classe en sous-réseaux</title>
+
+  <para>Pour compenser les problèmes de distribution de l'espace d'adressage
+  <acronym>IP</acronym>, la première solution utilisée a consisté à découper
+  une classe d'adresses <acronym>IP</acronym> A, B ou C en sous-réseaux. Cette
+  technique appelée <wordasword>subnetting</wordasword> a été formalisée en
+  1985 avec le document <link linkend='rfc950'>RFC950</link>.</para>
+
+  <para>Si cette technique est ancienne, elle n'en est pas moins efficace face
+  aux problèmes d'exploitation des réseaux contemporains. Il ne faut jamais
+  oublier que le découpage en réseaux ou sous-réseaux permet de cloisonner les
+  domaines de diffusion. Les avantages de ce cloisonnement de la diffusion
+  réseau sont multiples.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Au quotidien, on évite l'engorgement des liens en limitant
+    géographiquement les annonces de services faites par les serveurs de
+    fichiers. Les services <trademark>Micro$oft</trademark> basés sur netBT
+    sont particulièrement gourmands en diffusion réseau. En effet, bon nombre
+    de tâches transparentes pour les utilisateurs supposent que les services
+    travaillent à partir d'annonces générales sur le réseau. Sans ces annonces
+    par diffusion, l'utilisateur doit désigner explicitement le service à
+    utiliser. Le service d'impression est un bon exemple.</para>
+    </listitem>
+    <listitem>
+    <para>Il existe quantité de vers et|ou virus dont les mécanismes de
+    propagation se basent sur une reconnaissance des cibles par diffusion. Le
+    ver <citetitle>Sasser</citetitle> en est un exemple caractéristique. En
+    segmentant un réseau en plusieurs domaines de diffusion, on limite
+    naturellement la propagation de code malveillant. Le
+    <wordasword>subnetting</wordasword> devient alors un élément de la panoplie
+    des outils de sécurité.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Pour illustrer le fonctionnement du découpage en sous-réseaux, on
+  utilise un exemple pratique. On reprend l'exemple de la classe C <systemitem
+  class='ipaddress'>192.168.1.0</systemitem> dont le masque réseau est par
+  définition <systemitem class='ipaddress'>255.255.255.0</systemitem>. Sans
+  découpage, le nombre d'hôtes maximum de ce réseau est de 254. Considérant
+  qu'un domaine de diffusion unique pour 254 hôtes est trop important, on
+  choisit de diviser l'espace d'adressage de cette adresse de classe C. On
+  <emphasis>réserve</emphasis> 3 bits supplémentaires du 4ème octet en
+  complétant le masque réseau. De cette façon on augmente la partie réseau de
+  l'adresse <acronym>IP</acronym> et on diminue la partie hôte.</para> 
+
+  <mediaobject>
+    <imageobject>
+      <imagedata fileref='images/subnetting.ipv4.png' format='PNG' width='15.5cm' contentwidth='15cm' scalefit='1'/>
+    </imageobject>
+    <textobject>
+      <phrase>Découpage en sous-réseaux d'une adresse de classe C avec un
+      masque étendu à 3 bits supplémentaires</phrase>
+    </textobject>
+    <caption>
+    <para><link
+    xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.inetdoc.net/articles/adressage.ipv4/images/subnetting.ipv4.png'>Découpage
+    en sous-réseaux d'une adresse de classe C avec un masque étendu à 3 bits
+    supplémentaires - image seule</link></para>
+    </caption>
+  </mediaobject>
+
+<table xml:id='adressage.ipv4.subnet.example' pgwide="1" frame="all">
+  <title>adresse <systemitem class='ipaddress'>192.168.1.0</systemitem> avec
+  <wordasword>subnetting</wordasword> sur 3 bits</title>
+  <tgroup cols="4" align="left" colsep="1" rowsep="1">
+    <colspec colnum="1" colwidth="1*"/>
+    <colspec colnum="2" colwidth="1*"/>
+    <colspec colnum="3" colwidth="2*"/>
+    <colspec colnum="4" colwidth="1*"/>
+  <thead>
+    <row>
+      <entry>Adresse réseau</entry>
+      <entry align='left'><systemitem
+      class='ipaddress'>192.168.  1.  0</systemitem></entry>
+      <entry>Plage d'adresses utilisables</entry>
+      <entry>Adresse de diffusion</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row>
+      <entry>Masque de réseau</entry>
+      <entry align='left'><systemitem
+      class='ipaddress'>255.255.255.224</systemitem></entry>
+      <entry> </entry>
+      <entry> </entry>
+    </row>
+    <row>
+      <entry>Sous-réseau 0</entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.  1.  0</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1.  1</systemitem> - <systemitem class='ipaddress'>192.168.1. 30</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1. 31</systemitem>
+      </entry>
+    </row>
+    <row>
+      <entry>Sous-réseau 1</entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.  1. 32</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1. 33</systemitem> - <systemitem class='ipaddress'>192.168.1. 62</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1. 63</systemitem>
+      </entry>
+    </row>
+    <row>
+      <entry>Sous-réseau 2</entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.  1. 64</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1. 65</systemitem> - <systemitem class='ipaddress'>192.168.1. 94</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1. 95</systemitem>
+      </entry>
+    </row>
+    <row>
+      <entry>Sous-réseau 3</entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.  1. 96</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1. 97</systemitem> - <systemitem class='ipaddress'>192.168.1.126</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1.127</systemitem>
+      </entry>
+    </row>
+    <row>
+      <entry>Sous-réseau 4</entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.  1.128</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1.129</systemitem> - <systemitem class='ipaddress'>192.168.1.158</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1.159</systemitem>
+      </entry>
+    </row>
+    <row>
+      <entry>Sous-réseau 5</entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.  1.160</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1.161</systemitem> - <systemitem class='ipaddress'>192.168.1.190</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1.191</systemitem>
+      </entry>
+    </row>
+    <row>
+      <entry>Sous-réseau 6</entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.  1.192</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1.193</systemitem> - <systemitem class='ipaddress'>192.168.1.222</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1.223</systemitem>
+      </entry>
+    </row>
+    <row>
+      <entry>Sous-réseau 7</entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.  1.224</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1.225</systemitem> - <systemitem class='ipaddress'>192.168.1.254</systemitem>
+      </entry>
+      <entry align='left'>
+      <systemitem class='ipaddress'>192.168.1.255</systemitem>
+      </entry>
+    </row>
+  </tbody>
+  </tgroup>
+</table>
+
+  <para>Selon les termes du document <link linkend='rfc950'>RFC950</link>, les
+  sous-réseaux dont les bits de masque sont tous à 0 ou tous à 1 ne devaient
+  pas être utilisés pour éviter les erreurs d'interprétation par les protocoles
+  de routage dits <wordasword>classful</wordasword> comme
+  <acronym>RIPv1</acronym>. En effet, ces protocoles de routages de «première
+  génération» ne véhiculaient aucune information sur le masque sachant que
+  celui-ci était déterminé à partir de l'octet le plus à gauche. Dans notre
+  exemple ci-dessus, il y avait confusion aux niveaux de l'adresse de réseau et
+  de diffusion.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>L'adresse du sous-réseau <systemitem
+    class='ipaddress'>192.168.1.0</systemitem> peut être considérée comme
+    l'adresse réseau de 2 réseaux différents : celui avec le masque de
+    classe C (<systemitem class='ipaddress'>255.255.255.0</systemitem>) et
+    celui avec le masque complet après découpage en sous-réseaux (<systemitem
+    class='ipaddress'>255.255.255.224</systemitem>).</para>
+    </listitem>
+    <listitem>
+    <para>De la même façon, l'adresse de diffusion <systemitem
+    class='ipaddress'>192.168.1.255</systemitem> est la même pour 2 réseaux
+    différents : <systemitem class='ipaddress'>192.168.1.0</systemitem> ou
+    <systemitem class='ipaddress'>192.168.100.224</systemitem>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Depuis la publication du document <link linkend='rfc950'>RFC950</link>,
+  en 1985, les protocoles de routage qui servent à échanger les tables
+  d'adresses de réseaux connectés entre routeurs ont évolué. Tous les
+  protocoles contemporains sont conformes aux règles de routage interdomaine
+  sans classe (<acronym>CIDR</acronym>). Les protocoles tels que
+  <acronym>RIPv2</acronym>, <acronym>OSPF</acronym> et <acronym>BGP</acronym>
+  intègrent le traitement des masques de sous-réseaux. Ils peuvent même
+  regrouper ces sous-réseaux pour optimiser le nombre des entrées des tables de
+  routage. Pour appuyer cet argument, le document <link
+  linkend='rfc1878'>RFC1878</link> de 1995 spécifie clairement que la pratique
+  d'exclusion des sous-réseaux <wordasword>all-zeros</wordasword> et
+  <wordasword>all-ones</wordasword> est obsolète.</para>
+</sect1>
+
+<sect1 xml:id='adressage.ipv4.cidr'>
+  <title>Le routage interdomaine sans classe</title>
+
+  <para>Le routage interdomaine sans classe ou <wordasword>Classless
+  Inter-Domain Routing</wordasword> (<acronym>CIDR</acronym>
+  <footnote>
+  <para>L'acronyme <acronym>CIDR</acronym> se prononce comme le «cidre» en
+  anglais : <wordasword>cider</wordasword>.</para>
+  </footnote>) a été discuté
+  par l'<acronym>IETF</acronym> à partir de 1992. Certaines projections de
+  croissance de l'Internet prévoyaient une saturation complète de l'espace
+  d'adressage <acronym>IP</acronym> pour 1994 ou 1995.</para>
+
+  <para>L'utilisation de cette technique a débuté en 1994 après la publication
+  de 4 documents <acronym>RFC</acronym> : <link
+  linkend='rfc1517'>RFC1517</link>, <link linkend='rfc1518'>RFC1518</link>,
+  <link linkend='rfc1519'>RFC1519</link> et <link
+  linkend='rfc1520'>RFC1520</link>.</para>
+
+  <para>Le principale proposition du document <link
+  linkend='rfc1519'>RFC1519</link> publié en Septembre 1993 était de
+  s'affranchir de la notion de classe en s'appuyant sur la notion de masque
+  réseau dont l'utilisation était déjà très répandue à l'époque.</para>
+
+  <para>Le document <link linkend='rfc1519'>RFC1519</link> permet aux
+  administrateurs réseau d'aller au delà du simple
+  <wordasword>subnetting</wordasword> en donnant la capacité de faire du
+  <wordasword>supernetting</wordasword>. En utilisant n'importe quel masque de
+  sous-réseau ou masque de super-réseau possible, on ne se limite plus aux
+  masques classiques des classes : <systemitem
+  class='ipaddress'>255.0.0.0</systemitem>, <systemitem
+  class='ipaddress'>255.255.0.0</systemitem> et <systemitem
+  class='ipaddress'>255.255.255.0</systemitem>. Cette technique de
+  <wordasword>supernetting</wordasword> associée au masque réseau de longueur
+  variable (<wordasword>Variable Length Subnet Mask</wordasword> ou
+  <acronym>VLSM</acronym>) a résolu les problèmes d'attribution de l'espace
+  d'adressage <acronym>IPv4</acronym> et d'accroissement des tables de routage
+  de l'Internet.</para>
+
+  <para>Le problème d'attribution de l'espace d'adressage
+  <acronym>IPv4</acronym> a été diminué parce que l'<xref linkend='iana'/> n'a
+  plus été contraint au déploiement d'espaces adresses «pleins»
+  (<wordasword>classful</wordasword>). Au lieu d'avoir la moitié de l'espace
+  d'adressage <acronym>IPv4</acronym> réservé pour les gros réseaux massifs de
+  classe A, cet espace a été découpé en tranches de plus petites tailles, plus
+  faciles à utiliser. Le routage interdomaine sans classe
+  (<acronym>CIDR</acronym>), associé à la traduction d'adresses de réseau
+  (<acronym>NAT</acronym>, document <link linkend='rfc1631'>RFC1631</link> de
+  1994), a permis au protocole <acronym>IPv4</acronym> de survivre bien au delà
+  de la limite annoncée.</para>
+
+  <para>Le problème des tailles de table de routage a été également résolu à
+  l'aide des techniques <acronym>CIDR</acronym> et <acronym>VLSM</acronym>. Le
+  <wordasword>supernetting</wordasword> fournit aux administrateurs un masque
+  unique pour représenter des réseaux multiples en une seule entrée de table de
+  routage.</para>
+
+  <para>Par exemple, un fournisseur d'accès Internet (<acronym>FAI</acronym>) à
+  qui on a assigné le réseau <systemitem
+  class='ipaddress'>94.20.0.0/16</systemitem>, peut attribuer des sous-réseaux
+  à ses clients (<systemitem class='ipaddress'>94.20.1.0/24</systemitem> à la
+  société A, <systemitem class='ipaddress'>94.20.2.0/24</systemitem> à la
+  société B, etc.) et publier l'adresse <systemitem
+  class='ipaddress'>94.20.0.0/16</systemitem> dans les tables de routage pour
+  représenter tous ses réseaux.</para>
+
+  <para>La technique de masque réseau de longueur variable
+  (<acronym>VLSM</acronym>) permet à un client de n'acquérir que la moitié de
+  cet espace ; par exemple le réseau <systemitem
+  class='ipaddress'>94.20.0.0/23</systemitem> attribue la plage d'adresses
+  allant de <systemitem class='ipaddress'>94.20.0.0</systemitem> à <systemitem
+  class='ipaddress'>94.20.127.0</systemitem>. La plage <systemitem
+  class='ipaddress'>94.20.128.0</systemitem> - <systemitem
+  class='ipaddress'>94.20.254.0</systemitem> peut être vendue à une autre
+  société.</para>
+
+  <para>La capacité de synthétiser (<wordasword>summarize</wordasword>) de
+  multiples sous-réseaux en une adresse et un masque de super réseau réduit
+  significativement les tailles des tables de routage. Bien que ces tailles de
+  tables augmentent encore, les capacités (mémoire et traitement) des
+  équipements d'interconnexion modernes sont largement suffisantes pour gérer
+  cette croissance.</para>
+
+  <para>Le fait de réduire le nombre de bits à 1 du masque réseau permet
+  d'optimiser le nombre des entrées dans une table de routage. Même si cette
+  utilisation du routage interdomaine sans classe dépasse le cadre de ce
+  document, voici un exemple simplifié qui permet de regrouper les 4 réseaux de
+  la liste ci-dessous en une seule entrée avec un masque réseau réduit.</para>
+
+  <simplelist type='vert' columns='1'>
+  <member><systemitem class='ipaddress'>172.16.12.0/24</systemitem> <literal>10101100.00010000.000011 00. 00000000</literal></member>
+  <member><systemitem class='ipaddress'>172.16.13.0/24</systemitem> <literal>10101100.00010000.000011 01. 00000000</literal></member>
+  <member><systemitem class='ipaddress'>172.16.14.0/24</systemitem> <literal>10101100.00010000.000011 10. 00000000</literal></member>
+  <member><systemitem class='ipaddress'>172.16.15.0/24</systemitem> <literal>10101100.00010000.000011 11. 00000000</literal></member>
+  </simplelist>
+
+  <para>La technique du <wordasword>supernetting</wordasword> est basée sur
+  l'identification des bits communs à toutes les adresses de réseau à
+  synthétiser. Dans la liste des 4 réseaux ci-dessus les 22 premiers bits ne
+  varient pas. L'adresse de réseau qui «synthétise» ces 4 entrées est
+  donc :</para>
+
+<screen width='80'>Address:   172.16.12.0          10101100.00010000.000011 00.00000000
+Netmask:   255.255.252.0 = 22   11111111.11111111.111111 00.00000000</screen>
+
+  <para>La technique <acronym>VLSM</acronym> n'est pas seulement utile aux
+  principaux fournisseurs d'accès Internet (<wordasword>Internet Service
+  Provider</wordasword> ou <acronym>ISP</acronym>). Un administrateur possédant
+  plus d'un sous-réseau peut utiliser cette technique pour utiliser son espace
+  assigné plus efficacement. Considérons l'exemple ci-dessous :</para>
+
+<screen width='80'>&vlsm;</screen>
+
+  <para>Le fournisseur d'accès a attribué le réseau <systemitem
+  class='ipaddress'>120.1.50.0</systemitem> avec le masque <systemitem
+  class='ipaddress'>255.255.255.128</systemitem> ; soit l'adresse réseau
+  <systemitem class='ipaddress'>120.1.50.0/25</systemitem>. On dispose donc de
+  la moitié du réseau <systemitem class='ipaddress'>120.1.50.0/24</systemitem>.
+  Suivant les contraintes issues du graphique ci-dessus, on peut découper ce
+  réseau de la façon suivante :</para>
+
+<table xml:id='adressage.ipv4.cidr.example' pgwide="1" frame="all">
+  <title>adresse <systemitem class='ipaddress'>120.1.50.0</systemitem> avec
+  <acronym>VLSM</acronym></title>
+  <tgroup cols="6" align="left" colsep="1" rowsep="1">
+    <colspec colnum="1" colwidth="1*"/>
+    <colspec colnum="2" colwidth="2*"/>
+    <colspec colnum="3" colwidth="1*"/>
+    <colspec colnum="4" colwidth="2*"/>
+    <colspec colnum="5" colwidth="4*"/>
+    <colspec colnum="6" colwidth="1*"/>
+  <thead>
+    <row>
+      <entry>Nom</entry>
+      <entry>Sous-réseau</entry>
+      <entry>Notation CIDR</entry>
+      <entry>Masque</entry>
+      <entry>Plage d'adresses</entry>
+      <entry>Nombre d'hôtes</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row>
+      <entry>Liaison <acronym>ISP1</acronym></entry>
+      <entry><systemitem class='ipaddress'>120.1.50.0</systemitem></entry>
+      <entry>/30</entry>
+      <entry><systemitem class='ipaddress'>255.255.255.252</systemitem></entry>
+      <entry><systemitem class='ipaddress'>120.1.50.1</systemitem> -
+      <systemitem class='ipaddress'>120.1.50.2</systemitem></entry>
+      <entry>2</entry>
+    </row>
+    <row>
+      <entry>Liaison <acronym>ISP2</acronym></entry>
+      <entry><systemitem class='ipaddress'>120.1.50.4</systemitem></entry>
+      <entry>/30</entry>
+      <entry><systemitem class='ipaddress'>255.255.255.252</systemitem></entry>
+      <entry><systemitem class='ipaddress'>120.1.50.5</systemitem> -
+      <systemitem class='ipaddress'>120.1.50.6</systemitem></entry>
+      <entry>2</entry>
+    </row>
+    <row>
+      <entry>Services Internet</entry>
+      <entry><systemitem class='ipaddress'>120.1.50.16</systemitem></entry>
+      <entry>/28</entry>
+      <entry><systemitem class='ipaddress'>255.255.255.240</systemitem></entry>
+      <entry><systemitem class='ipaddress'>120.1.50.17</systemitem> -
+      <systemitem class='ipaddress'>120.1.50.30</systemitem></entry>
+      <entry>14</entry>
+    </row>
+    <row>
+      <entry>Ingénierie</entry>
+      <entry><systemitem class='ipaddress'>120.1.50.32</systemitem></entry>
+      <entry>/27</entry>
+      <entry><systemitem class='ipaddress'>255.255.255.224</systemitem></entry>
+      <entry><systemitem class='ipaddress'>120.1.50.33</systemitem> -
+      <systemitem class='ipaddress'>120.1.50.62</systemitem></entry>
+      <entry>30</entry>
+    </row>
+    <row>
+      <entry>Finance</entry>
+      <entry><systemitem class='ipaddress'>120.1.50.64</systemitem></entry>
+      <entry>/27</entry>
+      <entry><systemitem class='ipaddress'>255.255.255.224</systemitem></entry>
+      <entry><systemitem class='ipaddress'>120.1.50.65</systemitem> -
+      <systemitem class='ipaddress'>120.1.50.94</systemitem></entry>
+      <entry>30</entry>
+    </row>
+    <row>
+      <entry>Finance</entry>
+      <entry><systemitem class='ipaddress'>120.1.50.96</systemitem></entry>
+      <entry>/27</entry>
+      <entry><systemitem class='ipaddress'>255.255.255.224</systemitem></entry>
+      <entry><systemitem class='ipaddress'>120.1.50.97</systemitem> -
+      <systemitem class='ipaddress'>120.1.50.126</systemitem></entry>
+      <entry>30</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</table>
+
+  <para>On note que le nombre maximum d'adresses d'hôtes disponibles correspond
+  à l'espace d'adressage du sous-réseau moins deux. C'est parce que la première
+  adresse désigne le réseau et que la dernière est l'adresse spéciale de
+  diffusion vers tous les hôtes du sous-réseau. Lorsque l'on planifie les
+  espaces d'adressage <acronym>VLSM</acronym>, il est préférable de doubler le
+  nombre d'adresses disponibles de chaque sous-réseau pour prévoir les
+  évolutions futures.</para>
+
+  <para>Pour s'affranchir des masques des classes d'adresses IP, une nouvelle
+  notation a été introduite. Elle consiste à noter le nombre de bits à 1 du
+  masque après le caractère '/' à la suite de l'adresse.</para>
+
+  <para>En reprenant l'exemple précédent de découpage d'une adresse de classe C
+  en sous-réseaux, on peut noter le troisième sous-réseau sous la forme :
+  <systemitem class='ipaddress'>120.1.50.32/27</systemitem>.</para>
+
+  <para>La notation <literal>/27</literal> correspond à 27 bits de masque
+  réseau à 1 ; soit un masque complet de <systemitem
+  class='ipaddress'>255.255.255.224</systemitem>.</para>
+
+  <para>Les techniques de routage interdomaine sans classe
+  (<acronym>CIDR</acronym>) et de masque réseau de longueur variable
+  (<acronym>VLSM</acronym>) n'ont pas seulement sauvé l'Internet
+  (temporairement) de la catastrophe ; elles sont aussi un outil très
+  utile pour l'optimisation de l'utilisation de l'espace d'adressage
+  <acronym>IPv4</acronym>.</para>
+</sect1>
+
+<sect1 xml:id="adressage.ipv4.exemple">
+  <title>Un exemple pratique</title>
+
+  <para>Pour configurer l'interface d'un hôte qui doit se connecter à un réseau
+  existant, on nous donne l'adresse <systemitem
+  class='ipaddress'>172.16.19.40/21</systemitem> :</para>
+
+<qandaset defaultlabel='qanda'>
+  <qandaentry>
+  <question>
+  <para>Quel est le masque réseau de cette adresse ?
+  </para>
+  </question>
+  <answer>
+  <para>La notation condensée <literal>/21</literal> indique que le la partie
+  réseau de l'adresse occupe 21 bits. On décompose ces 21 bits en 8 bits . 8
+  bits . 5 bits ; ce qui donne : <systemitem
+  class='ipaddress'>255.255.248.0</systemitem>.
+  </para>
+  </answer>
+  </qandaentry>
+  <qandaentry>
+  <question>
+  <para>Combien de bits ont été réservés pour les sous-réseaux privés ?
+  </para>
+  </question>
+  <answer>
+  <para>La valeur du premier octet de l'adresse étant comprise entre 128 et
+  192, il s'agit d'une adresse de classe B. Le masque réseau d'une classe B
+  étant <systemitem class='ipaddress'>255.255.0.0</systemitem>, 5 bits ont été
+  réservés sur le troisième octet pour constituer des sous-réseaux.
+  </para>
+  </answer>
+  </qandaentry>
+  <qandaentry>
+  <question>
+  <para>Combien de sous-réseaux privés sont disponibles ?
+  </para>
+  </question>
+  <answer>
+  <para>Le nombre de valeurs codées sur 5 bits est de 2^5 soit 32. Suivant la
+  génération du protocole de routage utilisé, on applique deux règles
+  différentes.</para>
+  <itemizedlist>
+    <listitem>
+    <para>Historiquement, on devait exclure le premier
+    (<wordasword>all-zeros</wordasword>) et le dernier
+    (<wordasword>all-ones</wordasword>) sous-réseau conformément au document
+    <link linkend='rfc950'>RFC950</link> de 1985. Cette règle suppose que les
+    protocoles de routage utilisent uniquement la classe du réseau routé sans
+    tenir compte de son masque et donc de sa longueur variable.</para>
+    <para>Dans ce cas, le nombre de sous-réseaux utilisables est 30.</para>
+    </listitem>
+    <listitem>
+    <para>Dans les réseaux contemporains, on peut retenir l'ensemble des
+    sous-réseaux sachant que les protocoles de routage véhiculent les masques
+    de longueurs variables dans chaque entrée de table de routage. Cette règle
+    est applicable depuis la publication des documents standard relatifs au
+    routage interdomaine sans classe (<wordasword>CIDR</wordasword>) notamment
+    le <link linkend='rfc1878'>RFC1878</link> de 1995.</para>
+    <para>Dans ce cas, le nombre de sous-réseaux utilisables est 32.</para>
+    </listitem>
+  </itemizedlist>
+  </answer>
+  </qandaentry>
+  <qandaentry>
+  <question>
+  <para>Combien d'hôtes peut contenir chaque sous-réseau ?
+  </para>
+  </question>
+  <answer>
+  <para>Les adresses des hôtes sont codées sur les bits à 0 du masque réseau.
+  Avec le masque <literal>/21</literal>, il reste : 32 - 21 = 11 bits.
+  Le nombre de valeurs codées sur 11 bits est de 2^11 soit 2048.
+  Chaque sous-réseau peut contenir 2046 hôtes.
+  On a retiré la valeur 0 puisqu'elle sert à identifier l'adresse du réseau 
+  et non celle d'un hôte ainsi que la valeur avec les 11 bits à 1 qui sert
+  à la diffusion sur le sous-réseau.
+  </para>
+  </answer>
+  </qandaentry>
+  <qandaentry>
+  <question>
+  <para>Quelle est l'adresse du sous-réseau de l'exemple ?
+  </para>
+  </question>
+  <answer>
+  <para>Les deux premiers octets étant compris dans la partie réseau, ils
+  restent inchangés.
+  Le quatrième octet (40) étant compris dans la partie hôte, il suffit 
+  de le remplacer par 0.
+  Le troisième octet (19) est partagé entre partie réseau et partie hôte.
+  Si on le convertit en binaire, on obtient : 00010011.
+  En faisant un ET logique avec la valeur binaire correspondant 5 bits réseau
+  (11111000) on obtient : 00010000 ; soit 16 en décimal. 
+  L'adresse du sous-réseau est donc <systemitem
+  class='ipaddress'>172.16.16.0</systemitem>.
+  </para>
+  </answer>
+  </qandaentry>
+  <qandaentry>
+  <question>
+  <para>Quelle est l'adresse de diffusion du sous-réseau de l'exemple ?
+  </para>
+  </question>
+  <answer>
+  <para>Les deux premiers octets étant compris dans la partie réseau, ils
+  restent inchangés.
+  Le quatrième octet (40) étant compris dans la partie hôte, il suffit 
+  de le remplacer par 255.
+  Le troisième octet (19) est partagé entre partie réseau et partie hôte.
+  Si on le convertit en binaire, on obtient : 00010011.
+  On effectue cette fois-ci un OU logique avec la valeur binaire correspondant
+  aux 3 bits d'hôtes à un (00000111).
+  On obtient : 00010111 ; soit 23 en décimal.
+  L'adresse de diffusion du sous-réseau est donc 
+  <systemitem class='ipaddress'>172.16.23.255</systemitem>.
+  </para>
+  </answer>
+  </qandaentry>
+</qandaset>
+</sect1>
+
+<sect1 xml:id='adressage.ipv4.nat'>
+  <title>Les réseaux privés &amp; la traduction d'adresses
+  (<acronym>NAT</acronym>)</title>
+
+  <para>Les réseaux privés se sont développés en «réaction» à deux évolutions
+  de l'Internet : la mauvaise utilisation de l'espace d'adressage
+  <acronym>IPv4</acronym> et les besoins de sécurisation des réseaux
+  d'entreprises.</para> 
+  
+  <para>Ces évolutions on conduit à la conception de réseaux dits privés
+  n'ayant que peu ou pas d'interfaces exposées sur le réseau public 
+  l'Internet.</para>
+
+  <para>Pour planifier l'adressage d'un réseau privé, il faut distinguer deux
+  cas de figure :</para>
+
+  <itemizedlist>
+    <listitem>
+      <para>Si le réseau privé n'est <emphasis>jamais</emphasis> interconnecté
+      avec d'autres réseaux (notamment l'Internet), on peut utiliser n'importe
+      quelle adresse.</para>
+    </listitem>
+    <listitem>
+      <para>Si le réseau privé peut être interconnecté avec d'autres réseaux
+      via un routeur, on doit utiliser les adresses réservées à cet usage. Ces
+      adresses sont données dans le document <link
+      linkend='rfc1918'>RFC1918</link>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Dans la pratique, c'est le second cas de figure que l'on retrouve le
+  plus souvent.</para> 
+
+  <table xml:id='adressage.ipv4.nat.example' pgwide="1" frame="all">
+    <title>Réseaux privés</title>
+    <tgroup cols="4" align="left" colsep="1" rowsep="1">
+    <colspec colnum="1" colwidth="1*"/>
+    <colspec colnum="2" colwidth="2*"/>
+    <colspec colnum="3" colwidth="4*"/>
+    <colspec colnum="4" colwidth="3*"/>
+    <thead>
+      <row>
+        <entry>Classe</entry>
+        <entry align="right">Masque réseau</entry>
+        <entry align="right">Adresses réseau</entry>
+        <entry align="right">Notation <acronym>CIDR</acronym></entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+        <entry>A</entry>
+	<entry align="right"><systemitem
+	class='ipaddress'>255.0.0.0</systemitem></entry>
+	<entry align="right"><systemitem
+	class='ipaddress'>10.0.0.0</systemitem> - <systemitem
+	class='ipaddress'>10.255.255.255</systemitem></entry>
+	<entry align="right"><systemitem
+	class='ipaddress'>10.0.0.0/8</systemitem></entry>
+      </row>
+      <row>
+        <entry>B</entry>
+	<entry align="right"><systemitem
+	class='ipaddress'>255.240.0.0</systemitem></entry>
+	<entry align="right"><systemitem
+	class='ipaddress'>172.16.0.0</systemitem> - <systemitem
+	class='ipaddress'>172.31.255.255</systemitem></entry>
+	<entry align="right"><systemitem
+	class='ipaddress'>172.16.0.0/12</systemitem></entry>
+      </row>
+      <row>
+        <entry>C</entry>
+	<entry align="right"><systemitem
+	class='ipaddress'>255.255.0.0</systemitem></entry>
+	<entry align="right"><systemitem
+	class='ipaddress'>192.168.0.0</systemitem> - <systemitem
+	class='ipaddress'>192.168.255.255</systemitem></entry>
+	<entry align="right"><systemitem
+	class='ipaddress'>192.168.0.0/16</systemitem></entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+
+  <para>Aujourd'hui, un fournisseur d'accès Internet (<acronym>FAI</acronym>)
+  attribue dynamiquement une ou plusieurs adresses IP à l'interface de
+  l'équipement qui réalise la connexion (modem dans le cas d'une connexion
+  téléphonique ou <acronym>ADSL</acronym>). Il est possible, avec ce type de
+  configuration, de partager la connexion Internet entre tous les hôtes du
+  réseau privé et|ou de mettre à disposition un serveur sur le réseau public.
+  C'est grâce à la traduction d'adresses que ces fonctions sont
+  réalisées.</para>
+
+  <para>Dans le monde GNU/Linux, les mécanismes de traduction d'adresses sont
+  inclus dans la partie filtrage, appelée <systemitem>netfilter</systemitem>,
+  des fonctions réseau du noyau Linux.</para>
+
+  <para>La conception des fonctions de traduction d'adresses introduites dans
+  le noyau Linux est très intéressante sur le plan pédagogique. On distingue
+  très bien les deux usages de ces fonctions :</para>
+
+  <itemizedlist>
+    <listitem>
+      <para>partager une interface unique du réseau public Internet entre tous
+      les hôtes du réseau privé,</para>
+    </listitem>
+    <listitem>
+      <para>rendre un serveur situé dans le réseau privé accessible depuis
+      l'Internet avec un bon niveau de sécurité.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Dans le premier cas, on parle de <emphasis>traduction d'adresses
+  source</emphasis> (<acronym>S-NAT</acronym>). Ce sont les adresses sources
+  des paquets <acronym>IP</acronym> émis par les hôtes du réseau privé qui sont
+  réécrites avec une adresse <acronym>IP</acronym> publique.</para>
+  
+  <para>Dans le second cas, on parle de <emphasis>traduction d'adresses
+  destination</emphasis> (<acronym>D-NAT</acronym>). Une adresse
+  <acronym>IP</acronym> destination publique est réécrite avec une adresse
+  <acronym>IP</acronym> privée en fonction du service Internet demandé.</para>
+  
+  <para>Ces usages des fonctions de traduction d'adresses avec Linux ont été
+  décrits pour la première fois dans le document de référence <xref
+  linkend='nat-howto'/>.</para>
+
+  <para>Le mécanisme général de «réutilisation d'adresses IP» a été décrit dans
+  le document standard <link linkend='rfc1631'>RFC1631</link>.</para>
+
+<!-- Illustration sur la traduction d'adresses -->
+<mediaobject>
+  <imageobject>
+    <imagedata fileref='images/nat.png' format='PNG' width='14cm' contentwidth='13.5cm' align='center'/>
+  </imageobject>
+  <textobject>
+    <phrase>Traduction d'adresses IPv4</phrase>
+  </textobject>
+  <caption>
+    <para><link
+    xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.inetdoc.net/articles/adressage.ipv4/images/nat.png'>Traduction
+    d'Adresses IP - image seule</link></para>
+  </caption>
+</mediaobject>
+
+<itemizedlist>
+  <listitem>
+  <formalpara>
+    <title>Accès depuis le réseau privé vers l'Internet</title>
+  <para>Les adresses des hôtes du réseau privé sont 
+  <emphasis>traduites</emphasis> avec l'adresse de l'interface
+  connectée à Internet.
+  </para>
+  </formalpara>
+  </listitem>
+  <listitem>
+  <formalpara>
+    <title>Accès depuis l'Internet vers le réseau privé</title>
+  <para>Les appels de services (HTTP, DNS, courrier, etc.) sont 
+  <emphasis>traduites</emphasis> avec l'adresse du serveur concerné
+  dans le réseau privé.
+  </para>
+  </formalpara>
+  </listitem>
+</itemizedlist>
+</sect1>
+
+<sect1 xml:id='adressage.ipv4.exercises'>
+  <title>Exercices sur l'adressage IPv4</title>
+
+  <para>Voici quelques exercices très classiques sur l'adressage IPv4. Ils sont
+  tous basés sur le fait que la partie réseau d'une adresse définit un groupe
+  logique dont tous les hôtes partagent un même domaine de diffusion. Toutes
+  les questions sont relatives aux limites de ces groupes logiques.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+      <para>Soit l'adresse <systemitem
+      class='ipaddress'>192.16.5.133/29</systemitem>. Combien de bits sont
+      utilisés pour identifier la partie réseau ? Combien de bits sont
+      utilisés pour identifier la partie hôte ?</para>
+    </question>
+    <answer>
+      <para><emphasis>Correction :</emphasis></para>
+<screen width='80'>Address:   192.16.5.133         11000000.00010000.00000101.10000 101
+Netmask:   255.255.255.248 = 29 11111111.11111111.11111111.11111 000</screen>
+    <para>Partie réseau : 29 bits - partie hôte : 3bits</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Soit l'adresse <systemitem
+      class='ipaddress'>172.16.5.10/28</systemitem>. Quel est le masque réseau
+      correspondant ?</para>
+    </question>
+    <answer>
+      <para><emphasis>Correction :</emphasis></para>
+<screen width='80'>Address:   172.16.5.10          10101100.00010000.00000101.0000 1010
+Netmask:   255.255.255.240 = 28 11111111.11111111.11111111.1111 0000</screen>
+    <para>Masque réseau : <systemitem class='ipaddress'>255.255.255.240</systemitem></para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>On attribue le réseau <systemitem
+      class='ipaddress'>132.45.0.0/16</systemitem>. Il faut redécouper ce
+      réseaux en 8 sous-réseaux.</para>
+
+      <orderedlist numeration='loweralpha'>
+      <listitem>
+	<para>Combien de bits supplémentaires sont nécessaires pour définir
+	huit sous-réseaux ?</para>
+      </listitem>
+      <listitem>
+	<para>Quel est le masque réseau qui permet la création de huit
+	sous-réseaux ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelle est l'adresse réseau de chacun des huit sous-réseaux ainsi
+	définis ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelle est la plage des adresses utilisables du sous-réseau
+	numéro 3 ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelle est l'adresse de diffusion du sous-réseau numéro
+	4 ?</para>
+      </listitem>
+      </orderedlist>
+    </question>
+    <answer>
+      <para><emphasis>Correction :</emphasis></para>
+<screen width='80'>Address:   132.45.0.0           10000100.00101101. 00000000.00000000
+Netmask:   255.255.0.0 = 16     11111111.11111111. 00000000.00000000</screen>
+      <orderedlist numeration='loweralpha'>
+      <listitem>
+	<para>Pour découper l'adresse réseau de départ en huit sous-réseaux, 3
+	bits supplémentaires sont nécessaires (2^3 = 8).</para>
+      </listitem>
+      <listitem>
+	<para>Le nouveau masque réseau est <systemitem
+	class='ipaddress'>255.255.224.0</systemitem></para>
+<screen width='80'>Address:   132.45.0.0           10000100.00101101.000 00000.00000000
+Netmask:   255.255.224.0 = 19   11111111.11111111.111 00000.00000000</screen>
+      </listitem>
+      <listitem>
+	<para>Pour obtenir la liste des huit adresses de sous-réseaux, on
+	construit la table des combinaisons binaires sur les 3 bits
+	supplémentaires du masque réseau.</para>
+	<simplelist type='vert' columns='1'>
+	<member>Numéro 0 : <literal>10000100.00101101.000 00000.00000000</literal> soit <systemitem class='ipaddress'>132.45.0.0</systemitem></member>
+	<member>Numéro 1 : <literal>10000100.00101101.001 00000.00000000</literal> soit <systemitem class='ipaddress'>132.45.32.0</systemitem></member>
+	<member>Numéro 2 : <literal>10000100.00101101.010 00000.00000000</literal> soit <systemitem class='ipaddress'>132.45.64.0</systemitem></member>
+	<member>Numéro 3 : <literal>10000100.00101101.011 00000.00000000</literal> soit <systemitem class='ipaddress'>132.45.96.0</systemitem></member>
+	<member>Numéro 4 : <literal>10000100.00101101.100 00000.00000000</literal> soit <systemitem class='ipaddress'>132.45.128.0</systemitem></member>
+	<member>Numéro 5 : <literal>10000100.00101101.101 00000.00000000</literal> soit <systemitem class='ipaddress'>132.45.160.0</systemitem></member>
+	<member>Numéro 6 : <literal>10000100.00101101.110 00000.00000000</literal> soit <systemitem class='ipaddress'>132.45.192.0</systemitem></member>
+	<member>Numéro 7 : <literal>10000100.00101101.111 00000.00000000</literal> soit <systemitem class='ipaddress'>132.45.224.0</systemitem></member>
+	</simplelist>
+      </listitem>
+      <listitem>
+	<para>Adresse du sous-réseau numéro 3 : <systemitem
+	class='ipaddress'>132.45.96.0</systemitem></para>
+<screen width='80'>Network:   132.45.96.0/19       10000100.00101101.011 00000.00000000
+HostMin:   132.45.96.1          10000100.00101101.011 00000.00000001
+HostMax:   132.45.127.254       10000100.00101101.011 11111.11111110</screen>
+      </listitem>
+      <listitem>
+	<para>Adresse de diffusion du sous-réseau numéro 4 : <systemitem
+	class='ipaddress'>132.45.159.255</systemitem></para>
+<screen width='80'>Network:   132.45.128.0/19      10000100.00101101.100 00000.00000000
+HostMin:   132.45.128.1         10000100.00101101.100 00000.00000001
+HostMax:   132.45.159.254       10000100.00101101.100 11111.11111110
+Broadcast: 132.45.159.255       10000100.00101101.100 11111.11111111</screen>
+      </listitem>
+      </orderedlist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>On attribue le réseau <systemitem
+      class='ipaddress'>200.35.1.0/24</systemitem>. Il faut définir un masque
+      réseau étendu qui permette de placer 20 hôtes dans chaque
+      sous-réseau.</para>
+
+      <orderedlist numeration='loweralpha'>
+      <listitem>
+	<para>Combien de bits sont nécessaires sur la partie hôte de l'adresse
+	attribuée pour accueillir au moins 20 hôtes ?</para>
+      </listitem>
+      <listitem>
+	<para>Quel est le nombre maximum d'adresses d'hôte utilisables dans
+	chaque sous-réseau ?</para>
+      </listitem>
+      <listitem>
+	<para>Quel est le nombre maximum de sous-réseaux définis ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelles sont les adresses de tous les sous-réseaux définis ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelle est l'adresse de diffusion du sous-réseau numéro
+	2 ?</para>
+      </listitem>
+      </orderedlist>
+    </question>
+    <answer>
+      <para><emphasis>Correction :</emphasis></para>
+      <orderedlist numeration='loweralpha'>
+      <listitem>
+	<para>Il est nécessaire de réserver un minimum de 5 bits pour pouvoir
+	définir au moins 20 adresses d'hôte. Sachant que l'espace total
+	d'adressage occupe 32 bits, il reste 27 bits pour la partie réseau
+	(32 - 5 = 27).</para>
+      </listitem>
+      <listitem>
+	<para>La relation entre le nombre de bits (n) de la partie hôte d'une
+	adresse IPv4 et le nombre d'adresses utilisables est :
+	2^n - 2. Les deux combinaisons retirées sont l'adresse de
+	réseau (tous les bits de la partie hôte à 0) et l'adresse de diffusion
+	(tous les bits de la partie hôte à 1).</para>
+
+	<para>Dans le cas présent, avec 5 bits d'adresses pour la partie hôte,
+	le nombre d'adresses utilisables est 30
+	(2^5 - 2 = 30).</para>
+      </listitem>
+      <listitem>
+	<para>Le masque du réseau attribué occupe 24 bits et le masque étendu
+	27 bits (voir question précédente). Le codage des adresses de
+	sous-réseau utilise donc 3 bits. Avec 3 bits, on peut coder 8 (2^3)
+	combinaisons binaires soit 8 sous-réseaux.</para>
+      </listitem>
+      <listitem>
+	<para>Pour obtenir la liste des huit adresses de sous-réseaux, on
+	construit la table des combinaisons binaires sur les 3 bits
+	supplémentaires du masque réseau.</para>
+	<simplelist type='vert' columns='1'>
+	<member>Numéro 0 : <literal>11001000.00100011.00000001.000 00000</literal> soit <systemitem class='ipaddress'>200.35.1.0</systemitem></member>
+	<member>Numéro 1 : <literal>11001000.00100011.00000001.001 00000</literal> soit <systemitem class='ipaddress'>200.35.1.32</systemitem></member>
+	<member>Numéro 2 : <literal>11001000.00100011.00000001.010 00000</literal> soit <systemitem class='ipaddress'>200.35.1.64</systemitem></member>
+	<member>Numéro 3 : <literal>11001000.00100011.00000001.011 00000</literal> soit <systemitem class='ipaddress'>200.35.1.96</systemitem></member>
+	<member>Numéro 4 : <literal>11001000.00100011.00000001.100 00000</literal> soit <systemitem class='ipaddress'>200.35.1.128</systemitem></member>
+	<member>Numéro 5 : <literal>11001000.00100011.00000001.101 00000</literal> soit <systemitem class='ipaddress'>200.35.1.160</systemitem></member>
+	<member>Numéro 6 : <literal>11001000.00100011.00000001.110 00000</literal> soit <systemitem class='ipaddress'>200.35.1.192</systemitem></member>
+	<member>Numéro 7 : <literal>11001000.00100011.00000001.111 00000</literal> soit <systemitem class='ipaddress'>200.35.1.224</systemitem></member>
+	</simplelist>
+      </listitem>
+      <listitem>
+	<para>L'adresse de diffusion du sous-réseau numéro 2 correspond à la
+	combinaison binaire pour laquelle tous les bits de la partie hôte sont
+	à 1 et l'adresse réseau <systemitem
+	class='ipaddress'>200.35.1.64</systemitem>.</para>
+
+<screen width='80'>Address:   200.35.1.64          11001000.00100011.00000001.010 00000
+Netmask:   255.255.255.224 = 27 11111111.11111111.11111111.111 00000
+Broadcast: 200.35.1.95          11001000.00100011.00000001.010 11111</screen>
+
+	<para>Cette adresse de diffusion correspond à l'adresse du sous-réseau
+	suivant moins 1. Partant de l'adresse du sous-réseau numéro 3 :
+	<systemitem class='ipaddress'>200.35.1.96</systemitem> on enlève 1 pour
+	obtenir l'adresse de diffusion du sous-réseau numéro 2 :
+	<systemitem class='ipaddress'>200.35.1.95</systemitem>.</para>
+      </listitem>
+      </orderedlist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>On attribue le réseau <systemitem
+      class='ipaddress'>140.25.0.0/16</systemitem> et on étudie le déploiement
+      de sous-réseaux avec des masques réseau de longueur variable ou
+      <wordasword>Variable Length Subnet Mask</wordasword>
+      (<acronym>VLSM</acronym>). Voici le schéma de découpage de ces
+      sous-réseaux.</para>
+
+  <mediaobject>
+    <imageobject>
+      <imagedata fileref='images/vlsm.png' format='PNG' width='13cm' contentwidth='12.5cm' align='left'/>
+    </imageobject>
+    <textobject>
+      <phrase>Découpage VLSM</phrase>
+    </textobject>
+    <caption>
+      <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.inetdoc.net/articles/adressage.ipv4/images/vlsm.png'>Découpage VLSM - image seule</link></para>
+    </caption>
+  </mediaobject>
+
+      <para>Pour aboutir à ce découpage en sous-réseaux, le premier travail
+      consiste à diviser le préfixe réseau initial en 8 sous-réseaux de même
+      taille. Parmi ces 8 sous-réseaux, le réseau numéro 1 est à nouveau
+      découpé en 32 sous-réseaux et le réseau numéro 6 en 16 sous-réseaux.
+      Enfin, le sous-réseau numéro 14 du dernier sous-ensemble est lui même
+      découpé en 8 sous-réseaux.</para>
+
+      <orderedlist numeration='loweralpha'>
+      <listitem>
+	<para>Quelle est la liste des adresses des 8 sous-réseaux issus du
+	découpage de premier niveau ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelle est la plage des adresses utilisables pour le sous-réseau
+	numéro 3 ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelle est la liste des adresses des 16 sous-réseaux obtenus à
+	partir du sous-réseau numéro 6 ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelle est la plage des adresses utilisables pour le sous-réseau
+	numéro 6 - 3 ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelle est l'adresse de diffusion du sous-réseau numéro
+	6 - 5 ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelle est la plage des adresses utilisables pour le sous-réseau
+	numéro 6 - 14 - 2 ?</para>
+      </listitem>
+      <listitem>
+	<para>Quelle est l'adresse de diffusion du sous-réseau numéro
+	6 - 14 - 5 ?</para>
+      </listitem>
+      </orderedlist>
+    </question>
+    <answer>
+      <para><emphasis>Correction :</emphasis></para>
+
+      <orderedlist numeration='loweralpha'>
+      <listitem>
+	<para>La masque du réseau attribué occupe 16 bits et il faut utiliser 3
+	bits supplémentaires pour définir 8 sous-réseaux. On liste donc les
+	adresses des réseaux obtenus avec un masque sur 19 bits.</para>
+
+	<simplelist type='vert' columns='1'>
+	<member>Numéro 0 : <literal>10001100.00011001.000 00000.0000000</literal> soit <systemitem class='ipaddress'>140.25.0.0</systemitem></member>
+	<member>Numéro 1 : <literal>10001100.00011001.001 00000.0000000</literal> soit <systemitem class='ipaddress'>140.25.32.0</systemitem></member>
+	<member>Numéro 2 : <literal>10001100.00011001.010 00000.0000000</literal> soit <systemitem class='ipaddress'>140.25.64.0</systemitem></member>
+	<member>Numéro 3 : <literal>10001100.00011001.011 00000.0000000</literal> soit <systemitem class='ipaddress'>140.25.96.0</systemitem></member>
+	<member>Numéro 4 : <literal>10001100.00011001.100 00000.0000000</literal> soit <systemitem class='ipaddress'>140.25.128.0</systemitem></member>
+	<member>Numéro 5 : <literal>10001100.00011001.101 00000.0000000</literal> soit <systemitem class='ipaddress'>140.25.160.0</systemitem></member>
+	<member>Numéro 6 : <literal>10001100.00011001.110 00000.0000000</literal> soit <systemitem class='ipaddress'>140.25.192.0</systemitem></member>
+	<member>Numéro 7 : <literal>10001100.00011001.111 00000.0000000</literal> soit <systemitem class='ipaddress'>140.25.224.0</systemitem></member>
+	</simplelist>
+      </listitem>
+      <listitem>
+	<para>La plage des adresses utilisables pour le sous-réseau numéro 3
+	(<systemitem class='ipaddress'>140.25.96.0/19</systemitem> est obtenue
+	en ajoutant 1 à l'adresse de ce réseau et en soustrayant 2 à l'adresse
+	du réseau suivant.</para>
+
+<screen width='80'>Network:   140.25.64.0/19       10001100.00011001.010 00000.00000000
+HostMin:   140.25.64.1          10001100.00011001.010 00000.00000001
+HostMax:   140.25.95.254        10001100.00011001.010 11111.11111110</screen>
+      </listitem>
+      <listitem>
+	<para>La masque du sous-réseau numéro 6 occupe 19 bits et il faut utiliser 4
+	bits supplémentaires pour définir 16 sous-réseaux. On liste donc les
+	adresses des réseaux obtenus avec un masque sur 23 bits.</para>
+
+	<simplelist type='vert' columns='1'>
+	<member>Numéro 00 : <literal>10001100.00011001.1100000 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.192.0</systemitem></member>
+	<member>Numéro 01 : <literal>10001100.00011001.1100001 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.194.0</systemitem></member>
+	<member>Numéro 02 : <literal>10001100.00011001.1100010 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.196.0</systemitem></member>
+	<member>Numéro 03 : <literal>10001100.00011001.1100011 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.198.0</systemitem></member>
+	<member>Numéro 04 : <literal>10001100.00011001.1100100 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.200.0</systemitem></member>
+	<member>Numéro 05 : <literal>10001100.00011001.1100101 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.202.0</systemitem></member>
+	<member>Numéro 06 : <literal>10001100.00011001.1100110 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.204.0</systemitem></member>
+	<member>Numéro 07 : <literal>10001100.00011001.1100111 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.206.0</systemitem></member>
+	<member>Numéro 08 : <literal>10001100.00011001.1101000 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.208.0</systemitem></member>
+	<member>Numéro 09 : <literal>10001100.00011001.1101001 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.210.0</systemitem></member>
+	<member>Numéro 10 : <literal>10001100.00011001.1101010 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.212.0</systemitem></member>
+	<member>Numéro 11 : <literal>10001100.00011001.1101011 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.214.0</systemitem></member>
+	<member>Numéro 12 : <literal>10001100.00011001.1101100 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.216.0</systemitem></member>
+	<member>Numéro 13 : <literal>10001100.00011001.1101101 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.218.0</systemitem></member>
+	<member>Numéro 14 : <literal>10001100.00011001.1101110 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.220.0</systemitem></member>
+	<member>Numéro 15 : <literal>10001100.00011001.1101111 0.00000000</literal> soit <systemitem class='ipaddress'>140.25.222.0</systemitem></member>
+	</simplelist>
+      </listitem>
+      <listitem>
+	<para>La plage des adresses utilisables pour le sous-réseau numéro
+	6 - 3 (<systemitem
+	class='ipaddress'>140.25.198.0/23</systemitem> est obtenue en ajoutant
+	1 à l'adresse de ce réseau et en soustrayant 2 à l'adresse du réseau
+	suivant.</para>
+
+<screen width='80'>Network:   140.25.198.0/23      10001100.00011001.1100011 0.00000000
+HostMin:   140.25.198.1         10001100.00011001.1100011 0.00000001
+HostMax:   140.25.199.254       10001100.00011001.1100011 1.11111110</screen>
+      </listitem>
+      <listitem>
+	<para>L'adresse de diffusion du sous-réseau numéro 6 - 5 est
+	obtenue en soustrayant 1 à l'adresse du sous-réseau numéro
+	6 - 6.</para>
+
+<screen width='80'>Network:   140.25.202.0/23      10001100.00011001.1100101 0.00000000
+Broadcast: 140.25.203.255       10001100.00011001.1100101 1.11111111</screen>
+      </listitem>
+      <listitem>
+	<para>L'adresse du sous-réseau numéro 6 - 14 est donnée dans
+	la liste ci-dessus : <systemitem
+	class='ipaddress'>140.25.220.0/23</systemitem>. Comme ce sous-réseau
+	est lui même découpé en 8 nouveau sous-réseaux, le masque occupe 26
+	bits. En suivant la même méthode que dans les cas précédents, on
+	obtient l'adresse du sous-réseau numéro
+	6 - 14 - 2 : <systemitem
+	class='ipaddress'>140.25.220.128/26</systemitem>. On en déduit la plage
+	des adresses utilisables.</para>
+
+<screen width='80'>Network:   140.25.220.128/26    10001100.00011001.11011100.10 000000
+HostMin:   140.25.220.129       10001100.00011001.11011100.10 000001
+HostMax:   140.25.220.190       10001100.00011001.11011100.10 111110</screen>
+      </listitem>
+      <listitem>
+	<para>L'adresse de diffusion du sous-réseau numéro 6 - 5 est
+	obtenue en soustrayant 1 à l'adresse du sous-réseau numéro
+	6 - 14 - 6.</para>
+
+<screen width='80'>Network:   140.25.221.64/26     10001100.00011001.11011101.01 000000
+Broadcast: 140.25.221.127       10001100.00011001.11011101.01 111111</screen>
+      </listitem>
+      </orderedlist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Alice est au bord de la crise de nerfs ! Aucun des messages
+      envoyés à Bob n'est arrivé à destination. Bob est lui aussi sur le point
+      de craquer ! Il essaie désespérément d'envoyer des messages à Alice
+      sans succès. Il faut absolument faire quelque chose pour les
+      aider.</para>
+
+  <mediaobject>
+    <imageobject>
+      <imagedata fileref='images/alice_and_bob.png' format='PNG' width='13cm' contentwidth='12.5cm' align='left'/>
+    </imageobject>
+    <textobject>
+      <phrase>Alice et Bob veulent communiquer</phrase>
+    </textobject>
+    <caption>
+      <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.inetdoc.net/articles/adressage.ipv4/images/alice_and_bob.png'>Alice et Bob veulent communiquer - image seule</link></para>
+    </caption>
+  </mediaobject>
+
+      <para>Quelle erreur a été commise dans l'affectation des adresses (et|ou) des masques réseau ?</para>
+      
+      <para>Proposer une solution pour rendre les communications possibles.</para>
+    </question>
+    <answer>
+      <para><emphasis>Correction :</emphasis></para>
+
+      <para>On étudie les plages d'adresses utilisables pour chacun des
+      réseaux : le LAN d'Alice, la liaison WAN et le LAN de Bob.</para>
+
+      <orderedlist numeration='loweralpha'>
+      <listitem>
+        <para>L'espace d'adressage du LAN d'Alice a les limites suivantes.</para>
+ 
+<screen width='80'>Network:   172.16.68.192/27     10101100.00010000.01000100.110 00000
+HostMin:   172.16.68.193        10101100.00010000.01000100.110 00001
+HostMax:   172.16.68.222        10101100.00010000.01000100.110 11110</screen>
+
+	<para>Les adresses affectées aux interfaces du poste de travail et du
+	routeur sont bien comprises dans les limites du réseau <systemitem
+	class='ipaddress'>172.16.68.192/27</systemitem>. Le problème ne vient
+	pas de ce réseau.</para>
+      </listitem>
+      <listitem>
+        <para>L'espace d'adressage de la liaison WAN a les limites suivantes.</para>
+ 
+<screen width='80'>Network:   172.16.68.224/28     10101100.00010000.01000100.1110 0000
+HostMin:   172.16.68.225        10101100.00010000.01000100.1110 0001
+HostMax:   172.16.68.238        10101100.00010000.01000100.1110 1110</screen>
+
+	<para>Les adresses affectées aux interfaces WAN des deux routeurs sont
+	bien comprises dans les limites du réseau <systemitem
+	class='ipaddress'>172.16.68.224/28</systemitem>. Les adresses de réseau
+	du LAN d'Alice et de la liaison WAN ne se recouvrent pas. Le problème
+	ne vient pas non plus de ce réseau.</para>
+      </listitem>
+      <listitem>
+        <para>L'espace d'adressage du LAN de Bob a les limites suivantes.</para>
+ 
+<screen width='80'>Network:   172.16.68.224/27     10101100.00010000.01000100.111 00000
+HostMin:   172.16.68.225        10101100.00010000.01000100.111 00001
+HostMax:   172.16.68.254        10101100.00010000.01000100.111 11110</screen>
+
+	<para>Si les adresses affectées aux interfaces du poste de travail et
+	du routeur de Bob sont bien comprises dans les limites du réseau
+	<systemitem class='ipaddress'>172.16.68.224/27</systemitem>, le LAN de
+	Bob et la liaison WAN partagent le même espace d'adressage. Le routeur
+	de Bob est donc bien incapable de prendre une décision d'acheminement
+	des paquets d'un réseau vers l'autre. Le problème vient donc de ce
+	dernier réseau.</para>
+      </listitem>
+      </orderedlist>
+
+      <para>Une solution simple consiste à compléter le masque réseau du LAN de
+      Bob de façon à ce qu'il n'y ait plus chevauchement avec la liaison WAN.
+      Avec un masque sur 29 bits on aurait les caractéristiques
+      suivantes. Alice et Bob pourraient enfin échanger des messages.</para>
+
+<screen width='80'>Network:   172.16.68.248/29     10101100.00010000.01000100.11111 000
+HostMin:   172.16.68.249        10101100.00010000.01000100.11111 001
+HostMax:   172.16.68.254        10101100.00010000.01000100.11111 110</screen>
+    </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='adressage.ipv4.conclusion'>
+  <title>En guise de conclusion</title>
+
+  <para>Cette présentation étant limitée à l'adressage du protocole de couche
+  réseau <acronym>IP</acronym> en version 4, elle doit être complétée par une
+  étude des mécanismes de fonctionnement du protocole et de l'intégration de ce
+  protocole dans la pile des protocoles du modèle Internet
+  <acronym>TCP/IP</acronym>. Voici donc quelques pistes pour avancer dans la
+  compréhension du fonctionnement des technologies réseau utilisées sur
+  l'Internet.</para>
+
+  <variablelist>
+    <varlistentry xml:id='adressage.ipv4.modelisations'>
+      <term><citetitle>Modélisations réseau</citetitle></term>
+      <listitem>
+      <para>Le document &url.modelisations; compare les deux principaux
+      modèles : <acronym>OSI</acronym> et <acronym>TCP/IP</acronym> puis
+      présente une synthèse baptisée «modèle contemporain» associant les
+      avantages de chacun.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='undertanding.ipv4'>
+      <term><citetitle>Understanding IP addressing</citetitle></term>
+      <listitem>
+      <para>Pour aller plus loin dans l'étude de l'adressage IP, n'oubliez pas
+      de lire l'article &url.understanding.ipv4; signé Chuck Semeria.</para>
+      <para>Les exemples de problèmes d'adressage <acronym>IP</acronym> donnés
+      dans les annexes B, C, D et E sont d'excellents exercices d'entraînement
+      sur l'étude des plans d'adressage.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='iana'>
+      <term><citetitle>Internet Assigned Numbers Authority</citetitle></term>
+      <term><acronym>IANA</acronym></term>
+      <listitem>
+      <para>L'&url.iana; est l'organisme, situé au sommet de l'Internet, chargé
+      de l'attribution des plages d'adresses IP, de l'enregistrement des
+      numéros de ports des protocoles et des serveurs de noms de domaines de
+      niveau haut.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='nat-howto'>
+      <term><citetitle>Guide Pratique du NAT sous Linux</citetitle></term>
+      <listitem>
+      <para>&url.nat-howto; : ce document décrit comment réaliser du
+      camouflage d'adresse IP, un serveur mandataire transparent, de la
+      redirection de ports ou d'autres formes de traduction d'adresse Réseau
+      (<wordasword>Network Address Translation</wordasword> ou
+      <acronym>NAT</acronym>) avec le noyau Linux.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='adressage.ipv4.config.interface.lan'>
+      <term><citetitle>Configuration d'une interface réseau</citetitle></term>
+      <listitem>
+      <para>Le support &url.config.interface.lan; décrit pas à pas les étapes de
+      configuration d'une interface réseau sur un système GNU/Linux.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='subnet.rfcs'>
+      <term>Documents standards <acronym>RFC</acronym> sur le découpage en
+      sous-réseaux</term>
+      <listitem>
+      <itemizedlist>
+        <listitem>
+	<para>Ces documents standard sont référencés dans la section <xref
+	linkend='adressage.ipv4.subnet'/>.</para>
+	</listitem>
+        <listitem xml:id='rfc950'>
+	<para>&url.rfc950; : ce document traite de l'utilité des
+	sous-réseaux (<wordasword>subnets</wordasword>). Ce sont des
+	sous-ensembles logiques d'un réseau Internet unique.</para>
+
+	<para>À l'époque de la publication de ce document, les protocoles de
+	routage tels que <acronym>RIPv1</acronym> utilisaient la classe du
+	réseau routé dans les mécanismes d'acheminement des paquets
+	<acronym>IP</acronym>. L'usage du premier sous-réseau
+	<wordasword>all-zeros</wordasword> était exclu sachant qu'il était
+	impossible de distinguer l'adresse réseau du réseau complet de
+	l'adresse de ce premier sous-réseau. L'usage du dernier sous-réseau
+	(<wordasword>all-ones</wordasword>) était aussi exclu sachant qu'il
+	était impossible de distinguer l'adresse de diffusion du réseau de
+	l'adresse de ce dernier sous-réseau.</para>
+        </listitem>
+        <listitem xml:id='rfc1878'>
+	<para>&url.rfc1878; : ce document apporte une clarification sur
+	les difficultés relatives au découpage en sous-réseaux des réseaux
+	<acronym>IP</acronym>. Il fournit une table standard de
+	sous-réseaux.</para>
+
+	<para>Depuis la publication de ce document, il est possible d'utiliser
+	l'ensemble des sous-réseaux sachant que les protocoles de routage
+	véhiculent le masque que chaque entrée de réseau.</para>
+        </listitem>
+      </itemizedlist>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='cidr.rfcs'>
+      <term>Documents standards <acronym>RFC</acronym> sur le routage
+      interdomaine sans classe</term>
+      <listitem>
+      <itemizedlist>
+        <listitem>
+	<para>Ces documents standard sont référencés dans la <xref
+	linkend='adressage.ipv4.cidr'/>.</para>
+	</listitem>
+        <listitem xml:id='rfc1517'>
+	<para>&url.rfc1517; : point de départ des discussions au sein de
+	l'<acronym>IETF</acronym> sur une réforme de la gestion de l'espace
+	d'adressage IP à partir des 3 arguments avancés au début des années
+	90 : épuisement de l'espace d'adressage de classe B du fait de
+	l'absence de classe de taille intermédiaire entre classe B et classe A,
+	surcharge des tables de routage des routeurs de l'Internet et
+	épuisement de l'espace d'adressage IP sur 32 bits..</para>
+        </listitem>
+        <listitem xml:id='rfc1518'>
+	<para>&url.rfc1518; : cet article fournit une architecture et un
+	plan d'affectation des adresses IP sur l'Internet. Cette architecture
+	et le plan sont prévus pour jouer un rôle important en orientant
+	l'Internet vers l'affectation d'adresses avec une stratégie
+	d'agrégation.</para>
+        </listitem>
+        <listitem xml:id='rfc1519'>
+	<para>&url.rfc1519; : cette note discute des stratégies
+	d'affectation d'adresses IP de l'espace existant dans le but de
+	préserver l'espace d'adressage et de limiter la croissance explosive
+	des tables de routage dans les routeurs «sans route par défaut».</para>
+        </listitem>
+        <listitem xml:id='rfc1520'>
+	<para>&url.rfc1520; : le but de ce document est double. D'abord,
+	il décrit diverses solutions pour échanger l'information de routage
+	interdomaine à travers les limites d'un domaine dans le cas où un du
+	domaine est <wordasword>CIDR-capable</wordasword> et l'autre pas.
+	Ensuite, il traite des conséquences de l'utilisation des protocoles de
+	routage interdomaine (BGP-4, IDRP) dans le routage intra
+	domaine.</para>
+        </listitem>
+      </itemizedlist>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='nat.rfcs'>
+      <term>Documents standards <acronym>RFC</acronym> sur la traduction
+      d'adresses</term>
+      <listitem>
+      <itemizedlist>
+        <listitem>
+	<para>Ces documents standard sont référencés dans la
+	<xref linkend='adressage.ipv4.nat'/>.</para>
+	</listitem>
+        <listitem xml:id='rfc1631'>
+	<para>&url.rfc1631; : ce document propose une autre solution à
+	court terme (ndt. Pour répondre au problème de saturation de l'espace
+	d'adressage IPv4 en 1994), la réutilisation d'adresse, qui complète le
+	routage interdomaine sans classe (<acronym>CIDR</acronym>) ou même le
+	rend inutile. La solution de réutilisation d'adresse consiste à
+	placerdes traducteurs d'adresse de réseau (<acronym>NAT</acronym>) aux
+	frontières des réseaux d'extrémités (<wordasword>stub
+	networks</wordasword>).</para>
+        </listitem>
+        <listitem xml:id='rfc1918'>
+	<para>&url.rfc1918; : ce document décrit l'attribution d'adresse
+	pour les réseaux privés. L'attribution permet la pleine connectivité
+	de couche réseau parmi tous les centres serveurs à l'intérieur d'une
+	entreprise aussi bien que parmi tous les centres serveurs publics de
+	différentes entreprises.</para>
+        </listitem>
+      </itemizedlist>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+</article>
