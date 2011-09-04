@@ -10,6 +10,7 @@ SUBDIRS = \
 	dynamips-dynagen \
 	devmgmt \
 	modelisation \
+	pppoe \
 	adressage.ipv4
 
 # Type(s) de traitement

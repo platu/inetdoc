@@ -1,0 +1,1775 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+  "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!ENTITY topologie	SYSTEM "files/topologie.txt">
+
+<!-- external urls -->
+<!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!-- IANA -->
+<!ENTITY url.icmp-types
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.iana.org/assignments/icmp-parameters">
+   <citetitle>ICMP parameters</citetitle></link>'>
+
+<!-- Kernel -->
+<!ENTITY url.packetflow
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://ebtables.sourceforge.net/br_fw_ia/PacketFlow.png">
+   <citetitle>Linux kernel packet flow</citetitle></link>'>
+
+<!-- Debian -->
+<!ENTITY url.debian-ref.network.config
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://qref.sourceforge.net/Debian/reference/ch-gateway.fr.html">
+   <citetitle>Guide de référence pour Debian Chapitre
+   10 - Configuration réseau</citetitle></link>'>
+]>
+
+<article xml:id='interco.netfilter.qa' xml:lang='fr'>
+
+<info>
+  <title>Introduction au filtrage réseau avec netfilter/iptables</title>
+
+  &author;
+  <abstract>
+    <para>Étude du filtrage réseau dans le contexte d'un routeur central
+    (<wordasword>hub</wordasword>) connecté à un routeur d'agence
+    (<wordasword>spoke</wordasword>) via un lien <acronym>WAN</acronym>. Comme
+    dans les autres supports de travaux pratiques de cette série, on assimile
+    ces configurations types à des interconnexions entre réseaux locaux et
+    réseaux étendus. Les questions de ce support sont présentées comme une
+    introduction pas à pas au filtrage réseau. On débute avec les outils, on
+    poursuit avec les fonctions de suivi de communication (<wordasword>stateful
+    inspection</wordasword>) sur une interface, puis on ajoute à ce filtrage
+    les fonctions de traduction d'adresse (<acronym>NAT</acronym>).</para>
+  </abstract>
+
+  <keywordset>
+    <keyword>icmp</keyword>
+    <keyword>ifconfig</keyword>
+    <keyword>interface</keyword>
+    <keyword>iptables</keyword>
+    <keyword>iptables-save</keyword>
+    <keyword>iptables-restore</keyword>
+    <keyword>iptstate</keyword>
+    <keyword>netfilter</keyword>
+    <keyword>recent</keyword>
+  </keywordset>
+</info>
+
+<sect1 xml:id='interco.netfilter.qa.legal.meta'>
+  &legal;
+
+  <sect2 xml:id='interco.netfilter.qa.meta'>
+    <title>Méta-information</title>
+    
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+  <para>Toutes les commandes utilisées dans ce document ne sont pas spécifiques
+  à une version particulière des systèmes UNIX ou GNU/Linux. C'est la
+  distribution <citetitle>Debian GNU/Linux</citetitle> qui est utilisée
+  pour les tests présentés. Voici une liste des paquets contenant les
+  commandes :</para>
+  <itemizedlist>
+    <listitem>
+    <para><application>procps</application> - The /proc file system
+    utilities</para>
+    </listitem>
+    <listitem>
+    <para><application>net-tools</application> - The NET-3 networking
+    toolkit</para>
+    </listitem>
+    <listitem>
+    <para><application>ifupdown</application> - High level tools to configure
+    network interfaces</para>
+    </listitem>
+    <listitem>
+    <para><application>iputils-ping</application> - Tools to test the
+    reachability of network hosts</para>
+    </listitem>
+    <listitem>
+    <para><application>hping3</application> - Active Network Smashing
+    Tool</para>
+    </listitem>
+    <listitem>
+    <para><application>iptables</application> - Administration tools for packet
+    filtering and NAT</para>
+    </listitem>
+    <listitem>
+    <para><application>iptstate</application> - Top-like state for netfilter/iptables</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='interco.netfilter.qa.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.netfilter.qa.archi'>
+  <title>Architecture réseau étudiée</title>
+
+  <para>Les manipulations sur le système de filtrage réseau présentées ici
+  s'appuient sur une maquette type qui illustre une «branche» de la topologie
+  <citetitle>Hub and Spoke</citetitle>. Dans cette topologie en étoile, le
+  <link linkend='interco.netfilter.qa.topologie.hub'>routeur
+  central</link> joue le rôle d'un concentrateur qui fournit les accès réseau à
+  tous les <link linkend='interco.netfilter.qa.topologie.spoke'>routeurs
+  d'agence</link>.</para>
+
+  <sect2 xml:id='interco.netfilter.qa.archi.topologie'>
+    <title>Topologie type</title>
+
+  <para>La topologie étudiée associe deux postes de travaux pratiques avec deux
+  rôles distincts.</para>
+ 
+  <variablelist>
+    <varlistentry xml:id='interco.netfilter.qa.topologie.hub'>
+    <term>Routeur central</term>
+    <term><wordasword>hub</wordasword></term>
+    <term><wordasword>Remote Access Server</wordasword></term>
+    <term><acronym>RAS</acronym></term>
+    <listitem>
+    <para>Ce poste réalise une interconnexion <acronym>LAN/WAN</acronym>. Il
+    fournit un accès Internet au routeur d'agence client via son interface
+    <acronym>WAN</acronym>. Il dispose de son propre accès Internet via son
+    interface <acronym>LAN</acronym> Ethernet.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry xml:id='interco.netfilter.qa.topologie.spoke'>
+    <term>Routeur d'agence</term>
+    <term><wordasword>spoke</wordasword></term>
+    <term><wordasword>Customer Premises Equipment</wordasword></term>
+    <term><acronym>CPE</acronym></term>
+    <listitem>
+    <para>Ce poste réalise aussi une interconnexion <acronym>LAN/WAN</acronym>.
+    À la différence du routeur central, il obtient l'accès Internet sur son
+    interface <acronym>WAN</acronym> et il met cet accès à disposition d'un
+    réseau local d'extrémité via une interface <acronym>LAN</acronym> Ethernet
+    (et|ou) une autre «pseudo» interface réseau.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+<screen width='80'>&topologie;</screen>
+
+  <para>Pour les besoins des questions de travaux pratiques ci-après, on se
+  limite à un scénario simple d'utilisation des fonctions de filtrage
+  réseau.</para>
+
+  <para>Le <link linkend='interco.netfilter.qa.topologie.hub'>routeur
+  central</link> doit s'assurer que le trafic réseau qu'il route vers
+  l'Internet provient bien de son <link
+  linkend='interco.netfilter.qa.topologie.spoke'>routeur d'agence</link>
+  auquel il a attribué une adresse <acronym>IP</acronym> via
+  <acronym>PPP</acronym>. Ce routeur central doit limiter le volume de trafic
+  <acronym>ICMP</acronym> pour éviter les éventuels dénis de services relatifs
+  à ce protocole. Il peut aussi intercepter toutes les requêtes
+  <acronym>DNS</acronym> du routeur d'agence en exploitant un service de type
+  <wordasword>cache only</wordasword> pour éviter les falsifications des
+  réponses aux questions émises par les postes client du réseau
+  d'agence.</para>
+
+  <para>Le <link linkend='interco.netfilter.qa.topologie.spoke'>routeur
+  d'agence</link> doit s'assurer que le trafic réseau entrant sur son interface
+  <acronym>WAN</acronym> est bien relatif à une demande qui a été émise via
+  cette même interface. Ce routeur d'agence doit «masquer» son réseau local
+  d'extrémité à l'aide des fonctions de traduction d'adresse source
+  <acronym>S-NAT</acronym>. Il doit aussi ouvrir un accès d'administration
+  <acronym>SSH</acronym> tout en se protégeant des attaques de type
+  dictionnaire qui consistent à essayer de se connecter au poste avec des
+  milliers de couples <wordasword>login/password</wordasword> connus. Enfin, ce
+  même routeur d'agence doit donner accès à un service Web hébergé dans un
+  périmètre dédié au sein de cette agence.</para>
+
+  <para>Pour traiter les questions ci-après, il est vivement conseillé de
+  s'appuyer sur la <xref linkend='interco.netfilter.qa.refdocs'/>.</para>
+  </sect2>
+
+  <sect2 xml:id='interco.netfilter.qa.archi.adressage'>
+    <title>Plan d'adressage WAN</title>
+
+  <para>Le plan d'adressage des liaisons <acronym>WAN</acronym> reprend celui
+  du support de travaux pratiques &url.interco.ppp;.</para>
+
+  <table xml:id='WAN.addressing' frame='all' pgwide='1'>
+    <title>Plan d'adressage liaisons WAN</title>
+    <tgroup cols='6'>
+      <colspec colnum='1' colwidth='3*'/>
+      <colspec colnum='2' colwidth='1*'/>
+      <colspec colnum='3' colwidth='1*'/>
+      <colspec colnum='4' colwidth='5*'/>
+      <colspec colnum='5' colwidth='1*'/>
+      <colspec colnum='6' colwidth='3*'/>
+    <thead>
+      <row>
+      <entry align='left'>Poste routeur central</entry>
+      <entry>bus</entry>
+      <entry>N° tél.</entry>
+      <entry>Adresses IP hub:spoke</entry>
+      <entry>N° tél.</entry>
+      <entry align='left'>Poste routeur d'agence</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry>alderaan</entry>
+      <entry>S0.1</entry>
+      <entry>104</entry>
+      <entry><systemitem class='ipaddress'>192.168.104.1:192.168.104.2</systemitem></entry>
+      <entry>105</entry>
+      <entry>bespin</entry>
+      </row>
+      <row>
+      <entry>centares</entry>
+      <entry>S0.2</entry>
+      <entry>106</entry>
+      <entry><systemitem class='ipaddress'>192.168.106.1:192.168.106.2</systemitem></entry>
+      <entry>107</entry>
+      <entry>coruscant</entry>
+      </row>
+      <row>
+      <entry>dagobah</entry>
+      <entry>S0.3</entry>
+      <entry>108</entry>
+      <entry><systemitem class='ipaddress'>192.168.108.1:192.168.108.2</systemitem></entry>
+      <entry>109</entry>
+      <entry>endor</entry>
+      </row>
+      <row>
+      <entry>felucia</entry>
+      <entry>S0.4</entry>
+      <entry>110</entry>
+      <entry><systemitem class='ipaddress'>192.168.110.1:192.168.110.2</systemitem></entry>
+      <entry>111</entry>
+      <entry>geonosis</entry>
+      </row>
+      <row>
+      <entry>hoth</entry>
+      <entry>S0.5</entry>
+      <entry>112</entry>
+      <entry><systemitem class='ipaddress'>192.168.112.1:192.168.112.2</systemitem></entry>
+      <entry>113</entry>
+      <entry>mustafar</entry>
+      </row>
+      <row>
+      <entry>naboo</entry>
+      <entry>S0.6</entry>
+      <entry>114</entry>
+      <entry><systemitem class='ipaddress'>192.168.114.1:192.168.114.2</systemitem></entry>
+      <entry>115</entry>
+      <entry>tatooine</entry> 
+      </row>
+<!--      <row>
+      <entry>tatooine</entry>
+      <entry>S0.7</entry>
+      <entry>116</entry>
+      <entry><systemitem class='ipaddress'>192.168.116.1:192.168.116.2</systemitem></entry>
+      <entry>117</entry>
+      <entry>???</entry>
+      </row>-->
+    </tbody>
+    </tgroup>
+  </table>
+  </sect2> 
+</sect1>
+
+<sect1 xml:id='interco.netfilter.qa.tools'>
+  <title>Les outils de filtrage réseau</title>
+
+  <para>Sur un système GNU/Linux, les fonctions de filtrage réseau sont
+  réparties entre les espaces mémoire noyau
+  (<wordasword>kernelspace</wordasword>) et utilisateur
+  (<wordasword>userspace</wordasword>).</para>
+
+  <para>Que l'on utilise un noyau fourni par la distribution au le noyau
+  construit à l'issue des travaux pratiques &url.interco.noyau;, les
+  fonctions de filtrage réseau sont disponibles sous forme de modules que l'on
+  (charge|décharge) de la mémoire système en cours d'exécution. Les outils de
+  filtrage réseau du noyau Linux chargent dynamiquement ces modules en fonction
+  de la syntaxe des règles de filtrage saisies.</para>
+
+  <sect2 xml:id='interco.netfilter.qa.tools.iptables'>
+    <title>Questions sur iptables</title>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Quels paquets contiennent les outils utilisateur principaux
+    de manipulation des fonctions de filtrage réseau ?</phrase></para>
+
+    <para>Rechercher dans le cache du gestionnaire de paquets de la
+    distribution des mots clés tels que <option>iptables</option> ou
+    <option>firewall</option> à l'aide des commandes
+    <command>apt-cache</command> ou <command>aptitude</command>.</para>
+
+    <para>Dans le cadre des travaux pratiques, seuls les outils élémentaires
+    sont utilisés pour faciliter la compréhension des mécanismes de suivi de
+    communication du système de filtrage réseau. On ne s'intéresse donc pas aux
+    paquets qui fournissent des solutions de filtrage «clé en main».</para>
+    </question>
+    <answer>
+    <para>On sait que la partie <wordasword>userspace</wordasword> des
+    fonctions de filtrage réseau s'appelle <application>iptables</application>.
+    On lance donc une recherche avec ce mot clé dans la base de données des
+    paquets Debian et on installe les paquets intéressants.</para>
+
+    <para>Une recherche simple dans le catalogue des paquets donne le résultat
+    suivant.</para>
+
+<screen width='80'><prompt>$</prompt> aptitude search iptables
+p   arno-iptables-firewall       - single- and multi-homed firewall script with DSL/ADSL support
+i   <emphasis>iptables</emphasis>                     - Outils d'administration pour le filtrage de paquets et le NAT
+p   iptables-dev                 - iptables development files
+p   iptables-persistent          - Simple package to set up iptables on boot
+p   libiptables-chainmgr-perl    - Perl extension for manipulating iptables policies
+p   libiptables-parse-perl       - Perl extension for parsing iptables firewall rulesets</screen>
+
+    <para>Une recherche plus précise dans les descriptions de paquets donne une
+    liste plus étoffée.</para>
+
+<screen width='80'># aptitude search '~diptables' | grep ipt
+p   apf-firewall                    - easy iptables based firewall system
+p   arno-iptables-firewall          - single- and multi-homed firewall script wi
+p   firehol                         - An easy to use but powerful iptables state
+p   fwsnort                         - Snort-to-iptables rule translator
+p   ipkungfu                        - iptables-based Linux firewall
+i   <emphasis>iptables</emphasis>                        - Outils d'administration pour le filtrage d
+p   iptables-dev                    - iptables development files
+p   iptables-persistent             - Simple package to set up iptables on boot
+i   <emphasis>iptstate</emphasis>                        - Top-like state for netfilter/iptables
+p   libiptables-chainmgr-perl       - Perl extension for manipulating iptables p
+p   libiptables-parse-perl          - Perl extension for parsing iptables firewa
+p   mxallowd                        - Anti-Spam-Daemon using nolisting/iptables
+p   netscript-2.4                   - Linux 2.4.x (and 2.6.x) router/firewall ne
+p   uif                             - Advanced iptables-firewall script
+p   uruk                            - Very small firewall script, for configurin
+i   xtables-addons-common           - Extensions targets and matches for iptable
+p   xtables-addons-source           - Extensions targets and matches for iptable</screen>
+
+    <para>Comme on doit rester à un faible niveau d'intégration des règles de
+    filtrage de manière à bien illustrer les mécanismes de suivi de
+    communication. Les deux paquets retenus sont
+    <application>iptables</application> et <application>iptstate</application>.
+    On utilise les commandes usuelles d'installation et de consultation des
+    informations sur ces deux paquets.</para>
+
+<screen width='80'><prompt>#</prompt> aptitute install iptables iptstate
+&lt;snipped/>
+<prompt>#</prompt> apt-cache show iptables
+&lt;snipped/>
+<prompt>#</prompt> apt-cache show iptstate
+&lt;snipped/>
+</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quelles sont les options de la commande
+    <application>iptables</application> qui permettent de visualiser les règles
+    de filtrage réseau actives ainsi que les compteurs
+    correspondants ? Quelle option faut-il préciser pour spécifier la
+    table consultée : <application>netfilter</application> ou
+    <application>nat</application>.</phrase></para>
+
+    <para>Consulter les pages de manuels via
+    <userinput><prompt>#</prompt> man iptables</userinput>.</para>
+    </question>
+    <answer>
+    <para>La consultation des pages de manuels permet de relever le jeu
+    d'options <option>-vL</option>.</para>
+
+<screen width='80'><prompt>#</prompt> iptables -vL
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination</screen>
+
+    <para>La table <systemitem>netfilter</systemitem> est utilisée de façon
+    implicite alors que la table <systemitem>nat</systemitem> de traduction
+    d'adresses doit être appelée explicitement.</para>
+
+<screen width='80'># iptables -vL -t nat
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment visualiser les modules chargés dynamiquement en
+    fonction de l'utilisation des règles de filtrage
+    réseau ?</phrase></para>
+
+    <para>Utiliser la commande qui sert à lister les modules chargés en mémoire
+    avant et après avoir consulté les tables de filtrage réseau pour la
+    première fois.</para>
+    </question>
+    <answer>
+    <para>La commande <command>lsmod</command> sert à lister les modules
+    chargés en mémoire. En exécutant cette commande avant et après avoir
+    utilisé <command>iptables</command>, on visualise par différence les
+    nouveaux modules chargés par chaque appel. Par exemple, l'exécution des
+    deux commandes de consultation de la question précédente provoque le
+    chargement des modules suivants.</para>
+
+    <itemizedlist>
+      <listitem>
+      <para>Après consultation de la table
+      <systemitem>netfilter</systemitem> :</para>
+<screen width='80'># lsmod |less
+Module                  Size  Used by
+iptable_filter          2258  0 
+ip_tables              13899  1 iptable_filter
+x_tables               12845  1 ip_tables
+&lt;snipped/>
+</screen>
+      </listitem>
+      <listitem>
+      <para>Après consultation de la table
+      <systemitem>nat</systemitem> :</para>
+<screen width='80'># lsmod |less
+iptable_nat             4299  0 
+nf_nat                 13388  1 iptable_nat
+nf_conntrack_ipv4       9833  3 iptable_nat,nf_nat
+nf_conntrack           46535  3 iptable_nat,nf_nat,nf_conntrack_ipv4
+nf_defrag_ipv4          1139  1 nf_conntrack_ipv4
+iptable_filter          2258  0 
+ip_tables              13899  2 iptable_nat,iptable_filter
+x_tables               12845  2 iptable_nat,ip_tables
+&lt;snipped/>
+</screen>
+      </listitem>
+    </itemizedlist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quels sont les outils de sauvegarde et de restauration des
+      jeux de règles de filtrage réseau fournis avec le paquet
+      <application>iptables</application> ?</phrase></para>
+
+      <para>Consulter la liste des fichiers du paquet
+      <application>iptables</application>.</para>
+      </question>
+      <answer>
+      <para>La liste des fichiers du paquet contient les outils
+      recherchés :
+      <userinput># dpkg -L iptables |grep bin</userinput>.
+      Les deux programmes <command>iptables-save</command> et
+      <command>iptables-restore</command> permettent respectivement de
+      sauvegarder et de restaurer l'ensemble des règles des tables
+      <systemitem>netfilter</systemitem> et
+      <systemitem>nat</systemitem>.</para>
+
+      <para>Ces programmes sont indispensables pour éditer, insérer ou retirer
+      des règles sans avoir à se préoccuper de l'ordre de saisie. De plus, le
+      programme de restauration se charge de l'effacement des règles
+      précédentes.</para>
+      </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+
+  <sect2 xml:id='interco.netfilter.qa.tools.netfilter'>
+    <title>Questions sur netfilter</title>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment identifier la version du noyau utilisée et la
+    disponibilité des fonctions de filtrage réseau de cette
+    version ?</phrase></para>
+
+    <para>Après avoir utilisé la commande «historique» d'identification de la
+    version du noyau, faire une recherche dans l'arborescence des modules de ce
+    noyau avec la commande <command>find</command>. Trouver les fichiers dont
+    le nom comprend la chaîne <option>netfilter</option>.</para>
+    </question>
+    <answer>
+    <para>On utilise la commande <command>uname</command> que l'on associe à
+    une recherche dans l'arborescence des modules du noyau en cours
+    d'exécution.</para>
+
+<screen width='80'>$ uname -r
+2.6.32-5-amd64
+$ find /lib/modules/`uname -r` -type d -name netfilter
+/lib/modules/2.6.32-5-amd64/kernel/net/bridge/netfilter <co xml:id='netfilter.bridge'/>
+/lib/modules/2.6.32-5-amd64/kernel/net/ipv4/netfilter   <co xml:id='netfilter.ipv4'/>
+/lib/modules/2.6.32-5-amd64/kernel/net/decnet/netfilter
+/lib/modules/2.6.32-5-amd64/kernel/net/ipv6/netfilter   <co xml:id='netfilter.ipv6'/>
+/lib/modules/2.6.32-5-amd64/kernel/net/netfilter        <co xml:id='netfilter.common'/></screen>
+
+    <calloutlist>
+      <callout arearefs='netfilter.bridge'>
+	<para>Fonctions de filtrage au niveau liaison. Ces fonctions ne sont
+	pas utilisées ici.</para>
+      </callout>
+      <callout arearefs='netfilter.ipv4'>
+	<para>Fonctions de filtrage au niveau réseau utilisant le protocole
+	<acronym>IPv4</acronym>. C'est dans ce répertoire que se trouvent les
+	modules utilisés dans ces travaux pratiques.</para>
+      </callout>
+      <callout arearefs='netfilter.ipv6'>
+	<para>Fonctions de filtrage au niveau réseau utilisant le protocole
+	<acronym>IPv6</acronym>. Ces fonctions ne sont pas utilisées ici.</para>
+      </callout>
+      <callout arearefs='netfilter.common'>
+	<para>Fonctions communes de filtrage réseau indépendantes des niveaux
+	et des protocoles utilisés. C'est notamment à ce niveau que l'on trouve
+	les modules de la machine d'état de suivi de communications.</para>
+      </callout>
+    </calloutlist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para><phrase>Quels sont les objets du système de fichiers virtuel
+      <filename class='directory'>/proc</filename> relatifs aux fonctions de
+      filtrage réseau du noyau Linux ?</phrase></para>
+
+      <para>Avec le chargement des modules en mémoire système, de nouvelles
+      entrées apparaissent dans l'arborescence <filename
+      class='directory'>/proc</filename>. Même si l'arborescence <filename
+      class='directory'>/proc</filename> n'est pas un véritable système de
+      fichiers, il est possible d'effectuer des recherches toujours à l'aide de
+      la commande <command>find</command>.</para>
+    </question>
+    <answer>
+    <para>Le chargement des trois premiers modules entraîne la création des
+    entrées relatives aux noms chaînes, aux correspondances et aux prises de
+    décisions.</para>
+
+<screen width='80'># find /proc/net/ -name "*tables*"
+/proc/net/ip_tables_targets
+/proc/net/ip_tables_matches
+/proc/net/ip_tables_names</screen>
+
+    <para>La consultation des règles de la table <systemitem>nat</systemitem>
+    entraîne la création de toutes les entrées nécessaires à la machine d'état
+    de suivi de communication.</para>
+
+<screen width='80'># find /proc/net/ -name "*conntrack*"
+/proc/net/ip_conntrack_expect
+/proc/net/ip_conntrack
+/proc/net/nf_conntrack
+/proc/net/nf_conntrack_expect
+/proc/net/stat/ip_conntrack
+/proc/net/stat/nf_conntrack</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment visualiser les informations de la machine d'état de
+    suivi de communication ?</phrase></para>
+
+    <para>Rechercher les entrées de l'arborescence <filename
+    class='directory'>/proc</filename> dont le nom comprend la chaîne
+    conntrack.</para>
+
+    <para>La section <citetitle>«7.2 Les entrées de conntrack»</citetitle> du
+    &url.iptables-tutorial.fr; décrit précisément les différents champs du suivi
+    de communication.</para>
+
+    <para>Le programme <application>iptstate</application> affiche les entrées
+    de la table de suivi de communication sur le même mode que la commande
+    <command>top</command>.</para>
+    </question>
+    <answer>
+    <para>Les états sont directement consultables à partir du fichier virtuel
+    <filename>/proc/net/ip_conntrack</filename>. Par exemple :</para>
+
+<screen width='80'># cat /proc/net/ip_conntrack
+&lt;snipped/>
+udp 17 27 src=192.200.0.3 dst=192.200.0.1 sport=54932 dport=53 \
+      packets=1 bytes=59 src=192.200.0.1 dst=192.200.0.3 sport=53 dport=54932 \
+      packets=1 bytes=259 mark=0 secmark=0 use=2</screen>
+
+    <para>L'exemple ci-dessus donne l'état du suivi de communication d'une
+    requête <acronym>DNS</acronym> entre un poste client avec l'adresse
+    <systemitem class='ipaddress'>192.200.0.3</systemitem> et le port source
+    <systemitem>54932</systemitem> et un serveur avec l'adresse <systemitem
+    class='ipaddress'>192.200.0.1</systemitem>.</para> 
+    </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='interco.netfilter.qa.common'>
+  <title>Règles de filtrage communes à toutes les configurations</title>
+
+  <para>La mise en place du filtrage réseau sur les équipements doit répondre à
+  deux principes.</para>
+  
+  <itemizedlist>
+    <listitem>
+    <para>Comme les équipements d'interconnexion mis en œuvre dans ces travaux
+    pratiques délimitent des périmètres de faible dimension, on a une
+    connaissance exhaustive des flux réseaux sur le système. On adopte donc la
+    règle : <emphasis>tout trafic réseau non autorisé est
+    interdit</emphasis>.</para>
+    </listitem>
+    <listitem>
+    <para>Pour exploiter au mieux les fonctionnalités offertes par le noyau
+    Linux, on s'appuie sur le suivi de communication (<wordasword>stateful
+    inspection</wordasword>) pour obtenir un filtrage réseau le plus efficace
+    possible. On cherche donc à suivre la règle d'or d'écriture des règles de
+    filtrage qui consiste à <emphasis>décrire le plus précisément possible le
+    premier paquet qui doit être enregistré dans la table de suivi de
+    communication</emphasis>. Cette règle de description du premier paquet doit
+    être placée après celle(s) qui laisse(nt) passer les flux réseau déjà
+    enregistrés dans la machine d'état de suivi de communication.</para>
+    </listitem>
+  </itemizedlist>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est la syntaxe de la commande
+    <command>iptables</command> sur la politique par défaut à appliquer sur les
+    chaînes de la table <systemitem>netfilter</systemitem> pour respecter le
+    premier principe de filtrage énoncé ci-dessus ?</phrase></para> 
+
+    <para>De façon très classique, on consulte les pages de manuels de la
+    commande <command>iptables</command> et on recherche le mot clé
+    <option>policy</option>. La stratégie retenue suppose que l'on implante
+    règles d'autorisation des flux réseaux valides et que tout autre trafic
+    soit éliminé. La politique par défaut à appliquer sur les trois chaînes est
+    donc : <option>DROP</option>.</para>
+
+    <para>La section <citetitle>«9.3. Commandes»</citetitle> du
+    &url.iptables-tutorial.fr; donne aussi la syntaxe de configuration de
+    <emphasis>cible par défaut</emphasis> pour les chaînes élémentaires :
+    <option>INPUT</option>, <option>FORWARD</option> et
+    <option>OUTPUT</option>.</para>
+    </question>
+    <answer>
+
+<screen width='80'><prompt>#</prompt> <emphasis>iptables -P INPUT DROP</emphasis>
+<prompt>#</prompt> <emphasis>iptables -P FORWARD DROP</emphasis>
+<prompt>#</prompt> <emphasis>iptables -P OUTPUT DROP</emphasis>
+<prompt>#</prompt> iptables -vL
+Chain INPUT (policy DROP 0 packets, 0 bytes)
+ pkts bytes target   prot opt in    out   source     destination
+
+Chain FORWARD (policy DROP 0 packets, 0 bytes)
+ pkts bytes target   prot opt in    out   source     destination
+
+Chain OUTPUT (policy DROP 0 packets, 0 bytes)
+ pkts bytes target   prot opt in    out   source     destination</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est la syntaxe de la commande
+    <command>iptables</command> qui autorise le trafic réseau déjà enregistré
+    dans la machine d'état de suivi de communication sur les chaînes
+    <option>INPUT</option> et <option>OUTPUT</option> ?</phrase></para>
+
+    <para>La recherche de la correspondance <option>state</option> dans les
+    pages de manuel de la commande <command>iptables</command> permet de
+    sélectionner les états <option>ESTABLISHED</option> et
+    <option>RELATED</option> à appliquer sur les chaînes.</para>
+
+    <para>La section <citetitle>«7.3. États de l'espace
+    utilisateur»</citetitle> du &url.iptables-tutorial.fr; décrit les
+    correspondances entre les états et les flux réseau.</para>
+    </question>
+    <answer>
+
+<screen width='80'><prompt>#</prompt> <emphasis>iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT</emphasis>
+<prompt>#</prompt> <emphasis>iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT</emphasis>
+<prompt>#</prompt> iptables -vL
+Chain INPUT (policy DROP 0 packets, 0 bytes)
+ pkts bytes target   prot opt in    out   source     destination
+    0     0 ACCEPT   0    --  any   any   anywhere   anywhere  state RELATED,ESTABLISHED
+
+Chain FORWARD (policy DROP 0 packets, 0 bytes)
+ pkts bytes target   prot opt in    out   source     destination
+
+Chain OUTPUT (policy DROP 0 packets, 0 bytes)
+ pkts bytes target   prot opt in    out   source     destination
+    0     0 ACCEPT   0    --  any   any   anywhere   anywhere  state RELATED,ESTABLISHED
+</screen>
+    
+    <para>À partir de cette étape, on utilise les programmes
+    <command>iptables-save</command> et <command>iptables-restore</command>
+    pour optimiser les manipulations. Ces programmes présentent un grand
+    intérêt dans la mesure où l'affichage des règles de filtrage est plus
+    condensé.</para>
+
+<screen width='80'><prompt>#</prompt> iptables-save >/var/lib/iptables/active
+<prompt>#</prompt> vim /var/lib/iptables/active
+<prompt>#</prompt> iptables-restore >/var/lib/iptables/active
+<prompt>#</prompt> grep -v '^# ' /var/lib/iptables/active
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: INPUT
+<emphasis>-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT</emphasis>
+#~~~~~~~~~~~~~~~~~~~~~:: OUTPUT
+<emphasis>-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT</emphasis>
+COMMIT</screen>
+
+    <para>La commande <command>iptables-restore</command> doit être utilisée
+    après chaque édition du fichier
+    <filename>/var/lib/iptables/active</filename>.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>À partir des règles de filtrage précédentes, est-il possible
+    d'émettre ou de recevoir du trafic réseau non enregistré dans la machine
+    d'état de suivi de communication ?</phrase></para>
+
+    <para>Faire des tests <acronym>ICMP</acronym>, <acronym>DNS</acronym> et
+    <acronym>HTTP</acronym>. Conclure et justifier.</para>
+    </question>
+    <answer>
+    <para>La réponse est non. La politique par défaut sur les chaînes
+    <option>INPUT</option> et <option>OUTPUT</option> étant positionnée à
+    <option>DROP</option>, tout nouveau paquet entrant ou sortant est rejeté.
+    Pour qu'une communication soit possible, il faudrait avoir enregistré un
+    flux réseau dans la machine d'état avant d'appliquer ce jeu de règles de
+    filtrage.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est la syntaxe de la commande
+    <command>iptables</command> qui autorise le trafic réseau depuis (chaîne
+    <option>OUTPUT</option>) et vers (chaîne <option>INPUT</option>)
+    l'interface de boucle locale de l'équipement ?</phrase></para>
+
+    <para>Pour que les processus locaux au système puissent communiquer entre
+    eux via la pile de protocole TCP/IP, il est <emphasis>essentiel</emphasis>
+    d'autoriser le trafic sur l'interface de boucle locale <option>lo</option>.
+    La recherche de la correspondance <option>state</option> dans les pages de
+    manuel de la commande <command>iptables</command> permet de sélectionner
+    l'état <option>NEW</option> pour autoriser le premier paquet depuis et vers
+    cette interface. Tous les autres paquets devront correspondre aux règles
+    déjà écrites ci-dessus.</para>
+    </question>
+    <answer>
+    <para>On ajoute deux nouvelles règles sur les chaînes
+    <option>INPUT</option> et <option>OUTPUT</option> qui admettent
+    respectivement tous les paquets entrant et sortant par l'interface de
+    <option>lo</option> dans la table de suivi des communications.</para>
+
+<screen width='80'><prompt>#</prompt> grep -v '^# ' /var/lib/iptables/active
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: INPUT
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+<emphasis>-A INPUT -i lo -m state --state NEW -j ACCEPT</emphasis>
+#~~~~~~~~~~~~~~~~~~~~~:: OUTPUT
+-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+<emphasis>-A OUTPUT -o lo -m state --state NEW -j ACCEPT</emphasis>
+COMMIT</screen>
+
+    <para>À partir de ce jeu de règles, on peut lancer un test
+    <acronym>ICMP</acronym> :
+    <userinput># ping -c 4 127.0.0.1</userinput>.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est la syntaxe de la commande
+    <command>iptables</command> qui autorise le trafic sortant sur l'interface
+    <acronym>LAN</acronym> en sortie du système ?</phrase></para>
+
+    <para>Comme pour la question précédente, les processus locaux au système
+    doivent pouvoir émettre du trafic via la pile de protocole TCP/IP. Il est
+    donc préférable d'autoriser le trafic sortant sur l'interface
+    <acronym>LAN</acronym>. On utilise à nouveau l'état <option>NEW</option>
+    pour autoriser le premier paquet depuis l'interface. Tous les autres
+    paquets devront correspondre aux communications déjà enregistrées dans les
+    tables de suivi.</para>
+    </question>
+    <answer>
+    <para>On ajoute une règle sur la chaîne <option>OUTPUT</option> qui admet,
+    dans la table de suivi des communications, les paquets sortant par
+    l'interface <option>eth0</option>.</para>
+
+<screen width='80'><prompt>#</prompt> grep -v '^# ' /var/lib/iptables/active
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: INPUT
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~:: OUTPUT
+-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+<emphasis>-A OUTPUT -o eth0 -m state --state NEW -j ACCEPT</emphasis>
+COMMIT</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est la syntaxe de la commande <command>iptables</command> qui
+    autorise le trafic <acronym>ICMP</acronym> en entrée du système en limitant
+    le nombre des nouvelles requêtes à 5 par minute ?</phrase></para>
+
+    <para>Interdire tout trafic <acronym>ICMP</acronym> est une très mauvaise
+    idée du point de vue administration réseau. Pour autant, il est très facile
+    de se prémunir contre les tentatives de saturation du trafic sur les
+    interfaces en limitant le nombre de requêtes simultanées en entrée sur
+    toutes les interfaces. Dans un premier temps on se contente de cette règle
+    unique très simple même s'il est judicieux de valider les types et les
+    codes des messages <acronym>ICMP</acronym>. Dans un deuxième temps, on
+    distinguera les types de messages ; voir <xref
+    linkend='interco.netfilter.qa.extended.icmp'/>.</para>
+
+    <para>On peut qualifier le fonctionnement de la limitation de trafic à
+    l'aide des commandes <command>ping</command> et <command>hping3</command> à
+    partir d'un hôte distant.</para>
+    </question>
+    <answer>
+    <para>La recherche de la correspondance <option>limit</option> dans les
+    pages de manuel de la commande <command>iptables</command> permet de
+    compléter la syntaxe de la règle d'autorisation du trafic
+    <acronym>ICMP</acronym> avec l'état <option>NEW</option> pour le suivi de
+    communication.</para>
+
+<screen width='80'><prompt>#</prompt> grep -v '^# ' /var/lib/iptables/active
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: INPUT
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+<emphasis>-A INPUT -p icmp -m limit --limit 5/min -m state --state NEW -j ACCEPT</emphasis>
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~:: OUTPUT
+-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+-A OUTPUT -o eth0 -m state --state NEW -j ACCEPT
+COMMIT</screen>
+
+    <para>Les tests de qualification de la nouvelle règle utilisent la commande
+    usuelle <command>ping</command> puis un outil beaucoup moins classique qui
+    offre de nombreuses «possibilités», <command>hping3</command>.</para>
+
+<screen width='80'><prompt>#</prompt> ping -n -c 3 192.200.0.3
+PING 192.200.0.3 (192.200.0.3) 56(84) bytes of data.
+64 bytes from 192.200.0.3: icmp_req=1 ttl=64 time=0.958 ms
+64 bytes from 192.200.0.3: icmp_req=2 ttl=64 time=0.746 ms
+64 bytes from 192.200.0.3: icmp_req=3 ttl=64 time=0.803 ms
+
+--- 192.200.0.3 ping statistics ---
+3 packets transmitted, 3 received, <emphasis>0% packet loss</emphasis>, time 2000ms
+rtt min/avg/max/mdev = 0.746/0.835/0.958/0.095 ms
+
+<prompt>#</prompt> hping3 -1 --rand-source --fast -c 10 192.200.0.3
+HPING 192.200.0.3 (tap0 192.200.0.3): icmp mode set, 28 headers + 0 data bytes
+len=28 ip=192.200.0.3 ttl=64 xml:id=5204 icmp_seq=0 rtt=1.0 ms
+len=28 ip=192.200.0.3 ttl=64 xml:id=9948 icmp_seq=1 rtt=0.5 ms
+len=28 ip=192.200.0.3 ttl=64 xml:id=31892 icmp_seq=2 rtt=0.6 ms
+len=28 ip=192.200.0.3 ttl=64 xml:id=48870 icmp_seq=3 rtt=0.6 ms
+len=28 ip=192.200.0.3 ttl=64 xml:id=40501 icmp_seq=4 rtt=0.7 ms
+
+--- 192.200.0.3 hping statistic ---
+10 packets transmitted, 5 packets received, <emphasis>50% packet loss</emphasis></screen>
+
+    <para>On constate que le premier test ne produit aucune erreur alors que la
+    tentative de <wordasword>spoofing</wordasword> rapide des adresses
+    <acronym>IP</acronym> source entraîne des pertes de paquets
+    <acronym>ICMP</acronym> dès que la limite fixée dans la règle de filtrage
+    est atteinte.</para>
+    </answer>
+    </qandaentry>
+  </qandaset>
+
+  <para>Une fois ces règles basiques en place, on peut aborder les filtrages
+  réseau spécifiques à la topologie de travaux pratiques.</para>
+</sect1>
+
+<sect1 xml:id='interco.netfilter.qa.client'>
+  <title>Règles de filtrage sur le poste routeur d'agence
+  (<wordasword>spoke</wordasword>)</title>
+
+  <para>Suivant le cahier des charges fixé, la première contrainte imposée au
+  poste routeur d'agence est de s'assurer que le trafic entrant sur son interface
+  <acronym>WAN</acronym> est bien relatif à une demande émise via cette même
+  interface. Le seconde contrainte étant le routage pour le réseau local
+  d'extrémité, on doit compléter le filtrage avec une traduction d'adresse
+  source liée à cette même interface <acronym>WAN</acronym>.</para>
+
+  <para>Il est conseillé de travailler à partir du fichier de règles de
+  filtrage établi dans la section précédente. Après chaque édition de ce
+  fichier, la commande <command>iptables-restore</command> permet d'appliquer
+  le nouveau jeu de règles après avoir effacé les règles précédentes et remis
+  les compteurs de paquets à zéro.</para>
+
+  <qandaset>
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est la syntaxe de la commande
+    <command>iptables</command> qui autorise le trafic sortant sur l'interface
+    <acronym>WAN</acronym> ?</phrase></para>
+
+    <para>Relativement à la configuration commune présentée précédemment, il
+    suffit d'ajouter une règle d'autorisation sur la chaîne
+    <acronym>OUTPUT</acronym> tout en enregistrant le premier paquet sortant
+    avec l'état <acronym>NEW</acronym>.</para>
+
+    <para>Avec ce jeu de règles actif, on peut lancer la séquence habituelle
+    des tests <acronym>ICMP</acronym> et caractériser l'utilisation des règles
+    en visualisant l'évolution des compteurs avec la commande
+    <command>iptables -vL</command>.</para>
+    </question>
+    <answer>
+    <para>Comme dans le cas de l'interface <acronym>LAN</acronym>, on ajoute
+    une règle qui admet les nouveaux paquets sortant par l'interface
+    <option>ippp0</option> dans la table de suivi des communications via la
+    chaîne <option>OUTPUT</option>.</para>
+
+<screen width='80'><prompt>#</prompt> grep -v '^# ' /var/lib/iptables/active
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: INPUT
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/min -m state --state NEW -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~:: OUTPUT
+-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+<emphasis>-A OUTPUT -o ippp0 -m state --state NEW -j ACCEPT</emphasis>
+-A OUTPUT -o eth0 -m state --state NEW -j ACCEPT
+COMMIT</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est la syntaxe de la commande
+    <command>iptables</command> qui active la traduction d'adresse source pour
+    le trafic sortant sur l'interface
+    <acronym>WAN</acronym> ?</phrase></para>
+
+    <para>Le but est de configurer le routeur d'agence pour qu'il ne soit
+    visible de l'Internet qu'à travers l'adresse <acronym>IP</acronym> délivrée
+    par le routeur central (ou le fournisseur d'accès). Cette opération utilise
+    la table <option>nat</option>. On ajoute dans cette table une règle de
+    traduction d'adresse source dynamique liée à l'interface
+    <acronym>WAN</acronym>. Il faut rechercher les informations sur la cible
+    <option>MASQUERADE</option> dans les pages de manuels de la commande
+    <command>iptables</command>.</para>
+    </question>
+    <answer>
+    <para>On ajoute une règle dans la chaîne <option>POSTROUTING</option> qui
+    traduit l'adresse <acronym>IP</acronym> source de tous les paquets sortant
+    par l'interface <option>ippp0</option> avec l'adresse attribuée
+    dynamiquement via le protocole <acronym>PPP</acronym> à cette
+    interface.</para>
+
+<screen width='80'><prompt>#</prompt> grep -v '^# ' /var/lib/iptables/active
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: POSTROUTING
+<emphasis>-A POSTROUTING -o ippp0 -j MASQUERADE</emphasis>
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: INPUT
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/min -m state --state NEW -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~:: OUTPUT
+-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+-A OUTPUT -o ippp0 -m state --state NEW -j ACCEPT
+COMMIT</screen>
+    </answer>
+    </qandaentry>
+    
+    <qandaentry>
+      <question>
+      <para><phrase>Ce jeu de règles est-il suffisant pour que le poste se
+      comporte comme un routeur avec une fonction de traduction d'adresses
+      <acronym>IP</acronym> sources ?</phrase></para>
+
+      <para>Cette question comprend deux parties. Il faut s'intéresser dans un
+      premier temps à la fonction de routage proprement dite et consulter
+      l'indicateur d'état du noyau Linux qui correspond à la capacité à
+      transmettre un paquet d'une interface vers une autre. Dans un second
+      temps, il faut identifier dans le système de filtrage la chaîne dédiée au
+      transit des paquets.</para>
+      </question>
+      <answer>
+      <para>La réponse est non. Il manque au moins deux conditions pour que le
+      routage et la transmission des paquets entre les interfaces soient
+      actifs.</para>
+
+      <itemizedlist>
+        <listitem>
+	<para>Pour qu'un paquet soit transmis d'une interface réseau vers une
+	autre, il faut s'assurer que le routage est actif au niveau du noyau.
+	Cette fonction est paramétrée par la variable d'état
+	<option>ip_forward</option> du système de fichiers virtuel <filename
+	class='directory'>/proc</filename>. La valeur <option>1</option>
+	indique que la fonction routage est active dans le noyau :</para>
+
+<screen width='80'><prompt>#</prompt> echo 1 > /proc/sys/net/ipv4/ip_forward</screen>
+	</listitem>
+	<listitem>
+	<para>Comme la politique par défaut sur la chaîne
+	<option>FORWARD</option> est <option>DROP</option>, aucun paquet ne
+	peut traverser les règles de filtrage et transiter d'une interface vers
+	l'autre. Sans règle supplémentaire, les tests <acronym>ICMP</acronym>
+	doivent incrémenter le compteur <option>DROP</option> de la chaîne
+	<option>FORWARD</option>.</para>
+	</listitem>
+      </itemizedlist>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est la syntaxe de la commande
+      <command>iptables</command> qui autorise le transfert des paquets entrant
+      par l'interface <acronym>LAN</acronym> vers l'interface
+      <acronym>WAN</acronym> ?</phrase></para>
+
+      <para>Rechercher la syntaxe des règles correspondant à ce qui a déjà été
+      vu dans la mise au point du jeu de règles communes pour les chaînes
+      <option>INPUT</option> et <option>OUTPUT</option>. Il faut que tout
+      trafic relatif à une demande enregistrée dans la table de suivi des
+      communications soit accepté. Il faut aussi que les nouveaux paquets
+      entrant par l'interface <acronym>LAN</acronym> soient admis et enregistré
+      dans cette table.</para>
+      </question>
+      <answer>
+      <para>On implante deux règles dans la chaîne <option>FORWARD</option>.
+      Une première règle pour le trafic relatif à une demande déjà enregistrée
+      et une seconde pour les paquets entrant par l'interface
+      <acronym>LAN</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> grep -v '^# ' /var/lib/iptables/active
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: POSTROUTING
+-A POSTROUTING -o ippp0 -j MASQUERADE
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: INPUT
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/min -m state --state NEW -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+<emphasis>#~~~~~~~~~~~~~~~~~~~~~:: FORWARD
+-A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A FORWARD -i eth0 -m state --state NEW -j ACCEPT</emphasis>
+#~~~~~~~~~~~~~~~~~~~~~:: OUTPUT
+-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+-A OUTPUT -o ippp0 -m state --state NEW -j ACCEPT
+COMMIT</screen>
+
+      <para>Cette configuration ne peut être qualifiée qu'avec un trafic devant
+      transiter entre deux interfaces. Avec la configuration de travaux
+      pratiques proposée, il faut connecter un poste supplémentaire sur le même
+      réseau local que celui de l'interface <acronym>LAN</acronym> du routeur
+      d'agence. C'est le trafic réseau initié par ce nouvel hôte réseau qui
+      utilise les deux règles de la chaîne <option>FORWARD</option> implantées
+      dans le script ci-dessus.</para>
+
+      <para>L'instruction
+      <userinput><prompt>#</prompt> iptables -vL FORWARD</userinput>
+      affiche les compteurs relatifs à la chaîne <option>FORWARD</option>. Ces
+      compteurs évoluent lorsqu'un nouveau trafic à destination d'un autre
+      réseau apparaît sur une interface.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est la syntaxe de la commande
+      <command>iptables</command> qui permet l'administration à distance du
+      routeur d'agence (<wordasword>Spoke</wordasword>) via son interface
+      <acronym>WAN</acronym> en utilisant le protocole
+      <acronym>SSH</acronym> ? Proposer une  configuration qui offre une
+      protection contre les attaques de type «dictionnaire».</phrase></para>
+      </question>
+      <answer>
+      <para>Un premier niveau de réponse consiste à admettre les nouvelles
+      demandes de connexions <acronym>TCP</acronym> sur le port numéro 22 sur
+      l'interface <acronym>WAN</acronym>. On obtient alors le jeu de règles
+      suivant.</para>
+
+<screen width='80'><prompt>#</prompt> grep -v '^# ' /var/lib/iptables/active
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: POSTROUTING
+-A POSTROUTING -o ippp0 -j MASQUERADE
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: INPUT
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/min -m state --state NEW -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+<emphasis>-A INPUT -i ippp0 -p tcp --syn --dport 22 -m state --state NEW -j ACCEPT</emphasis>
+#~~~~~~~~~~~~~~~~~~~~~:: FORWARD
+-A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A FORWARD -i eth0 -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~:: OUTPUT
+-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+-A OUTPUT -o ippp0 -m state --state NEW -j ACCEPT
+-A OUTPUT -o eth0 -m state --state NEW -j ACCEPT
+COMMIT</screen>
+
+      <para>Du point de vue sécurité, cette configuration n'est pas très
+      satisfaisante. Sachant que toutes les nouvelles demandes de connexion
+      <acronym>TCP</acronym> sont acceptées, on ouvre la porte à toutes les
+      attaques de type «dictionnaire».</para>
+
+      <para>La section <citetitle>«10.3.19. Correspondance Recent»</citetitle>
+      du &url.iptables-tutorial.fr; décrit précisément les différentes
+      possibilités du module <option>recent</option>. En utilisant cette
+      fonctionnalité, on peut remplacer la solution donnée ci-dessus par le jeu
+      de règles suivant qui limite ne nombre de tentatives de connexions à 4
+      par minute.</para>
+
+<screen width='80'><prompt>#</prompt> grep -v '^# ' /var/lib/iptables/active
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: POSTROUTING
+-A POSTROUTING -o ippp0 -j MASQUERADE
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~:: INPUT
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/min \
+     -m state --state NEW -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+<emphasis>-A INPUT -i ippp0 -p tcp --dport 22 -m recent --set --name SSH \
+     -m state --state NEW -j ACCEPT
+-A INPUT -i ippp0 -p tcp --dport 22 -m recent --update --seconds 60 --hitcount 4 \
+     --rttl --name SSH -m limit --limit 5/min -j LOG --log-prefix "SSH_brute_force "
+-A INPUT -i ippp0 -p tcp --dport 22 \
+     -m recent --update --seconds 60 --hitcount 4 --rttl --name SSH -j DROP</emphasis>
+#~~~~~~~~~~~~~~~~~~~~~:: FORWARD
+-A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A FORWARD -i eth0 -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~:: OUTPUT
+-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+-A OUTPUT -o ippp0 -m state --state NEW -j ACCEPT
+-A OUTPUT -o eth0 -m state --state NEW -j ACCEPT
+COMMIT</screen>
+
+<warning>
+  <para>Dans la copie d'écran ci-dessus, des lignes ont été coupées avec des
+  caractères '\' dans le but d'optimiser l'affichage. Pour rétablir la syntaxe
+  correcte des règles de filtrage, il est possible d'utiliser
+  <application>sed</application> avec une instruction du type
+  <userinput><prompt>$</prompt> sed '/^[ \-].*\\$/N;s/\\\n *//' dump.iptables</userinput>
+  où le fichier <filename>dump.iptables</filename> contient la copie d'écran
+  ci-dessus.</para>
+</warning>
+
+      <para>Non seulement la solution présentée ci-dessus s'est montrée très
+      efficace ces dernières années, mais elle à le mérite de ne pas faire
+      intervenir un outil tiers ; ce qui diminue le coût
+      d'administration.</para>
+      </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='interco.netfilter.qa.routeur'>
+  <title>Règles de filtrage sur le routeur central
+  (<wordasword>hub</wordasword>)</title>
+
+  <para>Suivant le cahier des charges fixé, le routeur central doit autoriser
+  le trafic issu du poste client sur son interface <acronym>WAN</acronym> et le
+  router sur l'interface <acronym>LAN</acronym>.</para>
+
+  <para>Tout comme dans le cas du routeur d'agence, on utilise le jeu de
+  règles communes que l'on complète avec les besoins spécifiques à la
+  configuration d'un routeur qui doit faire transiter le trafic d'un interface
+  sur l'autre.</para>
+
+  <para>À la différence du routeur d'agence, le routeur central maîtrise
+  l'attribution des adresses <acronym>IP</acronym>. On peut donc inclure le
+  contrôle des adresses <acronym>IP</acronym> sources dans les règles de
+  filtrage réseau.</para>
+
+  <qandaset>
+    <qandaentry>
+      <question>
+      <para><phrase>Le jeu de règles communes est-il suffisant pour que le
+      poste se comporte comme un routeur ?</phrase></para>
+
+      <para>Identifier les conditions nécessaires pour que la fonction routage
+      du noyau soit active et que le filtrage réseau autorise le transit de
+      l'interface <acronym>WAN</acronym> vers l'interface
+      <acronym>LAN</acronym>.</para>
+      </question>
+      <answer>
+      <para>Non. Il manque au moins 2 conditions pour que le routage et la
+      traduction d'adresses sources soient actifs.</para>
+      <itemizedlist>
+        <listitem>
+	<para>Pour qu'un paquet soit transmis d'une interface réseau vers une
+	autre, il faut s'assurer que le routage est actif au niveau du noyau.
+	Cette fonction est paramétrée par la variable d'état
+	<option>ip_forward</option> du système de fichiers virtuel <filename
+	class='directory'>/proc</filename>. La valeur <option>1</option>
+	indique que la fonction routage est active dans le noyau :</para>
+
+<screen width='80'># echo 1 > /proc/sys/net/ipv4/ip_forward
+</screen>
+	</listitem>
+	<listitem>
+	<para>Comme la politique par défaut sur la chaîne
+	<option>FORWARD</option> est <option>DROP</option>, aucun paquet ne
+	peut traverser les règles de filtrage et transiter d'une interface vers
+	l'autre. Sans règle supplémentaire, les tests <acronym>ICMP</acronym>
+	doivent incrémenter le compteur <option>DROP</option> de la chaîne
+	<option>FORWARD</option>.</para>
+	</listitem>
+      </itemizedlist>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est la syntaxe de la commande
+      <command>iptables</command> qui autorise le transfert des paquets entrant
+      par l'interface <acronym>WAN</acronym> vers l'interface
+      <acronym>LAN</acronym> ?</phrase></para>
+      </question>
+      <answer>
+      <para>Il faut implanter deux règles dans la chaîne
+      <option>FORWARD</option>. Une première règle qui correspond à ce qui a
+      déjà été vu dans la mise au point du jeu de règles communes pour les
+      chaînes <option>INPUT</option> et <option>OUTPUT</option> : tout
+      trafic relatif à une demande enregistrée dans la machine d'état de suivi
+      de communication est accepté. Une seconde règle qui accepte les paquets
+      entrants par l'interface <acronym>LAN</acronym> en enregistrant les
+      nouvelles communication dans la même machine d'état. On obtient le jeu de
+      règles suivant :</para>
+
+<screen width='80'># cat iptables.router
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# T a b l e   F I L T E R
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# I N P U T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmp -m limit --limit 5/sec -m state --state NEW -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# F O R W A R D
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -i ippp0 -s 192.168.96.0/20 -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# O U T P U T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A OUTPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+-A OUTPUT -o eth0 -m state --state NEW -j ACCEPT
+COMMIT
+</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Après avoir initié des communications avec les différents
+      protocoles usuels (<acronym>ICMP</acronym>, <acronym>UDP</acronym> et
+      <acronym>TCP</acronym>), relever l'état des communications du routeur
+      d'agence distant avec l'outil
+      <application>iptsate</application></phrase>.</para>
+      </question>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Est-il possible de visualiser à l'aide de l'analyseur
+      réseau <application>wireshark</application> le trafic retour relatif aux
+      requêtes émises par le client
+      <acronym>WAN</acronym> ?</phrase></para>
+      </question>
+      <answer>
+      <para>Non. Pour que le trafic retour aboutisse sur l'interface du client
+      <acronym>WAN</acronym>, il faudrait que la route vers le réseau étendu
+      soit connue du reste de l'Internet.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Sans protocole de routage dynamique assurant la publication
+      de la route vers le réseau étendu sur l'Internet, quelle est la solution
+      technique à utiliser pour que les postes clients distants puissent
+      accéder aux autres réseaux ?</phrase></para>
+      </question>
+      <answer>
+      <para>C'est la traduction d'adresse source qui permet d'utiliser
+      l'adresse <acronym>IP</acronym> de l'interface <acronym>LAN</acronym> du
+      routeur comme la seule interface visible de l'Internet.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est la syntaxe de la règle d'implantation de la
+      traduction d'adresses <acronym>IP</acronym> source en sortie de
+      l'interface <acronym>LAN</acronym> du routeur
+      central ?</phrase></para>
+      </question>
+      <answer>
+
+<screen width='80'># cat iptables.router
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# T a b l e   N A T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A POSTROUTING -o eth0 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# T a b l e   F I L T E R
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# I N P U T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmp -m limit --limit 5/sec -m state --state NEW -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# F O R W A R D
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -i ippp0 -s 192.168.96.0/20 -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# O U T P U T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A OUTPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+-A OUTPUT -o eth0 -m state --state NEW -j ACCEPT
+COMMIT
+</screen>
+      </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='interco.netfilter.qa.extended'>
+  <title>Règles de filtrage avec identification des protocoles</title>
+
+  <para>Pour les deux configurations étudiées ci-avant, aucune distinction de
+  protocole n'a été effectuée. Pour affiner le processus d'enregistrement et de
+  suivi des communications réseau, il est possible de distinguer les
+  caractéristiques de chacun des protocoles autorisés.</para>
+
+  <sect2 xml:id='interco.netfilter.qa.extended.icmp'>
+    <title>Protocole ICMP</title>
+
+  <para>Le protocole <acronym>ICMP</acronym> décrit dans le document standard
+  &url.rfc792; est une pièce essentielle du modèle <acronym>TCP/IP</acronym>.
+  Il est principalement utilisé pour rapporter les conditions d'erreurs sur les
+  réseaux. Cependant, les caractéristiques actuelles du protocole ne
+  recommandent aucun contrôle de validation sur les messages d'erreur reçus. Ce
+  protocole laisse donc la porte ouverte à une grande variété d'attaques qui
+  peuvent être effectuées contre <acronym>TCP</acronym> à l'aide de messages
+  <acronym>ICMP</acronym>. Ces attaques comprennent la réinitialisation de
+  connexion, la réduction du débit de sortie, les dégradations de performances.
+  Toutes ces attaques peuvent être réalisées depuis des réseaux distants, sans
+  la nécessité d'analyser les paquets qui correspondent à la connexion
+  <acronym>TCP</acronym> attaquée.</para> 
+  
+  <para>Alors que les implications sur la sécurité du protocole
+  <acronym>ICMP</acronym> sont connues depuis longtemps, tous les systèmes
+  n'ont pas mis en application des contrôles de validation sur les messages
+  d'erreur reçus pour réduire au minimum l'impact de ces attaques.</para>
+
+  <para>Au niveau du noyau Linux, les responsables du sous-système réseau ont
+  décidé de ne plus traiter les messages de type 4
+  <option>source-quench</option>.</para>
+
+  <para>On dispose des ressources suivantes pour débuter l'étude du protocole
+  <acronym>ICMP</acronym>.</para> 
+
+  <itemizedlist>
+    <listitem>
+    <para>La liste des types de messages <acronym>ICMP</acronym> est
+    enregistrée par l'<citetitle>Internet Assigned Numbers
+    Authority</citetitle> (<acronym>IANA</acronym>) :
+    &url.icmp-types;.</para>
+    </listitem>
+    <listitem>
+    <para>Le &url.iptables-tutorial.fr; contient une section complète de
+    présentation des caractéristiques du protocole
+    <acronym>ICMP</acronym>.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='interco.netfilter.qa.extended.common'>
+    <title>Règles de filtrage communes à toutes les configurations</title>
+
+  <itemizedlist>
+    <listitem>
+    <para>Avec le protocole <acronym>TCP</acronym>, il est possible
+    d'identifier les phases d'établissement, de maintien et de libération de
+    connexion.</para>
+    </listitem>
+    <listitem>
+    <para>Avec le protocole <acronym>UDP</acronym>, il n'y a pas grand chose à
+    identifier puisque ce protocole n'est pas orienté connexion et que le
+    nombre des champs de l'en-tête est très limité.</para>
+    </listitem>
+  </itemizedlist>
+
+  <qandaset>
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est la syntaxe d'appel de la commande
+      <command>iptables</command> qui permet d'afficher la liste des messages
+      <acronym>ICMP</acronym> et leurs types connus du système de filtrage
+      réseau ?</phrase></para>
+      </question>
+      <answer>
+      <para>Après avoir recherché le mot clé <option>icmp</option> dans les
+      pages de manuels de la commande <command>iptables</command>, on obtient
+      l'instruction suivante :
+      <userinput># iptables -p icmp -h</userinput>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelles sont les modifications à apporter sur le jeu de
+      règles communes pour distinguer les messages <acronym>ICMP</acronym> les
+      plus importants ?</phrase></para>
+      </question>
+      <answer>
+      <para>On considère quatre types de messages
+      <acronym>ICMP</acronym> :</para>
+      <itemizedlist>
+	<listitem>
+	<para>Type de message 8 : <option>echo-request</option> :
+	on autorise les nouvelles requêtes <wordasword>ping</wordasword> à
+	raison de 5 par seconde.</para>
+	</listitem>
+	<listitem>
+	<para>Type de message 0  <option>echo-reply</option> : on
+	autorise les réponses <wordasword>pong</wordasword> aux requêtes
+	<wordasword>ping</wordasword> enregistrées dans la machine d'état de
+	suivi de communication.</para>
+	</listitem>
+	<listitem>
+	<para>Type de message 3 :
+	<option>destination-unreachable</option> : on autorise toutes les
+	notifications d'erreur sur la destination relatives à une demande émise
+	à partir de ce système.</para>
+	</listitem>
+	<listitem>
+	<para>Type de message 11 : <option>time-exceeded</option> :
+	on autorise toutes les notification de débordement de temps relatives
+	au trafic émis à partir de ce système.</para>
+	</listitem>
+      </itemizedlist>
+
+<screen width='80'># cat iptables.common
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# I N P U T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/s -m state --state NEW -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-reply -m state --state ESTABLISHED -j ACCEPT
+-A INPUT -p icmp --icmp-type destination-unreachable -m state --state RELATED -j ACCEPT
+-A INPUT -p icmp --icmp-type time-exceeded -m state --state RELATED -j ACCEPT
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# O U T P U T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A OUTPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+COMMIT
+</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelles sont les modifications à apporter sur le jeu de
+      règles communes pour distinguer les conditions sur les connexions
+      <acronym>TCP</acronym> ?</phrase></para>
+      </question>
+      <answer>
+      <para>On distingue les demandes d'ouverture de connexion avec l'option
+      <option>--syn</option> des connexions déjà établies avec l'option inverse
+      <option>! --syn</option>.</para>
+
+<screen width='80'># cat iptables.common
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# I N P U T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/s -m state --state NEW -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-reply -m state --state ESTABLISHED -j ACCEPT
+-A INPUT -p icmp --icmp-type destination-unreachable -m state --state RELATED -j ACCEPT
+-A INPUT -p icmp --icmp-type time-exceeded -m state --state RELATED -j ACCEPT
+-A INPUT -p tcp ! --syn -m state --state ESTABLISHED -j ACCEPT
+-A INPUT -p tcp --syn -m state --state RELATED -j ACCEPT
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# O U T P U T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A OUTPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+COMMIT
+</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelles sont les modifications à apporter sur le jeu de
+      règles communes pour distinguer le protocole
+      <acronym>UDP</acronym> ?</phrase></para>
+      </question>
+      <answer>
+
+<screen width='80'># cat iptables.common
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# I N P U T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/s -m state --state NEW -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-reply -m state --state ESTABLISHED -j ACCEPT
+-A INPUT -p icmp --icmp-type destination-unreachable -m state --state RELATED -j ACCEPT
+-A INPUT -p icmp --icmp-type time-exceeded -m state --state RELATED -j ACCEPT
+-A INPUT -p tcp ! --syn -m state --state ESTABLISHED -j ACCEPT
+-A INPUT -p tcp --syn -m state --state RELATED -j ACCEPT
+-A INPUT -p udp -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -i lo -m state --state NEW -j ACCEPT
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# O U T P U T
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-A OUTPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A OUTPUT -o lo -m state --state NEW -j ACCEPT
+COMMIT
+</screen>
+      </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='interco.netfilter.qa.refdocs'>
+  <title>Documents de référence</title>
+
+  <sect2 xml:id='interco.netfilter.qa.refdocs.ietf'>
+    <title>IETF &amp; IANA</title>
+
+  <variablelist>
+    <varlistentry xml:id='interco.netfilter.qa.refdocs.iana.icmp-types'>
+      <term><citetitle>Types de messages ICMP</citetitle></term>
+      <listitem>
+	<para>L'<citetitle>Internet Assigned Numbers Authority</citetitle> a
+	enregistré les types de messages <acronym>ICMP</acronym> à la page
+	&url.icmp-types;.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  </sect2>
+
+  <sect2 xml:id='interco.netfilter.qa.refdocs.debian'>
+    <title>Distribution Debian GNU/Linux</title>
+
+  <variablelist>
+    <varlistentry xml:id='interco.netfilter.qa.debian-ref.network.config'>
+      <term><citetitle>Debian Reference Chapter 10 - Network
+      configuration</citetitle></term>
+      <listitem>
+	<para>&url.debian-ref.network.config; : chapitre du manuel de
+	référence <citetitle>Debian</citetitle> consacré à l'administration
+	réseau.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  </sect2>
+
+  <sect2 xml:id='interco.netfilter.qa.refdocs.inetdoc'>
+    <title>Projet inetdoc.LiNUX</title>
+
+  <variablelist>
+    <varlistentry xml:id='interco.netfilter.qa.config.interface.lan'>
+      <term><citetitle>Configuration d'une interface de réseau local</citetitle></term>
+      <listitem>
+      <para>&url.config.interface.lan; : identification du type d'interface,
+      de ses caractéristiques et manipulations des paramètres. Ce support
+      fournit une méthodologie de dépannage simple d'une connexion
+      réseau.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.netfilter.qa.fonctions.noyau'>
+      <term><citetitle>Fonctions réseau du noyau Linux</citetitle></term>
+      <listitem>
+      <para>&url.interco.noyau; : présentation et configuration des
+      fonctions réseau du noyau LINUX</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.netfilter.qa.fonctions.noyau.tp'>
+      <term><citetitle>Configuration des fonctions réseau &amp; compilation du
+      noyau LINUX</citetitle></term>
+      <listitem>
+      <para>&url.interco.noyau; : travaux pratiques sur la
+      préparation d'un système routeur GNU/Linux. Compilation d'un noyau LINUX
+      à partir de ses sources après avoir passé en revue ses fonctions réseau
+      et sélectionné les pilotes de périphériques nécessaires.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.netfilter.qa.refdocs.iptables-tutorial'>
+      <term><citetitle>Didacticiel sur Iptables</citetitle></term>
+      <listitem>
+      <para>&url.iptables-tutorial.fr; : guide très complet sur le
+      fonctionnement du filtrage réseau avec les noyaux Linux.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.netfilter.qa.nat-howto'>
+      <term><citetitle>Guide Pratique du NAT sous Linux 2.4</citetitle></term>
+      <listitem>
+      <para>&url.nat-howto; : Ce document décrit comment réaliser du
+      camouflage d'adresse <acronym>IP</acronym>, un serveur mandataire
+      transparent, de la redirection de ports ou d'autres formes de Traduction
+      d'adresse réseau (<wordasword>Network Address Translation</wordasword> ou
+      <acronym>NAT</acronym>) avec le noyau Linux 2.4.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  </sect2>
+</sect1>
+</article>

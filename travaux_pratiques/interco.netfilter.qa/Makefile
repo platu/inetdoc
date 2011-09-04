@@ -9,11 +9,12 @@ SYMLINKS = \
         $(MAIN_DIR)/common/author.xml \
         $(MAIN_DIR)/common/legal.xml \
         $(MAIN_DIR)/common/inetdoc.urls.xml \
-	$(MAIN_DIR)/travaux_pratiques/interco.netfilter.qa/files/topologie.txt
+        $(MAIN_DIR)/common/rfc.urls.xml
 
 XML_FILES = \
-	pppoe.xml \
-	inetdoc.urls.xml
+	interco.netfilter.qa.xml \
+	inetdoc.urls.xml \
+	rfc.urls.xml
 
 all: $(PROCESS)
 
