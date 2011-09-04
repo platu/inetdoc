@@ -10,6 +10,7 @@ SUBDIRS = \
 	dynamips-dynagen \
 	devmgmt \
 	modelisation \
+	wireshark-as-user \
 	pppoe \
 	adressage.ipv4
 
@@ -22,6 +23,7 @@ XML_FILES = \
 	dynamips-dynagen/$(ABSTRACT_FILE) \
 	devmgmt/$(ABSTRACT_FILE) \
 	modelisation/$(ABSTRACT_FILE) \
+	wireshark-as-user/$(ABSTRACT_FILE) \
 	pppoe/$(ABSTRACT_FILE) \
 	adressage.ipv4/$(ABSTRACT_FILE)
 

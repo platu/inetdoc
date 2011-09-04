@@ -1,0 +1,285 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author                 SYSTEM "author.xml">
+<!ENTITY legal                  SYSTEM "legal.xml">
+
+<!ENTITY url.packetlife
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://packetlife.net'>PacketLife.net</link>">
+
+<!ENTITY url.wireshark.blog
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='https://blog.wireshark.org/'>Wireshark.org</link>">
+
+<!ENTITY url.intro.analyse.access
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://www.inetdoc.net/travaux_pratiques/intro.analyse/wireshark.intro.html#wireshark.intro.interfaces_access'>Introduction
+  à l'analyse réseau</link>">
+
+<!ENTITY url.linux.capabilities.research
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://research.google.com/pubs/archive/33528.pdf'>Linux
+  Capabilities: making them work</link>">
+
+<!ENTITY url.linux.capabilities
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://sites.google.com/site/fullycapable/'>Not needing root to
+  administer Linux</link>">
+]>
+
+<article xml:lang='fr' xml:id='wireshark-as-user'>
+<info>
+  <title>Capturer le trafic réseau au niveau utilisateur avec Wireshark</title>
+
+  &author;
+  <abstract>
+  <para>Cet article est un plagiat éhonté de deux autres billets publiés par
+  Jeremy Stretch sur le blog du site &url.packetlife; et par Gerald Combs sur
+  le blog du site &url.wireshark.blog;. Le contenu de ces billets est tellement
+  intéressant que je me permets de les reprendre ici avec quelques adaptations
+  vraiment mineures.</para>
+  </abstract>
+  <keywordset>
+    <keyword>inetdoc</keyword>
+    <keyword>Linux</keyword>
+    <keyword>capabilities</keyword>
+    <keyword>wireshark</keyword>
+  </keywordset>
+</info>
+
+<section xml:id='wireshark-as-user.legal.meta'>
+  &legal;
+  <section xml:id='wireshark-as-user.meta'>
+    <title>Méta-information</title>
+
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </section>
+</section>
+
+<section xml:id='wireshark-as-user.principle'>
+  <title>Pourquoi capturer le trafic au niveau utilisateur ?</title>
+
+  <para>Pour effectuer une capture de trafic au niveau le plus proche possible
+  du matériel, il faut disposer de droits d'accès particuliers sur les
+  interfaces réseau. Historiquement, cette contrainte impose d'exécuter le
+  programme Wireshark avec les droits du super-utilisteur. Comme il s'agit
+  d'une application graphique assez lourde, il est justement vivement
+  déconseillé de l'utiliser au niveau super-utilisteur ou
+  <wordasword>root</wordasword>. Voilà, les termes de la contradiction sont
+  posés et trouver un moyen d'exécuter l'analyseur au niveau utilisateur
+  devient un exercice très intéressant.</para>
+
+  <para>Un premier niveau de réponse assez répandu consiste à utiliser l'outil
+  <application>sudo</application> qui attribue les droits du super-utilisateur
+  «à l'acte» pour une application donnée. C'est ce que j'ai proposé dans le
+  support &url.intro.analyse.access;. Ce n'est pas vraiment satisfaisant dans
+  la mesure où on a toujours recours au niveau super-utilisteur.</para>
+  
+  <para>Sur un système GNU/Linux comme sur tout autre système Unix, la règle de
+  conception fondamentale veut que tous les droits d'accès soient basés sur les
+  fichiers puisque l'on accède à tous les éléments du système comme s'ils
+  étaient des fichiers. Depuis quelques années, une «méthode d'accès» baptisée
+  <wordasword>Linux Capabilities</wordasword> a été développée pour introduire
+  davantage de granularité dans le «monde binaire» des droits d'accès limité
+  aux deux seuls niveaux utilisateur et super-utilisateur.</para>
+</section>
+
+<section xml:id='wireshark-as-user.capabilities'>
+  <title>Les aptitudes du système GNU/Linux</title>
+
+  <para>Au niveau du système Unix, les propriétés d'un utilisateur particulier
+  sont représentées sous forme de fichiers marqués par un identifiant numérique
+  de propriété appelé <acronym>UID</acronym>. Un système Linux gère de la même
+  façon les accès au matériel via un niveau d'abstraction. Il offre ainsi un
+  environnement dans lequel les programmes s'exécutent. Une partie du niveau
+  d'abstraction fait respecter les droits de propriété des données. Pour
+  respecter les droits des propriétaires des données en question, Linux se
+  conforme à des règles spécifiques qui limitent les manipulations faites par
+  les programmes sur les données. Les appels système
+  (<wordasword>system-calls</wordasword>) effectués par les programmes
+  utilisent des attributs tels que l'identifiant du propriétaire
+  (<acronym>UID</acronym>).</para>
+
+  <para>Pour débuter l'exécution de programmes, un utilisateur passe par une
+  authentification (<application>login</application>,
+  <application>ssh</application>, etc.). À la suite de cette authentification,
+  l'utilisateur dispose d'un contexte de travail pour appeler d'autres
+  programmes et manipuler ses données. Les fonctions apportées par les
+  <wordasword>Linux Capabilities</wordasword> ont justement pour but de
+  modifier ce contexte de travail qui était jusque là figé après
+  l'authentification.</para>
+
+  <para>Sans fonction offrant la capacité à modifier le contexte de travail
+  d'un utilisateur, le seul recours possible est l'exécution en mode privilégié
+  (avec l'<acronym>UID</acronym> 0) qui passe outre tous les contrôles de
+  permissions du noyau. C'est la façon dont sont exécutés les programmes à
+  l'aide de l'outil <application>sudo</application>.</para>
+
+  <para>Plus d'une trentaine d'<emphasis>aptitudes</emphasis> ont été ajoutées
+  au noyau Linux. Ces fonctions interviennent sur presque tous les aspects du
+  contexte de travail de l'utilisateur. Pour la capture de trafic réseau,
+  seules deux fonctions nous intéressent.</para>
+
+  <variablelist>
+    <varlistentry>
+      <term>CAP_NET_ADMIN</term>
+      <listitem>
+      <para>Effectuer différentes opérations réseau comme : obtenir des
+      options privilégiées sur les <wordasword>sockets</wordasword>, activer le
+      <wordasword>multicast</wordasword>, configurer les interfaces, modifier
+      les tables de routage, etc.</para>
+
+      <para>Avec <application>Wireshark</application>, on doit modifier l'état
+      de l'interface de capture et la placer en mode
+      <wordasword>promiscuous</wordasword> de façon à traiter toutes les trames
+      vues par cette interface.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>CAP_NET_RAW</term>
+      <listitem>
+      <para>Utiliser des sockets RAW et PACKET.</para>
+
+      <para>Avec <application>Wireshark</application>, on doit capturer le
+      trafic au plus près de l'interface.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Le document &url.linux.capabilities.research; donne des informations
+  beaucoup plus détaillées sur les aptitudes du noyau Linux.</para>
+
+  <para>Comme tous les outils de ce genre sur les systèmes GNU/Linux, les
+  fonctions sont réparties entre l'espace noyau
+  (<wordasword>kernelspace</wordasword>) et l'espace utilisateur
+  (<wordasword>userspace</wordasword>). On suppose que les <wordasword>Linux
+  Capabilities</wordasword> sont disponibles au niveau du noyau. C'est vrai
+  pour toutes les distributions contemporaines. Pour ce qui est des outils
+  utilisateurs, on doit contrôler leur installation. Ici, il s'agit du paquet
+  <systemitem>libcap2-bin</systemitem>.</para>
+
+<screen width='80'>$ aptitude search ~ilibcap2-bin
+i   libcap2-bin   - basic utility programs for using capabilities</screen>
+</section>
+
+<section xml:id='wireshark-as-user.config'>
+  <title>Configuration de la capture de trafic au niveau utilisateur</title>
+
+  <orderedlist>
+    <listitem>
+    <para>Création d'un groupe système dédié à la capture de trafic
+    réseau.</para>
+
+<screen width='80'># addgroup --system pcap
+Adding group `pcap' (GID 136) ...
+Done.</screen>
+    </listitem>
+
+    <listitem>
+    <para>Ajout d'un utilisateur au groupe système.</para>
+
+<screen width='80'># adduser phil pcap
+Adding user `phil' to group `pcap' ...
+Adding user phil to group pcap
+Done.</screen>
+
+    <warning>
+    <para>Cette nouvelle attribution n'est valable qu'après une nouvelle
+    authentification. Nous sommes encore dans le cas classique de l'évaluation
+    du contexte de travail utilisateur au moment de l'authentification.</para>
+    </warning>
+    </listitem>
+
+    <listitem>
+    <para>Modification des propriétés du programme <application>dumpcap</application>.</para>
+
+    <para>Avant modification du groupe propriétaire :</para>
+
+<screen width='80'># ls -lh `which dumpcap`
+-rwxr-xr-x 1 root root 62K  4 mars  18:04 /usr/bin/dumpcap</screen>
+
+    <para>Changement de groupe propriétaire et nouveau masque de permission.
+    Une fois cette opération faite, les membres du groupe système
+    <systemitem>pcap</systemitem> seront les seuls utilisateurs à pouvoir
+    exécuter le programme en mode non privilégié.</para>
+
+<screen width='80'># chgrp pcap /usr/bin/dumpcap
+# chmod 750 /usr/bin/dumpcap
+# ls -lh /usr/bin/dumpcap
+-rwxr-x--- 1 root pcap 62K  4 mars  18:04 /usr/bin/dumpcap</screen>
+
+    <para>Mémorisation de ces nouvelles propriétés par le gestionnaire de paquets Debian.</para>
+
+<screen width='80'># dpkg-statoverride --add root pcap 750 /usr/bin/dumpcap
+# dpkg-statoverride --list /usr/bin/dumpcap
+root pcap 750 /usr/bin/dumpcap</screen>
+
+    <para>Avec cette dernière manipulation, toutes les mises à jour de paquets
+    conserveront les changements de propriétés du programme en l'état.</para>
+    </listitem>
+
+    <listitem>
+    <para>Modification du contexte de travail pour le programme
+    <systemitem>dumpcap</systemitem>.</para>
+
+<screen width='80'># setcap cap_net_raw,cap_net_admin=eip /usr/bin/dumpcap
+# getcap /usr/bin/dumpcap
+/usr/bin/dumpcap = cap_net_admin,cap_net_raw+eip</screen>
+
+    <para>Les bits <systemitem>eip</systemitem> correspondent aux attributs
+    <wordasword>effective</wordasword>, <wordasword>inheritable</wordasword> et
+    <wordasword>permitted</wordasword>.</para>
+
+    <para>Avec l'attribut <wordasword>effective</wordasword>, le noyau ne
+    vérifie pas si l'<acronym>UID</acronym> vaut 0 (mode privilégié) si le
+    programme nécessite une opération en mode privilégié.</para>
+
+    <para>L'attribut <wordasword>inheritable</wordasword> transmet les
+    aptitudes du processus actuel aux autres processus enfants.</para>
+
+    <para>L'attribut <wordasword>permitted</wordasword> indique que le
+    processus peut utiliser les aptitudes étendues du noyau Linux.</para>
+
+    <para>La documentation sur les <wordasword>Linux Capabilities</wordasword>
+    est disponible à partir de la page &url.linux.capabilities;.</para>
+    </listitem>
+  </orderedlist>
+
+  <para>Il ne reste plus qu'à tester les nouvelles fonctionnalités attribuées à
+  l'utilisateur non privilégié membre du groupe système
+  <systemitem>pcap</systemitem>.</para>
+
+<screen>phil@0wnB0x:~$ id
+uid=1000(phil) gid=1000(phil) groupes=1000(phil),4(adm),20(dialout),&lt;snip/>,128(tftp),<emphasis>136(pcap)</emphasis>
+phil@0wnB0x:~$ tshark -i wlan0
+Capturing on wlan0
+&lt;snip>
+  0.577380  192.168.1.9 -> 192.168.1.1  SSH Encrypted response packet len=352
+  0.578481  192.168.1.1 -> 192.168.1.9  TCP 46722 > ssh [ACK] Seq=1 Ack=353 Win=30 Len=0 TSV=7711965 TSER=1467786
+  1.582427  192.168.1.9 -> 192.168.1.1  SSH Encrypted response packet len=240
+  1.583462  192.168.1.1 -> 192.168.1.9  TCP 46722 > ssh [ACK] Seq=1 Ack=593 Win=33 Len=0 TSV=7712217 TSER=1468791
+&lt;/snip></screen>
+
+</section>
+
+<section xml:id='wireshark-as-user.conclusion'>
+  <title>Pour conclure</title>
+
+  <para>On dispose maintenant de la capacité à capturer et analyser le trafic
+  réseau en tant qu'utilisateur non privilégié. Cette modification du contexte
+  de travail de l'utilisateur normal peut être particulièrement intéressante
+  sur des postes de travaux pratiques sur lesquels on ne souhaite pas que les
+  étudiants aient un accès au mode privilégié.</para>
+
+  <para>C'est aussi la première fois que j'ai eu l'occasion de voire une
+  application concrète des <wordasword>Linux Capabilities</wordasword> même si
+  le sujet n'a été qu'effleuré.</para>
+</section>
+</article>
