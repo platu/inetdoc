@@ -7,6 +7,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
 	archi.tp \
+	intro.analyse \
 	interco.netfilter.qa \
 	interco.netfilter.q
 
@@ -14,7 +15,10 @@ SUBDIRS = \
 PROCESS = subdirs xml2xhtml xml2pdf
 
 XML_FILES = \
-	biblio-travaux_pratiques.xml
+	biblio-travaux_pratiques.xml \
+	archi.tp/$(ABSTRACT_FILE) \
+	intro.analyse/$(ABSTRACT_FILE) \
+	interco.netfilter.q/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 
