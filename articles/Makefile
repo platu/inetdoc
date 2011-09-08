@@ -11,6 +11,7 @@ SUBDIRS = \
 	devmgmt \
 	modelisation \
 	wireshark-as-user \
+	rnis \
 	pppoe \
 	adressage.ipv4
 
@@ -24,6 +25,7 @@ XML_FILES = \
 	devmgmt/$(ABSTRACT_FILE) \
 	modelisation/$(ABSTRACT_FILE) \
 	wireshark-as-user/$(ABSTRACT_FILE) \
+	rnis/$(ABSTRACT_FILE) \
 	pppoe/$(ABSTRACT_FILE) \
 	adressage.ipv4/$(ABSTRACT_FILE)
 
