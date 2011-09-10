@@ -37,7 +37,7 @@ printf "<a href='$1-%02d.html'>[fin&#62;&#62;]</a></h4>\n" $slideNumber >> $2/$s
 
 printf "<p><em>Page (%2d/%2d)</em></p>\n" $slideCounter $slideNumber >> $2/$slideFile
 
-printf "<img src='$1-%02d.png' width='800' height='600' alt='Page %2d' /><br />\n" $slideCounter $slideCounter >> $2/$slideFile
+printf "<img src='$1-%02d.png' width='640' alt='Page %2d' /><br />\n" $slideCounter $slideCounter >> $2/$slideFile
 
 ((slideCounter++))
 
