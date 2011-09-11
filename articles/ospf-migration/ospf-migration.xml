@@ -1,0 +1,909 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!-- urls -->
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+]>
+
+<article lang='fr' xml:id='ospf-migration'>
+<info>
+  <title>Migration de réseau dans une aire OSPF</title>
+
+  &author;
+  <abstract>
+  <para>
+    <inlinemediaobject>
+    <imageobject>
+      <imagedata fileref='images/thumb59.png' align='right' valign='middle'
+      format='PNG' contentwidth='200px' width='210px' depth='200px' scalefit='0'/>
+    </imageobject>
+    </inlinemediaobject>
+  Configuration d'une maquette illustrant la migration d'un réseau entre deux
+  routeurs. Cette maquette est réalisée avec les outils d'émulation de routeurs
+  <trademark>Cisco</trademark> <application>dynamips</application> et
+  <application>dynagen</application>. Cet exemple de maquette est aussi
+  l'occasion de montrer comment on passe d'une topologie logique à l'autre sans
+  changer de topologie physique de câblage.</para>
+  </abstract>
+  <keywordset>
+  <keyword>dynagen</keyword>
+  <keyword>dynamips</keyword>
+  <keyword>kvm</keyword>
+  <keyword>migration</keyword>
+  <keyword>ospf</keyword>
+  <keyword>vde</keyword>
+  </keywordset>
+</info>
+
+<section xml:id='ospf-migration.legal.meta'>
+  &legal;
+  <section xml:id='ospf-migration.meta'>
+    <title>Méta-information</title>
+
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </section>
+</section>
+
+<section xml:id='ospf-migration.context'>
+  <title>Le contexte</title>
+
+  <para>Toute analogie avec <link
+  xlink:href='http://www.linux-france.org/~platu/weblog/archives/2011/01/index.html#e2011-01-18T22_42_06.txt'>certains
+  évènements récents</link> n'est pas tout à fait fortuite. Imaginons, ou
+  plutôt constatons, que le processeur de route d'un routeur ait du mal à
+  assumer la charge des traitements de routage et de filtrage sur plusieurs
+  réseaux. Une solution palliative classique consiste à distribuer cette charge
+  entre plusieurs routeurs (ou processeurs). Cette démarche constitue le fil
+  conducteur de ce qui suit. On commence par mettre en place une topologie de
+  câblage à partir du fichier de configuration du gestionnaire
+  <application>dynagen</application>. Ensuite, on implante une première
+  topologie logique dans laquelle tous les flux réseaux sont concentrés dans un
+  seul routeur. Enfin, on étudie les étapes qui permettent de migrer le réseau
+  des services Internet vers un autre routeur.</para>
+</section>
+
+<section xml:id='ospf-migration.cabling'>
+  <title>La topologie physique de l'interconnexion réseau</title>
+
+  <para>Même s'il n'est pas toujours évident d'obtenir une représentation
+  satisfaisante d'une interconnexion réseau, ce n'est pas une raison pour faire
+  n'importe quoi. La problématique dans le cas présent vient du fait que toutes
+  les interfaces sont raccordées au même commutateur :
+  <application>vde</application>.</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref='images/migration-ospf-bad.png' format='PNG' contentwidth='9.5cm' width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Mauvaise représentation d'une topologie physique</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/migration-ospf-bad.png'>Mauvaise représentation d'une topologie physique</link></para>
+  </caption>
+</mediaobject>
+
+  <para>Une représentation telle que celle donnée ci-dessus, qui ne fait
+  apparaître qu'un commutateur unique est quasiment illisible. Que dire de
+  l'identification des <acronym>VLAN</acronym>s ? Même en employant
+  différentes couleurs on aurait beaucoup de mal à identifier les différents
+  domaines de diffusion. C'est la raison pour laquelle je préfère utiliser
+  autant de «sous-commutateurs» que de <acronym>VLAN</acronym>s.</para>
+
+<mediaobject xml:id='ospf-migration.cabling.step0'>
+  <imageobject>
+    <imagedata fileref='images/migration-ospf-step0.png' format='PNG' contentwidth='12.5cm' width='13cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Topologie physique initiale</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/migration-ospf-step0.png'>Topologie physique initiale</link></para>
+  </caption>
+</mediaobject>
+
+  <para>Si l'on accepte le fait que le commutateur est découpé en cinq
+  sous-ensembles correspondant chacun à un réseau local (ou un
+  <acronym>VLAN</acronym>), on gagne en lisibilité. Pour la partie câblage
+  proprement dite on peut alors se contenter d'un tableau de
+  correspondance.</para>
+
+  <table frame='all' pgwide='0'>
+    <title>Brassage des interfaces sur le commutateur vde</title>
+    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+    <colspec colwidth='1*'/>
+    <colspec colwidth='2*'/>
+    <colspec colwidth='3*'/>
+    <thead>
+      <row>
+      <entry>numéro de port</entry>
+      <entry>interface</entry>
+      <entry>hôte</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry>1</entry>
+      <entry>tap0</entry>
+      <entry>Système hôte</entry>
+      </row>
+      <row>
+      <entry>2</entry>
+      <entry>fa0/0</entry>
+      <entry>Routeur Campus</entry>
+      </row>
+      <row>
+      <entry>3</entry>
+      <entry>fa0/1</entry>
+      <entry>Routeur Campus</entry>
+      </row>
+      <row>
+      <entry>4</entry>
+      <entry>fa0/0</entry>
+      <entry>Routeur Parc</entry>
+      </row>
+      <row>
+      <entry>5</entry>
+      <entry>fa0/1</entry>
+      <entry>Routeur Parc</entry>
+      </row>
+      <row>
+      <entry>6</entry>
+      <entry>fa1/0</entry>
+      <entry>Routeur Parc</entry>
+      </row>
+      <row>
+      <entry>7</entry>
+      <entry>fa0/0</entry>
+      <entry>Routeur DMZ</entry>
+      </row>
+      <row>
+      <entry>8</entry>
+      <entry>fa0/1</entry>
+      <entry>Routeur DMZ</entry>
+      </row>
+      <row>
+      <entry>9</entry>
+      <entry>fa1/0</entry>
+      <entry>Routeur DMZ</entry>
+      </row>
+      <row>
+      <entry>10</entry>
+      <entry>eth0</entry>
+      <entry>Client (machine virtuelle KVM)</entry>
+      </row>
+      <row>
+      <entry>11</entry>
+      <entry>eth0</entry>
+      <entry>Serveur (machine virtuelle KVM)</entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+
+  <para>Une fois ce brassage établi, il ne varie plus tout au long des
+  différentes étapes et évolutions de la topologie logique. On passe d'une
+  topologie logique à l'autre par le biais des affectations de
+  <acronym>VLAN</acronym>s.</para>
+
+  <para>Le tableau ci-dessus est la traduction des éléments de configuration en
+  place aussi bien sur le système hôte que sur les systèmes émulés ou
+  virtualisés.</para>
+
+  <section xml:id='ospf-migration.cabling.host'>
+    <title>Le système hôte</title>
+
+  <para>Sur un système <citetitle>Debian GNU/Linux</citetitle>, le paquet
+  <systemitem>vde2</systemitem> fournit les scripts nécessaires à la
+  configuration d'une interface de type <systemitem>tap</systemitem> au
+  lancement du commutateur. Voici un extrait du fichier
+  <filename>/etc/network/interfaces</filename>.</para>
+
+<screen width='80'>iface tap0 inet static
+    address 192.200.0.1
+    netmask 255.255.255.224
+    network 192.200.0.0
+    broadcast 192.200.0.31
+    vde2-switch -</screen>
+
+  <para>Lors de l'activation de l'interface <systemitem>tap0</systemitem>, le
+  commutateur virtuel est lancé et l'interface est directement raccordée sur le
+  port numéro 1.</para>
+
+<screen width='80'><prompt>$</prompt> unixterm /var/run/vde2/tap0.mgmt
+VDE switch V.2.2.3
+(C) Virtual Square Team (coord. R. Davoli) 2005,2006,2007 - GPLv2
+
+vde$ port/print
+0000 DATA END WITH '.'
+Port 0001 untagged_vlan=0000 ACTIVE - Unnamed Allocatable
+ Current User: NONE Access Control: (User: NONE - Group: NONE)
+ IN:  pkts         81          bytes                25726
+ OUT: pkts          0          bytes                    0
+  -- endpoint ID 0007 module tuntap      : tap0
+.
+1000 Success</screen>
+  </section>
+
+  <section xml:id='ospf-migration.cabling.dynagen'>
+    <title>L'émulation des routeurs Cisco</title>
+
+  <para>Le gestionnaire <application>dynagen</application> prend en charge
+  l'interconnexion des interfaces des routeurs émulés via son fichier de
+  configuration.</para>
+
+<screen width='80'><prompt>$</prompt> cat lab.net 
+[localhost]
+
+ghostios = true
+sparsemem = true
+
+[[7200]]
+
+[[router Campus]]
+        model = 2621XM
+        ram = 192
+        image = /home/phil/ios.images/c2600-advipservicesk9-mz.124-15.T14.image
+        f0/0 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/Campus_f0_0
+        f0/1 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/Campus_f0_1
+
+[[router Parc]]
+        model = 2621XM
+        ram = 192
+        slot1 = NM-1FE-TX
+        image = /home/phil/ios.images/c2600-advipservicesk9-mz.124-15.T14.image
+        f0/0 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/Parc_f0_0
+        f0/1 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/Parc_f0_1
+        f1/0 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/Parc_f1_0
+
+[[router DMZ]]
+        model = 2621XM
+        ram = 192
+	slot1 = NM-1FE-TX
+	image = /home/phil/ios.images/c2600-advipservicesk9-mz.124-15.T14.image
+	f0/0 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/DMZ_f0_0
+	f0/1 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/DMZ_f0_1
+	f1/0 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/DMZ_f1_0</screen>
+
+  <para>Les ports du commutateur <application>vde</application> sont raccordés
+  séquentiellement aux interfaces des routeurs dans l'ordre défini dans le
+  fichier de configuration ci-dessus.</para>
+  </section>
+
+  <section xml:id='ospf-migration.cabling.vm'>
+    <title>Les machines virtuelles</title>
+
+  <para>Dans le cas des machines virtuelles, les affectations se font lors de
+  l'appel au script d'initialisation <command>startup.sh</command> proposé dans
+  l'article &url.vm;. En voici une copie.</para>
+
+<programlisting width='80'><xi:include href='files/startup.sh' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+
+  <para>Ici, les machines virtuelles sont lancées à l'aide des deux
+  instructions suivantes.</para>
+
+<screen width='80'>../scripts/startup.sh client.raw 512 10 
+../scripts/startup.sh serveur.raw 512 11</screen>
+  </section>
+
+
+  <section xml:id='ospf-migration.cabling.launch'>
+    <title>L'initialisation de la maquette complète</title>
+
+  <para>Pour synthétiser tous ces éléments de configuration, on utilise un
+  script qui englobe les différentes initialisations.</para>
+
+<screen width='80'><prompt>$</prompt> cat migration.sh 
+#!/bin/bash
+
+../scripts/startup.sh client.raw 512 10 
+../scripts/startup.sh serveur.raw 512 11 
+
+if [[ -z "`pidof dynamips | tr -d '\n'`" ]]
+then
+        echo "Launching dynamips"
+        dynamips -H 7200 &amp; >/dev/null
+        sleep 5
+        echo '.'
+fi
+
+dynagen lab.net
+
+echo "The End"
+
+exit 0</screen>
+
+  <para>Une fois que tous les systèmes sont actifs, on peut passer à la
+  création de la base de données des <acronym>VLAN</acronym>s via la console
+  d'administration du commutateur <application>vde</application>.</para>
+
+<screen width='80'><prompt>$</prompt> unixterm /var/run/vde2/tap0.mgmt
+VDE switch V.2.2.3
+(C) Virtual Square Team (coord. R. Davoli) 2005,2006,2007 - GPLv2
+
+vde$ vlan/create 1
+1000 Success
+
+vde$ vlan/create 2
+1000 Success
+
+vde$ vlan/create 3
+1000 Success
+
+vde$ vlan/create 4
+1000 Success
+
+vde$ vlan/create 5
+1000 Success
+
+vde$ vlan/print
+0000 DATA END WITH '.'
+VLAN 0000
+ -- Port 0001 tagged=0 active=1 status=Forwarding
+ -- Port 0002 tagged=0 active=1 status=Forwarding
+ -- Port 0003 tagged=0 active=1 status=Forwarding
+ -- Port 0004 tagged=0 active=1 status=Forwarding
+ -- Port 0005 tagged=0 active=1 status=Forwarding
+ -- Port 0006 tagged=0 active=1 status=Forwarding
+ -- Port 0007 tagged=0 active=1 status=Forwarding
+ -- Port 0008 tagged=0 active=1 status=Forwarding
+ -- Port 0009 tagged=0 active=1 status=Forwarding
+ -- Port 0010 tagged=0 active=1 status=Forwarding
+ -- Port 0011 tagged=0 active=1 status=Forwarding
+VLAN 0001
+VLAN 0002
+VLAN 0003
+VLAN 0004
+VLAN 0005
+.
+1000 Success</screen>
+
+  <para>La copie d'écran ci-dessus montre que tous les ports actifs
+  appartiennent au même <acronym>VLAN</acronym> (le numéro 0) et que cinq
+  autres <acronym>VLAN</acronym>s ont été créés.</para>
+
+  <para>On peut maintenant considérer que la topologie physique est en place et
+  passer à la mise en œuvre de la première topologie logique.</para>
+  </section>
+</section>
+
+<section xml:id='ospf-migration.first'>
+  <title>La première topologie logique</title>
+
+  <para>Cette topologie logique de départ correspond à la <link
+  linkend='ospf-migration.cabling.step0'>présentation de la topologie physique
+  initiale</link>. Après avoir traité le niveau physique dans la section
+  précédente, on remonte les couches de la modélisation : base de données
+  des <acronym>VLAN</acronym>s au niveau liaison, configuration
+  <acronym>IP</acronym> et routage <acronym>OSPF</acronym> au niveau réseau
+  puis validation des couches transport et application à l'aide des systèmes
+  virtuels client et serveur.</para>
+
+<mediaobject xml:id='ospf-migration.topology.step0'>
+  <imageobject>
+    <imagedata fileref='images/topology-ospf-step0.png' format='PNG' contentwidth='12.5cm' width='13cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Première topologie logique</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/topology-ospf-step0.png'>Première topologie logique</link></para>
+  </caption>
+</mediaobject>
+
+  <section xml:id='ospf-migration.first.vlans'>
+    <title>Les réseaux locaux (VLANs)</title>
+
+  <para>La configuration des <acronym>VLAN</acronym>s se fait toujours à l'aide
+  de la console d'administration de <application>vde</application>.</para>
+
+<screen width='80'>vde$ port/setvlan 1 1
+1000 Success
+
+vde$ port/setvlan 2 1
+1000 Success
+
+vde$ port/setvlan 3 2
+1000 Success
+
+vde$ port/setvlan 4 2
+1000 Success
+
+vde$ port/setvlan 5 3
+1000 Success
+
+vde$ port/setvlan 10 3
+1000 Success
+
+vde$ port/setvlan 6 4
+1000 Success
+
+vde$ port/setvlan 11 4
+1000 Success
+
+vde$ vlan/print
+0000 DATA END WITH '.'
+VLAN 0000
+ -- Port 0007 tagged=0 active=1 status=Forwarding
+ -- Port 0008 tagged=0 active=1 status=Forwarding
+ -- Port 0009 tagged=0 active=1 status=Forwarding
+VLAN 0001
+ -- Port 0001 tagged=0 active=1 status=Forwarding
+ -- Port 0002 tagged=0 active=1 status=Forwarding
+VLAN 0002
+ -- Port 0003 tagged=0 active=1 status=Forwarding
+ -- Port 0004 tagged=0 active=1 status=Forwarding
+VLAN 0003
+ -- Port 0005 tagged=0 active=1 status=Forwarding
+ -- Port 0010 tagged=0 active=1 status=Forwarding
+VLAN 0004
+ -- Port 0006 tagged=0 active=1 status=Forwarding
+ -- Port 0011 tagged=0 active=1 status=Forwarding
+VLAN 0005
+.
+1000 Success</screen>
+
+  <para>Après cette suite d'instructions, les ports 7, 8 et 9 sont les seuls à
+  ne pas être affectés à un <acronym>VLAN</acronym> particulier. Ils ne sont
+  pas utilisés dans cette première topologie logique.</para>
+  </section>
+
+  <section xml:id='ospf-migration.first.uplink'>
+    <title>Les accès Internet et réseau du campus</title>
+
+  <para>Le premier réseau local (<acronym>VLAN</acronym> 1) représente le lien
+  entre le réseau du campus et l'Internet. Dans cette maquette, le réseau du
+  campus se résume à un routeur à la frontière entre l'aire
+  <acronym>OSPF</acronym> et le système hôte qui dispose d'un véritable accès à
+  l'Internet. Cet accès réel est mis à disposition des équipements de la
+  maquette par routage et traduction d'adresses sources
+  (<acronym>S-NAT</acronym>).</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref='images/migration-ospf-campus.png' format='PNG' contentwidth='9cm' width='9.5cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Accès Internet</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/migration-ospf-campus.png'>Accès Internet</link></para>
+  </caption>
+</mediaobject>
+    
+  <para>Le réseau <acronym>IP</acronym> utilisé pour la communication entre le
+  système hôte et les équipements virtualisés est le <systemitem
+  class='ipaddress'>192.200.0.0/27</systemitem> et le réseau de l'aire
+  <acronym>OSPF</acronym> (<acronym>VLAN</acronym> 2) est le <systemitem
+  class='ipaddress'>172.20.124.0/22</systemitem>. Voici un extrait de la
+  configuration du routeur <systemitem>Campus</systemitem>.</para>
+
+<screen width='80'>interface FastEthernet0/0
+ mac-address c800.309b.0100
+ ip address 192.200.0.2 255.255.255.224
+ duplex auto
+ speed auto
+!
+interface FastEthernet0/1
+ ip address 172.20.124.2 255.255.252.0
+ duplex auto
+ speed auto
+!
+router ospf 1
+ router-id 0.0.0.1
+ log-adjacency-changes
+ passive-interface FastEthernet0/0
+ network 172.20.124.0 0.0.3.255 area 0
+!         
+ip forward-protocol nd
+ip route 0.0.0.0 0.0.0.0 192.200.0.1</screen>
+
+  <para>Pour assurer une visibilité entre les réseaux de la maquette et le
+  système hôte, on ajoute autant de routes statiques sur le système hôte que de
+  réseaux utilisés. Dans le cas présent, on ajoute seulement le réseau
+  <systemitem class='ipaddress'>172.20.124.0/22</systemitem> au système
+  hôte.</para>
+
+<screen width='80'><prompt>#</prompt> ip ro add 172.20.124.0/22 dev tap0</screen>
+  </section>
+
+  <section xml:id='ospf-migration.first.downlink'>
+    <title>Les réseaux du site</title>
+
+  <para>Le routeur de site de la première topologie logique est baptisé
+  <systemitem>Parc</systemitem>. Il dessert deux périmètres distincts : le
+  réseau du parc des postes de travail <systemitem
+  class='ipaddress'>192.168.177.0/24</systemitem>
+  (<acronym>VLAN</acronym> 3) et le réseau des services Internet
+  <systemitem class='ipaddress'>192.168.185.0/24</systemitem>
+  (<acronym>VLAN</acronym> 4).</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref='images/migration-ospf-parc.png' format='PNG' contentwidth='9cm' width='9.5cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Réseaux du site</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/migration-ospf-parc.png'>Réseaux du site</link></para>
+  </caption>
+</mediaobject>
+
+    <para>Voici un extrait de la configuration du routeur
+    <systemitem>Parc</systemitem>.</para>
+
+<screen width='80'>interface FastEthernet0/0
+ mac-address c801.309b.0010
+ ip address 172.20.124.8 255.255.252.0
+ duplex auto
+ speed auto
+!
+interface FastEthernet0/1
+ mac-address c801.309b.0011
+ ip address 192.168.177.1 255.255.255.0
+ duplex auto
+ speed auto
+!
+interface FastEthernet1/0
+ mac-address c801.309b.0012
+ ip address 192.168.185.1 255.255.255.0
+ duplex auto
+ speed auto
+!         
+router ospf 1
+ router-id 0.0.0.2
+ log-adjacency-changes
+ network 172.20.124.0 0.0.3.255 area 0
+ network 192.168.177.0 0.0.0.255 area 0
+ network 192.168.185.0 0.0.0.255 area 0
+!         
+ip forward-protocol nd
+ip route 0.0.0.0 0.0.0.0 172.20.124.2</screen>
+
+    <para>La table de routage est la suivante :</para>
+
+<screen width='80'>Parc#sh ip route
+Codes: C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route
+
+Gateway of last resort is 172.20.124.2 to network 0.0.0.0
+
+C    192.168.177.0/24 is directly connected, FastEthernet0/1
+     172.20.0.0/22 is subnetted, 1 subnets
+C       172.20.124.0 is directly connected, FastEthernet0/0
+C    192.168.185.0/24 is directly connected, FastEthernet1/0
+S*   0.0.0.0/0 [1/0] via 172.20.124.2</screen>
+
+    <para>Les tests <acronym>ICMP</acronym> classiques permettent de valider
+    la connectivité entre les réseaux du site et le système hôte.</para>
+
+<screen width='80'><prompt>$</prompt> ping -qc 5 192.168.177.1
+PING 192.168.177.1 (192.168.177.1) 56(84) bytes of data.
+
+--- 192.168.177.1 ping statistics ---
+5 packets transmitted, 5 received, <emphasis>0% packet loss</emphasis>, time 4004ms
+rtt min/avg/max/mdev = 6.361/9.082/10.765/1.514 ms
+<prompt>$</prompt> ping -qc 5 192.168.185.1
+PING 192.168.185.1 (192.168.185.1) 56(84) bytes of data.
+
+--- 192.168.185.1 ping statistics ---
+5 packets transmitted, 5 received, <emphasis>0% packet loss</emphasis>, time 4003ms
+rtt min/avg/max/mdev = 5.093/8.100/9.431/1.580 ms</screen>
+
+<screen width='80'>Parc#ping 192.200.0.1
+
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 192.200.0.1, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 4/7/16 ms</screen>
+  </section>
+
+  <section xml:id='ospf-migration.first.vm'>
+    <title>Les systèmes virtuels client et serveur</title>
+
+  <para>Pour finir de valider le fonctionnement de l'interconnexion de la
+  première topologie logique, il ne reste plus qu'à tester la connectivité
+  depuis les deux machines virtuelles client et serveur. On leur affecte
+  respectivement les adresses <acronym>IP</acronym> <systemitem
+  class='ipaddress'>192.168.177.10</systemitem> et <systemitem
+  class='ipaddress'>192.168.185.10</systemitem>. Après avoir repris les tests
+  <acronym>ICMP</acronym> présentés ci-dessus avec les adresses
+  <acronym>IP</acronym> du client et du serveur, on installe les outils
+  nécessaires à la navigation Web. Sur le poste client, on se contente
+  d'installer le paquet du navigateur <application>lynx-cur</application>. Sur
+  le poste serveur, on installe le paquet du serveur
+  <application>apache2</application>.</para>
+
+  <para>Une fois la configuration en place, on peut naviguer «facilement»
+  depuis le poste client ou le système hôte.</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref='images/client-lynx-google.png' format='PNG' contentwidth='9cm' width='9.5cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Accès à la page d'un moteur de recherche</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/client-lynx-google.png'>Accès à la page d'un moteur de recherche</link></para>
+  </caption>
+</mediaobject>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref='images/client-lynx-apache.png' format='PNG' contentwidth='9cm' width='9.5cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Accès à la page du serveur Web du site</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/client-lynx-apache.png'>Accès à la page du serveur Web du site</link></para>
+  </caption>
+</mediaobject>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref='images/client-konq-apache.png' format='PNG' contentwidth='9cm' width='9.5cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Accès à la page du serveur Web du site depuis l'Internet</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/client-konq-apache.png'>Accès à la page du serveur Web du site depuis l'Internet</link></para>
+  </caption>
+</mediaobject>
+  </section>
+</section>
+
+<section xml:id='ospf-migration.second'>
+  <title>La seconde topologie logique</title>
+
+  <para>Cette topologie logique utilise un routeur par périmètre. L'objectif
+  ici est de disposer de davantage de capacité de traitement pour chaque type
+  de flux réseau à router et filtrer. Relativement à la section précédente, la
+  topologie physique évolue par réaffectation des <acronym>VLAN</acronym>s sur
+  les ports du commutateur <application>vde</application> concernés.</para>
+
+<mediaobject xml:id='ospf-migration.cabling.step1'>
+  <imageobject>
+    <imagedata fileref='images/migration-ospf-step1.png' format='PNG' contentwidth='12.5cm' width='13cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Topologie physique finale</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/migration-ospf-step1.png'>Topologie physique finale</link></para>
+  </caption>
+</mediaobject>
+
+<mediaobject xml:id='ospf-migration.topology.step1'>
+  <imageobject>
+    <imagedata fileref='images/topology-ospf-step1.png' format='PNG' contentwidth='12.5cm' width='13cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Seconde topologie logique</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/topology-ospf-step1.png'>Seconde topologie logique</link></para>
+  </caption>
+</mediaobject>
+
+  <section xml:id='ospf-migration.second.vlans'>
+    <title>Les réseaux locaux (VLANs)</title>
+
+  <para>Pour la nouvelle configuration des <acronym>VLAN</acronym>s, on utilise
+  à nouveau la console d'administration de
+  <application>vde</application>.</para>
+
+<screen width='80'>vde$ port/setvlan 7 2
+1000 Success
+
+vde$ port/setvlan 9 4
+1000 Success
+
+vde$ port/setvlan 8 5
+1000 Success
+
+vde$ port/setvlan 11 5
+1000 Success
+
+vde$ vlan/print
+0000 DATA END WITH '.'
+VLAN 0000
+VLAN 0001
+ -- Port 0001 tagged=0 active=1 status=Forwarding
+ -- Port 0002 tagged=0 active=1 status=Forwarding
+VLAN 0002
+ -- Port 0003 tagged=0 active=1 status=Forwarding
+ -- Port 0004 tagged=0 active=1 status=Forwarding
+ -- Port 0007 tagged=0 active=1 status=Forwarding
+VLAN 0003
+ -- Port 0005 tagged=0 active=1 status=Forwarding
+ -- Port 0010 tagged=0 active=1 status=Forwarding
+VLAN 0004
+ -- Port 0006 tagged=0 active=1 status=Forwarding
+ -- Port 0009 tagged=0 active=1 status=Forwarding
+VLAN 0005
+ -- Port 0008 tagged=0 active=1 status=Forwarding
+ -- Port 0011 tagged=0 active=1 status=Forwarding
+.
+1000 Success</screen>
+
+  <para>Une fois ces affectations de <acronym>VLAN</acronym> par port
+  effectuées, on étudie les deux nouveaux périmètres du parc des postes de
+  travail et des services Internet. Les accès Internet et réseau du campus ne
+  changent pas et la configuration du routeur <systemitem>Campus</systemitem>
+  reste identique.</para>
+  </section>
+
+  <section xml:id='ospf-migration.second.parc'>
+    <title>Le réseau du parc des postes de travail</title>
+
+  <para>Le routeur baptisé <systemitem>Parc</systemitem> dessert toujours les
+  postes de travail ; soit le réseau <systemitem
+  class='ipaddress'>192.168.177.0/24</systemitem> (<acronym>VLAN</acronym> 3).
+  Il est maintenant raccordé au routeur baptisé <systemitem>DMZ</systemitem>
+  via le réseau <systemitem class='ipaddress'>192.168.0.0/30</systemitem>
+  (<acronym>VLAN</acronym> 4). Voici un extrait de la nouvelle configuration du
+  routeur <systemitem>Parc</systemitem>.</para>
+
+<screen width='80'>interface FastEthernet0/0
+ mac-address c801.309b.0010
+ ip address 172.20.124.8 255.255.252.0
+ duplex auto
+ speed auto
+!         
+interface FastEthernet0/1
+ mac-address c801.309b.0011
+ ip address 192.168.177.1 255.255.255.0
+ duplex auto
+ speed auto
+!         
+interface FastEthernet1/0
+ mac-address c801.309b.0012
+ ip address 192.168.0.1 255.255.255.252
+ duplex auto
+ speed auto
+!         
+router ospf 1
+ router-id 0.0.0.2
+ log-adjacency-changes
+ network 172.20.124.0 0.0.3.255 area 0
+ network 192.168.177.0 0.0.0.255 area 0
+!         
+ip forward-protocol nd
+ip route 0.0.0.0 0.0.0.0 172.20.124.2
+ip route 192.168.185.0 255.255.255.0 FastEthernet1/0</screen>
+
+  <para>Le réseau d'interconnexion directe (<acronym>VLAN</acronym> 4) entre
+  les routeurs <systemitem>Parc</systemitem> et <systemitem>DMZ</systemitem>
+  est configuré pour faire transiter les flux entre les postes de travail et
+  les services Internet du site sans passer par le réseau du campus. On a
+  ajouté une route statique dont la métrique est plus faible que celle d'une
+  route établie via le protocole <acronym>OSPF</acronym>. C'est donc cette
+  route statique qui est implantée dans la table de routage.</para>
+
+<screen width='80'>Parc#sh ip route 
+Codes: C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route
+
+Gateway of last resort is 172.20.124.2 to network 0.0.0.0
+
+C    192.168.177.0/24 is directly connected, FastEthernet0/1
+     172.20.0.0/22 is subnetted, 1 subnets
+C       172.20.124.0 is directly connected, FastEthernet0/0
+     192.168.0.0/30 is subnetted, 1 subnets
+C       192.168.0.0 is directly connected, FastEthernet1/0
+S    192.168.185.0/24 is directly connected, FastEthernet1/0
+S*   0.0.0.0/0 [1/0] via 172.20.124.2</screen>
+  </section>
+
+  <section xml:id='ospf-migration.second.dmz'>
+    <title>Le réseau des services Internet</title>
+
+  <para>Le routeur baptisé <systemitem>DMZ</systemitem> dessert le réseau des
+  services Internet qui a migré vers ce nouveau routeur. Si l'adresse de ce
+  réseau reste <systemitem class='ipaddress'>192.168.185.0/24</systemitem>,
+  elle correspond maintenant au <acronym>VLAN</acronym> 5. De façon symétrique,
+  le routeur <systemitem>DMZ</systemitem> est raccordé au routeur
+  <systemitem>Parc</systemitem> via le réseau <systemitem
+  class='ipaddress'>192.168.0.0/30</systemitem> (<acronym>VLAN</acronym> 4).
+  Voici un extrait de la configuration du nouveau routeur
+  <systemitem>DMZ</systemitem>.</para>
+
+<screen width='80'>interface FastEthernet0/0
+ mac-address c802.309b.0020
+ ip address 172.20.124.10 255.255.252.0
+ duplex auto
+ speed auto
+!
+interface FastEthernet0/1
+ mac-address c802.309b.0021
+ ip address 192.168.185.1 255.255.255.0
+ duplex auto
+ speed auto
+!
+interface FastEthernet1/0
+ mac-address c802.309b.0022
+ ip address 192.168.0.2 255.255.255.252
+ duplex auto
+ speed auto
+!         
+router ospf 1
+ router-id 0.0.0.4
+ log-adjacency-changes
+ network 172.20.124.0 0.0.3.255 area 0
+ network 192.168.185.0 0.0.0.255 area 0
+!         
+ip forward-protocol nd
+ip route 0.0.0.0 0.0.0.0 130.120.124.2
+ip route 192.168.177.0 255.255.255.0 FastEthernet1/0</screen>
+
+  <para>Tout comme sur le routeur <systemitem>Parc</systemitem> on a ajouté une
+  route statique pour faire transiter les flux entre les services Internet et
+  les postes de travail du site sans passer par le réseau du campus.</para>
+
+<screen width='80'>DMZ#sh ip route 
+Codes: C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route
+
+Gateway of last resort is not set
+
+S    192.168.177.0/24 is directly connected, FastEthernet1/0
+     172.20.0.0/22 is subnetted, 1 subnets
+C       172.20.124.0 is directly connected, FastEthernet0/0
+     192.168.0.0/30 is subnetted, 1 subnets
+C       192.168.0.0 is directly connected, FastEthernet1/0
+C    192.168.185.0/24 is directly connected, FastEthernet0/1</screen>
+
+  <para>Une fois la seconde topologie en place, on reprend les mêmes tests
+  <acronym>ICMP</acronym> que ceux effectués avec la première topologie. On
+  procède de même avec les navigateurs Web de la machine virtuelle cliente et
+  du système hôte.</para>
+  </section>
+</section>
+
+<section xml:id='ospf-migration.conclusion'>
+  <title>Pour conclure</title>
+
+  <para>Voilà une illustration supplémentaire de l'utilisation des outils de
+  virtualisation et d'émulation que l'on peut aisément faire fonctionner sur un
+  système GNU/Linux. Cette maquette montre que l'on peut préparer sereinement
+  les configurations des équipements en dehors de l'interconnexion réseau «en
+  production» et éviter ainsi les écueils les plus gros.</para> 
+
+  <para>En toute honnêteté, cette préparation par maquette n'offre aucune
+  garantie de bon fonctionnement dans la mesure où elle ne supporte pas de
+  trafic réel. Face à des profils de trafic réseau hautement imprévisibles et
+  difficilement reproductibles, le «comportement» des équipements réels est
+  parfois décevant. C'est souvent un non dit qui conduit à surdimensionner les
+  configurations matérielles.</para>
+</section>
+</article>
