@@ -4,6 +4,7 @@ endif
 
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
+	images \
 	files
 
 # Type(s) de traitement

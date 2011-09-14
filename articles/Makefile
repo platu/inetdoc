@@ -6,6 +6,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
+	images \
 	infosecconcepts \
 	dynamips-dynagen \
 	devmgmt \
