@@ -22,12 +22,14 @@
       <imagedata fileref='images/thumb001.png' format='PNG' width='12em' scalefit='1'/>
     </imageobject>
     </inlinemediaobject>
-  Configuration d'une maquette illustrant la migration d'un réseau entre deux
-  routeurs. Cette maquette est réalisée avec les outils d'émulation de routeurs
-  <trademark>Cisco</trademark> <application>dynamips</application> et
-  <application>dynagen</application>. Cet exemple de maquette est aussi
-  l'occasion de montrer comment on passe d'une topologie logique à l'autre sans
-  changer de topologie physique de câblage.</para>
+  Cet article présente la réalisation d'une maquette à l'aide des outils
+  d'émulation de routeurs <trademark>Cisco</trademark>
+  <application>dynamips</application> et <application>dynagen</application>. Le
+  but est de préparer la migration d'un réseau d'un routeur à un autre dans une
+  même aire OSPF. Cet article est aussi une bonne occasion de montrer comment
+  on passe d'une topologie logique à l'autre sans changer de topologie physique
+  de câblage en jouant sur la programmation des VLANs sur un même
+  commutateur.</para>
   </abstract>
   <keywordset>
   <keyword>dynagen</keyword>
@@ -36,6 +38,9 @@
   <keyword>migration</keyword>
   <keyword>ospf</keyword>
   <keyword>vde</keyword>
+  <keyword>vlan</keyword>
+  <keyword>émulation</keyword>
+  <keyword>virtualisation</keyword>
   </keywordset>
 </info>
 
@@ -53,26 +58,23 @@
   </section>
 </section>
 
-<section xml:id='ospf-migration.context'>
-  <title>Le contexte</title>
-
-  <para>Toute analogie avec <link
-  xlink:href='http://www.linux-france.org/~platu/weblog/archives/2011/01/index.html#e2011-01-18T22_42_06.txt'>certains
-  évènements récents</link> n'est pas tout à fait fortuite. Imaginons, ou
-  plutôt constatons, que le processeur de route d'un routeur ait du mal à
-  assumer la charge des traitements de routage et de filtrage sur plusieurs
-  réseaux. Une solution palliative classique consiste à distribuer cette charge
-  entre plusieurs routeurs (ou processeurs). Cette démarche constitue le fil
-  conducteur de ce qui suit. On commence par mettre en place une topologie de
-  câblage à partir du fichier de configuration du gestionnaire
-  <application>dynagen</application>. Ensuite, on implante une première
-  topologie logique dans laquelle tous les flux réseaux sont concentrés dans un
-  seul routeur. Enfin, on étudie les étapes qui permettent de migrer le réseau
-  des services Internet vers un autre routeur.</para>
-</section>
-
 <section xml:id='ospf-migration.cabling'>
   <title>La topologie physique de l'interconnexion réseau</title>
+
+  <para>Une migration réseau peut être motivée par plusieurs facteurs :
+  évolution ou remplacement de matériel, répartition de la charge entre
+  processeurs de route, etc. Dans le cas présent, c'est le fait d'avoir atteint
+  les limites de la capacité de traitement d'un routeur
+  <trademark>Cisco</trademark> ISR 2851 qui a motivé la migration du réseau
+  correspondant au périmètre des services Internet hébergés vers un second
+  routeur.</para>
+
+  <para>Dans cette section, on commence par mettre en place une topologie de
+  câblage à l'aide du gestionnaire <application>dynagen</application>. Dans les
+  sections suivantes, on implante une première topologie logique dans laquelle
+  tous les flux réseaux sont concentrés dans un seul routeur et on étudie les
+  étapes qui permettent de migrer le réseau des services Internet vers un
+  nouveau routeur.</para>
 
   <para>Même s'il n'est pas toujours évident d'obtenir une représentation
   satisfaisante d'une interconnexion réseau, ce n'est pas une raison pour faire
@@ -82,7 +84,7 @@
 
 <mediaobject>
   <imageobject>
-    <imagedata fileref='images/migration-ospf-bad.png' format='PNG' contentwidth='9.5cm' width='10cm'/>
+    <imagedata fileref='images/migration-ospf-bad.png' format='PNG' width='32em' scalefit='1'/>
   </imageobject>
   <textobject>
     <phrase>Mauvaise représentation d'une topologie physique</phrase>
@@ -101,7 +103,7 @@
 
 <mediaobject xml:id='ospf-migration.cabling.step0'>
   <imageobject>
-    <imagedata fileref='images/migration-ospf-step0.png' format='PNG' contentwidth='12.5cm' width='13cm'/>
+    <imagedata fileref='images/migration-ospf-step0.png' format='PNG' width='32em' scalefit='1'/>
   </imageobject>
   <textobject>
     <phrase>Topologie physique initiale</phrase>
@@ -241,38 +243,8 @@ Port 0001 untagged_vlan=0000 ACTIVE - Unnamed Allocatable
   l'interconnexion des interfaces des routeurs émulés via son fichier de
   configuration.</para>
 
-<screen width='80'><prompt>$</prompt> cat lab.net 
-[localhost]
-
-ghostios = true
-sparsemem = true
-
-[[7200]]
-
-[[router Campus]]
-        model = 2621XM
-        ram = 192
-        image = /home/phil/ios.images/c2600-advipservicesk9-mz.124-15.T14.image
-        f0/0 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/Campus_f0_0
-        f0/1 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/Campus_f0_1
-
-[[router Parc]]
-        model = 2621XM
-        ram = 192
-        slot1 = NM-1FE-TX
-        image = /home/phil/ios.images/c2600-advipservicesk9-mz.124-15.T14.image
-        f0/0 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/Parc_f0_0
-        f0/1 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/Parc_f0_1
-        f1/0 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/Parc_f1_0
-
-[[router DMZ]]
-        model = 2621XM
-        ram = 192
-	slot1 = NM-1FE-TX
-	image = /home/phil/ios.images/c2600-advipservicesk9-mz.124-15.T14.image
-	f0/0 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/DMZ_f0_0
-	f0/1 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/DMZ_f0_1
-	f1/0 = NIO_vde:/var/run/vde2/tap0.ctl/ctl:/var/run/vde2/tap0.ctl/DMZ_f1_0</screen>
+<screen width='80'><xi:include href='files/lab.net' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
   <para>Les ports du commutateur <application>vde</application> sont raccordés
   séquentiellement aux interfaces des routeurs dans l'ordre défini dans le
@@ -301,27 +273,11 @@ xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
     <title>L'initialisation de la maquette complète</title>
 
   <para>Pour synthétiser tous ces éléments de configuration, on utilise un
-  script qui englobe les différentes initialisations.</para>
+  script baptisé <application>migration.sh</application> qui englobe les
+  différentes initialisations.</para>
 
-<screen width='80'><prompt>$</prompt> cat migration.sh 
-#!/bin/bash
-
-../scripts/startup.sh client.raw 512 10 
-../scripts/startup.sh serveur.raw 512 11 
-
-if [[ -z "`pidof dynamips | tr -d '\n'`" ]]
-then
-        echo "Launching dynamips"
-        dynamips -H 7200 &amp; >/dev/null
-        sleep 5
-        echo '.'
-fi
-
-dynagen lab.net
-
-echo "The End"
-
-exit 0</screen>
+<programlisting width='80'><xi:include href='files/migration.sh' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
 
   <para>Une fois que tous les systèmes sont actifs, on peut passer à la
   création de la base de données des <acronym>VLAN</acronym>s via la console
