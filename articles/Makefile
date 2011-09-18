@@ -15,7 +15,8 @@ SUBDIRS = \
 	rnis \
 	pppoe \
 	adressage.ipv4 \
-	ospf-migration
+	ospf-migration \
+	lan.segmentation
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
@@ -30,7 +31,8 @@ XML_FILES = \
 	rnis/$(ABSTRACT_FILE) \
 	pppoe/$(ABSTRACT_FILE) \
 	adressage.ipv4/$(ABSTRACT_FILE) \
-	ospf-migration/$(ABSTRACT_FILE)
+	ospf-migration/$(ABSTRACT_FILE) \
+	lan.segmentation/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 
