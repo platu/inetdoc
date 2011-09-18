@@ -15,7 +15,8 @@ SUBDIRS = \
 	tutoriel-secu \
 	amavisd-new \
 	squid-guard \
-	vm
+	vm \
+	linux.networking
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
@@ -28,7 +29,8 @@ XML_FILES = \
 	zebra.ospf/$(ABSTRACT_FILE) \
 	amavisd-new/$(ABSTRACT_FILE) \
 	squid-guard/$(ABSTRACT_FILE) \
-	vm/$(ABSTRACT_FILE)
+	vm/$(ABSTRACT_FILE) \
+	linux.networking/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 

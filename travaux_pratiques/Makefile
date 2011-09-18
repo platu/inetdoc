@@ -10,7 +10,8 @@ SUBDIRS = \
 	config.interface.lan \
 	intro.analyse \
 	interco.netfilter.qa \
-	interco.netfilter.q
+	interco.netfilter.q \
+	inter-vlan.routing
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
@@ -20,7 +21,8 @@ XML_FILES = \
 	archi.tp/$(ABSTRACT_FILE) \
 	config.interface.lan/$(ABSTRACT_FILE) \
 	intro.analyse/$(ABSTRACT_FILE) \
-	interco.netfilter.q/$(ABSTRACT_FILE)
+	interco.netfilter.q/$(ABSTRACT_FILE) \
+	inter-vlan.routing/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 

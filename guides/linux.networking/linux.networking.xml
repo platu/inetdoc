@@ -1,0 +1,1945 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN" 
+  "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY authorgroup			SYSTEM "authorgroup.xml">
+<!ENTITY legalgroup			SYSTEM "legalgroup.xml">
+
+<!-- urls -->
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.kernel
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.kernel.org/">
+  <citetitle>The Linux Kernel Archives</citetitle></link>'>
+
+<!ENTITY url.policyrouting.fun
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.linuxjournal.com/article/7134">
+  <citetitle>Policy Routing for Fun and Profit</citetitle></link>'>
+
+<!ENTITY url.policyrouting.samag
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.samag.com/documents/s=1169/sam0001f/0001f.htm">
+  <citetitle>Policy Routing in Linux</citetitle></link>'>
+
+<!ENTITY url.decnet
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://linux-decnet.sourceforge.net/">
+  <citetitle>DECnet for Linux</citetitle></link>'>
+
+<!ENTITY url.bridge
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.tldp.org/HOWTO/BRIDGE-STP-HOWTO/">
+  <citetitle>Linux BRIDGE-STP-HOWTO</citetitle></link>'>
+
+<!ENTITY url.ethernet
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.tldp.org/HOWTO/Ethernet-HOWTO.html">
+  <citetitle>Linux Ethernet-Howto</citetitle></link>'>
+
+<!ENTITY url.howto.qos
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://edseek.com/~jasonb/articles/traffic_shaping/index.html">
+  <citetitle>A Practical Guide to Linux Traffic Control</citetitle></link>'>
+
+<!ENTITY packet 			SYSTEM "files/packet.c">
+<!ENTITY tun 				SYSTEM "files/tun.c">
+<!ENTITY socket-unix 			SYSTEM "files/socket_unix.c">
+]>
+
+<article xml:id="linux.networking" xml:lang="fr">
+
+<info>
+  <title>Fonctions réseau du noyau Linux</title>
+
+  &authorgroup;
+  <abstract>
+    <para>Ce document est une introduction aux fonctions réseau du noyau Linux.
+    Le catalogue de ces fonctions étant assez conséquent, cette introduction
+    n'a pas pour but d'être exhaustive. Dans un premier temps, on se propose
+    d'identifier le sous-système réseau dans l'architecture du noyau Linux, de
+    parcourir les menus de configuration de ce sous-système et de construire un
+    paquet correspondant aux choix effectués. Dans un second temps, on présente
+    l'utilisation de quelques fonctions réseau caractéristiques. L'objectif
+    général est de fournir une méthode type d'accès à la configuration et
+    l'utilisation des nombreuses fonctions réseau fournies avec le noyau
+    Linux.</para>
+  </abstract>
+</info>
+
+<sect1 xml:id='linux.networking.legal.meta'>
+
+  &legalgroup;
+  <sect2 xml:id='legal.meta.links'>
+    <title>Méta-information</title>
+
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </sect2>
+
+  <sect2 xml:id='config.interface.lan.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super-utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='linux.networking.presentation'>
+  <title>Présentation du noyau LINUX</title>
+
+  <sect2 xml:id='linux.networking.presentation.intro'>
+    <title>Introduction</title>
+    
+  <para>Linux s'intègre dans la longue histoire des systèmes <systemitem
+  class='osname'>UNIX</systemitem>. Le développement de ce système
+  d'exploitation a débuté en 1969 sous l'impulsion de Ken Thompson et Dennis
+  Ritchie qui travaillaient alors pour la société Bell Laboratories. Plusieurs
+  versions furent développées en interne et c'est en 1975 qu'apparut la version
+  6 qui deviendra la base des Unix commerciaux.</para>
+  
+  <para>Par la suite, de nombreuses implémentations d'<systemitem
+  class='osname'>UNIX</systemitem> furent développées. L'université de Berkeley
+  fut à la base de la version BSD, Hewlett Packard proposa la version HP-UX,
+  etc... Malgré de bonnes intentions au départ, il existait des
+  incompatibilités entre tous ces Unix, si bien que le portage d'une
+  application d'un <systemitem class='osname'>UNIX</systemitem> vers un autre
+  était difficile. Pour réduire ces disparités, la société AT&amp;T proposa un
+  standard UNIX en 1983, connu sous le nom de System V. En 1986, l'Institute of
+  Electrical and Electronics Engineers (<acronym>IEEE</acronym>) proposa un
+  autre standard connu sous le terme de POSIX. POSIX est une standardisation
+  permettant d'assurer la portabilité des applications d'un UNIX à un
+  autre.</para>
+
+  <para>Le système d'exploitation GNU/Linux se comporte comme un UNIX et
+  implémente les spécifications POSIX, avec des extensions système V et
+  BSD.</para> 
+
+  <para>Issu du travail d'un étudiant finlandais, Linus Torvalds, Linux se
+  distingue par le fait qu'il est distribué sous les conditions d'une licence
+  particulière, appelée <acronym>GPL</acronym> (GNU Public License). Cette
+  licence précise que toute personne peut modifier, améliorer ou corriger le
+  code source, mais que ces modifications devront également être distribuées
+  librement.</para>
+
+  <para>Les principales caractéristiques de Linux sont les suivantes :</para>
+  
+  <itemizedlist>
+    <listitem>
+    <para>Multitâches : exécute plusieurs programmes en même temps.</para>
+    </listitem>
+    <listitem>
+    <para>Multi-utilisateurs : plusieurs utilisateurs peuvent être actifs
+    en même temps.</para>
+    </listitem>
+    <listitem>
+    <para>Multi plates-formes : Linux peut fonctionner avec différents
+    types de processeurs (Intel, Sparc, Alpha, PowerPC, etc...).</para>
+    </listitem>
+    <listitem>
+    <para>Supporte un grand nombre de systèmes de fichiers : Ext(2|3|4),
+    XFS, FAT, VFAT, NFS, CIFS, etc.</para>
+    </listitem>
+    <listitem>
+    <para>Dispose d'un catalogue de fonctions réseau conséquent. Voir <xref
+    linkend='interco.noyau.networking'/>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>L'évolution du noyau est très rapide et celui qui est utilisé pour ce
+  programme de formation appartient à la série 2.6.</para>
+  </sect2>
+
+  <sect2 xml:id='linux.networking.presentation.archi'>
+    <title>Architecture du système GNU/Linux</title>
+
+  <para>Comme dans tout système d'exploitation, le noyau LINUX est une
+  interface entre des programmes et des périphériques physiques. L'accès à ces
+  périphériques se fait par l'intermédiaire d'appels systèmes qui sont
+  identiques quelle que soit la machine. Cette encapsulation du matériel libère
+  les développeurs de logiciels de la gestion complexe des périphériques :
+  c'est le système d'exploitation qui s'en charge. Ainsi, si le système
+  d'exploitation existe sur plusieurs architectures, l'interface d'utilisation
+  et de programmation sera la même sur toutes. On dira alors que le système
+  d'exploitation offre une <emphasis>machine virtuelle</emphasis> à
+  l'utilisateur et aux programmes qu'il exécute.</para>
+
+  <mediaobject>
+  <imageobject>
+    <imagedata fileref="images/architecture.png" format="PNG"
+    contentwidth='6cm' width='6.2cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Architecture du système GNU/Linux</phrase>
+  </textobject>
+  </mediaobject>
+
+  <para>GNU/Linux est considéré comme un système d'exploitation monolithique,
+  écrit comme un ensemble de procédures qui peuvent s'appeler mutuellement.
+  Pour l'utilisateur, il se présente comme un seul gros fichier. Cependant, il
+  contient un ensemble de composants réalisant chacun une tâche bien précise.
+  Cette construction monolithique induit un aspect important : la notion
+  <emphasis>d'espace noyau</emphasis> (<wordasword>kernelspace</wordasword>) et
+  <emphasis>d'espace utilisateur</emphasis>
+  (<wordasword>userspace</wordasword>). Dans l'espace noyau, aucune restriction
+  n'est imposée. Dans l'espace utilisateur, un certain nombre de restrictions
+  sont imposées (par exemple, la création d'un fichier ne peut se réaliser que
+  si les droits sont suffisants), et le processus ne peut avoir accès qu'aux
+  zones mémoires qui lui ont été allouées.</para>
+
+  <para>Le noyau LINUX est composé de cinq sous-systèmes principaux. Un
+  sous-système peut être défini comme une entité logicielle qui fournit une
+  fonctionnalité particulière.</para>
+
+  <variablelist xml:id='kernel.subsystems'>
+    <title>Tâches réalisées par le noyau LINUX</title>
+  <varlistentry>
+    <term>Gestion des processus</term>
+    <term>Ordonnanceur</term>
+    <term><wordasword>Scheduler</wordasword></term>
+    <listitem>
+    <para>Ce sous-système est chargé de répartir équitablement les accès au
+    processeur entre toutes les applications actives. Cela n'inclut pas
+    seulement les processus utilisateurs, mais aussi les sous-systèmes du noyau
+    lui-même. Cette fonction est réalisée par le
+    <citetitle>Scheduler</citetitle>.</para>
+    </listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>Gestion de la mémoire</term>
+    <listitem>
+    <para>Ce sous-système est chargé d'affecter à chaque programme une zone
+    mémoire. Il a également un rôle de protection : la mémoire pour un
+    processus est privée et celle-ci ne doit pas être lue ni modifiée par un
+    autre.</para>
+    </listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>Système de fichier virtuel</term>
+    <listitem>
+    <para>Le sous-système de fichiers garantit une gestion correcte des
+    fichiers et un contrôle des droits d'accès. Pour limiter la complexité liée
+    aux nombreux systèmes de fichiers existants, LINUX adopte le concept de
+    <wordasword>Virtual FileSystem</wordasword> (<acronym>VFS</acronym>). Le
+    principe du <acronym>VFS</acronym> est de proposer des appels systèmes
+    identiques quel que soit le système de fichiers. Il est de la
+    responsabilité du noyau de détourner les appels standards vers les appels
+    spécifiques au système de fichiers.</para>
+    </listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>Service réseau</term>
+    <listitem>
+    <para>Le sous-système réseau permet à Linux de se connecter à d'autres
+    systèmes à travers un réseau informatique. Il y a de nombreux périphériques
+    matériels qui sont supportés et plusieurs protocoles réseaux peuvent être
+    utilisés.</para>
+    </listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>Communications Inter Processus</term>
+    <listitem>
+    <para>Dans la mesure où un processus ne peut avoir accès qu'à la zone
+    mémoire qui lui a été allouée, LINUX propose plusieurs mécanismes
+    permettant à des applications de communiquer entre elles.</para>
+    </listitem>
+  </varlistentry>
+  </variablelist>
+
+  <para>Les relations entre les différentes parties du noyau sont montrées sur
+  la figure ci-dessous.</para>
+
+  <mediaobject>
+  <imageobject>
+    <imagedata fileref='images/noyau.png' format='PNG' contentwidth='10cm'
+    width='10.2cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Structure générale du noyau GNU/Linux</phrase>
+  </textobject>
+  </mediaobject>
+  </sect2>
+</sect1>
+
+<sect1 xml:id="interco.noyau.networking">
+  <title>Sous-système réseau du noyau LINUX</title>
+  <subtitle>Networking options</subtitle>
+
+  <para>Le but de cette section est de découvrir les diverses options réseau
+  que propose le noyau LINUX.</para>
+
+  <para>Les fonctions réseau indépendantes du matériel (piles de protocoles,
+  liste de filtres, etc.) sont regroupées dans les menus
+  <guimenuitem>Networking</guimenuitem> puis <guimenuitem>Networking
+  Options</guimenuitem>.</para>
+
+  <para>Les pilotes de périphériques réseau sont accessibles à
+  partir des menus <guimenuitem>Device Drivers</guimenuitem> puis
+  <guimenuitem>Network device support</guimenuitem>.</para>
+
+  <sect2 xml:id='packet-socket'>
+    <title>Packet Socket</title>
+
+  <para>Cette fonctionnalité est utilisée pour recevoir ou envoyer des paquets
+  bruts sur les périphériques réseaux sans passer par l'intermédiaire d'un
+  protocole réseau implémenté dans le noyau. Certains programmes, tel que
+  <application>tcpdump</application>, utilisent cette option.</para>
+
+  <para>Le terme «socket» désigne l'interface de programmation à travers
+  laquelle l'on va pouvoir accéder aux ressources réseau du noyau. La création
+  d'une interface «socket» est réalisée par l'appel système
+  suivant :</para>
+<funcsynopsis>
+<funcprototype>
+  <funcdef> int <function>socket</function></funcdef>
+  <paramdef> int <parameter>famille</parameter></paramdef>
+  <paramdef> int <parameter>type</parameter></paramdef>
+  <paramdef> int <parameter>protocole</parameter></paramdef>
+</funcprototype>
+</funcsynopsis>
+
+  <para>Le paramètre «famille» permet de préciser avec quel protocole réseau on
+  souhaite travailler. L'ensemble des familles disponibles est listé dans le
+  fichier <filename>/usr/include/linux/socket.h</filename>. Les types
+  définissent le protocole de transport (<acronym>TCP</acronym> ou
+  <acronym>UDP</acronym>). Une nouvelle famille de socket associée à cette
+  fonctionnalité est ainsi disponible, à savoir
+  <acronym>AF_PACKET</acronym>.</para>
+
+  <variablelist>
+    <title>Sous-option de Packet Socket</title>
+  <varlistentry>
+    <term>mapped IO</term>
+    <listitem>
+    <para>Cette option permet d'utiliser un mécanisme d'entrée-sortie plus
+    rapide.</para>
+    </listitem>
+  </varlistentry>
+  </variablelist>
+
+  <example>
+    <title>Utilisation de la socket packet</title>
+<programlisting width='80'>&packet;</programlisting>
+  </example>
+  </sect2>
+
+  <sect2 xml:id="netlink-socket">
+    <title>Kernel/User netlink socket</title>
+
+  <para><guimenuitem>Kernel/User netlink socket</guimenuitem> : Définit
+  une nouvelle famille de socket, <acronym>AF_NETLINK</acronym>. Cette socket
+  permet d'établir une communication bidirectionnelle entre le noyau et
+  l'espace utilisateur. Cette option est nécessaire pour pouvoir utiliser
+  l'outil <systemitem>iproute2</systemitem> qui permet la configuration de la
+  partie réseau du noyau.</para>
+
+  <para>En plus de cette <systemitem>socket</systemitem>, la communication peut
+  également se réaliser, pour un processus utilisateur, par la lecture ou
+  l'écriture de fichiers caractères spéciaux. Ces fichiers spéciaux ont le
+  numéro majeur 36 et se trouvent dans le répertoire <filename
+  class='directory'>/dev</filename>.</para>
+
+  <variablelist>
+    <title>Sous-option de netlink</title>
+  <varlistentry>
+    <term>Routing Messages</term>
+    <listitem>
+    <para>Le noyau fournit des informations sur le routage via le fichier
+    <filename>/dev/route</filename> de numéro majeur 36 et de numéro mineur
+    0.</para>
+    </listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>Netlink Device Emulation</term>
+    <listitem>
+    <para>Permet la compatibilité avec d'anciennes fonctionnalités. Option
+    amenée à disparaître.</para>
+    </listitem>
+  </varlistentry>
+  </variablelist>
+  </sect2>
+
+  <sect2 xml:id="socket-filter">
+    <title>Socket Filtering</title>
+
+  <para>Cette fonctionnalité permet, dans les programmes en mode utilisateur,
+  la mise en place de filtres au niveau des sockets. On a ainsi la possibilité
+  d'autoriser ou d'interdire des types de données traversant une socket. Cette
+  fonctionnalité est dérivée du filtrage de paquets Berkeley. Pour plus
+  d'informations, voir le fichier
+  <filename>Documentation/networking/filter.txt</filename> dans les sources du
+  noyau.</para>
+  </sect2>
+
+  <sect2 xml:id='unix.domain.socket'>
+    <title>Unix domain socket</title>
+
+  <para>Permet la prise en charge des sockets du domaine <systemitem
+  class='osname'>UNIX</systemitem>. <application>X-windows</application> et
+  <application>syslog</application> sont des exemples de programmes qui
+  utilisent ce type de fonctionnalité. Les sockets <systemitem
+  class='osname'>UNIX</systemitem> ne permettent que des communications locales
+  sur une machine. Ce type de socket est lié à la création d'un fichier. Le nom
+  de la famille associé aux sockets du domaine Unix est
+  <acronym>AF_UNIX</acronym>.</para>
+
+  <example>
+    <title>Utilisation de la socket UNIX</title>
+<programlisting>&socket-unix;</programlisting>
+  </example>
+  </sect2>
+
+  <sect2 xml:id='tcpip.networking'>
+    <title>TCP/IP networking</title>
+
+  <para>Active le protocole TCP/IP.</para>
+
+  <sect3>
+    <title>IP: multicasting</title>
+
+  <para>Permet d'envoyer des paquets à plusieurs ordinateurs en même temps.
+  Cette fonctionnalité est, par exemple, utilisée pour la diffusion audio et
+  vidéo.</para>
+  </sect3>
+
+  <sect3>
+    <title>IP: advanced router</title>
+
+  <para>Par défaut, la décision du routage se fait en examinant l'adresse de
+  destination. En activant cette option, on peut contrôler beaucoup plus
+  précisément le routage et la prise de décision pourra se faire en fonction de
+  nombreux autres critères.</para>
+
+  <variablelist>
+    <title>Sous-option de advanced router</title>
+  <varlistentry>
+    <term>policy routing</term>
+    <listitem>
+    <para>Permet le remplacement de la table de routage classique, basée sur
+    les adresses de destination, par la Base de Données des Politiques de
+    Routage ou <wordasword>Routing Policy DataBase</wordasword>
+    (<acronym>RPDB</acronym>) en anglais. Cette base de données est une liste
+    ordonnée de règles qui scrutent certains caractéristiques des
+    paquets :</para>
+    <itemizedlist>
+      <listitem>
+      <para>adresse source</para>
+      </listitem>
+      <listitem>
+      <para>adresse de destination</para>
+      </listitem> 
+      <listitem>
+      <para>champ TOS</para>
+      </listitem>
+      <listitem>
+      <para>marque du packet</para>
+      </listitem>
+      <listitem>
+      <para>interface d'entrée</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>Si un paquet satisfait les spécifications d'une règle, alors l'action
+    correspondante est réalisée. L'action standard consiste à fournir l'adresse
+    IP du prochain saut. Si vous souhaitez plus d'informations sur ce sujet, je
+    vous conseille la lecture de deux documents :</para>
+
+    <itemizedlist>
+      <listitem>
+      <para>La documentation ip-cref d'Alexey Kuznetsov, disponible avec le
+      paquet <systemitem>iproute</systemitem>.</para>
+      </listitem> 
+      <listitem>
+      <para>L'article &url.policyrouting.fun;.</para>
+      </listitem> 
+      <listitem>
+      <para>L'article &url.policyrouting.samag;.</para>
+      </listitem> 
+    </itemizedlist>
+
+    <para>De plus, un exemple complet de routage avancé peut être consulté dans
+    le document &url.lartc.fr.rpdb;.</para>
+    
+    <para>Si l'option <guimenuitem>IP: use netfilter MARK value as routing
+    key</guimenuitem> est validée, le routage des paquets pourra s'établir en
+    fonction de la marque du paquet. Un exemple peut être consulté dans le
+    document &url.lartc.fr.netfilter;.</para>
+
+    <para>Si l'option <guimenuitem>IP: fast network translation
+    address</guimenuitem> est validée, le routeur pourra modifier les adresses
+    source et destination des paquets transmis.</para>
+
+    <example>
+      <title>Exemple de NAT</title>
+    <para>Soit un routeur avec d'un coté un réseau local <systemitem
+    class='ipaddress'>192.168.1.0/24</systemitem> et de l'autre un réseau public
+    (<systemitem class='ipaddress'>200.200.200.0/24</systemitem>, par exemple)
+    ayant une connectivité sur Internet. On souhaite qu'une machine du réseau
+    local (<systemitem class='ipaddress'>192.168.1.1</systemitem>, par exemple)
+    soit reconnue avec l'adresse <systemitem
+    class='ipaddress'>200.200.200.10</systemitem> sur Internet.</para>
+<screen width='80'><prompt>$ </prompt><command>ip route add nat 200.200.200.10 via 192.168.1.1</command>
+<prompt>$ </prompt><command>ip rule add prio 300 from 192.168.1.1 nat 200.200.200.10</command>
+</screen>
+    </example>
+    </listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>equal cost multipath</term>
+    <listitem>
+    <para>Avec cette option, on peut spécifier plusieurs routes alternatives
+    que peuvent emprunter les paquets. Le routeur considère toutes ces routes
+    comme étant de coûts égaux et choisit l'une d'elle d'une manière non
+    déterministe si un paquet arrive avec la bonne correspondance.</para>
+
+    <example>
+      <title>Exemple de chemins multiples</title>
+    <para>Considérons un routeur avec deux liaisons <acronym>PPP</acronym>. On
+    souhaite que les paquets sortant puissent utiliser indifféremment ppp0 ou
+    ppp1 comme interface de route par défaut.</para>
+<screen width='80'><prompt>$ </prompt><command>ip route add default scope global nexthop dev ppp0 nexthop dev ppp1</command>
+</screen>
+    </example>
+    </listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>use TOS value as routing key</term>
+    <listitem>
+    <para>L'entête d'un paquet IP contient un champ de 8 bits nommé
+    <wordasword>Type Of Service</wordasword> (Type de service). Dans ce champ,
+    il y a trois indicateurs qui permettent de préciser le type d'acheminement
+    souhaité : Délai faible (faible temps d'attente), débit important et
+    fiabilité importante. Cela permet de choisir entre, par exemple, une
+    liaison satellite à haut débit mais avec un délai d'attente important ou
+    une ligne louée à faible débit et faible délai. Cette option permet
+    d'utiliser la valeur du champ <acronym>TOS</acronym> dans la liste de
+    règles.</para>
+    <example xml:id='tos.routing'>
+      <title>Exemple d'utilisation du champ TOS pour le routage</title>
+    <para>But : tous les paquets marqués avec le champ
+    <acronym>TOS</acronym> «débit important» (0x08) (par exemple le transfert
+    de données via <acronym>FTP</acronym>) doivent emprunter une liaison
+    <acronym>RNIS</acronym>.</para>
+<screen width='80'><prompt>$</prompt><command>ip rule add tos 0x08 prio 100 table 10</command>
+<prompt>$</prompt><command>ip route add default dev ippp0 table 10</command>
+</screen>
+    </example>
+    </listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>verbose route monitoring</term>
+    <listitem>
+    <para>Permet l'affichage de messages au sujet du routage.</para>
+    </listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>large routing tables</term>
+    <listitem>
+    <para>Si la table de routage possède plus de 64 entrées, il est préférable
+    d'activer cette option pour accélérer le processus de routage.</para>
+    </listitem>
+  </varlistentry>
+  </variablelist>
+  </sect3>
+
+  <sect3>
+    <title>IP: kernel level autoconfiguration</title>
+
+  <para>Cette option permet de configurer les adresses IP des périphériques au
+  moment du démarrage, ainsi que la table de routage. Les informations
+  nécessaires à cette configuration sont fournies soit sur la ligne de
+  commande, soit par l'intermédiaire des protocoles <acronym>DHCP</acronym>,
+  <acronym>BOOTP</acronym> ou <acronym>RARP</acronym>.</para>
+
+  <para>Les informations sont fournies au noyau via le paramètre
+  <parameter>ip</parameter>. Cette option est principalement utilisée pour la
+  mise en place de stations clientes sans disque dur et qui ont besoin de
+  monter la racine du système de fichiers via <acronym>NFS</acronym>. Pour plus
+  d'informations, voir le fichier
+  <filename>Documentation/nfsroot.txt</filename> dans les sources du
+  noyau.</para>
+
+  <example>
+    <title>Exemple de configuration IP au démarrage</title>
+<screen width='80'><prompt>LILO: </prompt><command>linux ip=192.168.1.1::192.168.1.254:255.255.255.0:Linuxbox:eth0:none</command>
+</screen>
+  </example>
+  </sect3>
+
+  <sect3>
+    <title>IP: optimize as router not host</title>
+
+  <para>Permet de supprimer certaines vérifications lorsque le noyau reçoit un
+  paquet. Dans le cas où Linux est principalement utilisé comme un routeur,
+  c'est-à-dire une machine qui ne fait que transmettre les paquets, cela permet
+  d'améliorer la vitesse de commutation.</para>
+  </sect3>
+
+  <sect3>
+    <title>IP: tunneling</title>
+
+  <para>Le <wordasword>tunneling</wordasword> permet l'encapsulation d'un
+  protocole réseau dans un autre protocole réseau. Cette option permet
+  l'encapsulation du protocole IP dans IP. Cela peut être utilisé dans le cas
+  où l'on souhaite pouvoir faire communiquer deux réseaux ayant des adresses
+  privées, donc non routables, à travers l'Internet. Un exemple complet de
+  tunnel IP dans IP pourra être consulté dans le document
+  &url.lartc.fr.tunnel.ip-ip;.</para>
+  </sect3>
+
+  <sect3>
+    <title>IP: GRE tunnel over IP</title>
+
+  <para><acronym>GRE</acronym> est un protocole de tunnel qui a été
+  originellement développé par <trademark>CISCO</trademark>, et qui peut
+  réaliser plus de choses que le tunnel IP dans IP. Par exemple, ont peut aussi
+  transporter du trafic multi-diffusion et de l'IPv6 à travers un tunnel GRE.
+  Un exemple complet de tunnel GRE pourra être consulté dans le document
+  &url.lartc.fr.tunnel.gre;.</para>
+  </sect3>
+
+  <sect3>
+    <title>IP: TCP Explicit Congestion Notification support</title>
+
+  <para>Fonctionnalité qui permet aux routeurs d'annoncer aux clients une
+  congestion du réseau.</para>
+  </sect3>
+
+  <sect3>
+    <title>IP: TCP syncookie support</title>
+
+  <para>Prévient une attaque appelée le <citetitle>SYN
+  Flooding</citetitle>.</para>
+  </sect3>
+
+  <sect3>
+    <title>IP: Allow large windows (not recommanded if &lt;16 Mb of
+    memory)</title>
+
+  <para>Permet de définir de plus gros tampons dans lesquels les données sont
+  stockées avant d'être envoyées à l'hôte destinataire.</para>
+  </sect3>
+
+  <sect3 xml:id="packet-filter">
+    <title>Network packet filtering (replace ipchains)</title>
+
+  <para>Cette option active la fonction de filtrage des paquets traversant la
+  machine Linux. Le filtrage permet un blocage sélectif du trafic IP en
+  fonction, par exemple, de l'origine ou de la destination.</para>
+
+  <variablelist>
+    <title>Sous-option de Network packet filtering</title>
+  <varlistentry>
+    <term>Network packet filtering debugging</term>
+    <listitem>
+    <para>Permet d'avoir des messages supplémentaires du code netfilter.</para>
+  </listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>Bridge IP/ARP packet filtering</term>
+    <listitem>
+    <para>Permet d'utiliser les fonctionnalités de filtrage netfilter lorsque
+    la machine est configurée pour fonctionner comme un pont.</para>
+    </listitem>
+  </varlistentry>
+  </variablelist>
+
+  <sect4>
+    <title>IP: Netfilter configuration</title>
+
+  <para>Permet de rentrer dans un nouveau menu pour la configuration du
+  filtrage. Celui-ci permet l'ajout de fonctionnalités dont voici une liste des
+  plus importante :</para>
+
+  <variablelist>
+    <title>Sous-option de Netfilter configuration</title>
+<!-- Début option -->
+    <varlistentry>
+      <term>Connection tracking (required for masq/NAT)</term>
+      <listitem>
+      <para>Cette option permet de mettre en place le filtrage dit
+      <wordasword>StateFul</wordasword>. Cette technique permet de garder en
+      mémoire, dans une table d'état, une trace des «communications en cours».
+      Cela permet de différencier le trafic entre les hôtes pairs, en émission
+      et en réception. Cette option est indispensable pour l'utilisation des
+      mécanismes de traduction d'adresse.</para>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>Connection mark tracking support</term>
+      <listitem>
+      <para>Cette option permet d'activer le support du marquage des
+      communications. Ce support est nécessaire pour le critère  de sélection
+      <acronym>connmark</acronym> (voir <xref linkend="connmark"/>) et pour la
+      cible <acronym>CONNMARK</acronym> (voir <xref
+      linkend="packet-mangling"/>).</para>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>IP tables support (required for filtering/masq/NAT)</term>
+      <listitem>
+      <para>Cette option permet la mise en place de la structure générale pour
+      le filtrage, le masquage ou la traduction d'adresse des paquets.</para>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>limit match support</term>
+      <listitem>
+      <para>Permet de limiter le débit en fonction d'une règle de
+      correspondance.</para>
+      <example>
+	<title>Limitation des requêtes ICMP</title>
+      <para>But : limiter les requêtes «pings» à 1 paquet par
+      seconde.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A INPUT -p icmp -icmp-type echo-request -m limit --limit 1/second -j ACCEPT</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>IP range match support</term>
+      <listitem>
+      <para>Permet de spécifier un intervalle d'adresses source ou
+      destination.</para>
+      <example>
+        <title>consultation d'un intervalle d'adresses IP source</title>
+      <para>But : Accepter de transmettre tous les paquets dont l'adresse
+      source est comprise entre <systemitem
+      class='ipaddress'>192.168.1.1</systemitem> et <systemitem
+      class='ipaddress'>192.168.1.10</systemitem>.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A FORWARD -m iprange --src-range 192.168.1.1-192.168.1.10 -j ACCEPT</command>
+</screen>
+      </example>
+      <example>
+        <title>consultation d'un intervalle d'adresses IP destination</title>
+      <para>But : Accepter de transmettre tous les paquets dont l'adresse
+      destination est comprise entre <systemitem
+      class='ipaddress'>192.168.1.1</systemitem> et <systemitem
+      class='ipaddress'>192.168.1.10</systemitem>.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A FORWARD -m iprange --dst-range 192.168.1.1-192.168.1.10 -j ACCEPT</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>MAC address match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage sur les adresses <acronym>MAC</acronym>
+      des trames Ethernet.</para>
+      <example>
+        <title>Filtrage de paquets sur l'adresse MAC</title>
+      <para>But : interdire les paquets provenant d'une adresse MAC
+      particulière.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A INPUT -m mac --mac-source 00:A0:24:A0:A4:11 -j DROP</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>Packet type match support</term>
+      <listitem>
+      <para>Permet de considérer le type de paquet : unicast, broadcast ou
+      multicast.</para>
+      <example>
+        <title>Journalisation des paquets de diffusion</title>
+<screen width='80'><prompt># </prompt><command>iptables -A INPUT -m pkttype --pkt-type broadcast -j LOG</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>netfilter MARK match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage sur la marque d'un paquet. Le marquage
+      d'un paquet est réalisé grâce à la cible <acronym>MARK</acronym>.</para>
+      <example>
+        <title>Filtrage de paquets suivant le marquage</title>
+      <para>But : interdire les paquets à destination du serveur web local
+      en utilisant le marquage de paquets.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A PREROUTING -t mangle -p tcp --dport 80 -j MARK --set-mark=2</command>
+<prompt># </prompt><command>iptables -A INPUT -m mark --mark 2 -j DROP</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>multiple port match support</term>
+      <listitem>
+      <para>Permet de spécifier un ensemble de ports sources ou destinations
+      <acronym>TCP</acronym> ou <acronym>UDP</acronym>.</para>
+      <example>
+        <title>Filtrage de paquets sur plusieurs ports source</title>
+      <para>But : interdire les accès aux ports sources 3000 et
+      4000.</para>
+<screen width='80'><prompt># </prompt><command> iptables -A INPUT -p tcp -m multiport --source-ports 3000,4000 -j DROP  </command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>TOS match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage sur la valeur du champ TOS du
+      paquet.</para>
+      <example>
+        <title>Exemple de filtrage basé sur la valeur du champ TOS</title>
+      <para>But : marquer les paquets qui ont le champ
+      <acronym>TOS</acronym> <wordasword>Minimize-Delay</wordasword> activé. Ce
+      marquage pourra ainsi être utilisé pour le routage de ces paquets.</para>
+<screen width='80'><prompt># </prompt><command>iptables -t mangle -A PREROUTING -m tos --tos Minimize-Delay -j MARK --set-mark=1</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>recent match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage en recherchant la présence d'une
+      adresse dans une liste.</para>
+      <example>
+	<title>Exemple de filtrage basé la présence d'une adresse dans une
+	liste</title>
+      <para>But : FIXME</para>
+<screen width='80'><prompt># </prompt><command>iptables -A FORWARD -m recent --rcheck --seconds 60 -j DROP</command>
+<prompt># </prompt><command>iptables -A FORWARD -i eth0 -d 127.0.0.0/8 -m recent --set -j DROP</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>ECN match support</term>
+      <listitem>
+      <para>La RFC3168 défini un mécanisme de notification de congestion. Ce
+      mécanisme utilise les bits 7 et 8 du champs Type Of
+      Service et l'en-tête IPv4 et défini deux nouveaux flags dans l'en-tête
+      TCP. Ces flags ont pour noms CWR pour Congestion window Reduced et ECE
+      pour ECN-Echo. </para>
+      <example>
+        <title>Exemple de filtrage basé </title>
+      <para>But : FIXME</para>
+<screen width='80'><prompt># </prompt><command>iptables </command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>DSCP match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage sur la valeur des 6 bits DSCP de
+      l'en-tête IP.</para>
+      <example>
+        <title>Exemple de filtrage basé </title>
+      <para>Placer dans la classe Diffserv EF les paquets à destination de
+      serveurs web.</para> 
+<screen width='80'><prompt># </prompt><command>iptables -t mangle -A FORWARD -p tcp --dport 80 -j DSCP --set-dscp-class EF</command>
+</screen>
+      </example>
+  <mediaobject>
+  <imageobject>
+    <imagedata fileref="images/capture-iptables-DSCP.png" format="PNG"
+    contentwidth='8.5cm' width='8cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Visualisation de la marque DSCP</phrase>
+  </textobject>
+  </mediaobject>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>AH/ESP match support</term>
+      <listitem>
+      <para>FIXME</para>
+      <example>
+        <title>Exemple de filtrage basé </title>
+      <para>But : FIXME</para> 
+<screen width='80'><prompt># </prompt><command>iptables </command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>LENGTH match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage sur la longueur, exprimée en octets, du
+      paquet IP.</para>
+      <example>
+        <title>Exemple de filtrage basé sur la longueur de paquet</title>
+      <para>But : Supprimer les paquets <acronym>ICMP</acronym> de type
+      <wordasword>echo-request</wordasword> qui ont une longueur supérieure à
+      84 octets.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A FORWARD -p icmp --icmp-type echo-request -m length --length ! :84 -j DROP</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>TTL match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage sur la valeur du champ
+      <acronym>TTL</acronym> <wordasword>Time To Live</wordasword> de l'en-tête
+      du paquet IP.</para>
+      <example>
+        <title>Exemple de filtrage basé sur le champ TTL</title>
+      <para>But : FIXME</para>
+<screen width='80'><prompt># </prompt><command>iptables </command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>tcpmss match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage sur la valeur de l'option
+      <acronym>MSS</acronym> <wordasword>Maximum Segment Size</wordasword> du
+      protocole de transport <acronym>TCP</acronym>.</para> 
+      <example>
+        <title>Exemple de filtrage basé sur l'option MSS</title>
+      <para>But : Autoriser l'émission de paquet 
+      <acronym>TCP</acronym> dont le MSS est inférieur à 1400.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A OUTPUT -o ppp0 -p tcp -m tcpmss --mss 0:1400 -j ACCEPT </command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>Helper match support</term>
+      <listitem>
+      <para>Permet de baser FIXME</para>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>Connection state match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage sur l'état des «communications».</para>
+      <example xml:id='connection.state.match'>
+        <title>Filtrage de paquets FIXME</title>
+      <para>But : interdire les nouvelles communications entrantes vers la
+      machine locale, mais autoriser les communications depuis la machine
+      locale.</para>
+
+<screen width='80'><prompt># </prompt><command>iptables -P INPUT DROP</command>
+<prompt># </prompt><command>iptables -A INPUT -i eth0 -m state --state NEW,INVALID -j DROP</command>
+<prompt># </prompt><command>iptables -A INPUT -i eth0 -m state --state ESTABLISHED,RELATED -j ACCEPT</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>Connection tracking match support</term>
+      <listitem>
+      <para>Permet d'activer le module de critère de sélection
+      <acronym>conntrack</acronym>. Cette option permet une plus grande
+      granularité de recherche dans le suivi de communication.</para>
+      <example><title>Exemple de filtrage de paquets en utilisant le suivi de
+      communication avancé</title>
+      <para>But : autoriser les paquets appartenant à une connexion TCP
+      établie.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED --ctproto tcp -j ACCEPT</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option Option qui a disparu ?
+    <varlistentry>
+      <term>Unclean match support</term>
+      <listitem>
+      <para>Cette option permet de repérer des paquets qui semblent douteux ou
+      inhabituels.</para>
+      <example>
+        <title>Exemple d'utilisation de la correspondance unclean</title>
+      <para>But : interdire les paquets entrant mal formés.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A INPUT -m unclean -j DROP</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+-->
+<!-- Début option -->
+    <varlistentry>
+      <term>Owner match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage sur l'identifiant du processus local
+      ayant créé le paquet. Cette option ne peut être utilisée que dans la
+      chaîne OUTPUT.</para>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>Physdev match support</term>
+      <listitem>
+      <para>Dans le cas où la machine est configurée comme un pont entre deux
+      réseaux Ethernet, cette option permet de repérer l'interface physique sur
+      laquelle arrive les paquets ou sur laquelle ils doivent partir.</para>
+      <example>
+        <title>Exemple de filtrage basé sur l'interface physique de sortie des
+	paquets</title>
+      <para>But : Enregistrer les paquets sortant par l'interface eth0 d'un
+      pont ethernet.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A FORWARD -m physdev --physdev-out eth0 -j LOG --log-level 7</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>address type match support</term>
+      <listitem>
+      <para>Permet de baser le filtrage en fonction de la nature de l'adresse. </para>
+      <example>
+        <title>Exemple de filtrage basé sur le type de paquet</title>
+      <para>But : accepter les paquets multicast.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A INPUT -m addrtype --dst-type MULTICAST -j ACCEPT</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>realm match support</term>
+      <listitem>
+      <para>Permet de baser FIXME</para>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>SCTP protocol match support</term>
+      <listitem>
+      <para>Permet de baser FIXME</para>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>comment match support</term>
+      <listitem>
+      <para>Permet de baser FIXME</para>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry xml:id="connmark">
+      <term>connection mark match support</term>
+      <listitem>
+      <para>Permet d'activer le critère de recherche
+      <acronym>connmark</acronym>. Ce critère permet de repérer la marque
+      associée à une communication.</para>
+      <example>
+	<title>Limitation des requêtes ICMP</title>
+      <para>But : Autoriser les paquets sortant par eth0 et appartenant à
+      la communication repérée par la marque 1.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A OUTPUT -o eth0 -m connmark --mark 1 -j ACCEPT</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>hashlimit match support</term>
+      <listitem>
+      <para>Permet de baser FIXME</para>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+    <varlistentry>
+      <term>Packet filtering</term>
+      <listitem>
+      <para>Cette option permet le support du filtrage de paquets. La table
+      gérant le filtrage se nomme <wordasword>filter</wordasword> et possède les
+      chaînes par défaut <acronym>INPUT</acronym>, <acronym>FORWARD</acronym> et
+      <acronym>OUTPUT</acronym>. La sous option <wordasword>REJECT target
+      support</wordasword> ajoutera la cible <acronym>REJECT</acronym>. Cette
+      cible permet de renvoyer un paquet d'erreur à la machine émettrice,
+      simulant ainsi l'absence d'un service.</para>
+
+      <example xml:id='tcp.reject'>
+        <title>Emission d'un paquet tcp-reject</title>
+      <para>But : rejeter les connexion ssh provenant des machines du
+      réseau 192.168.0.0 et émettre un paquet tcp-reset.</para>
+
+<screen width='80'><prompt># </prompt><command>iptables -A INPUT -p tcp -s 192.168.0.0/24 --dport 22 \
+   -j REJECT --reject-with tcp-reset</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Début option -->
+    <varlistentry>
+      <term>LOG target support</term>
+      <listitem>
+      <para>Cette option permet l'enregistrement des paquets grâce au démon
+      <systemitem class='daemon'>syslogd</systemitem>.</para>
+      <example>
+        <title>Journalisation de paquets web</title>
+      <para>But : enregistrer tous les paquets à destination d'un site web
+      sortant d'un hôte.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A OUTPUT -p tcp --dport 80 \
+   -j LOG --log-level 7 --log-prefix "Paquets WEB :"</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>ULOG target support</term>
+      <listitem>
+      <para>Permet d'activer la cible ULOG utilisée pour envoyer à
+      travers une socket netlink le paquet à un processus de l'espace
+      utilisateur à des fins d'enregistrement.</para>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>TCPMSS target support</term>
+      <listitem>
+      <para>Permet de modifier la valeur du champ <acronym>MSS</acronym> contenu
+      dans l'entête TCP grâce à la cible TCPMSS.
+      L'usage le plus courant de cette règle de correspondance vise à adapter la taille maximale des
+      segments <acronym>TCP</acronym> à la taille maximale des unités transmises
+      au niveau réseau : <acronym>MTU</acronym> ou <wordasword>Maximum
+      Transmit Unit</wordasword>.</para>
+      <example>
+        <title>Exemple de filtrage basé sur l'option MSS</title>
+      <para>But : Adapter la taille maximale des segments
+      <acronym>TCP</acronym> en fonction de la taille maximale des unités
+      transmises au niveau réseau.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A POSTROUTING -o ppp0 -p tcp -m tcpmss --mss 1400:1536 \
+   -j TCPMSS --clamp-mss-to-pmtu</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry>
+      <term>Full NAT</term>
+      <listitem>
+      <para>Cette option permet le support de la traduction des adresses source
+      (<acronym>SNAT</acronym>) et destination (<acronym>DNAT</acronym>).</para> 
+      <para>La sous option <guimenuitem>MASQUERADE target support</guimenuitem>
+      permet l'utilisation du <wordasword>masquerading</wordasword> comme
+      traducteur d'adresse source.</para>
+      <para>La sous option <guimenuitem>REDIRECT target support</guimenuitem>
+      permet la redirection des paquets vers la machine locale. Cette cible
+      est utilisée dans la mise en place de proxies transparent.</para>
+      <para>La sous option <guimenuitem>NETMAP target support</guimenuitem>
+      permet d'activer le cible NETMAP. Cette cible permet de rediriger le
+      trafic destiné aux hôtes d'un réseau vers les hôtes d'un autre réseau.</para>
+      <para>La sous option <guimenuitem>SAME target support</guimenuitem>
+      permet d'activer la cible SAME. Cette cible permet de traiter le cas
+      particulier d'une traduction d'adresse source où plusieurs adresses de
+      traduction peuvent être utilisées. Avec cette cible, on s'assure que la
+      même adresse source sera utilisée pour tous les paquets d'une même
+      communication.</para>
+      <example>
+        <title>Exemple de traduction d'adresse source</title>
+      <para>But : masquer l'adresse source des paquets sortant par
+      l'interface eth0 avec l'adresse <systemitem
+      class='ipaddress'>200.200.200.1</systemitem>.</para>
+<screen width='80'><prompt># </prompt><command>iptables -t nat -A POSTROUTING -o eth0 -j SNAT --to 200.200.200.1</command>
+</screen>
+      </example>
+      <example>
+        <title>Exemple de traduction d'adresse de destination</title>
+      <para>But : rediriger les paquets à destination d'un serveur web vers
+      le proxy de la machine <systemitem
+      class='ipaddress'>200.200.200.1</systemitem> qui écoute le port
+      8080.</para>
+<screen width='80'><prompt># </prompt><command>iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to 200.200.200.1:8080</command>
+</screen>
+      </example>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+<!-- Début option -->
+    <varlistentry xml:id="packet-mangling">
+      <term>Packet Mangling</term>
+      <listitem>
+      <para>Cette option permet de modifier certains éléments du paquet.</para>
+
+      <para>La sous option <guimenuitem>TOS target support</guimenuitem> permet de
+      modifier le champ <acronym>TOS</acronym> du paquet.</para>
+
+      <para>La sous option <guimenuitem>ECN target support</guimenuitem> permet de
+      supprimer les bits ECN.</para>
+
+      <para>La sous option <guimenuitem>MARK target support</guimenuitem> permet
+      de marquer les paquets. Ces marques pourront être utilisées par la suite
+      pour, par exemple, imposer un routage particulier ou par l'outil de
+      configuration de la qualité de service <application>tc</application>.</para>
+
+      <para>La sous option <guimenuitem>CLASSIFY target support</guimenuitem> permet
+      de positionner des paquets dans des classes de qualité de service.</para>
+
+      <para>La sous option <guimenuitem>TTL target support</guimenuitem> permet
+      de modifier la valeur du champ TTL dans l'entête IP.</para>
+
+      <para>La sous option <guimenuitem>CONNMARK target support</guimenuitem>
+      permet de marquer les paquets appartenant à une communication. Ces
+      marques pourront être utilisées par la suite pour, par exemple, imposer
+      un routage particulier.</para>
+
+      <example xml:id='tos.minimize.delay'>
+        <title>Configuration du champ TOS</title>
+      <para>But : positionner le champ <acronym>TOS</acronym> à
+      <wordasword>Minimize-Delay</wordasword> pour les clients telnet.</para>
+
+<screen width='80'><prompt># </prompt><command>iptables -A PREROUTING -t mangle -p tcp --dport telnet -j TOS --set-tos Minimize-Delay</command>
+</screen>
+      </example>
+
+      <example xml:id='ttl.inc'>
+        <title>Utilisation de la cible TTL</title>
+      <para>But : rendre invisible le routeur aux <wordasword>traceroute</wordasword>.</para>
+
+<screen width='80'><prompt># </prompt><command>iptables -A PREROUTING -p tcp --dport 33434:33542 -j TTL --ttl-inc 1</command>
+</screen>
+      </example>
+      <example>
+        <title>Utilisation des cibles MARK et CONNMARK</title>
+      <para>But : positionner une marque pour tous les paquets d'une connexion.</para>
+<screen width='80'><prompt># </prompt><command>iptables -A POSTROUTING -t mangle -j CONNMARK --restore-mark</command> <co xml:id='connmark1'/>
+<prompt># </prompt><command>iptables -A POSTROUTING -t mangle -m mark ! --mark 0 -j ACCEPT</command> <co xml:id='connmark2'/>
+<prompt># </prompt><command>iptables -A POSTROUTING -t mangle -p tcp --dport 21 -j MARK --set-mark 1</command> <co xml:id='connmark3'/>
+<prompt># </prompt><command>iptables -A POSTROUTING -t mangle -j CONNMARK --save-mark</command> <co xml:id='connmark4'/>
+</screen>
+      </example>
+
+      <calloutlist>
+	<callout arearefs='connmark1'>
+	  <para>Permet d'imposer aux paquets appartenant à une connexion la
+	  marque définie pour le premier paquet de cette connexion.</para>
+	</callout>
+	<callout arearefs='connmark2'>
+	  <para>Si le paquet possède déjà une marque, celui-ci est accepté car cela signifie que ce
+	  n'est pas le premier paquet d'une connexion.</para>
+	</callout>
+	<callout arearefs='connmark3'>
+	  <para>Le premier paquet d'une nouvelle connexion FTP est marqué avec la marque 1.</para>
+	</callout>
+	<callout arearefs='connmark4'>
+	  <para>La marque du premier paquet sera considérée comme étant la
+	  marque de tous les paquets de la connexion. Cette marque sera imposée
+	  aux autres paquets associés à la connexion grâce à la première règle.</para>
+	</callout>
+      </calloutlist>
+      </listitem>
+    </varlistentry>
+<!-- Fin option -->
+  </variablelist>
+  </sect4>
+  </sect3>
+  </sect2>
+
+  <sect2>
+    <title>802.1Q VLAN Support</title>
+
+  <para>De nos jours, les réseaux locaux ou <acronym>LANs</acronym>
+  (<wordasword>Local Area Network</wordasword>) sont définis comme étant un
+  domaine de diffusion unique. Les réseaux locaux virtuels ou
+  <acronym>VLANs</acronym> permettent de définir des réseaux locaux logiques
+  sans se soucier de la localisation physique du matériel. Ces
+  <acronym>VLANs</acronym> sont identifiés par une balise. Suivant la
+  configuration du commutateur, il est parfois nécessaire d'indiquer à quel
+  <acronym>VLAN</acronym> appartient une trame qui est envoyée sur le réseau.
+  C'est ici que le protocole IEEE 802.1Q intervient. Ce protocole va
+  permettre le marquage des trames Ethernet.</para>
+
+  <example>
+    <title>Exemple de configuration du support VLAN</title>
+  <para>But : définir l'interface eth0 comme appartenant au
+  <acronym>VLAN</acronym> numéro 2.</para>
+<screen width='80'><prompt>LinuxBox# </prompt><command>modprobe 8021q</command>
+<prompt>LinuxBox# </prompt><command>ifconfig eth0 0.0.0.0 up</command>
+<prompt>LinuxBox# </prompt><command>vconfig add eth0 2</command>
+<prompt>LinuxBox# </prompt><command>ifconfig eth0.2 192.168.1.1 up</command>
+</screen>
+  </example>
+
+  <para>La figure ci-dessous propose un exemple de trame Ethernet avec le
+  support du protocole IEEE 802.1Q.</para>
+  <mediaobject>
+  <imageobject>
+    <imagedata fileref="images/vlan.png" format="PNG" contentwidth='10.5cm'
+    width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Exemple de trame Ethernet avec le protocole IEEE 802.1Q</phrase>
+  </textobject>
+  </mediaobject>
+
+  <para>Le document &url.inter-vlan.routing; développe beaucoup plus en détails
+  l'utilisation des <acronym>VLANs</acronym> sur GNU/Linux.</para>
+  </sect2>
+
+  <sect2>
+    <title>The IPX Protocol</title>
+
+  <para>Ajoute le support du protocole <acronym>IPX</acronym>, principalement
+  utilisé par les réseaux <trademark>Novell</trademark>. <acronym>IPX</acronym>
+  est un protocole de couche 3 (couche réseau).</para>
+  </sect2>
+
+  <sect2>
+    <title>Appletalk DDP</title>
+
+  <para>Appletalk est le protocole de communication des ordinateurs
+  <trademark>Apple</trademark>. Cette option permet à la machine Linux de
+  pouvoir dialoguer avec les machines <trademark>Apple</trademark>. En
+  utilisant le programme <application>netatalk</application>, Linux peut agir
+  comme serveur d'impression et de fichiers pour Mac. Il pourra également
+  accéder aux imprimantes Appletalk.</para>
+  </sect2>
+
+  <sect2 xml:id="decnet">
+    <title>DECnet support</title>
+
+  <para>La société <trademark>Digital Equipment Corporation</trademark> a créé
+  une architecture réseau complète qui porte le nom de <acronym>DNA</acronym>
+  (<wordasword>Digital Network Architecture</wordasword>). Cette architecture
+  s'appuie sur une pile de protocole qui englobe l'ensemble des couches du
+  modèle <acronym>OSI</acronym>. Les produits qui implémentent l'architecture
+  <acronym>DNA</acronym> sont appelés produits <acronym>DECNet</acronym>. Par
+  abus de langage, on désigne parfois le terme DECNet pour identifier un réseau
+  <acronym>DNA</acronym>.</para> 
+
+  <para>Pour plus d'informations sur ce sujet, consulter le site officiel du
+  support &url.decnet;.</para>
+  </sect2>
+
+<!-- Phil : Ajout de la rubrique 802.1d Ethernet Bridging
+lien vers le cours sur les modes d'interconnexion réseau : Transmission par pont -->
+
+  <sect2 xml:id="networking.options.bridging">
+    <title>802.1d Ethernet Bridging</title>
+
+  <para>Avec cette option, votre boîte Linux pourra être assimilée à un pont
+  Ethernet ; ce qui signifie que les différents segments Ethernet connectés
+  apparaîtront comme un seul réseau Ethernet. Plusieurs ponts de ce type
+  peuvent fonctionner ensemble pour créer un réseau de segments Ethernet encore
+  plus grand en utilisant l'algorithme de <citetitle>Spanning Tree
+  Protocol</citetitle> (IEEE 802.1d). Comme le protocole IEEE 802.1d est un
+  standard universel, les ponts Linux fonctionneront correctement avec des
+  équipements tiers.</para>
+
+  <para>Pour utiliser un pont Ethernet, vous aurez besoin des outils de
+  configuration de pont. Voir
+  <filename>Documentation/networking/bridge.txt</filename> pour plus
+  d'information. Lire aussi le &url.bridge;.</para>
+
+  <para>Notez que si votre machine fonctionne en pont, elle contient plusieurs
+  interfaces Ethernet. Le noyau n'est pas capable de reconnaître plus d'une
+  interface au démarrage sans assistance. Pour plus de détails, lire le
+  document &url.ethernet;.</para>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='linux.networking.userspace'>
+  <title>Les outils réseaux du noyau Linux</title>
+  
+    <para>Le code des outils de configuration réseau ne faisant pas partie du
+    noyau est généralement appelé : <citetitle>userspace
+    code</citetitle>.</para>
+
+  <sect2 xml:id='linux.networking.userspace.if'>
+    <title>Configuration des interfaces réseaux</title>
+
+  <para>À partir de la version 2.2 du noyau LINUX, de nombreuses
+  fonctionnalités sont apparues dans le support du protocole
+  <acronym>TCP/IP</acronym>, notamment au niveau du routage. Pour pouvoir
+  utiliser ces nouveautés, les outils classiques tels que
+  <command>ifconfig</command> ou <command>route</command> ne suffisent plus. Il
+  convient d'utiliser un nouvel outil, appelé
+  <systemitem>iproute2</systemitem>. Le paquet de la distribution
+  <citetitle>Debian GNU/Linux</citetitle> est baptisé
+  <systemitem>iproute</systemitem>.</para>
+
+  <para>La syntaxe générale pour l'outil iproute2 est la suivante :</para>
+
+<synopsis>
+Usage: ip [ OPTIONS ] OBJET { COMMAND | help }
+où  OBJET := { link | addr | route | rule | neigh | tunnel |
+                   maddr | mroute | monitor }
+       OPTIONS := { -V[ersion] | -s[tatistics] | -r[esolve] |
+                    -f[amily] { inet | inet6 | dnet | link } | -o[neline] }
+</synopsis>
+
+  <para>Les différents objets permettent de voir ou de configurer un élément du
+  réseau.</para>
+  </sect2>
+
+  <sect2>
+    <title>ip link</title>
+  
+  <para>L'objet link permet de visualiser l'état des périphériques réseaux et
+  de les modifier. La syntaxe générale pour cette option est la
+  suivante :</para>
+
+<synopsis>
+Usage: ip link set DEVICE { up | down | arp { on | off } |
+	                     dynamic { on | off } |
+	                     multicast { on | off } | txqueuelen PACKETS |
+	                     name NEWNAME |
+	                     address LLADDR | broadcast LLADDR |
+	                     mtu MTU }
+       ip link show [ DEVICE ]
+</synopsis>
+
+  <para>Cette option ne s'intéresse qu'au niveau 2 du modèle
+  <acronym>OSI</acronym>.</para>
+  </sect2>
+
+  <sect2>
+    <title>ip address</title>
+
+  <para>Cet objet permet d'attacher une ou plusieurs adresses
+  <acronym>IPv4</acronym> ou <acronym>IPv6</acronym> à un périphérique
+  réseau.</para>
+
+<synopsis>
+Usage: ip addr {add|del} IFADDR dev STRING
+       ip addr {show|flush} [ dev STRING ] [ scope SCOPE-ID ]
+                            [ to PREFIX ] [ FLAG-LIST ] [ label PATTERN ]
+IFADDR := PREFIX | ADDR peer PREFIX
+          [ broadcast ADDR ] [ anycast ADDR ]
+          [ label STRING ] [ scope SCOPE-ID ]
+SCOPE-ID := [ host | link | global | NUMBER ]
+FLAG-LIST := [ FLAG-LIST ] FLAG
+FLAG  := [ permanent | dynamic | secondary | primary |
+           tentative | deprecated ]
+</synopsis>
+
+  <para>La configuration de base d'une interface réseau ressemble à
+  ceci :</para>
+
+<screen width='80'># ifconfig eth0 192.168.0.2 netmask 255.255.255.0 broadcast 192.168.0.255
+# route add default gw 192.168.0.1
+</screen>
+
+  <para>Les commandes équivalentes avec l'outil
+  <systemitem>iproute2</systemitem> sont les suivantes :</para>
+
+<screen width='80'># ip addr add 192.168.0.2/24 dev eth0 brodcast 192.168.0.255
+# ip route add default dev eth0 via 192.168.0.1
+</screen>
+  </sect2>
+
+  <sect2>
+    <title>ip rule</title>
+
+  <para>Le routage du trafic <acronym>IP</acronym> a été complètement revu avec
+  le noyau 2.2. Avant cette version, la prise de décision ne se faisait qu'en
+  consultant l'adresse de destination. Dans certaines circonstances, on peut
+  souhaiter router les paquets IP en se basant sur d'autres champs :
+  adresse source, champs TOS, etc.</para>
+
+  <para>Le routage est maintenant basé sur l'existence d'un ensemble de règles,
+  qui dirigent le paquet vers des tables de routage. L'ensemble de ces règles
+  est vu comme une base de données par le noyau, que l'on appelle
+  <wordasword>Routing Policy DataBase</wordasword> (<acronym>RPDB</acronym>).
+  Cette base de données de la politique de routage est en fait une liste
+  linéaire de règles ordonnées par une valeur numérique de priorité. La gestion
+  de ces règles se fait par l'intermédiaire de l'objet <option>rule</option>,
+  dont voici la syntaxe :</para>
+
+<synopsis>
+Usage: ip rule [ list | add | del ] SELECTOR ACTION
+SELECTOR := [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK ]
+            [ dev STRING ] [ pref NUMBER ]
+ACTION := [ table TABLE_ID ] [ nat ADDRESS ]
+          [ prohibit | reject | unreachable ]
+          [ realms [SRCREALM/]DSTREALM ]
+TABLE_ID := [ local | main | default | NUMBER ]
+</synopsis>
+
+  <para>Chaque règle est constituée d'un sélecteur et d'une action. Quand le
+  noyau a besoin de prendre une décision sur le routage, la <wordasword>Routing
+  Policy DataBase</wordasword> (<acronym>RPDB</acronym>) est scannée dans
+  l'ordre des priorités croissantes. Pour chaque paquet, on compare le
+  sélecteur de la règle et l'en-tête du paquet. Si il y a correspondance entre
+  les deux, l'action est réalisée. En général, l'action consiste à se
+  «brancher» sur une table de routage qui contient l'information utile. Si
+  l'action ne parvient pas à déterminer une route, alors la règle suivante est
+  examinée. La commande suivante permet de lister l'ensemble des règles
+  définies dans la base <acronym>RPDB</acronym> :</para>
+
+<screen width='80'><prompt>$ </prompt><command>ip rule ls</command>
+0:	from all lookup local 
+32766:	from all lookup main 
+32767:	from all lookup default 
+</screen>
+
+  <para>Ces lignes méritent quelques explications. Les chiffres de la colonne
+  de gauche indiquent la priorité de la règle. Ensuite, on a le sélecteur. Dans
+  ce cas, toutes les règles seront appliquées à tous les paquets
+  (<wordasword>from all</wordasword>). Enfin, on a l'action. Le mot-clé
+  <option>lookup</option> indique d'aller regarder la table de routage dont le
+  nom suit.</para>
+  </sect2>
+
+  <sect2>
+    <title>ip route</title>
+
+  <para>Une fois que le noyau a sélectionné la table à consulter, il recherche
+  dans celle-ci les informations de routage proprement dites. Ces informations
+  précisent le périphérique de sortie et éventuellement l'adresse de la
+  prochaine passerelle. Par défaut, il y a trois tables de routage :
+  <option>local</option>, <option>main</option> et
+  <option>default</option>.</para>
+
+  <orderedlist numeration="arabic">
+  <listitem>
+    <para><option>local</option> : cette table est une table un peu
+    spéciale ayant la plus grande priorité. Elle contient les routes pour les
+    adresses locales et les adresses de diffusion.</para>
+  </listitem>
+  <listitem>
+    <para><option>main</option> : cette table est la table de routage
+    normale, et ce sont les informations contenues dans celle-ci qui seront
+    affichées par la commande <command>ip route ls</command>.</para>
+  </listitem>
+  <listitem>
+    <para><option>default</option> : cette table est généralement vide et
+    n'est consultée que si les règles précédentes n'ont pas sélectionné le
+    paquet.</para>
+  </listitem>
+  </orderedlist>
+
+  <para>La syntaxe associée à l'objet route est la suivante :</para>
+
+<synopsis>
+Usage: ip route { list | flush } SELECTOR
+       ip route get ADDRESS [ from ADDRESS iif STRING ]
+                            [ oif STRING ]  [ tos TOS ]
+       ip route { add | del | change | append | replace | monitor } ROUTE
+SELECTOR := [ root PREFIX ] [ match PREFIX ] [ exact PREFIX ]
+            [ table TABLE_ID ] [ proto RTPROTO ]
+            [ type TYPE ] [ scope SCOPE ]
+ROUTE := NODE_SPEC [ INFO_SPEC ]
+NODE_SPEC := [ TYPE ] PREFIX [ tos TOS ]
+             [ table TABLE_ID ] [ proto RTPROTO ]
+             [ scope SCOPE ] [ metric METRIC ]
+INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ]...
+NH := [ via ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS
+OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]
+           [ rtt NUMBER ] [ rttvar NUMBER ]
+           [ window NUMBER] [ cwnd NUMBER ] [ ssthresh REALM ]
+           [ realms REALM ]
+TYPE := [ unicast | local | broadcast | multicast | throw |
+          unreachable | prohibit | blackhole | nat ]
+TABLE_ID := [ local | main | default | all | NUMBER ]
+SCOPE := [ host | link | global | NUMBER ]
+FLAGS := [ equalize ]
+NHFLAGS := [ onlink | pervasive ]
+RTPROTO := [ kernel | boot | static | NUMBER ]
+</synopsis>
+  </sect2>
+</sect1>
+
+<sect1 xml:id="interco.noyau.filtering">
+  <title>Configuration du filtrage</title>
+
+  <sect2>
+    <title>Introduction</title>
+
+  <para>La sécurité informatique est un terme général qui cache de nombreux
+  aspects, tels que la sécurité physique de la machine, le contrôle d'accès aux
+  fichiers, etc. L'un des aspects de la sécurité concerne la sécurité des
+  réseaux. Avec la démocratisation d'Internet, les tentatives d'intrusions se
+  développent. Afin de limiter le nombres de ces attaques, le mieux est encore
+  de filtrer dès l'entrée du réseau tout ce qui n'est pas sensé y entrer. Le
+  système qui permet la mise en place de ce filtrage s'appelle un
+  <wordasword>firewall</wordasword> ou un «pare-feu» en français.</para>
+
+  <para>Un <wordasword>firewall</wordasword> peut se définir comme un
+  dispositif de protection (matériel et/ou logiciel) constituant un filtre
+  entre un ordinateur ou un réseau local et un réseau non sûr (Internet ou un
+  autre réseau local par exemple). On distingue deux grandes familles de
+  <wordasword>firewalls</wordasword> :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Les <wordasword>firewalls</wordasword> basés sur le filtrage
+    réseau. Ces éléments fonctionnent au niveau <citetitle>transmission
+    de l'information</citetitle> des couches du modèle <acronym>OSI</acronym>.
+    Le filtrage s'effectue en fonction des informations contenues dans les
+    en-têtes des trames, des paquets (adresses source et destination) et des
+    segments (ports source et destination). Ce type de filtrage ne s'intéresse
+    pas au contenu des paquets.</para>
+    </listitem>
+    <listitem>
+    <para>Les <wordasword>firewalls</wordasword> applicatifs ou de services. Ce
+    type de filtrage permet de contrôler le <citetitle>traitement de
+    l'information</citetitle>. Dans ce cas, l'information contenue dans le
+    paquet peut être prise en compte. Les demandes de connexions sont dirigées
+    vers un programme spécial appelé mandataire ou proxy de service. C'est ce
+    dernier qui établira la connexion vers le service extérieur demandé.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2>
+    <title>Netfilter et iptables</title>
+
+  <para>Pour pouvoir bénéficier des fonctions de filtrage réseau du noyau
+  LINUX, il faut y intégrer l'option <guimenuitem>Network packet
+  filtering</guimenuitem> lors de la compilation. Cette fonctionnalité est une
+  structure générale qui permet à d'autres éléments de se «brancher» dessus.
+  Pour pouvoir indiquer les différentes règles au noyau, on dispose de
+  l'utilitaire appelé <command>iptables</command>.</para>
+  
+  <para>L'outil <command>iptables</command> utilise le concept de tables de
+  règles, chaque table correspondant à une fonctionnalité d'examen du paquet.
+  La table <option>filter</option> correspond au filtrage des paquets, la table
+  <option>nat</option> concerne la traduction d'adresse et la table
+  <option>mangle</option> permet la modification des paquets.</para>
+  </sect2>
+
+  <sect2>
+    <title>Utilisation de l'outil iptables</title>
+
+  <para>Dans un premier temps, <command>iptables</command> servira à la gestion
+  des chaînes. Une chaîne peut être assimilée à une politique de sécurité
+  associée à un flux de données. Par exemple, on peut définir une chaîne
+  <option>INTERNET</option> pour désigner tous les flux venant de l'extérieur
+  de votre réseau local. Trois chaînes par défaut existent, à savoir
+  <option>INPUT</option>, <option>FORWARD</option> et <option>OUTPUT</option>.
+  Si le nombre de règles est limité, on peut se contenter de celles-ci, mais si
+  les règles deviennent conséquentes, il est préférable, pour faciliter la
+  gestion, de créer de nouvelles chaînes. Les commandes de l'outil
+  <command>iptables</command> associées à la gestion des chaînes sont les
+  suivantes :</para>
+
+  <variablelist>
+    <varlistentry>
+      <term><option>-N</option></term>
+      <listitem>
+      <para>Création d'une nouvelle chaîne. Exemple <userinput>iptables -N
+      INTERNET</userinput>.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><option>-X</option></term>
+      <listitem>
+      <para>Suppression d'une chaîne vide. Exemple <userinput>iptables -X
+      INTERNET</userinput>.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><option>-P</option></term>
+      <listitem>
+      <para>Mise en place de la règle par défaut pour une chaîne existante.
+      Exemple : <userinput>iptables -P INPUT DROP</userinput>. Seules les
+      chaînes <option>INPUT</option>, <option>FORWARD</option> et
+      <option>OUTPUT</option> peuvent avoir une règle par défaut et les seules
+      cibles disponibles sont <option>ACCEPT</option> et
+      <option>DROP</option>.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><option>-L</option></term>
+      <listitem>
+      <para>Lister les règles d'une chaîne. Exemple : <userinput>iptables
+      -L INTERNET</userinput>.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><option>-F</option></term>
+      <listitem>
+      <para>Effacer les règles d'une chaîne. Exemple : <userinput>iptables
+      -F INTERNET</userinput>.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+
+<para>Dans un deuxième temps, il convient de construire les règles à
+l'intérieur des différentes chaînes. L'ajout d'une règle s'effectue avec
+l'option <option>-A</option> de l'outil <command>iptables</command>, tandis que
+l'effacement d'une règle se fait avec l'option <option>-D</option>. Les
+principales spécifications sur lesquelles les règles peuvent s'appuyer sont les
+suivantes :</para>
+
+<itemizedlist mark="opencircle">
+<listitem><para>-s : spécifie l'adresse IP source</para></listitem>
+<listitem><para>-d : spécifie l'adresse IP de destination</para></listitem>
+<listitem><para>-p : spécifie le protocole. Le protocole peut être tcp, udp
+ou icmp</para></listitem>
+<listitem><para>-i : spécifie le nom de l'interface physique à travers
+laquelle les paquets entrent</para></listitem>
+<listitem><para>-o : spécifie le nom de l'interface physique à travers
+laquelle les paquets sortent</para></listitem>
+</itemizedlist>
+
+<para>Ces spécifications sont les plus générales, mais il en existe bien
+d'autres qui sont parfaitement listées dans la page de manuel de l'outil
+<command>iptables</command>.</para>
+</sect2>
+
+<sect2><title>Le filtrage avec iptables</title>
+<para>
+Avec <command>iptables</command>, les différentes règles de filtrage sont
+organisées et regroupées dans des chaînes. Par défaut, il y a trois chaînes
+appelées <parameter>INPUT</parameter>, <parameter>OUTPUT</parameter> et
+<parameter>FORWARD</parameter>. L'arrangement de ces chaînes est proposé sur le
+schéma suivant :</para>
+
+<screen width="80">                             _____
+   Incoming                 /     \         Outgoing
+          -->[Routing ]--->|FORWARD|------->
+             [Decision]     \_____/    ^
+              |                        |
+              v                      ____
+             ___                    /    \
+            /   \                  |OUTPUT|
+           |INPUT|                  \____/
+            \___/                      ^
+              |                        |
+               ----> Local Process ----
+   (c)2000 Rusty Russell
+</screen>
+
+<para>Les différentes chaînes sont consultées suivant la procédure suivante :
+<orderedlist numeration="arabic">
+<listitem>
+  <para>
+Quand un paquet arrive, le noyau décide de la destination de ce paquet :
+c'est la phase de routage.
+  </para>
+</listitem>
+<listitem>
+  <para>
+Si le paquet est destiné à la machine, le paquet descend dans le diagramme
+et la chaîne INPUT est appliquée. Si le paquet passe cette chaîne, celui-ci
+sera transmis à l'un des processus locaux.
+  </para>
+</listitem>
+<listitem>
+  <para>
+Si le routage décide que le paquet est destiné à un autre réseau, alors
+c'est la chaîne <parameter>FORWARD</parameter> qui est appliquée.
+  </para>
+</listitem>
+<listitem>
+  <para>
+Enfin, les paquets envoyés par un processus local seront examinés par la
+chaîne OUTPUT. Si le paquet est accepté, celui-ci sera envoyé quelle que soit
+son interface de sortie.
+  </para>
+</listitem>
+</orderedlist>
+
+Une chaîne est composée d'une liste de règles. Une règle décide de l'avenir
+d'un paquet en fonction de son en-tête. Les règles d'une chaîne
+sont examinées les unes après les autres jusqu'à ce qu'une correspondance soit
+trouvée. Finalement, si aucune correspondance n'est trouvée, la règle par
+défaut, policy, est appliquée. On associe à chaque règle une action à
+réaliser qui décide de l'avenir du paquet. Les fonctions principales sont
+les suivantes :
+
+<itemizedlist mark='opencircle'>
+<listitem>
+  <para>
+ACCEPT : cette cible permet d'accepter les paquets.
+  </para>
+</listitem>
+<listitem>
+  <para>
+DROP : cette cible permet de refuser les paquets sans avertir le demandeur
+que sa demande de connexion a été refusée.
+  </para>
+</listitem>
+<listitem>
+  <para>
+REJECT : cette cible permet de refuser les paquets, mais en avertissant le demandeur
+que sa demande de connexion a été refusée en lui envoyant un paquet RESET
+(RST).
+  </para>
+</listitem>
+</itemizedlist>
+</para>
+</sect2>
+
+  <sect2>
+    <title>Le suivi des communications, <wordasword>stateful
+    firewalling</wordasword></title>
+
+  <para>L'une des grandes nouveautés de la partie réseau du noyau 2.4 est la
+  possibilité du suivi des communications. Ceci fait référence à la capacité du
+  noyau à maintenir une table de suivi des communications en se basant, par
+  exemple, sur le couple adresses (source et destination), sur les numéros de
+  ports (source et destination), sur les types de protocoles ou l'état de la
+  communication. Les pare-feux disposant de cette fonctionnalité sont appelés
+  <wordasword>stateful firewalls</wordasword>. Dans ce cas, les paquets sont
+  inspectés dans le contexte d'une session. Par exemple, un segment
+  <acronym>TCP</acronym> avec le bit <acronym>ACK</acronym> activé sera rejeté
+  si aucun segment <acronym>SYN</acronym> correspondant n'a été reçu
+  auparavant.</para>
+
+  <para>Le suivi des «communications» se base sur trois états :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para><option>NEW</option> : correspond à la demande de communication
+    <acronym>TCP</acronym> initiale, au premier datagramme UDP ou au premier
+    message <acronym>ICMP</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para><option>ESTABLISHED</option> : si une entrée de la table de
+    suivi des communications correspond, alors le paquet appartient à une communication
+    de type <option>ESTABLISHED</option>. Dans le cas du protocole
+    <acronym>TCP</acronym>, on se réfère au bit <acronym>ACK</acronym> après
+    qu'une communication ait été initiée. Dans le cas de datagrammes UDP c'est
+    l'échange entre deux hôtes et les correspondances de numéros de ports qui
+    sont prises en compte. Enfin, les messages <acronym>ICMP</acronym>
+    <option>echo-reply</option> doivent correspondre aux requêtes
+    <option>echo-request</option>.</para>
+    </listitem>
+    <listitem>
+    <para><option>RELATED</option> : se réfère aux messages d'erreurs
+    <acronym>ICMP</acronym> correspondant à une «communication»
+    <acronym>TCP</acronym> ou <acronym>UDP</acronym> déjà présente dans la
+    table de suivi.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>D'un point de vue pratique, le module de suivi des communications sera
+  activé grâce à l'option <option>-m state</option> de la commande
+  <command>iptables</command>. L'option <option>--state</option> permet de
+  spécifier l'état de la communication à considérer.</para>
+
+  <example>
+    <title>Autorisation d'une connexion ssh vers l'extérieur</title>
+<screen width='80'># iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+# iptables -A OUTPUT -p tcp -d 0/0 --dport 22 -m state --state NEW -j ACCEPT
+</screen>
+  </example>
+  </sect2>
+
+  <sect2>
+    <title>La traduction d'adresse (NAT)</title>
+
+  <para>La traduction d'adresse est une technique qui permet de remplacer une
+  adresse source ou destination par une autre. La traduction d'adresse du noyau
+  2.4 supporte le <wordasword>source NAT</wordasword> (<acronym>SNAT</acronym>)
+  et le <wordasword>destination NAT</wordasword> (<acronym>DNAT</acronym>). La
+  table <option>nat</option> permet la modification des adresses source et
+  destination grâce à deux chaînes par défaut :</para>
+
+  <itemizedlist>
+  <listitem>
+    <para><option>PREROUTING</option> : permet la modification de
+    l'adresse de destination (<acronym>DNAT</acronym>) avant que le paquet ne
+    passe par les fonctions de routage.</para>
+  </listitem>
+  <listitem>
+    <para><option>POSTROUTING</option> : permet la modification de
+    l'adresse source (<acronym>SNAT</acronym>) après que le paquet soit passé
+    par les fonctions de routage.</para>
+  </listitem>
+</itemizedlist>
+
+<screen width="80">        _____                                     _____
+       /     \                                   /     \
+     PREROUTING -->[décision]----------------->POSTROUTING----->
+       \D-NAT/     [de routage]                  \S-NAT/
+        -----          |                            ^
+                       |                          __|__
+                       |                         /     \
+                       |                        | OUTPUT|
+                       |                         \D-NAT/
+                       |                            ^
+                       |                            |
+                       -------->Processus local------
+</screen>
+
+  <para>Intéressons nous dans un premier temps à la traduction d'adresse source
+  ou <acronym>S-NAT</acronym>. Il existe en deux formes distinctes au sein des
+  noyaux (2.4|2.6) : <option>SNAT</option> et <option>MASQUERADE</option>.
+  <option>SNAT</option> est la forme standard de la traduction d'adresse
+  source, tandis que la deuxième est plus spécialisée au cas d'adresses IP
+  assignées dynamiquement. La distinction entre les deux formes est
+  subtile.</para>
+  
+  <para>Avec <option>SNAT</option>, la communication est maintenue pendant un
+  certain temps d'attente lors d'un dysfonctionnement. Si cette communication est
+  rétablie suffisamment rapidement, les programmes réseaux ne seront pas
+  affectés et le trafic <acronym>TCP</acronym> interrompu sera retransmis, dans
+  la mesure où l'adresse IP n'a pas été changée.</para>
+  
+  <para>Avec la forme <option>MASQUERADE</option>, il n'y a pas de temps
+  d'attente quand la connexion est rompue et les informations concernant la
+  traduction d'adresse sont effacées. Ceci permet d'utiliser immédiatement la
+  nouvelle adresse IP qui peut être attribuée lors d'une reconnexion à un
+  fournisseur d'accès, par exemple.</para>
+
+  <example>
+    <title>SNAT standard</title>
+<screen width='80'># iptables -t nat -A POSTROUTING -o eth0 -j SNAT --to-source 192.192.192.192
+</screen>
+  </example>
+  <example>
+    <title>MASQUERADE</title>
+<screen width='80'># iptables -t nat -A POSTROUTING -o ppp0 -j MASQUERADE
+</screen>
+  </example>
+  </sect2>
+</sect1>
+
+</article>
