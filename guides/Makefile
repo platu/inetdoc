@@ -6,6 +6,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
+	images \
 	autodoc \
 	lartc \
 	zebra.statique \
@@ -23,6 +24,7 @@ PROCESS = subdirs xml2xhtml xml2pdf
 
 XML_FILES = \
 	biblio-guides.xml \
+	autodoc/$(ABSTRACT_FILE) \
 	lartc/$(ABSTRACT_FILE) \
 	zebra.statique/$(ABSTRACT_FILE) \
 	zebra.rip/$(ABSTRACT_FILE) \
