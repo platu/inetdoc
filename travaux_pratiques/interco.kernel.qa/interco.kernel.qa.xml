@@ -1,0 +1,1062 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+  "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!ENTITY url.fonctions_reseau_noyau
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.linux-france.org/prj/inetdoc/cours/interco.noyau/">
+   <citetitle>Fonctions réseau du noyau Linux</citetitle></link>'>
+
+<!ENTITY url.guide_rnis_noyau
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.linux-france.org/prj/inetdoc/guides/rnis/part3.chapter1.compile.html">
+   <citetitle>Configuration du sous-système RNIS du noyau Linux</citetitle></link>'>
+
+<!ENTITY url.debian-kernel-handbook
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://kernel-handbook.alioth.debian.org/">
+   <citetitle>Debian Linux Kernel Handbook</citetitle></link>'>
+
+<!ENTITY url.kernel-build-howto
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.digitalhermit.com/linux/Kernel-Build-HOWTO.html">
+   <citetitle>Kernel Rebuild Guide</citetitle></link>'>
+
+<!ENTITY url.sysfs
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.wikipedia.org/wiki/Sysfs">
+   <citetitle>sysfs</citetitle></link>'>
+
+<!ENTITY url.fhs
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://tldp.org/LDP/Linux-Filesystem-Hierarchy/html/proc.html">
+  <citetitle>Linux Filesystem Hierarchy</citetitle></link>'>
+]>
+
+<article xml:id='interco.kernel.qa' xml:lang='fr'>
+
+<info>
+  <title>Configuration des fonctions réseau &amp; compilation du noyau
+  Linux</title>
+
+  &author;
+  <abstract>
+    <para>Dans ce support de travaux pratiques, on se propose de préparer un
+    système GNU/Linux pour être utilisé comme équipement d'interconnexion
+    réseau. Après avoir passé en revue les fonctions réseau utiles du noyau
+    Linux et sélectionné les pilotes des périphériques effectivement présents
+    sur la plateforme matérielle, on construit un paquet de noyau Linux à
+    partir de ses sources.</para>
+  </abstract>
+ 
+  <keywordset>
+    <keyword>noyau</keyword>
+    <keyword>linux</keyword>
+    <keyword>lspci</keyword>
+    <keyword>wget</keyword>
+    <keyword>make</keyword>
+    <keyword>menuconfig</keyword>
+    <keyword>interface</keyword>
+    <keyword>make-kpkg</keyword>
+    <keyword>initrd</keyword>
+    <keyword>fakeroot</keyword>
+  </keywordset>
+</info>
+
+<sect1 xml:id='interco.kernel.qa.legal.meta'>
+  &legal;
+
+  <sect2 xml:id='interco.kernel.qa.meta'>
+    <title>Méta-information</title>
+    
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+  <para>Toutes les commandes utilisées dans ce document ne sont pas spécifiques
+  à une version particulière des systèmes UNIX ou GNU/Linux. C'est la
+  distribution <citetitle>Debian GNU/Linux</citetitle> qui est utilisée
+  pour les tests présentés. Voici une liste des paquets contenant les
+  commandes :</para>
+  <itemizedlist>
+    <listitem>
+    <para><application>coreutils</application> - The GNU core utilities</para>
+    </listitem>
+    <listitem>
+    <para><application>procps</application> - The /proc file system utilities</para>
+    </listitem>
+    <listitem>
+    <para><application>pciutils</application> - Linux PCI Utilities</para>
+    </listitem>
+    <listitem>
+    <para><application>module-init-tools</application> - tools for managing Linux kernel modules</para>
+    </listitem>
+    <listitem>
+    <para><application>make</application> - The GNU version of the "make" utility</para>
+    </listitem>
+    <listitem>
+    <para><application>libncurses5</application> - shared libraries for terminal handling</para>
+    </listitem>
+    <listitem>
+    <para><application>libncurses5-dev</application> - developer's libraries and docs for ncurses</para>
+    </listitem>
+    <listitem>
+    <para><application>kernel-package</application> - A utility for building Linux kernel related Debian packages</para>
+    </listitem>
+    <listitem>
+    <para><application>fakeroot</application> - Gives a fake root environment</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='interco.kernel.qa.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super-utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='interco.kernel.qa.current'>
+  <title>Le noyau courant et son arborescence</title>
+
+  <para>Avant d'attaquer la compilation d'un nouveau noyau à partir de ses
+  sources, on doit identifier et localiser les différents composants du noyau
+  en cours d'exécution sur le système.</para>
+
+  <para>Le jeu de questions ci-dessous suppose que la configuration système est
+  directement issue de l'installation de la distribution <citetitle>Debian
+  GNU/Linux</citetitle>. Le noyau courant exécuté est fourni via un paquet de
+  la distribution.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est la commande <systemitem
+      class='osname'>UNIX</systemitem> usuelle qui identifie le noyau et sa
+      version ?</phrase></para>
+
+      <para>Effectuer une recherche dans les pages de manuels des commandes
+      installées sur le système avec une requête du type : <userinput>apropos
+      informations, système</userinput>.</para>
+      </question>
+      <answer>
+      <para>C'est la commande <command>uname</command> qui identifie le noyau
+      courant. Pour interroger les pages de manuels à l'aide de la commande
+      <command>apropos</command>, il faut que les paquets correspondant soient
+      installés et que l'index de recherche soit construit.</para>
+
+      <para>Pour interroger les pages de manuels, on contrôle la liste des
+      paquets correspondants installés et on lance manuellement la construction
+      de l'index de recherche :</para>
+
+<screen width='80'><prompt>$</prompt> aptitude search ~imanpages
+i   manpages          - Manual pages about using a GNU/Linux system
+i   manpages-fr       - French version of the manual pages about using GNU/Linux
+i   manpages-fr-extra - French version of the manual pages
+
+&lt;snip/>
+# /etc/cron.daily/man-db
+
+&lt;snip/>
+<prompt>$</prompt> apropos informations, système | grep uname
+uname (1)            - Afficher des informations sur le système</screen>
+
+      <para>Pour obtenir la version courante du noyau exécuté :</para>
+
+<screen width='80'><prompt>$</prompt> uname -a
+Linux vm0 3.0.0-1-amd64 #1 SMP Sat Aug 27 16:21:11 UTC 2011 x86_64 GNU/Linux</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Où est placée l'image de la partie monolithique du noyau
+      courant ?</phrase></para>
+
+      <para>Repérer le paquet <citetitle>Debian</citetitle> correspondant au
+      noyau et retrouver l'image dans la liste des fichiers de ce
+      paquet.</para>
+      </question>
+      <answer>
+      <para>Une fois la version courante du noyau identifiée à l'aide de la
+      commande <command>uname</command>, on peut faire la correspondance avec
+      les paquets de noyau installés.</para>
+
+<screen width='80'><prompt>$</prompt> aptitude search ~ilinux-image
+i   linux-image-2.6-amd64      - Linux for 64-bit PCs (dummy package)
+i A linux-image-3.0.0-1-amd64  - Linux 3.0.0 for 64-bit PCs
+i A linux-image-amd64          - Linux for 64-bit PCs (meta-package)</screen>
+
+      <para>Connaissant le nom du paquet de noyau installé on peut lister les
+      fichiers qu'il contient. À partir de cette liste on peut localiser la
+      partie monolithique du noyau ainsi que ses modules dans l'arborescence du
+      système de fichiers.</para>
+
+      <para>C'est dans le répertoire <filename
+      class='directory'>/boot</filename> que sont placées les images des noyaux
+      disponibles sur un système GNU/Linux.</para>
+
+<screen width='80'><prompt>$</prompt> ls -A1 /boot/
+config-3.0.0-1-amd64 <co xml:id='config'/>
+grub
+initrd.img-3.0.0-1-amd64 <co xml:id='initrd'/>
+lost+found
+System.map-3.0.0-1-amd64 <co xml:id='system.map'/>
+vmlinuz-3.0.0-1-amd64 <co xml:id='vmlinuz'/></screen>
+
+      <calloutlist>
+        <callout arearefs='config'>
+	<para>Fichier de configuration du noyau de la distribution. Il contient
+	l'ensemble des options qui ont été sélectionnées par le responsable du
+	paquet. C'est une configuration très complète dans la mesure où un
+	noyau publié dans une distribution doit supporter le maximum de
+	matériel.</para>
+	</callout>
+	<callout arearefs='initrd'>
+	<para><anchor xml:id="initrd.anchor"/>Image compressée du disque
+	<acronym>RAM</acronym> d'initialisation contenant une arborescence
+	racine simplifée, des outils et l'ensemble des modules du noyau. Cette
+	technique d'initialisation est la seule qui puisse fonctionner sur des
+	systèmes sans disque dur où sur lesquels aucun système GNU/Linux n'a
+	encore été installé.</para>
+	</callout>
+	<callout arearefs='system.map'>
+	<para><anchor xml:id="system.map.anchor"/>Fichier de cartographie des
+	appels de fonctions du noyau. Cette cartographie est une aide à la mise
+	au point pour les développeurs. On y trouve une identification
+	nominative des fonctions en cas de problème au lieu d'adresses
+	numériques en hexadécimal.</para>
+	</callout>
+	<callout arearefs='vmlinuz'>
+	<para>Fichier image de la partie monolithique du noyau. C'est ce
+	fichier qui est utilisé par le gestionnaire de démarrage pour lancer le
+	système d'exploitation. Le gestionnaire de démarrage y accède
+	directement à l'aide d'un appel <acronym>BIOS</acronym>.</para>
+	</callout>
+      </calloutlist>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Où sont placés les fichiers des modules correspondant au
+      noyau courant ?</phrase></para>
+
+      <para>Comme dans le cas précédent, la liste des fichiers du paquet permet
+      de retrouver l'arborescence de stockage des modules.</para>
+      </question>
+      <answer>
+      <para>On peut parcourir la liste des fichiers contenus dans le paquet de
+      noyau et effectuer des recherches par mots clés en utilisant la commande
+      suivante :</para>
+
+<screen width='80'><prompt>$</prompt> dpkg -L linux-image-3.0.0-1-amd64 | egrep -e 'kernel$'
+/lib/modules/3.0.0-1-amd64/kernel
+/lib/modules/3.0.0-1-amd64/kernel/arch/x86/kernel</screen>
+
+      <para>La liste ci-dessus montre que les modules du noyau sont placés dans
+      le répertoire <filename
+      class='directory'>/lib/modules/3.0.0-1-amd64/kernel/</filename>.</para>
+      </answer>
+    </qandaentry>
+      
+    <qandaentry>
+      <question>
+      <para><phrase>Dans quels cas de figure utilise-t-on l'arborescence ou le
+      disque <acronym>RAM</acronym> ?</phrase></para>
+
+      <para>Il faut bien différencier l'utilisation du disque RAM
+      <filename>initrd-*</filename> de l'arborescence installée sur le disque
+      du système.</para>
+      </question>
+      <answer>
+      <para>Le fichier image du disque <acronym>RAM</acronym> d'initialisation
+      <link linkend='initrd.anchor'>a déjà été identifié</link>
+      ci-dessus.</para>
+
+      <para>Ce fichier est utilisé lors du lancement du système d'exploitation.
+      Il est reconnu par le gestionnaire de démarrage de la même façon que la
+      partie monolithique du noyau. Une fois le système complètement initialisé,
+      les opérations de (chargement|déchargement) des modules utilisent
+      l'arborescence du dique dur : <filename
+      class='directory'>/lib/modules/`uname -r`/</filename>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Que contiennent les arborescences <filename
+      class='directory'>/proc</filename> et <filename
+      class='directory'>/sys</filename> ?</para>
+
+      <para>Consulter les documents ressource &url.sysfs; et &url.fhs;</para>
+      </question>
+      <answer>
+      <para>L'arborescence <filename class='directory'>/sys</filename> est une
+      représentation visible de l'arbre des périphériques physiques vus par le
+      noyau. Cette arborescence a été introduite avec les noyaux de la série
+      2.6.xx. Elle est construite dynamiquement en fonction des branchements «à
+      chaud» effectués sur les différents bus de la machine. Les informations
+      répertoriées dans cette arborescence sont du type  : nom de
+      périphérique, canal <acronym>DMA</acronym>, vecteur d'interruption,
+      tensions d'alimentation, etc.</para>
+
+      <para>L'arborescence <filename class='directory'>/proc</filename>
+      comprend l'ensemble des paramètres du noyau en cours d'exécution. Ces
+      paramètres sont modifiables en cours de fonctionnement. L'exemple
+      emblématique, vis-à-vis de ces travaux pratiques est donné par l'ensemble
+      des «réglages» possibles sur les machines d'états de la pile des
+      protocoles réseau. La commande
+      <userinput>ls /proc/sys/net/ipv4/</userinput> en donne un
+      aperçu.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est la commande qui permet de lister les modules
+      chargés en mémoire ? À quel paquet appartient elle ?</phrase></para>
+
+      <para>Rechercher dans la base de données des paquets de la distribution
+      les informations relatives aux manipulations sur les modules à l'aide
+      d'une interrogation du type : <userinput>aptitude search
+      ~imodule</userinput>.</para>
+      </question>
+      <answer>
+      <para>La commande <command>lsmod</command> :</para>
+
+<screen width='80'><prompt>$</prompt> lsmod
+Module                  Size  Used by
+ext2                   63732  1 
+loop                   22711  0 
+joydev                 17262  0 
+snd_pcm                68104  0 
+evdev                  17558  2 
+snd_timer              22581  1 snd_pcm
+snd                    52823  2 snd_pcm,snd_timer
+soundcore              13152  1 snd
+&lt;snip/></screen>
+
+      <para>Cette commande appartient au paquet
+      <systemitem>module-init-tools</systemitem>. En listant le contenu de ce
+      paquet on obtient les noms des commandes associées et les pages de
+      manuels correspondantes.</para>
+
+<screen width='80'><prompt>$</prompt> dpkg -S `which lsmod`
+module-init-tools: /sbin/lsmod
+
+<prompt>$</prompt> dpkg -L module-init-tools | grep sbin/
+/sbin/depmod
+/sbin/modinfo
+/sbin/modprobe
+/sbin/insmod
+/sbin/rmmod
+/sbin/lsmod</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelles sont les commandes qui permettent de charger un
+      module en mémoire «manuellement» ? Identifier celle qui traite
+      automatiquement les dépendances entre modules.</phrase></para>
+
+      <para>Rechercher les informations dans la liste des fichiers du paquet
+      ainsi que dans les pages de manuels des commandes.</para>
+      </question>
+      <answer>
+      <para>On dispose de deux commandes : <command>insmod</command> et
+      <command>modprobe</command>. Seule la commande
+      <command>modprobe</command> traite les dépendances au
+      (chargement|déchargement) d'un module. Illustration avec un pilote
+      d'interface <acronym>RNIS</acronym> :</para>
+
+<screen width='80'><prompt>#</prompt> modprobe -v hfcpci
+insmod /lib/modules/3.0.0-1-amd64/kernel/drivers/isdn/mISDN/mISDN_core.ko 
+insmod /lib/modules/3.0.0-1-amd64/kernel/drivers/isdn/hardware/mISDN/hfcpci.ko</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelles sont les commandes qui permettent de retirer un
+      module de la mémoire «manuellement» ? Identifier les options de la
+      commande qui traite automatiquement les dépendances entre
+      modules.</phrase></para>
+
+      <para>Rechercher les informations dans les pages de manuels des
+      commandes.</para>
+      </question>
+      <answer>
+      <para>Comme dans le cas précédent, c'est la commande
+      <command>modprobe</command> qui retire de la mémoire les modules associés
+      au déchargement. Toujours avec le pilote d'interface
+      <acronym>RNIS</acronym> :</para>
+
+<screen width='80'><prompt>#</prompt> modprobe -rv hfcpci
+rmmod /lib/modules/3.0.0-1-amd64/kernel/drivers/isdn/hardware/mISDN/hfcpci.ko
+rmmod /lib/modules/3.0.0-1-amd64/kernel/drivers/isdn/mISDN/mISDN_core.ko</screen>
+      </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='interco.kernel.qa.sources'>
+  <title>Les sources du noyau Linux</title>
+
+  <para>Pour traiter le cas le plus général possible, on ne s'appuie pas sur la
+  base de données des paquets de la distribution et on télécharge directement
+  les sources du noyau Linux à partir du site de référence.</para>
+
+  <para>Il faut bien reconnaître que s'attaquer à toutes les options de
+  configuration du noyau Linux en partant de zéro est une tâche
+  particulièrement ardue. Pour rendre la démarche plus aisée, on se propose de
+  partir de la configuration fournie avec le paquet de la distribution. En
+  procédant par modifications élémentaires à partir de cette configuration
+  réputée sûre puisque permettant le fonctionnement du système actuel, on
+  limite les possibilités d'erreurs.</para>
+
+  <para>Les versions stables du noyau évoluent fréquemment. Les questions
+  ci-dessous sont basées sur la version courante de la série 2.6.xx.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para>Quel est le site principal de diffusion des sources du noyau
+      Linux ?</para>
+      </question>
+      <answer>
+      <para>Le site principal de publication des sources du noyau Linux est à
+      l'adresse <link
+      xmlns="http://docbook.org/ns/docbook" xlink:href="http://kernel.org/">http://kernel.org/</link>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Donner deux modes de téléchargement différents des sources. Quel
+      est l'outil qui permet d'effectuer un téléchargement avec le protocole
+      <acronym>HTTP</acronym> sans utiliser un navigateur Web ?</para>
+      </question>
+      <answer>
+      <para>Lorsque l'on utilise des serveurs «lames», il est fréquent qu'aucun
+      écran ou clavier ne soit raccordé au serveur à configurer. Il est donc
+      nécessaire d'effectuer les opérations à distance sans recours à une
+      interface graphique. On dispose de deux protocoles pour le transfert des
+      sources du noyau Linux : <acronym>FTP</acronym> &amp;
+      <acronym>HTTP</acronym>.</para>
+      <para>Les outils <systemitem>ncftp</systemitem> et
+      <systemitem>wget</systemitem> sont les mieux adaptés pour cette
+      opération. Illustration avec <command>wget</command> après avoir copié
+      l'adresse du lien à partir d'un navigateur web :</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kerneldnld.png' format='PNG'
+	contentwidth='12cm' width='12.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Téléchargement des sources du noyau Linux</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kerneldnld.png'>Téléchargement
+	  des sources du noyau Linux - vue complète</link></para>
+        </caption>
+      </mediaobject>
+
+<screen width='80'>etu@vm0:~$ wget http://www.eu.kernel.org/pub/linux/kernel/v2.6/linux-2.6.27.tar.bz2
+--  http://www.eu.kernel.org/pub/linux/kernel/v2.6/linux-2.6.27.tar.bz2
+Résolution de www.eu.kernel.org... 130.239.17.4, 199.6.1.164
+Connexion vers www.eu.kernel.org|130.239.17.4|:80...connecté.
+requête HTTP transmise, en attente de la réponse...200 OK
+Longueur: 50355835 (48M) [application/x-bzip2]
+Saving to: `linux-2.6.27.tar.bz2'
+
+18% [===================>              ] 9 500 807    217K/s  eta 6m 46s 
+</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les commandes «rituelles» d'installation des sources
+      du noyau Linux ? Pour chaque commande, expliquer les opérations
+      réalisées et justifier le choix des options.</para>
+      </question>
+      <answer>
+      <para>Les commandes présentées ci-dessous ne sont réalisables que si
+      l'utilisateur normal appartient au groupe système <systemitem
+      class='groupname'>src</systemitem>. La liste des groupes auquel
+      appartient un utilisateur est donnée par la comnande
+      <command>id</command>.</para>
+
+<screen width='80'>etu@vm0:~$ id
+uxml:id=1000(etu) gxml:id=1000(etu) groupes=4(adm),20(dialout),24(cdrom),25(floppy),29(audio),\
+                            40(src),44(video),46(plugdev),50(staff),1000(etu)</screen>
+
+      <para>D'après les documents de référence on doit utiliser la séquence de commandes suivante :.</para>
+
+<screen width='80'>etu@vm0:~$ mv linux-2.6.27.tar.bz2 /usr/src/<co xml:id='source.move'/>
+etu@vm0:~$ cd /usr/src/
+etu@vm0:/usr/src$ tar xf linux-2.6.27.tar.bz2<co xml:id='source.untar'/>
+etu@vm0:/usr/src$ ln -s linux-2.6.27 linux<co xml:id='source.symlink'/>
+etu@vm0:/usr/src$ cd linux
+etu@vm0:/usr/src/linux$ cp /boot/config-2.6.26-1-amd64 .config<co xml:id='source.config'/>
+etu@vm0:/usr/src/linux$ make menuconfig<co xml:id='source.menu'/>
+</screen>
+
+      <calloutlist>
+        <callout arearefs='source.move'>
+	<para>Copie du fichier <wordasword>tarball</wordasword> dans le
+	répertoire usuel de dépôt des sources de noyau : <filename
+	class='directory'>/usr/src</filename>.</para>
+	</callout>
+        <callout arearefs='source.untar'>
+	<para>Extraction de l'arborescence des sources du noyau.</para>
+	</callout>
+        <callout arearefs='source.symlink'>
+	<para>Création d'un lien symbolique sur l'arborescence de travail.
+	L'utilisation de ce lien permet de conserver plusieurs arborescences de
+	sources. De cette façon, on peut travailler sur plusieurs versions de
+	noyau.</para>
+	</callout>
+	<callout arearefs='source.config'>
+	<para>Copie du fichier de configuration fourni avec le paquet de noyau.
+	Ce fichier est réputé fiable puisqu'il correspond au noyau en cours
+	d'exécution et que le système est opérationnel.</para>
+	</callout>
+	<callout arearefs='source.menu'>
+	<para>Lancement de l'interface des menus de configuration des options
+	du noyau Linux. C'est à ce niveau que les «choses sérieuses»
+	commencent.</para>
+	</callout>
+      </calloutlist>
+      </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='interco.kernel.qa.config'>
+  <title>La configuration du noyau Linux</title>
+
+  <para>On se propose de configurer un système d'interconnexion. Le noyau
+  correspondant doit donc comprendre les éléments suivants :</para>
+
+  <itemizedlist>
+    <listitem>
+      <para>Un coeur système monolithique : microprocesseur, périphériques
+      non réseau et système de fichiers,</para>
+    </listitem>
+    <listitem>
+      <para>Le support des fonctions réseau nécessaires au routage.</para>
+    </listitem>
+    <listitem>
+      <para>Le support du filtrage <application>netfilter</application> sous
+      forme modulaire.</para>
+    </listitem>
+    <listitem>
+      <para>Un pilote d'interface réseau Ethernet sous forme modulaire,</para>
+    </listitem>
+    <listitem>
+      <para>Les fonctions de l'ancien sous-système <acronym>RNIS</acronym> sous
+      forme modulaire,</para>
+    </listitem>
+    <listitem>
+      <para>Un pilote d'interface <acronym>RNIS</acronym> sous forme
+      modulaire,</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Le patron de fichier de configuration à utiliser pour les travaux
+  pratiques est placé sur le serveur Web de travaux pratiques. Il est nommé
+  <filename>config-2.6.27</filename>.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para>Quelle est la commande utilisée pour les opérations de
+      configuration et de compilation ?</para>
+      </question>
+      <answer>
+      <para>Toutes les opérations de compilation du noyau étant basées sur des
+      <filename>Makefiles</filename>, c'est la commande <command>make</command>
+      qui sert aussi pour la configuration.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Comment obtenir la liste des options de cette
+      commande ?</para>
+      </question>
+      <answer>
+      <para>La commande <userinput>make help</userinput> donne la liste des
+      options disponibles.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les 3 options de configuration du noyau ?
+      Préciser les différences entre ces 3 options.</para>
+      </question>
+      <answer>
+      <para>Les 3 commandes sont <userinput>make config</userinput>,
+      <userinput>make menuconfig</userinput> et
+      <userinput>make xconfig</userinput>.</para>
+
+      <para>Il est préférable d'utiliser la commande
+      <userinput>make menuconfig</userinput>. C'est le meilleur compromis
+      entre facilité de navigation et administration distante. Les
+      bibliothèques de développement <systemitem>ncurses</systemitem> ne
+      consomment que très peu de ressources <acronym>CPU</acronym> et
+      l'utilisation d'une interface graphique sur un serveur est à
+      proscrire.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Sans opération préalable, quel est le fichier contenant les options
+      de configuration du noyau utilisé ?</para>
+      </question>
+      <answer>
+      <para>C'est le fichier texte <filename>.config</filename> qui contient
+      l'ensemble des options de configuration du noyau Linux courant. Il est
+      placé à la racine de l'arborescence des sources du noyau ; soit le
+      répertoire <filename class='directory'>/usr/src/linux</filename> dans
+      notre cas.</para>
+      <para>Le fichier «patron» de configuration pour ces travaux pratiques
+      doit donc être copié dans le répertoire <filename
+      class='directory'>/usr/src/linux</filename> et renommé
+      <filename>.config</filename>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Une fois la commande de configuration exécutée, comment identifier
+      la version du noyau à compiler ?</para>
+      </question>
+      <answer>
+      <para>La version du noyau en cours de configuration est indiquée en haut
+      à gauche de l'écran.</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgver.png' format='PNG'
+	contentwidth='9cm' width='9.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Identification version noyau Linux</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgver.png'>Identification
+	  version noyau Linux - vue complète</link></para>
+        </caption>
+      </mediaobject>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les options indispensables et facultatives des
+      rubriques <guimenu>Networking Support</guimenu> puis <guimenu>Networking
+      options</guimenu> ?</para>
+      </question>
+      <answer>
+      <para>On accède aux différents types de réseaux supportés par le noyau
+      Linux via l'item <guimenu>Networking Support</guimenu>.</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgnet0.png' format='PNG'
+	contentwidth='9cm' width='9.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Accès aux types de réseaux supportés</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgnet0.png'>Accès
+	  aux types de réseaux supportés - vue complète</link></para>
+        </caption>
+      </mediaobject>
+
+      <para>On accède aux fonctions réseau du noyau Linux via l'item
+      <guimenu>Networking options</guimenu>.</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgnet1.png' format='PNG'
+	contentwidth='9cm' width='9.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Accès aux fonctions réseau du noyau Linux</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgnet1.png'>Accès
+	  aux fonctions réseau du noyau Linux - vue complète</link></para>
+        </caption>
+      </mediaobject>
+
+      <para>À partir du support <xref
+      linkend='interco.kernel.qa.fonctions_reseau_noyau'/> et de
+      l'organisation des menus, on distingue les options génériques, telles
+      que le support des <wordasword>sockets</wordasword>, des options
+      spécifiques telles que celles relatives au filtrage.</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgnet2.png' format='PNG'
+	contentwidth='9cm' width='9.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Fonctions TCP/IP du noyau Linux</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgnet2.png'>Fonctions
+	  TCP/IP du noyau Linux - vue complète</link></para>
+        </caption>
+      </mediaobject>
+
+      <para>Le menu principal de la partie filtrage
+      <citetitle>netfilter</citetitle> se présente comme suit. Sachant que les
+      modules dédiés à une sous-fonction du filtrage se chargent dynamiquement
+      à la demande lors de l'application des règles de filtrage, on sélectionne
+      généralement la totalité de ces sous fonctions sous forme modulaire.
+      Seuls les modules effectivement utilisés seront chargés en
+      mémoire.</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgnet3.png' format='PNG'
+	contentwidth='9cm' width='9.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Fonctions de filtrage réseau du noyau Linux</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgnet3.png'>Fonctions
+	  de filtrage réseau du noyau Linux - vue complète</link></para>
+        </caption>
+      </mediaobject>
+      </answer>
+    </qandaentry>
+    
+    <qandaentry>
+      <question>
+      <para>Quelles sont les options indispensables et facultatives des
+      rubriques <guimenu>Device Drivers</guimenu> puis <guimenu>Network device
+      support</guimenu> ?</para>
+      </question>
+      <answer>
+      <para>Voir le support <xref
+      linkend='interco.kernel.qa.fonctions_reseau_noyau'/> pour s'orienter
+      dans les options à sélectionner.</para>
+
+      <para>Pour accéder au catalogue des interfaces réseau supportées par le
+      noyau il faut passer par la catégorie des pilotes de périphériques ou
+      <wordasword>Device Drivers</wordasword> pour accéder à l'item
+      <guimenu>Network device support</guimenu>.</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgnet4.png' format='PNG'
+	contentwidth='9cm' width='9.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Accès aux interfaces réseau supportées</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgnet4.png'>Accès
+	  aux interfaces réseau supportées - vue complète</link></para>
+        </caption>
+      </mediaobject>
+
+      <para>Le catalogue recense tous les types d'interfaces réseau. Dans notre
+      cas, il faut choisir le bon modèle d'interface Ethernet.</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgnet5.png' format='PNG'
+	contentwidth='9cm' width='9.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Catalogue des types d'interfaces réseau</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgnet5.png'>Catalogue
+	  des types d'interfaces réseau - vue complète</link></para>
+        </caption>
+      </mediaobject>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les options indispensables et facultatives de la
+      rubrique <guimenu>ISDN subsystem</guimenu> ?</para>
+      </question>
+      <answer>
+      <para>À partir des indications du support <xref
+      linkend='interco.kernel.qa.guide_rnis_noyau'/> et des menus de
+      configuration du noyau Linux on accède aux paramétrage du sous-système
+      <acronym>RNIS/ISDN</acronym>.</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgisdn0.png' format='PNG'
+	contentwidth='7cm' width='7.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Accès au sous-système RNIS/ISDN</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgisdn0.png'>Accès
+	  au sous-système RNIS/ISDN - vue complète</link></para>
+        </caption>
+      </mediaobject>
+
+      <para>Il existe trois types d'utilisation des connexions
+      <acronym>RNIS/ISDN</acronym> dans le noyau Linux.</para>
+
+      <itemizedlist>
+        <listitem>
+	<para>Le premièr, et la plus récent, utilise un mécanisme de sockets
+	adapté aux reste des fonctions réseau du noyau. Malheureusement, la
+	liste du matériel supporté par ce premier type de connexion est très
+	restreinte. L'interface <acronym>RNIS</acronym> implantée sur les
+	postes de travaux pratiques ne fait pas partie de cette liste.</para>
+	</listitem>
+	<listitem>
+	<para>Le second est hérité des noyaux de la série 2.2.xx. Il comprend
+	une machine d'état logicielle autonome de gestion de l'étbalissement,
+	du maintien et de la libération des connexions. C'est ce type de
+	connexion que l'on utilise dans la suite des travaux pratiques de la
+	série.</para>
+	</listitem>
+	<listitem>
+	<para>Le troisième utilise le standard <acronym>CAPI</acronym>. Il
+	s'agit d'une interface logicielle normalisée entre le noyau et le
+	périphérique matériel. Là encore, la liste des modèles de cartes
+	<acronym>RNIS</acronym> supportée est très limitée et ne comprend que
+	des cartes actives. Ce qui ne correspond pas au modèle implanté sur les
+	postes de travaux pratiques.</para>
+	</listitem>
+      </itemizedlist>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgisdn1.png' format='PNG'
+	contentwidth='7cm' width='7.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Types de connexions RNIS/ISDN</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgisdn1.png'>Types
+	  de connexions RNIS/ISDN - vue complète</link></para>
+        </caption>
+      </mediaobject>
+
+      <para>Le catalogue des paramètres utilisables avec le protocole
+      <acronym>PPP</acronym> associé au sous-système
+      <acronym>RNIS/ISDN</acronym> historique du noyau Linux est donné
+      ci-dessous.</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgisdn2.png' format='PNG'
+	contentwidth='7cm' width='7.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Paramètres PPP du sous-système RNIS/ISDN</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgisdn2.png'>Paramètres
+	  PPP du sous-système RNIS/ISDN - vue complète</link></para>
+        </caption>
+      </mediaobject>
+
+      <para>La liste des modèles de cartes <acronym>RNIS/ISDN</acronym>
+      supportés par le sous-système <acronym>RNIS/ISDN</acronym> historique du
+      noyau Linux est donné ci-dessous. Cette organisation est due au fait que
+      les mêmes composants <trademark>Siemens</trademark> ont été utilisés sur
+      de nombreux modèles de cartes de marques différentes.</para>
+
+      <mediaobject>
+        <imageobject>
+	<imagedata fileref='images/kernelcfgisdn3.png' format='PNG'
+	contentwidth='7cm' width='7.5cm'/>
+	</imageobject>
+	<textobject>
+	  <phrase>Modèles de cartes utilisant les mêmes composants Siemens</phrase>
+        </textobject>
+        <caption>
+	  <para><link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.kernel.qa/images/kernelcfgisdn3.png'>Modèles
+	  de cartes utilisant les mêmes composants Siemens - vue
+	  complète</link></para>
+        </caption>
+      </mediaobject>
+
+      <para>Le modèle des cartes implantées dans les postes de travaux
+      pratiques est de type <option>Gazel</option>.</para>
+      </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='interco.kernel.qa.compilation'>
+  <title>La compilation &amp; l'installation du nouveau noyau Linux</title>
+
+  <qandaset>
+    <qandaentry>
+      <question>
+      <para>Quelles sont les commandes de compilation du noyau ? Donner la
+      signification de chacune des commandes.</para>
+      </question>
+      <answer>
+      <para>Voir le support <xref
+      linkend='interco.kernel.qa.debian-kernel-handbook'/>.</para>
+
+      <para>Pour faciliter les opérations de (dé|ré)installation du noyau, on
+      se propose de construire un paquet Debian de noyau Linux. L'utilisation
+      d'un paquet permet de s'assurer que tous les fichiers nécessaires ont
+      bien été (copiés|supprimés) dans l'arborescence du système.</para>
+
+<screen width='80'>$ export CONCURRENCY_LEVEL=`grep  -c  '^processor'  /proc/cpuinfo`
+$ make-kpkg clean
+$ make-kpkg --rootcmd fakeroot kernel_image</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les étapes d'installation du noyau compilé ?</para>
+      </question>
+      <answer>
+      <para>Une fois le paquet de noyau construit, il ne reste plus qu'à
+      procéder à l'installation de ce paquet local. Cette étape fait appel à
+      l'outil de gestion de bas niveau des paquets Debian :
+      <command>dpkg</command>. Cette opération nécessite les droits du
+      super-utilisateur.</para>
+
+<screen width='80'># pwd
+/usr/src
+# dpkg -i linux-image-2.6.27_2.6.27-10.00.Custom_amd64.deb
+</screen>
+
+      <para>Après cette installation de paquet de noyau on peut valider la
+      liste des paquets correspondant installés.</para>
+
+<screen width='80'># dpkg -l linux-image* |grep ^ii
+ii  linux-image-2.6-amd64      2.6.26+16            Linux 2.6 image on AMD64
+ii  linux-image-2.6.26-1-amd64 2.6.26-5             Linux 2.6.26 image on AMD64
+ii  linux-image-2.6.27         2.6.27-10.00.Custom  Linux kernel binary image for version 2.6.27
+</screen>
+
+      <para>Pour de plus amples informations, voir le support <xref
+      linkend='interco.kernel.qa.debian-kernel-handbook'/>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Que faut-il faire pour que le gestionnaire de démarrage propose le
+      nouveau noyau compilé lors de l'initialisation du système ?</para>
+      </question>
+      <answer>
+      <para>Voir le support <xref
+      linkend='interco.kernel.qa.fonctions_reseau_noyau' />.</para>
+
+      <para>En fait, l'opération d'installation du paquet de noyau intègre
+      l'ajout d'une nouvelle entrée dans le gestionnaire de démarrage. Aucune
+      opération supplémentaire n'est donc nécessaire.</para>
+
+      <para>on peut tout de même valider la liste des noyaux disponibles dans
+      le gestionnaire de démarrage. Dans le cas de l'emploi du gestionnaire
+      <application>grub</application> avec la distribution Debian GNU/Linux,
+      cette liste est obtenue comme ceci :</para>
+
+<screen width='80'># update-grub
+Searching for GRUB installation directory ... found: /boot/grub
+Searching for default file ... found: /boot/grub/default
+Testing for an existing GRUB menu.lst file ... found: /boot/grub/menu.lst
+Searching for splash image ... none found, skipping ...
+Found kernel: /vmlinuz-2.6.27
+Found kernel: /vmlinuz-2.6.26-1-amd64
+Updating /boot/grub/menu.lst ... done
+</screen>
+      </answer>
+    </qandaentry>
+  </qandaset>
+
+  <para>Une fois toutes ces étapes franchies, il ne reste plus qu'à relancer le
+  système et vérifier que le noyau exécuté est bien celui qui a été recompilé à
+  partir des sources.</para>
+</sect1>
+
+<sect1 xml:id='interco.kernel.qa.refdocs'>
+  <title>Documents de référence</title>
+
+  <variablelist>
+    
+    <varlistentry xml:id='interco.kernel.qa.fonctions_reseau_noyau'>
+      <term><citetitle>Fonctions réseau du noyau Linux</citetitle></term>
+      <listitem>
+      <para>&url.fonctions_reseau_noyau; : Configuration du noyau Linux et
+      de ses fonctions réseau.</para>
+      </listitem>
+    </varlistentry>
+    
+    <varlistentry xml:id='interco.kernel.qa.guide_rnis_noyau'>
+      <term><citetitle>Guide RNIS Linux</citetitle></term>
+      <listitem>
+      <para>&url.guide_rnis_noyau; .</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.kernel.qa.debian-kernel-handbook'>
+      <term><citetitle>Debian Linux Kernel Handbook</citetitle></term>
+      <listitem>
+      <para>&url.debian-kernel-handbook; : guide sur les techniques de
+      construction d'un paquet Debian de noyau Linux.</para>
+      </listitem>
+    </varlistentry>
+    
+    <varlistentry xml:id='interco.kernel.qa.kernel-build-howto'>
+      <term><citetitle>Kernel Rebuild Guide</citetitle></term>
+      <listitem>
+      <para>&url.kernel-build-howto; : guide sur la démarche à suivre pour
+      recompiler un noyau Linux.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+</article>

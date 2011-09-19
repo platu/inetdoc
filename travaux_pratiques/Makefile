@@ -10,6 +10,8 @@ SUBDIRS = \
 	archi.tp \
 	config.interface.lan \
 	intro.analyse \
+	interco.kernel.qa \
+	interco.kernel.q \
 	interco.netfilter.qa \
 	interco.netfilter.q \
 	inter-vlan.routing
@@ -22,6 +24,7 @@ XML_FILES = \
 	archi.tp/$(ABSTRACT_FILE) \
 	config.interface.lan/$(ABSTRACT_FILE) \
 	intro.analyse/$(ABSTRACT_FILE) \
+	interco.kernel.q/$(ABSTRACT_FILE) \
 	interco.netfilter.q/$(ABSTRACT_FILE) \
 	inter-vlan.routing/$(ABSTRACT_FILE)
 
