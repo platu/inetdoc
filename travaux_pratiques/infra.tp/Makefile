@@ -15,7 +15,7 @@ SYMLINKS = \
         $(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
-	archi.tp.xml \
+	infra.tp.xml \
 	inetdoc.urls.xml
 
 all: $(PROCESS)

@@ -7,7 +7,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
 	images \
-	archi.tp \
+	infra.tp \
 	config.interface.lan \
 	intro.analyse \
 	interco.kernel.qa \
@@ -21,7 +21,7 @@ PROCESS = subdirs xml2xhtml xml2pdf
 
 XML_FILES = \
 	biblio-travaux_pratiques.xml \
-	archi.tp/$(ABSTRACT_FILE) \
+	infra.tp/$(ABSTRACT_FILE) \
 	config.interface.lan/$(ABSTRACT_FILE) \
 	intro.analyse/$(ABSTRACT_FILE) \
 	interco.kernel.q/$(ABSTRACT_FILE) \
