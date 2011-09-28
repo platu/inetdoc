@@ -14,7 +14,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	m1.xml \
-	linux.networking.abstract.xml
+	linux.networking.abstract.xml \
+	noyau.tp.abstract.xml
 
 
 all: $(PROCESS)
@@ -22,4 +23,7 @@ all: $(PROCESS)
 include $(MAIN_DIR)/common/Makefile.Rules
 
 linux.networking.abstract.xml: $(MAIN_DIR)/guides/linux.networking/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+noyau.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.kernel.q/$(ABSTRACT_FILE)
 	ln -s $< $@
