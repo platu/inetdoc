@@ -1335,21 +1335,23 @@ pyzor.client.run()</screen>
   <para>On débute par l'installation du paquet et le contrôle de sa
   version.</para>
 
-<screen width='80'>$ aptitude search 'razor'
-v   librazor2-perl                                                                -
-i   razor  - spam-catcher using a collaborative filtering network</screen>
+<screen width='80'><prompt>$</prompt> aptitude search razor
+v   librazor2-perl -
+p   posterazor     - splits an image into multiple sheets for assembly into a poster
+i   razor          - spam-catcher using a collaborative filtering network</screen>
 
-  <para>Une fois le paquet installé, la configuration doit être appliquée à
-  l'utilisateur <systemitem class='username'>amavis</systemitem>. Cette étape
-  est plus complexe que la précédente dans la mesure où cet outil dispose d'une
-  configuration globale puis d'une configuration utilisateur.</para>
+  <para>Une fois le paquet installé, il faut distinguer deux niveaux de
+  configuration : système et utilisateur. Dans le cas présent, on doit créer la
+  configuration pour l'utilisateur <systemitem
+  class='username'>amavis</systemitem>. Cette étape est plus complexe que pour
+  l'outil précédent.</para>
 
   <para>Au niveau global ou système, on efface la configuration existante de
   façon à mettre en place une nouvelle configuration.</para>
 
 <screen width='80'><prompt>#</prompt> rm /etc/razor/razor-agent.conf                          
 <prompt>#</prompt> razor-admin -create
-<prompt>#</prompt> mv ~/.razor/razor-agent.conf /etc/razor/</screen>
+<prompt>#</prompt> cp ~/.razor/razor-agent.conf /etc/razor/</screen>
 
   <para>Le fichier de configuration système est modifié pour que les messages
   émis par l'outil soient journalisés dans un répertoire spécifique dans lequel
@@ -1358,9 +1360,9 @@ i   razor  - spam-catcher using a collaborative filtering network</screen>
 
 <screen width='80'><prompt>#</prompt> mkdir /var/log/razor
 <prompt>#</prompt> chown amavis.adm /var/log/razor
-<prompt>#</prompt> diff -uBb /etc/razor/razor-agent.conf.create /etc/razor/razor-agent.conf
---- /etc/razor/razor-agent.conf.create  2010-01-30 18:38:03.000000000 +0100
-+++ /etc/razor/razor-agent.conf 2010-01-30 18:38:28.000000000 +0100
+<prompt>#</prompt> diff -uBb /etc/razor/razor-agent.conf.orig /etc/razor/razor-agent.conf
+--- /etc/razor/razor-agent.conf.orig    2011-10-10 22:12:28.000000000 +0200
++++ /etc/razor/razor-agent.conf 2011-10-10 22:10:47.000000000 +0200
 @@ -14,7 +14,7 @@
  listfile_catalogue     = servers.catalogue.lst
  listfile_discovery     = servers.discovery.lst
@@ -1388,8 +1390,10 @@ i   razor  - spam-catcher using a collaborative filtering network</screen>
 
   <para>Au niveau utilisateur, on enregistre le service.</para>
 
-<screen width='80'><prompt>#</prompt> su amavis -c 'razor-admin -register'
-Register successful.  Identity stored in /var/lib/amavis/.razor/identity-ruXyA99U4H</screen>
+<screen width='80'><prompt>#</prompt> mkdir /var/lib/amavis/.razor
+<prompt>#</prompt> chown amavis.amavis /var/lib/amavis/.razor
+<prompt>#</prompt> su amavis -c 'razor-admin -home /var/lib/amavis/.razor -register'
+Register successful.  Identity stored in /var/lib/amavis/.razor/identity-rumyOpNfhL</screen>
 
   <para>Le répertoire <filename
   class='directory'>/var/lib/amavis/.razor/</filename> contient l'ensemble des
@@ -1403,38 +1407,52 @@ Register successful.  Identity stored in /var/lib/amavis/.razor/identity-ruXyA99
   rapports délivrés par <application>spamassassin</application>.</para>
 
   <para>La première méthode consiste à tester un échantillon de pourriel fourni
-  avec les sources du service <application>amavisd-new</application>. Voici un
-  exemple de la syntaxe de test du fichier
-  <filename>sample-spam.txt</filename>.</para>
+  avec les sources du service <application>amavisd-new</application>.</para>
 
-<screen width='80'><prompt>#</prompt> su amavis -c 'spamassassin -D &lt;sample-spam.txt' &gt;test-report.txt 2&gt;&amp;1</screen>
+<screen width='80'><prompt>#</prompt> su amavis -c 'spamassassin -D &lt;/usr/local/src/amavisd-new-2.7.0/test-messages/sample-spam-GTUBE-junk.txt >test-report.txt 2>&amp;1'</screen>
 
   <para>Une fois cette commande exécutée, le rapport peut être consulté avec
   <command>less</command> par exemple. On peut aussi effectuer des recherches
   de chaînes de caractères avec <command>egrep</command>. Voici un
-  extrait.</para>
+  extrait qui montre que les deux outils ont bien été appelés. Seul
+  <application>Pyzor</application> a détecté un
+  <wordasword>spam</wordasword>.</para>
 
 <screen width='80'><prompt>#</prompt> egrep -i '(pyzor|razor)' test-report.txt
 dbg: plugin: loading Mail::SpamAssassin::Plugin::Pyzor from @INC
 dbg: pyzor: network tests on, attempting Pyzor
 dbg: plugin: loading Mail::SpamAssassin::Plugin::Razor2 from @INC
 dbg: razor2: razor2 is available, version 2.84
-dbg: razor2: part=0 engine=4 contested=0 confidence=0
+dbg: config: fixed relative path: /var/lib/spamassassin/3.003001/updates_spamassassin_org/25_pyzor.cf
+dbg: config: using "/var/lib/spamassassin/3.003001/updates_spamassassin_org/25_pyzor.cf" for included file
+dbg: config: read file /var/lib/spamassassin/3.003001/updates_spamassassin_org/25_pyzor.cf
+dbg: config: fixed relative path: /var/lib/spamassassin/3.003001/updates_spamassassin_org/25_razor2.cf
+dbg: config: using "/var/lib/spamassassin/3.003001/updates_spamassassin_org/25_razor2.cf" for included file
+dbg: config: read file /var/lib/spamassassin/3.003001/updates_spamassassin_org/25_razor2.cf
+dbg: razor2: part=0 noresponse
 dbg: razor2: results: spam? 0
 dbg: razor2: results: engine 8, highest cf score: 0
 dbg: razor2: results: engine 4, highest cf score: 0
 dbg: util: executable for pyzor was found at /usr/bin/pyzor
 dbg: pyzor: pyzor is available: /usr/bin/pyzor
-dbg: pyzor: opening pipe: /usr/bin/pyzor check &lt; /tmp/.spamassassin25335dM6Ovttmp
-dbg: pyzor: got response: public.pyzor.org:24441 (200, 'OK') 12 0
-dbg: pyzor: listed: COUNT=12/5 WHITELIST=0
+dbg: pyzor: opening pipe: /usr/bin/pyzor check &lt; /tmp/.spamassassin17676Ek7f7Utmp
+dbg: pyzor: [17677] finished successfully
+dbg: pyzor: got response: public.pyzor.org:24441 (200, 'OK') 304 0
+dbg: pyzor: listed: COUNT=304/5 WHITELIST=0
 dbg: rules: ran eval rule PYZOR_CHECK ======> got hit (1)
-dbg: check: tests=BAYES_99,DATE_IN_PAST_12_24, \
-            DNS_FROM_RFC_DSN,INVALID_DATE,INVALID_MSGID,PYZOR_CHECK
-dbg: markup: * 3.7 PYZOR_CHECK Message list=e9 par Pyzor, voir http://pyzor.sf.net/
-        DNS_FROM_RFC_DSN,INVALID_DATE,INVALID_MSGID,PYZOR_CHECK autolearn=no
-        *  3.7 PYZOR_CHECK Message listé par Pyzor, voir http://pyzor.sf.net/
- 3.7 PYZOR_CHECK            Message listé par Pyzor, voir http://pyzor.sf.net/</screen>
+dbg: check: tests=GTUBE,NO_RECEIVED,NO_RELAYS,PYZOR_CHECK
+dbg: timing: total 2001 ms - init: 1136 (56.8%), parse: 1.21 (0.1%),
+  extract_message_metadata: 21 (1.1%), get_uri_detail_list: 0.49 (0.0%),
+  tests_pri_-1000: 7 (0.4%), compile_gen: 107 (5.3%), compile_eval: 21 (1.1%),
+  tests_pri_-950: 6 (0.3%), tests_pri_-900: 6 (0.3%), tests_pri_-400: 5 (0.2%),
+  tests_pri_0: 743 (37.1%), dkim_load_modules: 23 (1.2%), check_dkim_signature:
+  0.45 (0.0%), check_dkim_adsp: 180 (9.0%), check_spf: 30 (1.5%), check_dcc:
+  0.21(0.0%), check_razor2: 209 (10.4%), check_pyzor: 80 (4.0%), tests_pri_500:
+  56(2.8%), tests_pri_1000: 11 (0.5%), total_awl: 6 (0.3%), check_awl: 0.56
+  (0.0%), update_awl: 1.70 (0.1%)
+dbg: markup: [...] * 2.0 PYZOR_CHECK Message list=e9 par Pyzor, voir http://pyzor.sf.net/
+    NO_RELAYS,PYZOR_CHECK autolearn=no version=3.3.1
+    *  2.0 PYZOR_CHECK Message listé par Pyzor, voir http://pyzor.sf.net/</screen>
 
   <para>La seconde méthode consiste à consulter les journaux du service
   <application>amavisd-new</application> en cours de fonctionnement. Voici un
@@ -1442,20 +1460,20 @@ dbg: markup: * 3.7 PYZOR_CHECK Message list=e9 par Pyzor, voir http://pyzor.sf.n
   doute. On y voit clairement apparaître les coefficients attribués par
   <application>Pyzor</application> et <application>Razor</application>.</para>
 
-<screen width='80'>SPAM, &lt;xxxxx-request@listes.lesxxxxs.fr> -> &lt;xxxx.xxxxx@xxx-xxxxx.fr>,
-Yes, score=33.506 tag=-999 tag2=6.31 kill=6.31\
-tests=[AV:Sanesecurity.Spam.9304.UNOFFICIAL=0.1, \
-BAYES_50=2.5, DIGEST_MULTIPLE=0.001, FS_REPLICA=1.041, HTML_MESSAGE=0.001, \
-
-<emphasis>PYZOR_CHECK=3.7, RAZOR2_CF_RANGE_51_100=3.5, \
-RAZOR2_CF_RANGE_E4_51_100=1.5, RAZOR2_CF_RANGE_E8_51_100=1.5, \
-RAZOR2_CHECK=2.5</emphasis>, \
-
-REPLICA_WATCH=3.396, SARE_SPEC_REPLICA_OBFU=1.812, \
-SARE_SPEC_ROLEX_REP=1.666, URIBL_AB_SURBL=1.86, \
-URIBL_BLACK=1.955, URIBL_JP_SURBL=1.501, URIBL_OB_SURBL=1.5, \
-URIBL_SBL=1.499, URIBL_SC_SURBL=0.474, URIBL_WS_SURBL=1.5] \
-autolearn=spam, quarantine M-1gv4WGFeOI (spam-quarantine)</screen>
+<screen width='80'>header_edits_for_quar: &lt;xxxxx@xxxxxxxxx.fr> -> &lt;xxxxxxx@xxxxxxxxx.fr>,
+Yes, score=48.957 tag=-999 tag2=6.31 kill=6.31
+tests=[AV:Sanesecurity.Junk.38228.UNOFFICIAL=0.1, DIGEST_MULTIPLE=0.001,
+FROM_IN_TO_AND_SUBJ=3.399, HELO_DYNAMIC_IPADDR2=3.888,
+HELO_DYNAMIC_SPLIT_IP=2.893, HTML_IMAGE_ONLY_28=0.726, HTML_MESSAGE=0.001,
+INVALID_MSGID=1.167, L_P0F_UNKN=0.8, MIME_HTML_ONLY=1.105,
+MIME_QP_LONG_LINE=0.001, MISSING_DATE=1.396, 
+MSGID_SHORT=0.337, <emphasis>PYZOR_CHECK=1.985, RAZOR2_CF_RANGE_51_100=0.365,
+RAZOR2_CF_RANGE_E8_51_100=2.43, RAZOR2_CHECK=1.729,</emphasis> RCVD_IN_BRBL_LASTEXT=1.644,
+RCVD_IN_PBL=3.558, RCVD_IN_SORBS_DUL=0.001, RCVD_IN_XBL=0.724, RDNS_NONE=1.274,
+SPF_FAIL=0.919, TO_EQ_FM_DIRECT_MX=0.001, TO_EQ_FM_DOM_SPF_FAIL=0.001,
+TO_EQ_FM_HTML_DIRECT=1.753, TO_EQ_FM_HTML_ONLY=0.001, TO_EQ_FM_SPF_FAIL=0.973,
+TO_IN_SUBJ=3.899, TVD_RCVD_IP=0.001, URIBL_AB_SURBL=4.499, URIBL_BLACK=1.775,
+URIBL_JP_SURBL=1.948, URIBL_WS_SURBL=1.659, X_MAILER_CME_6543_MSN=2.004]</screen>
   </sect3>
   </sect2>
 </sect1>

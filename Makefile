@@ -6,10 +6,10 @@ endif
 SUBDIRS = \
 	images \
 	articles \
-	formations \
 	guides \
 	presentations \
-	travaux_pratiques
+	travaux_pratiques \
+	formations
 
 # Type(s) de traitement
 PROCESS = subdirs 
