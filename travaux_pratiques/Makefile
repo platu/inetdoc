@@ -12,6 +12,8 @@ SUBDIRS = \
 	intro.analyse \
 	interco.kernel.qa \
 	interco.kernel.q \
+	interco.rawip.qa \
+	interco.rawip.q \
 	interco.netfilter.qa \
 	interco.netfilter.q \
 	inter-vlan.routing
