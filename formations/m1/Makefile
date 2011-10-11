@@ -15,7 +15,8 @@ SYMLINKS = \
 XML_FILES = \
 	m1.xml \
 	linux.networking.abstract.xml \
-	noyau.tp.abstract.xml
+	noyau.tp.abstract.xml \
+	rawip.tp.abstract.xml
 
 
 all: $(PROCESS)
@@ -26,4 +27,7 @@ linux.networking.abstract.xml: $(MAIN_DIR)/guides/linux.networking/$(ABSTRACT_FI
 	ln -s $< $@
 
 noyau.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.kernel.q/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+rawip.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.rawip.q/$(ABSTRACT_FILE)
 	ln -s $< $@
