@@ -14,6 +14,8 @@ SUBDIRS = \
 	interco.kernel.q \
 	interco.rawip.qa \
 	interco.rawip.q \
+	interco.ppp.qa \
+	interco.ppp.q \
 	interco.netfilter.qa \
 	interco.netfilter.q \
 	inter-vlan.routing
@@ -27,6 +29,8 @@ XML_FILES = \
 	config.interface.lan/$(ABSTRACT_FILE) \
 	intro.analyse/$(ABSTRACT_FILE) \
 	interco.kernel.q/$(ABSTRACT_FILE) \
+	interco.rawip.q/$(ABSTRACT_FILE) \
+	interco.ppp.q/$(ABSTRACT_FILE) \
 	interco.netfilter.q/$(ABSTRACT_FILE) \
 	inter-vlan.routing/$(ABSTRACT_FILE)
 
