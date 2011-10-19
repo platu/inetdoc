@@ -2,8 +2,10 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
+SUBDIRS = images
+
 # Type(s) de traitement
-PROCESS = qonly symlink xml2xhtml xml2pdf
+PROCESS = subdirs qonly symlink xml2xhtml xml2pdf
 
 SYMLINKS = \
         $(MAIN_DIR)/common/author.xml \
