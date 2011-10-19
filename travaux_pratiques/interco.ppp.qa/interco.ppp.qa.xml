@@ -1007,6 +1007,10 @@ case "$PPP_IFACE" in
     </tgroup>
   </table>
 
+  <para>Comme dans le tableau d'adressage précédent, les adresses données
+  ci-dessus étant utilisées par des liens point à point, le masque réseau
+  occupe les 32 bits de l'espace d'adressage.</para>
+
   <warning>
   <para>Les connexions <acronym>RNIS</acronym> des routeurs
   (<wordasword>Hubs</wordasword> doivent se faire directement sur les ports de
@@ -1014,193 +1018,160 @@ case "$PPP_IFACE" in
   les deux canaux B du port <acronym>BRI</acronym>.</para>
   </warning>
   </sect2>
+</sect1>
 
-  <sect2 xml:id='interco.ppp.qa.nas.lan'>
+
+<sect1 xml:id='interco.ppp.qa.hub'>
+  <title>Configuration du routeur Hub</title>
+
+  <para>Compte tenu de la topologie définie dans la section précédente, on doit
+  configurer les interfaces <acronym>LAN</acronym> et <acronym>WAN</acronym> du
+  <wordasword>Hub</wordasword>. Ce routeur doit fournir l'accès Internet via
+  son interface <acronym>LAN</acronym> et attribuer les adresses
+  <acronym>IP</acronym> aux <wordasword>Spokes</wordasword> via ses interfaces
+  <acronym>WAN</acronym>.</para>
+
+  <sect2 xml:id='interco.ppp.qa.hub.lan'>
     <title>Connexion au réseau local</title>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
       <question>
-      <para>Quelles sont les opérations nécessaires à la configuration de
-      l'interface Ethernet ?</para>
+      <para><phrase>Comment activer le routage au niveau dans le noyau du
+      routeur ?</phrase></para>
+      
+      <para>Consulter les documentations &url.config.interface.lan; et
+      &url.nat-howto;.</para>
       </question>
       <answer>
-      <para>Reprendre les questions du support &url.interco.rawip;.</para>
+      <para>Les paramètres de réglage des fonctions réseau du noyau Linux sont
+      situés dans l'arborescence <filename class='directory'>/proc</filename>.
+      Le paramètre qui nous intéresse est <option>ip_forward.</option>. Par
+      défaut, sa valeur est à <option>0</option> et le routage est désactivé
+      dans le noyau. On doit donc passer cette valeur à <option>1</option> pour
+      activer le routage.</para>
+ 
+<screen width='80'><prompt>#</prompt> echo 1 > /proc/sys/net/ipv4/ip_forward</screen>
+
+      <para>Pour rendre ce réglage permanent, il est possible d'éditer le
+      fichier <filename>/etc/sysctl.conf</filename>. De cette façon, le routage
+      sera activé à chaque redémarrage du système. Dans le cadre des travaux
+      pratiques, ce n'est pas nécessaire.</para>
       </answer>
     </qandaentry>
 
     <qandaentry>
       <question>
-      <para>Quels sont les tests à réaliser pour s'assurer du fonctionnement de
-      l'accès Internet ?</para>
+      <para><phrase>Quelles sont les opérations nécessaires à la configuration
+      de la traduction des adresses sources des paquets sortant par
+      l'interface LAN ?</phrase></para>
+      
+      <para>Consulter la documentation &url.nat-howto;.</para>
       </question>
       <answer>
-      <para>Reprendre la séquence «rituelle» des tests <acronym>ICMP</acronym>
-      avec la commande <command>ping</command> et les adresses : boucle
-      locale (<wordasword>loopback</wordasword>), interface locale, passerelle
-      par défaut et une adresse réseau située sur un autre réseau. Ce n'est
-      qu'en dernier lieu que l'on doit effectuer un test avec le service de
-      noms de domaines à l'aide des commandes <command>host</command> ou
+      <para>On utilise ici la méthode de traduction d'adresses sources la plus
+      simple. Elle est connue sous le nom de
+      <wordasword>masquerading</wordasword>.</para>
+ 
+<screen width='80'><prompt>#</prompt> iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quels sont les tests à réaliser pour s'assurer du
+      fonctionnement de l'accès Internet ?</phrase></para>
+
+      <para>Consulter la documentation &url.config.interface.lan;.</para>
+      </question>
+      <answer>
+      <para>Les tests peuvent se décomposer en deux parties : l'utilisation du
+      protocole <acronym>ICMP</acronym> et l'analyse réseau.</para>
+
+      <para>Avec <acronym>ICMP</acronym>, il faut reprendre la séquence
+      «rituelle» des requêtes <wordasword>echo</wordasword> en allant de la
+      destination la plus proche à la plus éloignée. On débute avec l'interface
+      de boucle locale (<wordasword>loopback</wordasword>), puis l'interface
+      locale, puis la passerelle par défaut et enfin une adresse
+      <acronym>IP</acronym> située sur un autre réseau. Ce n'est qu'en dernier
+      lieu que l'on doit effectuer un test avec le service de noms de domaines
+      à l'aide des commandes <command>host</command> ou
       <command>dig</command>. Enfin, si le protocole <acronym>ICMP</acronym>
-      n'est pas disponible au delà du réseau local, il faut utiliser la
-      commande <command>tcptraceroute</command> pour tester la connectivité
+      n'est pas disponible au delà du réseau local, on peut utiliser un outil
+      du type <command>tcptraceroute</command> pour tester la connectivité
       inter réseau.</para>
+
+      <para>Pour la partie analyse réseau, <application>tshark</application>
+      permet d'analyser à la console le trafic passant par chacune des
+      interfaces d'un routeur. Il permet notamment de caractériser le
+      fonctionnement de la traduction d'adresses entre les interfaces
+      <acronym>LAN</acronym> et <acronym>WAN</acronym>.</para>
       </answer>
     </qandaentry>
   </qandaset>
   </sect2>
 
-  <sect2 xml:id='interco.ppp.qa.nas.wan'>
+  <sect2 xml:id='interco.ppp.qa.hub.wan'>
     <title>Connexion au réseau étendu</title>
+
+  <para>Chaque routeur <wordasword>Hub</wordasword> utilise les deux canaux B
+  d'un bus S0. On doit donc configurer deux interfaces <literal>ipppX</literal>
+  pour établir les connexions point à point avec les deux
+  <wordasword>Spokes</wordasword>.</para>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
       <question>
-      <para>Quelles sont les opérations nécessaires à la configuration de
-      l'interface <acronym>RNIS</acronym> en serveur d'appels ?</para>
+      <para><phrase>Quelles sont les opérations supplémentaires nécessaires à
+      la configuration des interfaces <acronym>RNIS</acronym> du routeur
+      <wordasword>Hub</wordasword> ?</phrase></para>
+
+      <para>Consulter les pages de manuels de la commande
+      <command>isdnctrl</command> en effectuant une recherche avec la
+      clé : <literal>pppbind</literal>.</para>
       </question>
       <answer>
-      <para>Reprendre les questions ci-avant.</para>
-<!--      : <xref
-      linkend="interco.ppp.qa.protocol"/>.</para>-->
+      <para>De façon à éviter les «croisements» entre les affectations
+      d'adresses <acronym>IP</acronym> des deux
+      <wordasword>Spokes</wordasword>, il est nécessaire de lier les interfaces
+      réseau avec le plan de numérotation téléphonique. Par exemple, sur le
+      <wordasword>Hub</wordasword> <citetitle>Centares</citetitle>, on peut
+      exécuter les commandes suivantes.</para>
+
+<screen width='80'><prompt>#</prompt> isdnctrl pppbind ippp0 0
+<prompt>#</prompt> isdnctrl pppbind ippp1 1</screen>
       </answer>
     </qandaentry>
 
     <qandaentry>
       <question>
-      <para>Donner la liste des options de la commande
-      <command>isdnctrl</command> pour la configuration serveur
-      d'appels ?</para>
+      <para><phrase>Donner la liste des options de la commande
+      <command>isdnctrl</command> pour la configuration des deux interfaces du
+      <wordasword>Hub</wordasword> ?</phrase></para>
+
+      <para>Reprendre les instructions vues dans le support &url.interco.rawip;
+      et la <xref linkend='interco.ppp.qa.ppp-protocol' />.</para>
       </question>
-      <answer>
-      <para>Rechercher dans les documents les éléments associés à l'option
-      <option>dialin</option>.</para>
-      </answer>
+<!--      <answer>
+      </answer>-->
     </qandaentry>
 
     <qandaentry>
       <question>
-      <para>Quels sont les fichiers nécessaires à l'utilisation du démon
-      <systemitem class='daemon'>ipppd</systemitem> en serveur
-      d'appels ?</para>
-      </question>
-      <answer>
-      <para>Utiliser les pages de manuels du démon
-      <systemitem class='daemon'>ipppd</systemitem>.</para>
-      </answer>
-    </qandaentry>
+      <para><phrase>Quelle est l'option de la commande
+      <command>isdnctrl</command> qui permet de sauvegarder/restituer la
+      configuration de l'interface <acronym>RNIS</acronym> ?</phrase></para>
 
-    <qandaentry>
-      <question>
-      <para>Quelle est l'option de la commande <command>isdnctrl</command> qui
-      permet de sauvegarder/restituer la configuration de l'interface
-      (<acronym>RNIS</acronym>|<acronym>ISDN</acronym>) ?</para>
-      </question>
-      <answer>
       <para>Utiliser les pages de manuel de l'outil
       <command>isdnctrl</command>. Sauvegarder le fichier de configuration de
       l'interface pour les utilisations ultérieures.</para>
-      </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
-
-  <sect2 xml:id='interco.ppp.qa.nas.nat'>
-    <title>Configuration du routeur d'accès
-    (<wordasword>Hub</wordasword>)</title>
-   
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para>Quelle est la fonction réseau du noyau LINUX qui permet d'activer
-      le routage des paquets entre les interfaces du système ?</para>
       </question>
       <answer>
-      <para>Consulter le support &url.interco.kernel;.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Quelle est la fonction de filtrage utilisée pour gérer l'espace
-      d'adressage tout en contrôlant les accès ?</para>
-      </question>
-      <answer>
-      <para>Consulter le support &url.interco.kernel;.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Donner la liste des options de la commande
-      <command>iptables</command> pour activer les fonctions de traduction
-      d'adresses et de suivi de communication pour le routeur
-      d'accès ?</para>
-      </question>
-      <answer>
-      <para>À partir du support &url.interco.kernel; et des exemples donnés
-      dans le guide &url.nat-howto;, établir une configuration simple de
-      traduction d'adresse. Attention à adopter une syntaxe indépendante de
-      l'adressage <acronym>IP</acronym> pour pouvoir changer de numérotation
-      réseau à volonté.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Quels sont les tests à réaliser pour s'assurer du fonctionnement du
-      routeur d'accès Internet ?</para>
-      </question>
-      <answer>
-      <para>Reprendre la séquence «rituelle» des tests <acronym>ICMP</acronym>
-      en direction du poste client et de l'Internet. Visualiser aussi
-      l'utilisation des règles de filtrage avec l'outil
-      <command>iptables</command>.</para>
-      </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
-
-  <sect2 xml:id='interco.ppp.qa.nas.auth'>
-    <title>Authentification PPP</title>
-
-  <qandaset>
-    <qandaentry>
-      <question>
-      <para>Quelles sont les options de configuration du démon
-      <application>ipppd</application> qui permettent d'activer
-      l'authentification du routeur d'agence ?</para>
-      </question>
-      <answer>
-      <para>Consulter les pages de manuel du démon <systemitem
-      class='daemon'>ipppd</systemitem> ainsi que le guide
-      &url.ppp-howto;</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Quelles sont les informations contenues dans les messages système
-      qui permettent de valider la connexion téléphonique ?</para>
-      </question>
-      <answer>
-      <para>À partir du fichier <filename>/var/log/syslog</filename>, relever
-      les informations relatives à la couche liaison du protocole
-      <acronym>PPP</acronym> : le protocole <acronym>LCP</acronym>.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Quelles sont les informations contenues dans les messages système
-      qui permettent de valider l'échange des adresses IP entre le serveur et
-      le client ?</para>
-      </question>
-      <answer>
-      <para>Toujours à partir du fichier <filename>/var/log/syslog</filename>,
-      relever les informations relatives à la couche réseau du protocole
-      <acronym>PPP</acronym> : le protocole
-      <acronym>IPCP</acronym>.</para>
+      <para>Ce sont les options <option>readconf</option> et
+      <option>writeconf</option> de la commande <command>isdnctrl</command>
+      quit permettent respectivement de lire et d'écrire dans un fichier de
+      configuration l'ensemble des paramètres d'une ou plusieurs interfaces
+      <acronym>RNIS</acronym>.</para>
       </answer>
     </qandaentry>
   </qandaset>

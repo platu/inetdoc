@@ -5,8 +5,7 @@ endif
 # Type(s) de traitement
 PROCESS = symlink
 
-SYMLINKS = \
-        ../../interco.ppp.qa/images/*.png
+SYMLINKS = $(MAIN_DIR)/travaux_pratiques/interco.ppp.qa/images/*.png
 
 all: $(PROCESS)
 
