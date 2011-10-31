@@ -17,7 +17,8 @@ XML_FILES = \
 	linux.networking.abstract.xml \
 	noyau.tp.abstract.xml \
 	rawip.tp.abstract.xml \
-	ppp.tp.abstract.xml
+	ppp.tp.abstract.xml \
+	netfilter.tp.abstract.xml
 
 
 all: $(PROCESS)
@@ -34,4 +35,7 @@ rawip.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.rawip.q/$(ABSTRACT_
 	ln -s $< $@
 
 ppp.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ppp.q/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+netfilter.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.netfilter.q/$(ABSTRACT_FILE)
 	ln -s $< $@
