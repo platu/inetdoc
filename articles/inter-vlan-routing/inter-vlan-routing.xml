@@ -1,0 +1,490 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY phl   	     	   	SYSTEM "author.xml">
+<!ENTITY legal 			SYSTEM "legal.xml">
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.isl.dot1q
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.cisco.com/en/US/tech/tk389/tk689/technologies_tech_note09186a0080094665.shtml">
+  <citetitle>InterSwitch Link and IEEE 802.1Q Frame Format</citetitle></link>'>
+
+<!ENTITY url.ieee802.1q.standard
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://standards.ieee.org/getieee802/download/802.1Q-1998.pdf">
+  <citetitle>IEEE 802.1Q Standard</citetitle></link>'>
+]>
+
+<article xml:lang='fr' xml:id='inter-vlan-routing'>
+<info>
+  <title>Introduction au routage inter-VLAN</title>
+  &phl;
+  <abstract>
+    <para>L'utilisation des réseaux locaux virtuels (<acronym>VLANs</acronym>)
+    et du routage entre ces même réseaux locaux est devenue systématique dans
+    les infrastructures d'interconnexion contemporaines. Ce routage inter-VLAN
+    présente de nombreux intérêts tant du point de vue conception que du point
+    de vue exploitation. Il est au cœur du débat sans fin sur le thème : quelle
+    est la meilleure solution entre une interconnexion de niveau 2 (couche
+    liaison de données) et une interconnexion de niveau 3 (couche réseau) ?
+    Loin de prétendre répondre à une telle interrogation, cet article présente
+    les concepts élémentaires sur les réseaux locaux virtuels et le routage
+    associé.</para>
+  </abstract>
+  <keywordset>
+    <keyword>8021q</keyword>
+    <keyword>dot1q</keyword>
+    <keyword>encapsulation</keyword>
+    <keyword>frame</keyword>
+    <keyword>route</keyword>
+    <keyword>routing</keyword>
+    <keyword>tag</keyword>
+    <keyword>trunk</keyword>
+    <keyword>vlan</keyword>
+  </keywordset>
+</info>
+
+<sect1 xml:id='inter-vlan-routing.meta'>
+  &legal;
+  <sect2 xml:id='inter-vlan-routing.meta.file'>
+    <title>Méta-information</title>
+    
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='inter-vlan-routing.lan'>
+  <title>Quelques notions sur les réseaux locaux</title>
+
+  <para>Aujourd'hui, un réseau local utilise nécessairement la technologie
+  Ethernet. Il hérite donc des caractéristiques de cette technologie.</para>
+
+  <para>
+</sect1>
+
+<sect1 xml:id='inter-vlan-routing.vlan'>
+  <title>Réseaux locaux virtuels : VLANs</title>
+
+  <sect2 xml:id='inter-vlan-routing.intro.vlan.definitions'>
+    <title>Définitions</title>
+  <para>Généralement, un réseau local (<acronym>LAN</acronym>) est défini par
+  un domaine de diffusion. Tous les hôtes d'un réseau local reçoivent les
+  messages de diffusion émis par n'importe quel autre hôte de ce réseau. Par
+  définition, un réseau local est délimité par des équipements fonctionnant au
+  niveau 3 du modèle OSI : la couche réseau.</para>
+
+  <para>Un réseau local virtuel (<acronym>VLAN</acronym>) est un réseau local
+  (<acronym>LAN</acronym>) distribué sur des équipements fonctionnant au niveau
+  2 du modèle OSI : la couche liaison. À priori, il n'est donc plus
+  nécessaire d'avoir recours à un équipement de niveau 3 pour «borner» le
+  réseau local. Cette formulation bute sur une fonction difficile à
+  contourner : l'interconnexion des réseaux locaux. Dès que l'on a besoin
+  de communiquer entre domaines de diffusion, il est absolument nécessaire de
+  passer par les fonctions de routage du niveau réseau du modèle OSI.</para>
+
+  <para>Le réseau local est distribué sur différents équipements via des
+  liaisons dédiées appelées <wordasword>trunks</wordasword>. Un
+  <wordasword>trunk</wordasword> est une connexion physique unique sur laquelle
+  on transmet le trafic de plusieurs réseaux virtuels. Les trames qui
+  traversent le <wordasword>trunk</wordasword> sont complétées avec un
+  identificateur de réseau local virtuel (<acronym>VLAN id</acronym>). Grâce à
+  cette identification, les trames sont conservées dans un même
+  <acronym>VLAN</acronym> (ou domaine de diffusion).</para>
+
+  <para>Les <wordasword>trunks</wordasword> peuvent être utilisés :</para>
+
+  <variablelist>
+    <varlistentry xml:id='trunk.sw2sw'>
+      <term>entre deux commutateurs</term>
+      <listitem>
+      <para>C'est le mode de distribution des réseaux locaux le plus
+      courant.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='trunk.sw2host'>
+      <term>entre un commutateur et un hôte</term>
+      <listitem>
+      <para>C'est le mode de fonctionnement à surveiller étroitement. Un hôte
+      qui supporte le <wordasword>trunking</wordasword>  a la possibilité
+      d'analyser le trafic de tous les réseaux locaux virtuels.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry xml:id='trunk.sw2router'>
+      <term>entre un commutateur et un routeur</term>
+      <listitem>
+      <para>C'est le mode fonctionnement qui permet d'accéder aux fonctions de
+      routage ; donc à l'interconnexion des réseaux virtuels par routage
+      inter-VLAN. La mise en œuvre de ce type de routage est l'objet de ce
+      document.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Enfin, il ne faut pas oublier que tous les <acronym>VLANs</acronym>
+  véhiculés dans le même <wordasword>trunk</wordasword> partagent la bande
+  passante du média utilisé. Si un <wordasword>trunk</wordasword> utilise un
+  lien 100Mbps Full-Duplex, la bande passante de tous les
+  <acronym>VLANs</acronym> associés est limitée à ces 100Mbps
+  Full-Duplex.</para>
+  </sect2>
+
+  <sect2 xml:id='inter-vlan-routing.intro.vlan.standards'>
+    <title>Réseaux locaux virtuels standards</title>
+
+  <para>Il existe plusieurs mécanismes de gestion des <acronym>VLANs</acronym>.
+  Beaucoup sont propriétaires et ne fonctionnent que sur les équipements d'une
+  seule marque.</para>
+
+  <variablelist>
+    <varlistentry xml:id='port.vlan'>
+      <term><acronym>VLANs</acronym> par ports</term>
+      <listitem>
+      <para>Cette technique fournit une méthode de division d'un équipement de
+      niveau 2 (un commutateur) en plusieurs domaines de diffusion. La
+      réalisation de cette division est spécifique à chaque plateforme.</para>
+      
+      <para>Le coût d'administration de ce genre de réseaux locaux est très
+      important puisqu'il faut gérer manuellement sur chaque équipement la
+      distribution des réseaux locaux.</para>
+
+      <para>Ceci dit, cette technique ne dépend pas d'une gestion propriétaire
+      de l'affectation des ports dans les différents <acronym>VLANs</acronym>.
+      C'est la raison principale pour laquelle elle est très répandue. Le
+      commutateur assure une isolation complète entre la station et le
+      <acronym>VLAN</acronym> auquel elle appartient.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='isl.vlan'>
+      <term><acronym>VLANs</acronym> du type Cisco Inter-Switch Link</term>
+      <term><acronym>ISL</acronym> <acronym>VLANs</acronym></term>
+      <listitem>
+      <para>Cette technique a été développée spécifiquement pour les
+      équipements <trademark>Cisco</trademark>. Elle complète les en-têtes de
+      trames avec 30 octets répartis en 13 champs. Ce type d'encapsulation
+      n'est plus beaucoup utilisé du fait de son incompatibilité avec le
+      standard <acronym>IEEE 802.1Q</acronym>.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='dot1q.vlan'>
+      <term><acronym>VLANs</acronym> IEEE 802.1Q</term>
+      <listitem>
+      <para>Le standard IEEE 802.1Q fournit un mécanisme d'encapsulation
+      très répandu et implanté dans de nombreux équipements de marques
+      différentes. C'est sur ce standard que s'appuie ce document. Comme dans
+      le cas de l'encapsulation <acronym>ISL</acronym> précédente, l'en-tête de
+      trame est complété par une balise de 4 octets.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  </sect2>
+
+<?custom-pagebreak?>
+  <sect2 xml:id='inter-vlan-routing.intro.vlan.dot1q'>
+    <title>Balise IEEE 802.1Q</title>
+
+  <para>Le standard IEEE 802.1Q définit le contenu de la balise de VLAN
+  (<wordasword>VLAN tag</wordasword>) avec laquelle on complète l'en-tête de
+  trame Ethernet. Le format de la trame Ethernet modifiée avec les 4 octets
+  supplémentaires est présenté ci-dessous :</para>
+<screen width='80'>+--------------+--------------+------------+---------------------+-----+
+| adresse dst. | adresse src. | long./type | données ...         | FCS |
++--------------+--------------+------------+---------------------+-----+
+                              |\
+                              | \__________
+                              |            \
++--------------+--------------+-------+-----+------------+---------------------+-----+
+| adresse dst. | adresse src. | Etype | Tag | long./type | données ...         | FCS |
++--------------+--------------+-------+-----+------------+---------------------+-----+
+                                     /       \
+                                 ___/         \___
+                                /                 \
+                               +---+-+----+--------+
+                               |pri| |    |vlan id |
+                               +---+-+----+--------+</screen>
+
+  <para>Il faut noter que le champ <literal>FCS</literal> est recalculé après
+  l'insertion de la balise de <acronym>VLAN</acronym>.</para>
+
+  <para>Voici un extrait de capture, réalisée avec
+  <application>Wireshark</application>, qui illustre les champs de la balise
+  <acronym>IEEE 802.1Q</acronym>.</para>
+
+  <note xml:id='ieee8021q.tshark'>
+  <para>Pour ne capturer que les trames avec balise
+  <acronym>IEEE 802.1Q</acronym>, voici la syntaxe de filtrage à
+  priori :
+  <userinput># tshark -i eth0 -w sample.cap vlan</userinput>.</para>
+  </note>
+  
+<screen width='80'>Frame 103 (1518 bytes on wire, 1518 bytes captured)
+Ethernet II, Src: 00:14:f2:75:ed:72, Dst: 00:10:5a:de:9d:d7
+    Destination: 3com_de:9d:d7 (00:10:5a:de:9d:d7)
+    Source: Cisco_75:ed:72 (00:14:f2:75:ed:72)
+    Type: 802.1Q Virtual LAN (0x8100) <co xml:id='ieee8021q.tpid'/>
+802.1Q Virtual LAN
+    000. .... .... .... = Priority: 0 <co xml:id='ieee8021q.prio'/>
+    ...0 .... .... .... = CFI: 0      <co xml:id='ieee8021q.cfi'/>
+    .... 0000 0110 0100 = ID: 100     <co xml:id='ieee8021q.vid'/>
+    Type: IP (0x0800)
+Internet Protocol, Src: 172.17.0.2 (172.17.0.2), Dst: 172.16.80.19 (172.16.80.19)
+Transmission Control Protocol, Src Port: www (80), Dst Port: 1548 (1548)
+</screen>
+
+  <calloutlist>
+    <callout arearefs='ieee8021q.tpid'>
+    <variablelist>
+      <varlistentry>
+        <term><citetitle>Tag protocol identifier</citetitle></term>
+        <term>TPID</term>
+        <term>EtherType</term>
+        <listitem>
+	<para>Ce champ de 16 bits identifie le protocole véhiculé dans la
+	trame. La valeur <literal>0x8100</literal> désigne une balise
+	<acronym>IEEE 802.1Q / 802.1P</acronym>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    </callout>
+    <callout arearefs='ieee8021q.prio'>
+    <variablelist>
+      <varlistentry>
+        <term><citetitle>Priority</citetitle></term>
+        <listitem>
+	<para>Ce champ de 3 bits fait référence au standard
+	<acronym>IEEE 802.1P</acronym>. Sur 3 bits on peut coder 8 niveaux
+	de priorités de 0 à 7. La notion de priorité dans les
+	<acronym>VLANs</acronym> est sans rapport avec les mécanismes de
+	priorité <acronym>IP</acronym> au niveau réseau. Ces 8 niveaux sont
+	utilisés pour fixer une priorité aux trames d'un
+	<acronym>VLAN</acronym> relativement aux autres
+	<acronym>VLANs</acronym>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    </callout>
+    <callout arearefs='ieee8021q.cfi'>
+    <variablelist>
+      <varlistentry>
+        <term><citetitle>Canonical Format Identifier</citetitle></term>
+        <listitem>
+	<para>Ce champ codé sur 1 bit assure la compatibilité entre les
+	adresses MAC Ethernet et Token Ring. Un commutateur Ethernet fixera
+	toujours cette valeur à 0. Si un port Ethernet reçoit une valeur 1 pour
+	ce champ, alors la trame ne sera pas propagée puisqu'elle est destinée
+	à un port «sans balise» (<wordasword>untagged
+	port</wordasword>).</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    </callout>
+    <callout arearefs='ieee8021q.vid'>
+    <variablelist>
+      <varlistentry>
+        <term><citetitle>VLAN Identifier</citetitle></term>
+        <term>vlan id</term>
+        <term>VID</term>
+        <listitem>
+	<para>Ce champ de 12 bits sert à identifier le réseau local virtuel
+	auquel appartient la trame. Il est possible de coder 4094
+	(<literal>2^12-2</literal>) réseaux virtuels (<acronym>VLAN</acronym>s)
+	avec ce champ.</para>
+        </listitem>
+    </varlistentry>
+    </variablelist>
+    </callout>
+  </calloutlist>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='inter-vlan-routing.intro.routage'>
+  <title>Routage inter-VLAN</title>
+
+  <para>A partir de l'argumentation développée dans l'article <xref
+  linkend='inter-vlan-routing.segmentation.lan'/>, on dispose de deux règles de
+  base. Sans aucune programmation particulière des équipements :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Une interface de <emphasis>commutateur</emphasis> délimite un domaine
+    de <emphasis>collision</emphasis>.</para>
+    </listitem>
+    <listitem>
+    <para>Une interface de <emphasis>routeur</emphasis> délimite un domaine de
+    <emphasis>diffusion</emphasis>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <sect2 xml:id='inter-vlan-routing.intro.routage.avant'>
+    <title>Situation avant routage inter-VLAN</title>
+  <para>Du point de vue conception, le respect de ces deux règles impose que
+  l'on ajoute une interface de routeur pour chaque nouveau domaine de diffusion
+  ou périmètre de contrôle. De plus, les commutateurs appartenant à un domaine
+  de diffusion sont dédiés à ce domaine. Il n'est pas possible de distribuer
+  plusieurs réseaux locaux virtuels entre plusieurs domaines de diffusion
+  «isolés» par un routeur.</para>
+  
+<screen width='80'>&segmentation.avant;
+</screen>
+
+  <para>Remarques sur ce type de conception :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Si on programme le commutateur A avec 2 VLANs distincts pour chacun
+    des PCs <literal>A1</literal> et <literal>A2</literal>, alors toute
+    communication entre <literal>A1</literal> et <literal>A2</literal> sera
+    impossible. De plus, ces deux PCs ne pourront communiquer avec d'autres
+    réseaux que si l'interface du routeur <literal>RA</literal> appartient aux
+    deux VLANs programmés.</para>
+
+    <para>Cette situation peut présenter des avantages du point de vue
+    exploitation mais elle dépend beaucoup de la gestion des interfaces
+    physiques. Ce que ne montre pas le diagramme simplifié ci-dessus, c'est que
+    le coût d'administration devient très important dès que le nombre de
+    réseaux virtuels augmente.</para>
+    </listitem>
+    <listitem>
+    <para>Si l'utilisateur «associé» au PC <literal>A1</literal> déménage dans
+    un lieu ou seul le domaine de diffusion B est distribué, il est nécessaire
+    d'étendre le domaine de diffusion A jusqu'à ce nouveau lieu. En
+    conséquence, il faudra installer un nouveau commutateur et câbler de
+    nouvelles prises entre le point de brassage principal du domaine A et ce
+    lieu.</para>
+    
+    <para>Sur une même infrastructure, on se retrouve rapidement avec des
+    commutateurs saturés pour lesquels tous les ports disponibles sont utilisés
+    et d'autres commutateurs pour lesquels seuls quelques ports sont
+    utilisés.</para>
+
+    <para>Ce scénario montre qu'il est excessivement difficile d'optimiser le
+    parc des ports de commutateurs avec ce type d'architecture. Le coût de
+    l'infrastructure augmente donc fortement puisqu'il faut passer par des
+    réinvestissements lourds en câblage et en équipements à chaque modification
+    des périmètres.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='inter-vlan-routing.intro.routage.apres'>
+    <title>Situation après routage inter-VLAN</title>
+  <para>Les deux règles de base énoncées ci-dessus ne sont pas remises en
+  question. Il s'agit maintenant de dissocier les notions d'interface physique
+  et d'interface de routage. On n'associe plus une interface physique à chaque
+  domaine de diffusion mais une interface «virtuelle» (encore du
+  virtuel !).</para>
+  
+<screen width='80'>&segmentation.apres;
+</screen>
+
+  <para>Remarques sur ce type de conception relativement à la situation sans
+  routage inter-VLAN :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Le contrôle d'accès est centralisé au niveau du routeur. Il n'existe
+    plus de «mélange des genres» entre la programmation des commutateurs et le
+    contrôle d'accès au niveau réseau. Les communications entre les hôtes d'un
+    même domaine de diffusion ou entre plusieurs domaines de diffusion sont
+    gérées de la même façon.</para>
+
+    <para>On obtient donc de véritables réseaux locaux distribués sur la
+    totalité de l'infrastructure (équipements de niveau 2 + équipements de
+    niveau 3).</para>
+    </listitem>
+    <listitem>
+    <para>La gestion du parc des ports de commutation est optimisée. Comme les
+    domaines de diffusion sont partagés entre tous les équipements, la gestion
+    des évolutions est beaucoup plus souple. Les déménagements n'entraînent
+    aucun recâblage tant que le nombre d'utilisateurs ne change pas. Il est
+    donc possible de <emphasis>concentrer</emphasis> l'administration sur un
+    nombre d'équipements plus faible que dans une architecture sans routage
+    inter-VLAN.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='inter-vlan-routing.intro.routage.debits'>
+    <title>Augmentation des débits</title>
+  <para>Si les avantages liés aux facilités d'exploitation ne suffisaient pas,
+  l'augmentation des débits favorise un peu plus l'adoption d'architectures à
+  base de routage inter-VLAN. Les évolutions techniques des routeurs conduisent
+  à diminuer le nombre de leurs interfaces alors que les évolutions des
+  commutateurs conduisent à augmenter considérablement le nombre de leurs
+  ports.</para>
+
+  <para>En reprenant la remarque sur le partage des débits entre les VLANs à
+  l'intérieur des <wordasword>trunks</wordasword> (voir <xref
+  linkend='inter-vlan-routing.intro.vlan.definitions'/>), il devient
+  intéressant de partager le débit disponible «en fond de panier» dans les
+  châssis de commutateurs. Le critère de choix d'un équipement, commutateur ou
+  routeur, s'articule de plus en plus autour du rapport :</para>
+<screen width='80'>   capacité de commutation en millions de paquets par seconde (mpps)
+   -----------------------------------------------------------------
+                                prix
+</screen>
+
+   <para>Ce que l'on appelle commutateur de niveau 3 correspond le plus souvent
+   à un module de routage matériel ou logiciel inséré dans un commutateur
+   classique de niveau 2. Si on reprend le diagramme ci-dessus avec ce genre
+   d'équipement, il ne faudrait plus qu'un seul châssis en lieu et place du
+   routeur et des deux commutateurs. La répartition des rôles resterait
+   inchangée.</para>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='inter-vlan-routing.references'>
+  <title>Documents de référence</title>
+
+  <variablelist>
+    <varlistentry xml:id='inter-vlan-routing.ieee802.1q.standard'>
+      <term><citetitle>IEEE 802.1Q Standard</citetitle></term>
+      <listitem>
+      <para>&url.ieee802.1q.standard;</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='inter-vlan-routing.cisco.vlan.encap'>
+      <term>Standards d'encapsulation dans les <wordasword>trunks</wordasword></term>
+      <listitem>
+      <para>Documentation <trademark>Cisco</trademark> :
+      &url.isl.dot1q;</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='inter-vlan-routing.segmentation.lan'>
+      <term><citetitle>La segmentation des réseaux locaux</citetitle></term>
+      <listitem>
+      <para>&url.segmentation.lan; : argumentation sur les fonctions de
+      commutation et de routage.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='inter-vlan-routing.config.interface.lan'>
+      <term><citetitle>Configuration d'une interface de réseau local</citetitle></term>
+      <listitem>
+      <para>&url.config.interface.lan; : présentation complète sur la
+      configuration des interfaces réseau avec un système GNU/Linux. La section
+      sur les <citetitle>Fonctions réseau d'un interface</citetitle> traite des
+      réglages possibles au niveau du noyau Linux. C'est à ce niveau que l'on
+      retrouve l'activation du routage. Voir <xref
+      linkend='inter-vlan-routing.typical.routing'/>.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='inter-vlan-routing.archi.tp'>
+      <term><citetitle>Architecture réseau des travaux pratiques</citetitle></term>
+      <listitem>
+	<para>Le support &url.archi.tp;  présente la topologie physique de
+	la salle de travaux pratiques avec la &url.archi.tp.brassage; ainsi que
+	les configurations par défaut des équipements. On y trouve aussi le
+	plan d'adressage IP utilisé avec les autres supports de travaux
+	pratiques, le plan de numérotations des VLANs et les affectations des
+	groupes de ports des commutateurs.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+</article>
