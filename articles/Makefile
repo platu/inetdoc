@@ -16,7 +16,8 @@ SUBDIRS = \
 	pppoe \
 	adressage.ipv4 \
 	ospf-migration \
-	lan.segmentation
+	lan.segmentation \
+	inter-vlan-routing
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
@@ -32,7 +33,8 @@ XML_FILES = \
 	pppoe/$(ABSTRACT_FILE) \
 	adressage.ipv4/$(ABSTRACT_FILE) \
 	ospf-migration/$(ABSTRACT_FILE) \
-	lan.segmentation/$(ABSTRACT_FILE)
+	lan.segmentation/$(ABSTRACT_FILE) \
+	inter-vlan-routing/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 
