@@ -65,22 +65,63 @@
 
   <para>Aujourd'hui, un réseau local repose presque systématiquement sur la
   technologie Ethernet. Il hérite donc des caractéristiques de cette
-  technologie. La notion clé dans notre contexte est la
-  <emphasis>diffusion</emphasis>. Par définition, tous les hôtes d'un réseau
-  local reçoivent les trames de diffusion émises par n'importe quel autre hôte
-  de ce réseau.</para>
+  technologie. Les deux notions clé dans ce contexte sont
+  <emphasis>collision</emphasis> et <emphasis>diffusion</emphasis>.</para>
+  
+  <para>Une collision intervient lorsque deux hôtes d'un réseau émettent
+  simultanément sur un média partagé. On appelle <emphasis>domaine de
+  collision</emphasis> un sous-ensemble du réseau à l'intérieur duquel les
+  hôtes sont en compétition pour accéder à un même média ou canal de
+  communication. Plus le nombre d'hôtes présents dans un même domaine de
+  collision est important, plus la fréquence des collisions augmente et plus
+  les performances se dégradent. Pour garantir les meilleures conditions de
+  communication, on cherche donc à réduire au maximum l'étendue du domaine de
+  collision. Sur les réseaux filaires actuels, les domaines de collision ne
+  posent plus aucun problème depuis que l'on utilise des commutateurs.</para>
 
-  <para>Si on fait correspondre la <link
-  linkend='inter-vlan-routing.osi'>modélisation OSI</link> et la technologie
-  Ethernet, on considère que cette dernière correspond à la couche physique et
-  une partie de la couche liaison.</para>
+  <para>La diffusion est un mécanisme d'annonce générale qui assure que tous
+  les hôtes d'un réseau local reçoivent les trames de diffusion émises par
+  n'importe quel autre hôte de ce même réseau. On appelle <emphasis>domaine de
+  diffusion</emphasis> un réseau à l'intérieur duquel tous les hôtes peuvent
+  émettre et doivent recevoir des trames de diffusion. Comme dans le cas
+  précédent, plus le nombre d'hôtes présents dans le domaine de diffusion est
+  important, plus les performances se dégradent. Là encore, pour garantir les
+  meilleures conditions de communication, on cherche à réduire
+  «raisonnablement» l'étendue du domaine de diffusion. C'est précisément sur le
+  dimensionnement des domaines de diffusion que le débat sur le choix du niveau
+  d'interconnexion entre réseaux locaux intervient. Le document
+  &url.segmentation.lan; apporte un premier niveau d'éclairage.</para>
 
-  <table xml:id='nter-vlan-routing.osi-ethernet' frame='none' pgwide='1'>
-    <title>Correspondance OSI Ethernet</title>
+  <para>Voyons comment on délimite les domaines de collision et de diffusion en
+  faisant la correspondance entre les définitions données par la modélisation
+  <acronym>OSI</acronym> et le standard Ethernet. Un fois cette correspondance
+  faite, nous verrons les fonctions des équipements utilisés pour
+  l'interconnexion qui bornent ces domaines.</para>
+
+
+  <sect2 xml:id='inter-vlan-routing.lan.osi-ethernet'>
+    <title>Correspondance entre modélisation OSI et standard Ethernet</title>
+
+  <para>Depuis plus de deux décennies, la modélisation <acronym>OSI</acronym>
+  sert de référence à la description des couches orientées transmission de
+  l'information. Elle est présentée de façon plus détaillée dans le support
+  &url.modelisations;.</para>
+
+  <para>Les spécifications des réseaux Ethernet sont eux aussi publiés depuis
+  plus de deux décennies par l'<wordasword>Institute of Electrical and
+  Electronics Engineers</wordasword>. Ils sont accessibles à la page
+  &url.802.3;.</para>
+  
+  <para>Si on fait correspondre le modèle <acronym>OSI</acronym> et le standard
+  Ethernet, ce sont les couches physique et une moitié de la couche liaison qui
+  nous intéressent.</para>
+
+  <table xml:id='inter-vlan-routing.lan.osi-ethernet.table' frame='none' pgwide='1'>
+    <title>Correspondance modèle OSI - standard Ethernet</title>
     <tgroup cols='2'>
       <colspec colnum='1' colwidth='1*'/>
-      <colspec colnum='2' colwidth='.75*'/>
-    <tbody>
+      <colspec colnum='2' colwidth='1*'/>
+    <tbody align='left'>
       <row>
       <entry>
       <inlinemediaobject>
@@ -88,14 +129,52 @@
         <imagedata format='SVG' fileref='images/osi-ethernet.svg' width='8cm' scalefit='1' />
         </imageobject>
         <imageobject role='html'>
-        <imagedata format='PNG' fileref='images/osi-ethernet.png' width='8cm' scalefit='1' />
+        <imagedata format='PNG' fileref='images/osi-ethernet.png' width='9cm' scalefit='1' />
         </imageobject>
       </inlinemediaobject>
       </entry>
       <entry>
       <itemizedlist>
       <listitem>
-      <para><acronym>MAC</acronym> : Media Access Control</para>
+      <para><acronym>MAC</acronym> : <wordasword>Media Access Control</wordasword></para>
+      </listitem>
+      <listitem>
+      <para><acronym>Reconciliation</acronym> : La sous-couche
+      <wordasword>reconciliation</wordasword> traduit les commandes de la
+      sous-couche <acronym>MAC</acronym> sous une forme électrique appropriée
+      pour les éléments de la couche physique.</para>
+      </listitem>
+      <listitem>
+      <para><acronym>MII</acronym> : <wordasword>Media Independent
+      Interface</wordasword>. Cette interface isole la sous-couche
+      <acronym>MAC</acronym> de la couche physique de façon à ce que plusieurs
+      implémentations différentes soient utilisables au niveau de la couche
+      physique.</para>
+      </listitem>
+      <listitem>
+      <para><acronym>PCS</acronym> : <wordasword>Physical Coding
+      Sublayer</wordasword>. Encodage/décodage des flux de données depuis et
+      vers la sous-couche <acronym>MAC</acronym>. Les techniques de codage
+      varient suivant les générations des variantes d'Ethernet et les
+      débits.</para> 
+      </listitem>
+      <listitem>
+      <para><acronym>PMA</acronym> : <wordasword>Physical Medium
+      Attachment</wordasword>. Transformation et synchronisation des groupes de
+      code en flux de bits adaptés à des composants de transmission série et
+      vice versa.</para> 
+      </listitem>
+      <listitem>
+      <para><acronym>PMD</acronym> : <wordasword>Physical Medium
+      Dependent</wordasword>. Transmission du signal à l'aide des fonctions
+      d'amplification, de modulation et de changement de forme d'onde. Ces
+      fonctions varient suivant les variantes d'Ethernet et les débits.</para>
+      </listitem>
+      <listitem>
+      <para><acronym>MDI</acronym> : <wordasword>Medium Dependent
+      Interface</wordasword>. Définitions des différents types de connecteurs
+      suivant les médias utilisés : paires torsadées cuivre ou fibres
+      optiques.</para>
       </listitem>
       </itemizedlist>
       </entry>
@@ -103,7 +182,7 @@
     </tbody>
     </tgroup>
   </table>
-
+  </sect2>
 </sect1>
 
 <sect1 xml:id='inter-vlan-routing.vlan'>
