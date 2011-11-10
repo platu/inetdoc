@@ -83,8 +83,12 @@ endif
 
 BASENAME = $(basename $(firstword $(XML_FILES)))
 
+SVG_FILES := $(wildcard images/*.svg)
+PNG_FILES := $(subst svg,png,$(SVG_FILES))
+
 xml2xhtml: \
 	dist_dirs \
+	svg2png \
 	index.html \
 	$(STYLESHEET).css \
 	$(OUTPUT)/abstract.xml
@@ -93,7 +97,15 @@ $(OUTPUT)/$(BASENAME).xml: $(XML_FILES)
 	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
 	# Validation XML de $(firstword $(XML_FILES))
 	@xmllint --encode utf-8 --noent --xinclude --postvalid $< > $@ ;\
-	 if [ $$? -ne 0 ]; then rm -f $@; exit 1; fi
+	if [ $$? -ne 0 ]; then rm -f $@; exit 1; fi
+
+svg2png: $(PNG_FILES)
+
+%.png: %.svg
+	# Génération des images au format PNG à partir du format SVG
+	# pour la publication Web
+	rasterizer -bg 255.255.255.255 \
+	-w `egrep -1i "format=(\"|')PNG(\"|')" $(BASENAME).xml | egrep -o [0-9]*px | egrep -o [0-9]*` $<
 
 index.html: $(OUTPUT)/$(BASENAME).xml
 	# Insertion du nom de fichier imprimable 
@@ -267,19 +279,4 @@ $(BASENAME).xml: $(QANAME)
 	# Extraction de l'énoncé sans les réponses
 	sed '/<answer.*>/, /<\/answer>/d' $< > $@
 	sed -i 's/$(BASENAME)a/$(BASENAME)/g' $@
-endif
-
-#/*--------------------------------------------------------------------------
-#* Traitement des images dans les sources DocBook XML
-#*---------------------------------------------------------------------------*/
-
-ifeq (svg2png, $(findstring svg2png,$(PROCESS)))
-
-SVG_FILES := $(wildcard *.svg)
-PNG_FILES := $(subst svg,png,$(SVG_FILES))
-
-svg2png: $(PNG_FILES)
-
-%.png: %.svg
-	rasterizer -bg 255.255.255.255 $<
 endif
