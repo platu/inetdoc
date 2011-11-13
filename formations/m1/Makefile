@@ -18,7 +18,9 @@ XML_FILES = \
 	noyau.tp.abstract.xml \
 	rawip.tp.abstract.xml \
 	ppp.tp.abstract.xml \
-	netfilter.tp.abstract.xml
+	netfilter.tp.abstract.xml \
+	vlan.tp.abstract.xml \
+	ospf.tp.abstract.xml
 
 
 all: $(PROCESS)
@@ -38,4 +40,10 @@ ppp.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ppp.q/$(ABSTRACT_FILE
 	ln -s $< $@
 
 netfilter.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.netfilter.q/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+vlan.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/inter-vlan.routing/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+ospf.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf/$(ABSTRACT_FILE)
 	ln -s $< $@

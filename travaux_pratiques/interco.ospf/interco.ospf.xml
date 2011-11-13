@@ -1,0 +1,2351 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+  "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!ENTITY topo-logique	SYSTEM "files/topologie-logique.txt">
+<!ENTITY topo-physique	SYSTEM "files/topologie-physique.txt">
+<!ENTITY topo-vm	SYSTEM "files/topologie-vm.txt">
+
+<!-- inetdoc -->
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.cisco-ospf
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.cisco.com/en/US/tech/tk365/tk480/tsd_technology_support_sub-protocol_home.html">
+   <citetitle>Open Shortest Path First (OSPF)</citetitle></link>'>
+
+<!ENTITY url.vde
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://vde.sourceforge.net/">
+   <citetitle>Virtual Distributed Ethernet</citetitle></link>'>
+]>
+
+<article xml:id='interco.ospf' xml:lang='fr'>
+
+<info>
+  <title>Introduction au routage dynamique avec OSPF</title>
+
+  &author;
+  <abstract>
+    <para>L'objectif de ce support de travaux pratiques est de mettre en
+    évidence les caractéristiques de fonctionnement du protocole de routage
+    <acronym>OSPF</acronym>. Cette illustration s'appuie sur des liens de type
+    Ethernet et sur l'utilisation des <acronym>VLAN</acronym>s. Les questions
+    sont présentées comme une introduction pas à pas au protocole de routage
+    <acronym>OSPF</acronym>. On débute avec la mise en place d'une topologie
+    réseau type basée sur le routage inter-VLAN, puis on implante les instances
+    de démons de routage.</para>
+  </abstract>
+
+  <keywordset>
+    <keyword>interface</keyword>
+    <keyword>kvm</keyword>
+    <keyword>ospf</keyword>
+    <keyword>quagga</keyword>
+    <keyword>routage</keyword>
+    <keyword>trunk</keyword>
+    <keyword>vlan</keyword>
+    <keyword>vde</keyword>
+    <keyword>zebra</keyword>
+  </keywordset>
+</info>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.ospf.legal.meta'>
+  &legal;
+
+  <sect2 xml:id='interco.ospf.meta'>
+    <title>Méta-information</title>
+    
+  <para>Ce document est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+  <para>Toutes les commandes utilisées dans ce document ne sont pas spécifiques
+  à une version particulière des systèmes UNIX ou GNU/Linux. C'est la
+  distribution <citetitle>Debian GNU/Linux</citetitle> qui est utilisée
+  pour les tests présentés. Voici une liste des paquets contenant les
+  commandes :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para><application>procps</application> - The /proc file system
+    utilities</para>
+    </listitem>
+    <listitem>
+    <para><application>net-tools</application> - The NET-3 networking
+    toolkit</para>
+    </listitem>
+    <listitem>
+    <para><application>ifupdown</application> - High level tools to configure
+    network interfaces</para>
+    </listitem>
+    <listitem>
+    <para><application>iputils-ping</application> - Tools to test the
+    reachability of network hosts</para>
+    </listitem>
+    <listitem>
+    <para><application>quagga</application> - BGP/OSPF/RIP routing daemon</para>
+    </listitem>
+    <listitem>
+    <para><application>vlan</application> - user mode programs to enable VLANs on your ethernet devices</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='interco.ospf.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super-utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.ospf.archi'>
+  <title>Architecture réseau étudiée</title>
+
+  <sect2 xml:id='interco.ospf.archi.topologie'>
+    <title>Topologie type</title>
+
+  <para>La topologie réseau étudiée peut être présentée sous deux formes
+  distinctes : logique et physique.</para>
+ 
+  <variablelist>
+    <varlistentry xml:id='interco.ospf.topologie.logique'>
+    <term>Topologie logique</term>
+    <listitem>
+    <para>On retrouve un grand classique dans l'introduction aux protocoles de
+    routage dynamiques : le triangle. Tous les liens sont de type
+    <acronym>LAN</acronym>.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry xml:id='interco.ospf.topologie.physique'>
+    <term>Topologie physique</term>
+    <listitem>
+    <para>On s'appuie sur le support &url.inter-vlan-routing; pour constituer
+    une topologie physique à base de réseaux locaux virtuels ou
+    <acronym>VLAN</acronym>s. On fait correspondre à chaque lien de la
+    topologie logique en triangle un numéro de <acronym>VLAN</acronym>
+    défini.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <table xml:id='interco.ospf.archi.topologie.table' frame='all' pgwide='1'>
+    <title>Topologie type étudiée</title>
+    <tgroup cols='2'>
+      <colspec colnum='1' colwidth='.75*'/>
+      <colspec colnum='2' colwidth='1*'/>
+    <thead>
+      <row>
+      <entry>Topologie logique</entry>
+      <entry>Topologie physique</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry valign='middle'><screen>&topo-logique;</screen></entry>
+      <entry valign='middle'><screen>&topo-physique;</screen></entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+
+  <para>Après avoir mis en œuvre la topologie physique en s'appuyant sur le
+  support de la séance de travaux pratiques précédente :
+  &url.inter-vlan-routing;, on implante les démons de routage
+  <acronym>OSPF</acronym> sur les trois routeurs R1, R2 et R3.</para>
+
+  <para>Cette séance se limite à l'étude du routage dynamique à l'intérieur
+  d'une aire unique. La seule «frontière» de communication inter-aires visible
+  est constituée par le lien vers l'Internet. Cette route par défaut sera
+  redistribuée via <acronym>OSPF</acronym> par le routeur R1 aux autres
+  routeurs. On verra alors un exemple de route externe dans les bases de
+  données <acronym>OSPF</acronym>.</para>
+
+  <para>On profite aussi de cette introduction pour employer une technique très
+  répandue pour ajouter «artificiellement» des entrées de tables de routage en
+  s'appuyant sur des interfaces virtuelles de type
+  <wordasword>dummy</wordasword> équivalentes à des interfaces de boucle
+  locale.</para>
+
+  <para>Pour les besoins de rédaction des questions et réponses de ce support,
+  la topologie a été mise en œuvre sur machines virtuelles
+  <acronym>KVM</acronym> avec le commutateur <citetitle>Virtual Distributed
+  Ethernet</citetitle> fourni avec le paquet <application>vde2</application>.
+  Les éléments de réponse aux questions dépendent donc de cette mise en œuvre.
+  Pour la séance de travaux pratiques «réelle», il convient donc de se
+  conformer strictement au plan d'adressage fourni ci-après.</para>
+  </sect2>
+
+  <sect2 xml:id='interco.ospf.archi.adressage'>
+    <title>Plan d'adressage</title>
+
+  <para>Comme dans le support sur l'introduction au routage inter-VLAN, le seul
+  point de configuration imposé est le raccordement au réseau d'interconnexion
+  avec le routeur principal de la salle de travaux pratiques. Ce raccordement
+  utilise le port <systemitem>fa0/24</systemitem> de chaque commutateur qui
+  doit être configuré en mode <wordasword>trunk</wordasword> en utilisant le
+  <acronym>VLAN</acronym> natif numéro 3. Le réseau <acronym>IP</acronym>
+  correspondant au <acronym>VLAN</acronym> numéro 3 a l'adresse :
+  <systemitem class='ipaddress'>172.16.0.0/20</systemitem></para>
+
+  <para>Point important, la lecture de la section «Plan d'adressage» du
+  document &url.infra.tp; donne l'adresse du routeur central connecté à
+  l'Internet.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Routeur <systemitem
+    class='systemname'>cooper.infra.stri</systemitem> : <systemitem
+    class='ipaddress'>172.16.0.4/20</systemitem></para>
+    </listitem>
+  </itemizedlist>
+
+  <table xml:id='lab.addressing' frame='all' pgwide='1'>
+    <title>Affectation des rôles, des numéros de VLANs et des adresses
+    IP</title>
+    <tgroup cols='7' align='left' colsep='1' rowsep='1'>
+    <colspec colnum='1' colwidth='1*'/>
+    <colspec colnum='2' colwidth='2*'/>
+    <colspec colnum='3' colwidth='1.5*'/>
+    <colspec colnum='4' colwidth='1*'/>
+    <colspec colnum='5' colwidth='1*'/>
+    <colspec colnum='6' colwidth='1*'/>
+    <colspec colnum='7' colwidth='3*'/>
+    <thead>
+      <row>
+      <entry>Groupe</entry>
+      <entry>Commutateur</entry>
+      <entry>Poste</entry>
+      <entry>Rôle</entry>
+      <entry>VLAN</entry>
+      <entry>Interface</entry>
+      <entry>Réseau</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry morerows='6' valign='middle'>1</entry>
+      <entry morerows='6' valign='middle'><systemitem class='systemname'>sw5.infra.stri</systemitem></entry>
+      <entry morerows='2' valign='middle'>alderaan</entry>
+      <entry morerows='2' valign='middle'>R1</entry>
+      <entry align='right'>3</entry>
+      <entry>eth0</entry>
+      <entry><systemitem class='ipaddress'>172.16.1.1/20</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>312</entry>
+      <entry>eth0.312</entry>
+      <entry><systemitem class='ipaddress'>10.1.12.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>313</entry>
+      <entry>eth0.313</entry>
+      <entry><systemitem class='ipaddress'>10.1.13.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>bespin</entry>
+      <entry morerows='1' valign='middle'>R2</entry>
+      <entry align='right'>312</entry>
+      <entry>eth0.312</entry>
+      <entry><systemitem class='ipaddress'>10.1.12.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>323</entry>
+      <entry>eth0.323</entry>
+      <entry><systemitem class='ipaddress'>10.1.23.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>centares</entry>
+      <entry morerows='1' valign='middle'>R3</entry>
+      <entry align='right'>313</entry>
+      <entry>eth0.313</entry>
+      <entry><systemitem class='ipaddress'>10.1.13.3/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>323</entry>
+      <entry>eth0.323</entry>
+      <entry><systemitem class='ipaddress'>10.1.23.3/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='6' valign='middle'>2</entry>
+      <entry morerows='6' valign='middle'><systemitem class='systemname'>sw6.infra.stri</systemitem></entry>
+      <entry morerows='2' valign='middle'>coruscant</entry>
+      <entry morerows='2' valign='middle'>R1</entry>
+      <entry align='right'>3</entry>
+      <entry>eth0</entry>
+      <entry><systemitem class='ipaddress'>172.16.2.1/20</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>332</entry>
+      <entry>eth0.332</entry>
+      <entry><systemitem class='ipaddress'>10.2.12.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>333</entry>
+      <entry>eth0.333</entry>
+      <entry><systemitem class='ipaddress'>10.2.13.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>dagobah</entry>
+      <entry morerows='1' valign='middle'>R2</entry>
+      <entry align='right'>332</entry>
+      <entry>eth0.332</entry>
+      <entry><systemitem class='ipaddress'>10.2.12.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>343</entry>
+      <entry>eth0.343</entry>
+      <entry><systemitem class='ipaddress'>10.2.23.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>endor</entry>
+      <entry morerows='1' valign='middle'>R3</entry>
+      <entry align='right'>333</entry>
+      <entry>eth0.333</entry>
+      <entry><systemitem class='ipaddress'>10.2.13.3/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>343</entry>
+      <entry>eth0.343</entry>
+      <entry><systemitem class='ipaddress'>10.2.23.3/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='6' valign='middle'>3</entry>
+      <entry morerows='6' valign='middle'><systemitem class='systemname'>sw7.infra.stri</systemitem></entry>
+      <entry morerows='2' valign='middle'>felucia</entry>
+      <entry morerows='2' valign='middle'>R1</entry>
+      <entry align='right'>3</entry>
+      <entry>eth0</entry>
+      <entry><systemitem class='ipaddress'>172.16.3.1/20</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>352</entry>
+      <entry>eth0.352</entry>
+      <entry><systemitem class='ipaddress'>10.3.12.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>353</entry>
+      <entry>eth0.353</entry>
+      <entry><systemitem class='ipaddress'>10.3.13.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>geonosis</entry>
+      <entry morerows='1' valign='middle'>R2</entry>
+      <entry align='right'>352</entry>
+      <entry>eth0.352</entry>
+      <entry><systemitem class='ipaddress'>10.3.12.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>363</entry>
+      <entry>eth0.363</entry>
+      <entry><systemitem class='ipaddress'>10.3.23.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>hoth</entry>
+      <entry morerows='1' valign='middle'>R3</entry>
+      <entry align='right'>353</entry>
+      <entry>eth0.353</entry>
+      <entry><systemitem class='ipaddress'>10.3.13.3/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>363</entry>
+      <entry>eth0.363</entry>
+      <entry><systemitem class='ipaddress'>10.3.23.3/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='6' valign='middle'>4</entry>
+      <entry morerows='6' valign='middle'><systemitem class='systemname'>sw8.infra.stri</systemitem></entry>
+      <entry morerows='2' valign='middle'>mustafar</entry>
+      <entry morerows='2' valign='middle'>R1</entry>
+      <entry align='right'>3</entry>
+      <entry>eth0</entry>
+      <entry><systemitem class='ipaddress'>172.16.4.1/20</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>372</entry>
+      <entry>eth0.372</entry>
+      <entry><systemitem class='ipaddress'>10.4.12.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>373</entry>
+      <entry>eth0.373</entry>
+      <entry><systemitem class='ipaddress'>10.4.13.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>naboo</entry>
+      <entry morerows='1' valign='middle'>R2</entry>
+      <entry align='right'>372</entry>
+      <entry>eth0.372</entry>
+      <entry><systemitem class='ipaddress'>10.4.12.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>383</entry>
+      <entry>eth0.383</entry>
+      <entry><systemitem class='ipaddress'>10.4.23.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>tatooine</entry>
+      <entry morerows='1' valign='middle'>R3</entry>
+      <entry align='right'>373</entry>
+      <entry>eth0.373</entry>
+      <entry><systemitem class='ipaddress'>10.4.13.3/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>383</entry>
+      <entry>eth0.383</entry>
+      <entry><systemitem class='ipaddress'>10.4.23.3/26</systemitem></entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+
+  <para>Le positionnement des 4 commutateurs est référencé dans le support
+  &url.infra.tp;.</para>
+  </sect2> 
+</sect1>
+
+<sect1 xml:id='interco.ospf.prepare-config'>
+  <title>Préparation des routeurs</title>
+
+  <para>La première étape consiste à mettre en place la topologie physique.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Vérifier l'installation des paquets <application>quagga</application>
+    et <application>vlan</application> avant de brasser les postes sur les
+    commutateurs non programmés.</para>
+
+<screen width='80'>$ dpkg -l quagga vlan | grep ^ii
+ii  quagga   0.99.17-2    BGP/OSPF/RIP routing daemon
+ii  vlan     1.9-3        user mode programs to enable VLANs on your ethernet devices</screen>
+    </listitem>
+
+    <listitem>
+    <para>Vérifier que la fonction de routage des paquets
+    <acronym>IPv4</acronym> est active au niveau noyau.</para>
+
+<screen width='80'>$ cat /proc/sys/net/ipv4/ip_forward
+1</screen>
+
+    <para>Si ce n'est pas le cas, il est possible d'éditer le fichier
+    <filename>/etc/sysctl.conf</filename> pour fixer les valeurs des paramètres
+    de configuration des protocoles de la pile <acronym>TCP/IP</acronym> dans
+    le noyau Linux. Voir la section <citetitle>Fonctions réseau d'une
+    interface</citetitle> du support &url.config.interface.lan;.</para>
+
+<screen width='80'># sysctl -p
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.ip_forward = 1
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.all.proxy_arp = 0</screen>
+    </listitem>
+
+    <listitem>
+    <para>Créer les <acronym>VLAN</acronym>s sur chacun des routeurs R1, R2 et
+    R3.</para>
+
+<screen width='80'>r1:~# vconfig add eth0 12
+r1:~# vconfig add eth0 13
+
+&lt;snip/>
+r2:~# vconfig add eth0 12
+r2:~# vconfig add eth0 23
+
+&lt;snip/>
+r3:~# vconfig add eth0 13
+r3:~# vconfig add eth0 23</screen>
+    </listitem>
+
+    <listitem>
+    <para>Activer les démons <systemitem class='daemon'>zebra</systemitem> et
+    <systemitem class='daemon'>ospfd</systemitem> sur chaque routeur en
+    éditant le fichier <filename>/etc/quagga/daemons</filename> et en
+    remplaçant <option>no</option> par <option>yes</option>.</para>
+
+<screen width='80'>r1:~# grep -v '^#' /etc/quagga/daemons
+zebra=yes
+bgpd=no
+ospfd=yes
+ospf6d=no
+ripd=no
+ripngd=no
+isisd=no</screen>
+    </listitem>
+
+    <listitem>
+    <para>Créer les fichiers de configuration de base pour les deux démons
+    <systemitem class='daemon'>zebra</systemitem> et <systemitem
+    class='daemon'>ospfd</systemitem> sur chaque routeur en utilisant les
+    patrons livrés avec le paquet <application>quagga</application>.</para>
+
+<screen width='80'>r1:/etc/quagga# cp /usr/share/doc/quagga/examples/zebra.conf.sample zebra.conf
+r1:/etc/quagga# cp /usr/share/doc/quagga/examples/ospfd.conf.sample ospfd.conf</screen>
+    </listitem>
+
+    <listitem>
+    <para>Éditer le patron du fichier de configuration du démon <systemitem
+    class='daemon'>zebra</systemitem> en fixant les paramètres de connexion à
+    utiliser pour y accéder.</para>
+
+<screen width='80'><prompt>#</prompt> cat zebra.conf
+! -*- zebra -*-
+!
+hostname R1-zebra
+password zebra
+enable password zebra
+!
+log file /var/log/quagga/zebra.log</screen>
+    </listitem>
+
+    <listitem>
+    <para>Éditer le patron du fichier de configuration du démon <systemitem
+    class='daemon'>ospfd</systemitem> en fixant les paramètres de connexion à
+    utiliser pour y accéder.</para>
+
+<screen width='80'><prompt>#</prompt> cat ospfd.conf
+! -*- ospf -*-
+!
+hostname R1-ospfd
+password zebra
+enable password zebra
+!
+log file /var/log/quagga/ospfd.log</screen>
+    </listitem>
+
+    <listitem>
+    <para>Compléter la configuration des interfaces dans le démon <systemitem
+    class='daemon'>zebra</systemitem> de façon à fixer la bande passante de
+    chaque interface active.</para>
+
+    <para>Contrairement à un routeur «intégré» avec un système d'exploitation
+    dédié, le démon de routage statique n'a pas directement accès aux
+    interfaces matérielles. Or, sur un système GNU/Linux, le débit d'une
+    interface nommée <option>eth0</option> peut aller de 10Mbps à 10Gbps. Sans
+    information spécifique du noyau, l'application «service de routage» n'a
+    aucun moyen de connaître le débit exact de l'interface
+    <option>eth0</option>. C'est la raison pour laquelle il est nécessaire de
+    paramétrer manuellement les débits de chaque interface dans la
+    configuration du démon <systemitem
+    class='daemon'>zebra</systemitem>.</para> 
+
+<screen width='80'>r1:/etc/quagga<prompt>#</prompt> grep -1 bandwidth zebra.conf
+interface eth0
+ bandwidth 100000
+ ipv6 nd suppress-ra
+--
+interface eth0.12
+ bandwidth 100000
+ ipv6 nd suppress-ra
+--
+interface eth0.13
+ bandwidth 100000
+ ipv6 nd suppress-ra</screen>
+    </listitem>
+  </itemizedlist>
+
+  <warning>
+  <para>Ce dernier paramétrage est essentiel dans le <link
+  linkend='interco.ospf.auto-cost'>calcul des métriques</link> et le
+  fonctionnement du protocole de routage <acronym>OSPF</acronym>. Si les
+  calculs de métriques pour les liens actifs sont erronés, le choix des routes
+  à emprunter pour faire transiter le trafic utilisateur entre deux routeurs
+  peut lui aussi être erroné.</para>
+  </warning>
+</sect1>
+
+<sect1 xml:id='interco.ospf.pointopoint'>
+  <title>Communications entre routeurs</title>
+
+  <para>Avant d'aborder le déploiement du protocole de routage dynamique, il
+  est nécessaire de valider les communications <acronym>IP</acronym> entre
+  chaque routeur et de visualiser les tables de routage déjà connues.</para>
+
+  <qandaset>
+    <qandaentry>
+    <question>
+      <para>Quelles sont les opérations à effectuer pour implanter les adresses
+      <acronym>IP</acronym> des interfaces correspondant à chacun des
+      <acronym>VLAN</acronym>s routés ?</para>
+    </question>
+    <answer>
+      <variablelist>
+        <varlistentry>
+	<term>Routeur R1</term>
+	<listitem>
+<screen width='80'>r1:~# vconfig add eth0 12
+r1:~# vconfig add eth0 13
+r1:~# ifconfig eth0.12 10.1.12.1/26
+r1:~# ifconfig eth0.13 10.1.13.1/26</screen>
+	</listitem>
+	</varlistentry>
+        <varlistentry>
+	<term>Routeur R2</term>
+	<listitem>
+<screen width='80'>r2:~# vconfig add eth0 23
+r2:~# vconfig add eth0 12
+r2:~# ifconfig eth0.23 10.1.23.2/26
+r2:~# ifconfig eth0.12 10.1.12.2/26</screen>
+	</listitem>
+	</varlistentry>
+        <varlistentry>
+	<term>Routeur R3</term>
+	<listitem>
+<screen width='80'>r3:~# vconfig add eth0 23
+r3:~# vconfig add eth0 13
+r3:~# ifconfig eth0.23 10.1.23.3/26
+r3:~# ifconfig eth0.13 10.1.13.3/26</screen>
+	</listitem>
+	</varlistentry>
+      </variablelist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelles sont les opérations à effectuer pour valider les
+      communications <acronym>IP</acronym> entre routeurs ?</para>
+    </question>
+    <answer>
+      <variablelist>
+        <varlistentry>
+	<term>Exemple entre R1 et R2</term>
+	<listitem>
+<screen width='80'>r1:~$ ping -c 2 10.1.12.2
+PING 10.1.12.2 (10.1.12.2) 56(84) bytes of data.
+64 bytes from 10.1.12.2: icmp_seq=1 ttl=64 time=1.11 ms
+64 bytes from 10.1.12.2: icmp_seq=2 ttl=64 time=0.420 ms
+
+--- 10.1.12.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1002ms
+rtt min/avg/max/mdev = 0.420/0.768/1.117/0.349 ms</screen>
+	</listitem>
+	</varlistentry>
+      </variablelist>
+
+      <para>L'opération est à répéter sur chaque lien entre deux routeurs
+      «brassés» sur le même <acronym>VLAN</acronym>.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelles sont les opérations à effectuer pour visualiser la table de
+      routage existante d'un routeur au niveau système et au niveau du démon de
+      routage statique <application>zebra</application> ?</para>
+    </question>
+    <answer>
+      <variablelist>
+        <varlistentry>
+	<term>Routeur R1 - niveau système</term>
+	<listitem>
+<screen width='80'>r1:~$ /sbin/route -n
+Table de routage IP du noyau
+Destination     Passerelle      Genmask         Indic Metric Ref    Use Iface
+192.200.0.0     0.0.0.0         255.255.255.224 U     0      0        0 eth0
+10.1.12.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.12
+10.1.13.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.13
+0.0.0.0         192.200.0.1     0.0.0.0         UG    0      0        0 eth0</screen>
+
+	<para>Toutes les métriques des routes affichées valent
+	<option>0</option>. Elles correspondent à des réseaux
+	<acronym>IP</acronym> sur lesquels le routeur est directement connecté
+	via une interface.</para>
+	</listitem>
+	</varlistentry>
+
+        <varlistentry>
+	<term>Routeur R1 - démon zebra</term>
+	<listitem>
+<screen width='80'>R1-zebra# sh ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,
+       I - ISIS, B - BGP, > - selected route, * - FIB route
+
+K>* 0.0.0.0/0 via 192.200.0.1, eth0
+C>* 10.1.12.0/26 is directly connected, eth0.12
+C>* 10.1.13.0/26 is directly connected, eth0.13
+C>* 127.0.0.0/8 is directly connected, lo
+C>* 192.200.0.0/27 is directly connected, eth0</screen>
+
+	<para>On retrouve les mêmes informations qu'au niveau système. Une
+	distinction apparaît entre la route par défaut héritée du niveau
+	système qui est repérée avec l'indicateur <option>K</option> et les
+	autres routes qui correspondent aux réseaux <acronym>IP</acronym> sur
+	lesquels le routeur est directement connecté.</para>
+	</listitem>
+	</varlistentry>
+
+        <varlistentry>
+	<term>Routeur R2 - niveau système</term>
+	<listitem>
+<screen width='80'>r2:~$ /sbin/route -n
+Table de routage IP du noyau
+Destination     Passerelle      Genmask         Indic Metric Ref    Use Iface
+10.1.12.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.12
+10.1.23.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.23</screen>
+	</listitem>
+	</varlistentry>
+
+        <varlistentry>
+	<term>Routeur R2 - démon zebra</term>
+	<listitem>
+<screen width='80'>R2-zebra# sh ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,
+       I - ISIS, B - BGP, > - selected route, * - FIB route
+
+C>* 10.1.12.0/26 is directly connected, eth0.12
+C>* 10.1.23.0/26 is directly connected, eth0.23
+C>* 127.0.0.0/8 is directly connected, lo</screen>
+	</listitem>
+	</varlistentry>
+
+        <varlistentry>
+	<term>Routeur R3 - niveau système</term>
+	<listitem>
+<screen width='80'>r3:~$ /sbin/route -n
+Table de routage IP du noyau
+Destination     Passerelle      Genmask         Indic Metric Ref    Use Iface
+10.1.13.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.13
+10.1.23.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.23</screen>
+	</listitem>
+	</varlistentry>
+
+        <varlistentry>
+	<term>Routeur R3 - démon zebra</term>
+	<listitem>
+<screen width='80'>R3-zebra# sh ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,
+       I - ISIS, B - BGP, > - selected route, * - FIB route
+
+C>* 10.1.13.0/26 is directly connected, eth0.13
+C>* 10.1.23.0/26 is directly connected, eth0.23
+C>* 127.0.0.0/8 is directly connected, lo</screen>
+	</listitem>
+	</varlistentry>
+      </variablelist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelle est l'opération à effectuer pour activer la fonction routage
+      du noyau Linux ?</para>
+    </question>
+    <answer>
+      <para>Si cette fonction n'est pas active dans le noyau Linux, aucune
+      décision d'acheminement d'un paquet d'une interface vers l'autre ne sera
+      prise. Les paquets à router sont simplement jetés.</para>
+
+      <para>La commande suivante est à appliquer sur chacun des trois routeurs
+      pour que le protocole de routage dynamique puisse fonctionner
+      normalement.</para>
+
+      <variablelist>
+        <varlistentry>
+	<term>Exemple</term>
+	<listitem>
+<screen width='80'><prompt>#</prompt> echo 1 > /proc/sys/net/ipv4/ip_forward</screen>
+	</listitem>
+	</varlistentry>
+      </variablelist>
+    </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='interco.ospf.protocol-config'>
+  <title>Configuration OSPF de base</title>
+
+  <para>Dans cette section, on introduit les premières commandes de
+  configuration du protocole de routage dynamique <acronym>OSPF</acronym> qui
+  permettent d'activer le protocole puis d'introduire des entrées de réseau
+  dans la base de données de ce protocole.</para>
+
+  <qandaset>
+    <qandaentry>
+    <question>
+      <para>Comment peut-on contrôler si le protocole <acronym>OSPF</acronym>
+      est actif ou non sur le routeur ?</para>
+    </question>
+    <answer>
+      <para>Une fois connecté au démon <systemitem
+      class='daemon'>ospfd</systemitem>, on lance la commande visualisation
+      globale du protocole.</para>
+
+      <para>La commande suivante est utilisable sur chacun des trois
+      routeurs.</para>
+
+<screen width='80'>etu@r1:~$ telnet localhost ospfd
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+
+Hello, this is Quagga (version 0.99.10).
+Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+
+User Access Verification
+
+Password:
+R1-ospfd> en
+Password:
+R1-ospfd# sh ip ospf
+ OSPF Routing Process not enabled</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelles sont les opérations à effectuer pour activer le protocole
+      de routage <acronym>OSPF</acronym> et fixer manuellement l'identifiant du
+      routeur ?</para>
+    </question>
+    <answer>
+      <para>Toujours à partir de la connexion au démon <systemitem
+      class='daemon'>ospfd</systemitem>, on exécute les commandes suivantes sur
+      chacun des trois routeurs en prenant soin d'implanter le bon
+      identifiant.</para>
+
+      <informaltable frame='all'>
+      <tgroup cols='2'>
+      <colspec colwidth='1*'/>
+      <colspec colwidth='1*'/>
+      <tbody>
+      <row>
+        <entry>R1</entry>
+        <entry><systemitem class='ipaddress'>0.0.0.1</systemitem></entry>
+      </row>
+      <row>
+        <entry>R2</entry>
+        <entry><systemitem class='ipaddress'>0.0.0.2</systemitem></entry>
+      </row>
+      <row>
+        <entry>R3</entry>
+        <entry><systemitem class='ipaddress'>0.0.0.3</systemitem></entry>
+      </row>
+      </tbody>
+      </tgroup>
+      </informaltable>
+
+<screen width='80'>R1-ospfd# conf t
+R1-ospfd(config)# router ospf
+R1-ospfd(config-router)# router-id 0.0.0.1
+R1-ospfd(config-router)#
+R1-ospfd# sh ip ospf
+ OSPF Routing Process, Router ID: 0.0.0.1
+ Supports only single TOS (TOS0) routes
+ This implementation conforms to RFC2328
+ RFC1583Compatibility flag is disabled
+ OpaqueCapability flag is disabled
+ Initial SPF scheduling delay 200 millisec(s)
+ Minimum hold time between consecutive SPFs 1000 millisec(s)
+ Maximum hold time between consecutive SPFs 10000 millisec(s)
+ Hold time multiplier is currently 1
+ SPF algorithm has not been run
+ SPF timer is inactive
+ Refresh timer 10 secs
+ Number of external LSA 0. Checksum Sum 0x00000000
+ Number of opaque AS LSA 0. Checksum Sum 0x00000000
+ Number of areas attached to this router: 0</screen>
+
+      <para>Le choix de codage des identifiants <acronym>OSPF</acronym> a pour
+      but d'éviter une confusion avec les adresses des réseaux actifs sur
+      chaque routeur.</para>
+
+      <para>Pour toute instance de routage <acronym>OSPF</acronym>, le choix de
+      l'identifiant se fait dans l'ordre suivant :</para>
+
+      <orderedlist>
+        <listitem>
+	<para>Adresse <acronym>IP</acronym> définie à l'aide de l'instruction
+	<command>router-id</command>.</para>
+	</listitem>
+	<listitem>
+	<para>Adresse <acronym>IP</acronym> la plus élevée parmi toutes les
+	interfaces de boucle locale</para>
+	</listitem>
+	<listitem>
+	<para>Adresse <acronym>IP</acronym> la plus élevée parmi toutes les
+	interfaces matérielles</para>
+	</listitem>
+      </orderedlist>
+
+      <para>Dans cet exemple, l'instruction <command>router-id</command> a été
+      utilisée.</para>
+
+<screen width='80'>R1-ospfd# sh ip ospf database
+
+       OSPF Router with ID (0.0.0.1)</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelles sont les opérations à effectuer pour activer le protocole
+      de routage <acronym>OSPF</acronym> pour les réseaux connus de chaque
+      routeur ?</para>
+    </question>
+    <answer>
+      <para>Toujours à partir de la connexion au démon <systemitem
+      class='daemon'>ospfd</systemitem>, on ajoute une entrée de réseau pour
+      chaque lien connu.</para>
+
+      <variablelist>
+        <varlistentry>
+	<term>Routeur R1</term>
+	<listitem>
+<screen width='80'>R1-ospfd# conf t
+R1-ospfd(config)# router ospf
+R1-ospfd(config-router)# network 10.1.12.0/26 area 0
+R1-ospfd(config-router)# network 10.1.13.0/26 area 0</screen>
+        </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	<term>Routeur R2</term>
+	<listitem>
+<screen width='80'>R2-ospfd(config)# router ospf
+R2-ospfd(config-router)# router-id 0.0.0.2
+R2-ospfd(config-router)# network 10.1.12.0/26 area 0
+R2-ospfd(config-router)# network 10.1.23.0/26 area 0</screen>
+        </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	<term>Routeur R3</term>
+	<listitem>
+<screen width='80'>R3-ospfd(config)# router ospf
+R3-ospfd(config-router)# router-id 0.0.0.3
+R3-ospfd(config-router)# network 10.1.13.0/26 area 0
+R3-ospfd(config-router)# network 10.1.23.0/26 area 0</screen>
+        </listitem>
+	</varlistentry>
+      </variablelist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelle est la commande qui permet de visualiser l'état des
+      interfaces actives du routeur vis-à-vis du protocole de routage
+      OSPF ?</para>
+    </question>
+    <answer>
+      <para>C'est la commande
+      <command>sh i ospf interface</command> qui affiche l'état
+      des interfaces réseau. Les interfaces sont automatiquement activées dès
+      qu'une entrée de réseau est saisie au niveau du démon <systemitem
+      class='daemon'>ospfd</systemitem> et que l'adresse <acronym>IP</acronym>
+      de l'interface correspond à ce réseau.</para>
+
+      <variablelist>
+        <varlistentry>
+	<term>Exemple du routeur R1</term>
+	<listitem>
+<screen width='80'>R1-ospfd# sh ip ospf interface
+eth0 is up
+  ifindex 2, MTU 1500 bytes, BW 100000 Kbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  OSPF not enabled on this interface
+eth0.12 is up
+  ifindex 3, MTU 1500 bytes, BW 100000 Kbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.1.12.1/26, Broadcast 10.1.12.63, Area 0.0.0.0
+  MTU mismatch detection:enabled
+  Router ID 0.0.0.1, Network Type BROADCAST, Cost: 1
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 0.0.0.1, Interface Address 10.1.12.1
+  Backup Designated Router (ID) 0.0.0.2, Interface Address 10.1.12.2
+  Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+  Hello due in 3.665s
+  Neighbor Count is 1, Adjacent neighbor count is 1
+eth0.13 is up
+  ifindex 4, MTU 1500 bytes, BW 100000 Kbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.1.13.1/26, Broadcast 10.1.13.63, Area 0.0.0.0
+  MTU mismatch detection:enabled
+  Router ID 0.0.0.1, Network Type BROADCAST, Cost: 1
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 0.0.0.1, Interface Address 10.1.13.1
+  Backup Designated Router (ID) 0.0.0.3, Interface Address 10.1.13.3
+  Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+  Hello due in 6.435s
+  Neighbor Count is 1, Adjacent neighbor count is 1
+lo is up
+  ifindex 1, MTU 16436 bytes, BW 0 Kbit &lt;UP,LOOPBACK,RUNNING>
+  OSPF not enabled on this interface</screen>
+        </listitem>
+	</varlistentry>
+      </variablelist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>À partir des informations affichées ci-dessus, retrouver
+      l'identifiant de routeur et le type de réseau, repérer et identifier la
+      présence d'un autre routeur sur le même réseau.</para>
+    </question>
+    <answer>
+      <para>En reprenant l'exemple du routeur <systemitem
+      class='systemname'>R1</systemitem> et de son interface
+      <option>eth0.12</option>, on relève les informations suivantes.</para>
+
+      <variablelist>
+        <varlistentry>
+	<term><literal>Router ID 0.0.0.1, Network Type BROADCAST, Cost: 1</literal></term>
+	<listitem>
+	<para>L'identifiant <acronym>OSPF</acronym> du routeur est <systemitem
+	class='ipaddress'>0.0.0.1</systemitem> ; soit le routeur
+	<systemitem class='systemname'>R1</systemitem>. L'interface est
+	connectée sur un réseau Ethernet de type
+	<emphasis>diffusion</emphasis> dans lequel <systemitem
+	class='systemname'>R1</systemitem> est un «routeur désigné»
+	(<wordasword>Designated Router</wordasword>) qui sert de référence aux
+	autres routeurs du même périmètre de diffusion ; <systemitem
+	class='systemname'>R2</systemitem> dans cet exemple.</para>
+	</listitem>
+	</varlistentry>
+
+        <varlistentry>
+	<term><literal>Neighbor Count is 1, Adjacent neighbor count is 1</literal></term>
+	<listitem>
+	<para>Un routeur <acronym>OSPF</acronym> a été reconnu sur ce lien et
+	une adjacence a été établie. Il s'agit du routeur <systemitem
+	class='systemname'>R2</systemitem> qui apparaît avec l'identifiant
+	<systemitem class='ipaddress'>0.0.0.2</systemitem> sur une ligne
+	au-dessus.</para>
+	</listitem>
+	</varlistentry>
+      </variablelist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Comment peut-on vérifier que l'algorithme <acronym>SPF</acronym> du
+      protocole <acronym>OSPF</acronym> à été correctement exécuté, que
+      le protocole a convergé et que les entrées de table de routage ont été
+      publiées ?</para>
+    </question>
+    <answer>
+      <para>En reprenant l'exemple du routeur <systemitem
+      class='systemname'>R1</systemitem>, on consulte la liste des voisins
+      <acronym>OSPF</acronym>.</para>
+
+<screen width='80'>R1-ospfd# sh ip ospf neighbor
+
+Neighbor ID Pri State       Dead Time Address     Interface         RXmtL RqstL DBsmL
+0.0.0.2       1 Full/Backup   38.922s 10.1.12.2   eth0.12:10.1.12.1     0     0     0
+0.0.0.3       1 Full/Backup   32.826s 10.1.13.3   eth0.13:10.1.13.1     0     0     0</screen>
+
+      <para>Dans cette liste, on relève la présence des deux autres routeurs :</para>
+
+      <itemizedlist>
+        <listitem>
+	<para><systemitem class='systemname'>R2</systemitem> avec l'identifiant
+	<systemitem class='ipaddress'>0.0.0.2</systemitem></para>
+	</listitem>
+        <listitem>
+	<para><systemitem class='systemname'>R3</systemitem> avec l'identifiant
+	<systemitem class='ipaddress'>0.0.0.3</systemitem></para>
+	</listitem>
+      </itemizedlist>
+
+      <para>L'indicateur d'état <literal>Full/Backup</literal> montre que le
+      dialogue entre les routeurs voisins à convergé vers l'état stable et que
+      le routeur voisin de <systemitem class='systemname'>R1</systemitem> joue
+      le rôle de «routeur désigné de secours» (<wordasword>Backup Designated
+      Router</wordasword>).</para>
+
+      <para>Ensuite, on trouve de gauche à droite l'adresse
+      <acronym>IP</acronym> de l'interface réseau du routeur voisin et
+      l'interface du routeur local ainsi que son adresse
+      <acronym>IP</acronym>.</para>
+
+      <para>Toujours sur le routeur <systemitem
+      class='systemname'>R1</systemitem>, la liste des routes publiées par le
+      démon <systemitem class='daemon'>ospfd</systemitem> est donnée par la
+      commande <command>sh ip ospf route</command>.</para>
+
+<screen width='80'>R1-ospfd# sh ip ospf route
+============ OSPF network routing table ============
+N    10.1.12.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0.12
+N    10.1.13.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0.13
+N    10.1.23.0/26          [2] area: 0.0.0.0
+                           via 10.1.12.2, eth0.12
+                           via 10.1.13.3, eth0.13
+
+============ OSPF router routing table =============
+
+============ OSPF external routing table ===========</screen>
+
+      <para>Les valeurs notées entre crochets correspondent à la métrique du
+      lien pour joindre le réseau à gauche. Pour le protocole
+      <acronym>OSPF</acronym>, le calcul de métrique se fait à partir de
+      l'expression :
+      10<superscript>8</superscript> / Bande_Passante_du_lien.</para>
+
+      <para>Les deux premiers réseaux de la table sont joignable via un lien
+      Ethernet à 100Mbps ; soit une métrique de <option>1</option>. Le
+      troisième réseau est joignable via deux liens Ethernet à
+      100Mbps ; d'où la métrique de <option>2</option>.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quel est le mode d'affichage de la table de routage du système qui
+      offre le plus d'informations ?</para>
+    </question>
+    <answer>
+      <para>C'est le démon <systemitem class='daemon'>zebra</systemitem> qui
+      synthétise les entrées de table de routage de l'ensemble du système. Il
+      faut donc se connecter à ce démon pour visualiser la table de routage la
+      plus complète.</para>
+
+<screen width='80'>R1-zebra# sh ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,
+       I - ISIS, B - BGP, > - selected route, * - FIB route
+
+K>* 0.0.0.0/0 via 192.200.0.1, eth0
+O   10.1.12.0/26 [110/1] is directly connected, eth0.12, 04:52:04
+C>* 10.1.12.0/26 is directly connected, eth0.12
+O   10.1.13.0/26 [110/1] is directly connected, eth0.13, 04:54:50
+C>* 10.1.13.0/26 is directly connected, eth0.13
+O>* 10.1.23.0/26 [110/2] via 10.1.12.2, eth0.12, 04:38:58
+  *                      via 10.1.13.3, eth0.13, 04:38:58
+C>* 127.0.0.0/8 is directly connected, lo
+C>* 192.200.0.0/27 is directly connected, eth0</screen>
+
+      <itemizedlist>
+        <listitem>
+	<para>Les entrées avec le caractère <option>*</option> correspondent
+	aux routes actives mémorisées dans la base de commutation des paquets
+	<acronym>IP</acronym> ou <wordasword>Forward Information
+	Base</wordasword> (<acronym>FIB</acronym>).</para>
+	</listitem>
+	<listitem>
+	<para>L'entrée notée <option>K</option> correspond à une route apprise
+	via la configuration système.</para>
+	</listitem>
+	<listitem>
+	<para>Les entrées notées <option>C</option> correspondent à des routes
+	pour lesquelles il existe une interface sur le routeur. Les métriques
+	de ses routes ont la valeur <option>0</option>. Ce sont les routes les
+	plus prioritaires.</para>
+	</listitem>
+	<listitem>
+	<para>Les entrées notées <option>O</option> correspondent aux routes
+	apprises via le protocole <acronym>OSPF</acronym>. La métrique de ces
+	routes se décompose en deux parties. La valeur figée à
+	<option>110</option> définit le niveau de priorité du protocole
+	<acronym>OSPF</acronym> (<wordasword>Administrative
+	Distance</wordasword>) relativement aux autres protocoles de
+	routage. Les valeurs notées après le <option>/</option> sont les
+	métriques de liens calculées comme indiqué ci-dessus.</para>
+	</listitem>
+      </itemizedlist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Comment visualiser la table de routage au niveau
+      système ?</para>
+    </question>
+    <answer>
+      <para>C'est la commande historique <command>route</command> ou la
+      commande <command>ip</command> qui permettent de visualiser la synthèse
+      du travail du ou des protocoles de routage.</para>
+
+<screen width='80'>$ /sbin/route -n
+Table de routage IP du noyau
+Destination     Passerelle      Genmask         Indic Metric Ref    Use Iface
+192.200.0.0     0.0.0.0         255.255.255.224 U     0      0        0 eth0
+10.1.12.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.12
+10.1.13.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.13
+10.1.23.0       10.1.12.2       255.255.255.192 UG    2      0        0 eth0.12
+0.0.0.0         192.200.0.1     0.0.0.0         UG    0      0        0 eth0</screen>
+
+      <para>Avec cet affichage, on ne retrouve que les entrées actives de la
+      table affichée via le démon <systemitem
+      class='daemon'>zebra</systemitem>.</para>
+
+<screen width='80'>$ ip route ls
+192.200.0.0/27 dev eth0  proto kernel  scope link  src 192.200.0.2
+10.1.12.0/26 dev eth0.12  proto kernel  scope link  src 10.1.12.1
+10.1.13.0/26 dev eth0.13  proto kernel  scope link  src 10.1.13.1
+10.1.23.0/26  proto zebra  metric 2
+        nexthop via 10.1.12.2  dev eth0.12 weight 1
+        nexthop via 10.1.13.3  dev eth0.13 weight 1
+default via 192.200.0.1 dev eth0</screen>
+
+      <para>Avec ce dernier affichage, on voit apparaître les «sources»
+      d'alimentation de la table de routage finale du système.</para>
+    </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='interco.ospf.auto-cost'>
+  <title>Adaptation de la métrique de lien au débit</title>
+
+  <para>Par défaut pour le protocole <acronym>OSPF</acronym>, le calcul de
+  métrique se fait à partir de l'expression :
+  10<superscript>8</superscript> / Bande_Passante_du_lien.</para>
+
+  <para>Cette règle a été établie à une époque où l'utilisation d'un lien à
+  100Mbps devait être considéré comme une situation d'exploitation futuriste.
+  Aujourd'hui, les liens à 100Mbps sont monnaie courante et les 10Gbps vont
+  bientôt le devenir.</para>
+
+  <para>Cette section traite donc de la configuration des instances de
+  protocole de routage <acronym>OSPF</acronym> utilisant des liens avec une
+  capacité supérieure à 100Mbps.</para>
+
+  <qandaset>
+    <qandaentry>
+      <question>
+      <para>Quelle est l'instruction à utiliser pour que le calcul de métrique
+      <acronym>OSPF</acronym> se fasse sur la base d'un débit de lien à
+      1Gbps ?</para>
+      </question>
+      <answer>
+      <para>C'est l'instruction <command>auto-cost
+      reference-bandwidth</command> qui permet de fixer une nouvelle référence
+      de coût de lien en Mbps.</para>
+
+<screen width='80'>R2-ospfd(config-router)# auto-cost reference-bandwidth
+  &lt;1-4294967>  The reference bandwidth in terms of Mbits per second</screen>
+
+      <para>Voici un extrait de la configuration du routeur <systemitem
+      class='systemname'>R2</systemitem> après application d'une nouvelle
+      référence à 1000Mbps soit 1Gbps.</para>
+
+<screen width='80'>router ospf
+ ospf router-id 0.0.0.2
+! Important: ensure reference bandwidth is consistent across all routers
+ auto-cost reference-bandwidth 1000
+ network 10.1.12.0/26 area 0.0.0.0
+ network 10.1.23.0/26 area 0.0.0.0</screen>
+
+      <para>Comme indiqué dans le commentaire ci-dessus, il est indispensable
+      que tous les routeurs de l'aire <acronym>OSPF</acronym> aient la même
+      référence de calcul de métrique. La même instruction doit donc être
+      implantée dans la configuration des trois routeurs.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Comment modifier le débit d'un lien à 1Gbps ?</para>
+      </question>
+      <answer>
+      <para>Comme indiqué dans la <xref
+      linkend='interco.ospf.prepare-config'/>, c'est dans la configuration du
+      démon <systemitem class='daemon'>zebra</systemitem> que l'on attribue la
+      bande passante d'une interface réseau. Cette opération est nécessaire
+      compte tenu du fait que la bande passante d'une même interface Ethernet
+      <option>eth0</option> peut varier de 10Mbps à 10Gbps.</para>
+
+      <para>Dans toutes les sections précédentes, la bande passante des
+      interfaces était fixée à 100Mbps. Pour tenir compte de la nouvelle
+      référence de calcul de métrique, on applique une nouvelle valeur de bande
+      passante fixée à 1Gbps sur les interfaces Ethernet des trois routeurs.
+      Voici un extrait du fichier de configuration du démon <systemitem
+      class='daemon'>zebra</systemitem> du routeur <systemitem
+      class='systemname'>R2</systemitem>.</para>
+
+<screen width='80'>interface eth0
+ bandwidth 1000000
+ ipv6 nd suppress-ra
+!
+interface eth0.12
+ bandwidth 1000000
+ ipv6 nd suppress-ra
+!
+interface eth0.23
+ bandwidth 1000000
+ ipv6 nd suppress-ra</screen>
+
+      <para>Comme la valeur de base de bande passante est le kilobit par
+      seconde, il faut 1 million de Kbps pour faire 1Gbps ou
+      10<superscript>9</superscript>bps.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Comment peut-on identifier le débit d'un lien dans la configuration
+      <acronym>OSPF</acronym> ?</para>
+      </question>
+      <answer>
+      <para>C'est l'instruction
+      <command>sh ip ospf interface</command> qui permet
+      d'afficher la valeur de la bande passante attribuée aux interfaces
+      actives dans le routage <acronym>OSPF</acronym>.</para>
+
+      <para>Voici le résultat obtenu sur le routeur <systemitem
+      class='systemname'>R2</systemitem>.</para>
+
+<screen width='80'>R2-ospfd# sh ip ospf interface
+eth0 is up
+  ifindex 2, MTU 1500 bytes, <emphasis>BW 1000000 Kbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  OSPF not enabled on this interface
+eth0.12 is up
+  ifindex 3, MTU 1496 bytes, <emphasis>BW 1000000 Kbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.1.12.2/26, Broadcast 10.1.12.63, Area 0.0.0.0
+  MTU mismatch detection:enabled
+  Router ID 0.0.0.2, Network Type BROADCAST, Cost: 1
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 0.0.0.2, Interface Address 10.1.12.2
+  Backup Designated Router (ID) 0.0.0.1, Interface Address 10.1.12.1
+  Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 8.604s
+  Neighbor Count is 1, Adjacent neighbor count is 1
+eth0.23 is up
+  ifindex 4, MTU 1496 bytes, <emphasis>BW 1000000 Kbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.1.23.2/26, Broadcast 10.1.23.63, Area 0.0.0.0
+  MTU mismatch detection:enabled
+  Router ID 0.0.0.2, Network Type BROADCAST, Cost: 1
+  Transmit Delay is 1 sec, State Backup, Priority 1
+  Designated Router (ID) 0.0.0.3, Interface Address 10.1.23.3
+  Backup Designated Router (ID) 0.0.0.2, Interface Address 10.1.23.2
+  Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 1.144s
+  Neighbor Count is 1, Adjacent neighbor count is 1
+lo is up
+  ifindex 1, MTU 16436 bytes, BW 0 Kbit &lt;UP,LOOPBACK,RUNNING>
+  OSPF not enabled on this interface</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quel est le coût d'accès au pseudo service Internet (réseau
+      <systemitem class='ipaddress'>10.1.3.0/29</systemitem>) après
+      modification de la référence de calcul de métrique ? Justifier la
+      valeur de métrique obtenue.</para>
+      </question>
+      <answer>
+      <para>Il est possible d'obtenir les informations de calcul de métrique
+      soit à partir du démon de routage <acronym>OSPF</acronym> <systemitem
+      class='daemon'>ospfd</systemitem>, soit à partir du démon de routage
+      statique <systemitem class='daemon'>zebra</systemitem>.</para>
+
+      <itemizedlist>
+        <listitem>
+	<para>Démon de routage <acronym>OSPF</acronym>:</para>
+
+<screen width='80'>R2-ospfd# sh ip ospf route
+============ OSPF network routing table ============
+N    10.1.3.0/29           [<emphasis>101</emphasis>] area: 0.0.0.0
+                           via 10.1.23.3, eth0.23
+N    10.1.12.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0.12
+N    10.1.13.0/26          [2] area: 0.0.0.0
+                           via 10.1.12.1, eth0.12
+                           via 10.1.23.3, eth0.23
+N    10.1.23.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0.23
+
+============ OSPF router routing table =============
+R    0.0.0.1               [1] area: 0.0.0.0, ASBR
+                           via 10.1.12.1, eth0.12
+
+============ OSPF external routing table ===========
+N E2 0.0.0.0/0             [1/10] tag: 0
+                           via 10.1.12.1, eth0.12</screen>
+	</listitem>
+        <listitem>
+	<para>Démon de routage statique :</para>
+
+<screen width='80'>R2-zebra# sh ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,
+       I - ISIS, B - BGP, > - selected route, * - FIB route
+
+O>* 0.0.0.0/0 [110/10] via 10.1.12.1, eth0.12, 07:11:46
+O>* 10.1.3.0/29 [110/<emphasis>101</emphasis>] via 10.1.23.3, eth0.23, 07:11:46
+O   10.1.12.0/26 [110/1] is directly connected, eth0.12, 07:12:32
+C>* 10.1.12.0/26 is directly connected, eth0.12
+O>* 10.1.13.0/26 [110/2] via 10.1.12.1, eth0.12, 07:11:46
+  *                      via 10.1.23.3, eth0.23, 07:11:46
+O   10.1.23.0/26 [110/1] is directly connected, eth0.23, 07:12:27
+C>* 10.1.23.0/26 is directly connected, eth0.23
+C>* 127.0.0.0/8 is directly connected, lo</screen>
+	</listitem>
+      </itemizedlist>
+
+      <para>On obtient la valeur <option>101</option> vu du routeur <systemitem
+      class='systemname'>R2</systemitem>. Cette métrique correspond à la somme
+      des coûts de deux liens : 1 lien à 1Gbps
+      (10<superscript>9</superscript>/10<superscript>9</superscript> = 1)
+      + 1 lien à 10Mbps
+      (10<superscript>9</superscript>/10<superscript>7</superscript> = 100)
+      = 101.</para>
+
+      <para>Le lien à 1Gbps correspond à la liaison entre les routeurs
+      <systemitem class='systemname'>R2</systemitem> et <systemitem
+      class='systemname'>R3</systemitem>. Le lien à 10Mbps correspond à la
+      liaison entre le routeur <systemitem class='systemname'>R3</systemitem>
+      et son <link linkend='interco.ospf.dummies'>interface virtuelle
+      <option>dummy0</option></link> sur laquelle le service Web est en
+      écoute.</para>
+      </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='interco.ospf.default-information'>
+  <title>Publication d'une route par défaut via OSPF</title>
+
+  <para>Dans la topologie logique étudiée, le routeur <systemitem
+  class='systemname'>R1</systemitem> dispose d'un lien montant vers l'Internet.
+  On peut donc considérer que ce lien est la route par défaut vers tous les
+  réseaux non connus de l'aire <acronym>OSPF</acronym> contenant les trois
+  routeurs.</para>
+
+  <para>Il est possible de publier une route par défaut via le protocole
+  <acronym>OSPF</acronym> depuis le routeur <systemitem
+  class='systemname'>R1</systemitem> vers les routeurs <systemitem
+  class='systemname'>R2</systemitem> et <systemitem
+  class='systemname'>R3</systemitem>.</para>
+
+  <para>Voici, pour mémoire, une copie de la base de données
+  <acronym>OSPF</acronym> avant la mise en place de la publication de route par
+  défaut.</para>
+
+<screen width='80'>R1-ospfd# sh ip ospf database
+
+       OSPF Router with ID (0.0.0.1)
+
+                Router Link States (Area 0.0.0.0)
+
+Link ID         ADV Router      Age  Seq#       CkSum  Link count
+0.0.0.1         0.0.0.1          470 0x80000015 0x4c7e 2
+0.0.0.2         0.0.0.2          466 0x80000016 0x466a 2
+0.0.0.3         0.0.0.3         1423 0x8000000e 0x842e 2
+
+                Net Link States (Area 0.0.0.0)
+
+Link ID         ADV Router      Age  Seq#       CkSum
+10.1.12.1       0.0.0.1          470 0x8000000b 0xf47e
+10.1.13.1       0.0.0.1         1417 0x8000000c 0xf57a
+10.1.23.2       0.0.0.2         1428 0x8000000b 0x83e0</screen>
+
+  <qandaset>
+    <qandaentry>
+    <question>
+      <para>Quelle est l'instruction à utiliser pour publier une route par
+      défaut via le protocole de routage <acronym>OSPF</acronym> ?</para>
+    </question>
+    <answer>
+      <para>C'est la commande <command>default-information originate</command>
+      que l'on doit placer dans la configuration de l'instance
+      <acronym>OSPF</acronym>.</para>
+
+<screen width='80'>R1-ospfd# conf t
+R1-ospfd(config)# router ospf
+R1-ospfd(config-router)# default-information originate</screen>
+
+      <para>Une fois cette instruction exécutée, la base de données
+      <acronym>OSPF</acronym> devient :</para>
+
+<screen width='80'>R1-ospfd# sh ip ospf database
+
+       OSPF Router with ID (0.0.0.1)
+
+                Router Link States (Area 0.0.0.0)
+
+Link ID         ADV Router      Age  Seq#       CkSum  Link count
+0.0.0.1         0.0.0.1            2 0x80000016 0x5077 2
+0.0.0.2         0.0.0.2          488 0x80000016 0x466a 2
+0.0.0.3         0.0.0.3         1444 0x8000000e 0x842e 2
+
+                Net Link States (Area 0.0.0.0)
+
+Link ID         ADV Router      Age  Seq#       CkSum
+10.1.12.1       0.0.0.1          492 0x8000000b 0xf47e
+10.1.13.1       0.0.0.1         1438 0x8000000c 0xf57a
+10.1.23.2       0.0.0.2         1449 0x8000000b 0x83e0
+
+                AS External Link States
+
+Link ID         ADV Router      Age  Seq#       CkSum  Route
+0.0.0.0         0.0.0.1            4 0x80000001 0x4186 E2 0.0.0.0/0 [0x0]</screen>
+
+      <para>On voit apparaître une nouvelle rubrique baptisée <wordasword>AS
+      External Link States</wordasword>. Ce nouveau rôle pour le routeur
+      <systemitem class='systemname'>R1</systemitem> apparaît aussi lorsque
+      l'on affiche l'état de l'instance de routage
+      <acronym>OSPF</acronym>.</para>
+
+<screen width='80'>R1-ospfd# sh ip ospf
+ OSPF Routing Process, Router ID: 0.0.0.1
+ Supports only single TOS (TOS0) routes
+ This implementation conforms to RFC2328
+ RFC1583Compatibility flag is disabled
+ OpaqueCapability flag is disabled
+ Initial SPF scheduling delay 200 millisec(s)
+ Minimum hold time between consecutive SPFs 1000 millisec(s)
+ Maximum hold time between consecutive SPFs 10000 millisec(s)
+ Hold time multiplier is currently 3
+ SPF algorithm last executed 43m21s ago
+ SPF timer is inactive
+ Refresh timer 10 secs
+ This router is an ASBR (injecting external routing information)
+ Number of external LSA 1. Checksum Sum 0x00003f87
+ Number of opaque AS LSA 0. Checksum Sum 0x00000000
+ Number of areas attached to this router: 1
+
+ Area ID: 0.0.0.0 (Backbone)
+   Number of interfaces in this area: Total: 2, Active: 2
+   Number of fully adjacent neighbors in this area: 2
+   Area has no authentication
+   SPF algorithm executed 9 times
+   Number of LSA 6
+   Number of router LSA 3. Checksum Sum 0x0001e267
+   Number of network LSA 3. Checksum Sum 0x000176e6
+   Number of summary LSA 0. Checksum Sum 0x00000000
+   Number of ASBR summary LSA 0. Checksum Sum 0x00000000
+   Number of NSSA LSA 0. Checksum Sum 0x00000000
+   Number of opaque link LSA 0. Checksum Sum 0x00000000
+   Number of opaque area LSA 0. Checksum Sum 0x00000000</screen>
+
+
+      <para>Le routeur <systemitem class='systemname'>R1</systemitem>, est
+      maintenant à la frontière entre deux systèmes autonomes :
+      <wordasword>This router is an ASBR (injecting external routing
+      information)</wordasword>.</para>
+
+      <para>Le principe de la redistribution de route consiste à collecter les
+      routes apprises via un protocole de routage et à les injecter dans un
+      autre domaine de routage. Les routes statiques ou connectées peuvent
+      aussi être redistribuées. Lorsqu'un routeur <acronym>OSPF</acronym>
+      utilise des routes apprises via un autre protocole de routage et les rend
+      disponibles pour les autres routeurs <acronym>OSPF</acronym> avec
+      lesquels il est en communication, ce routeur devient un
+      <wordasword>Autonomous System Border Router</wordasword> ou
+      <acronym>ASBR</acronym>.</para>
+
+      <para>Ici, <systemitem class='systemname'>R1</systemitem> utilise
+      <acronym>OSPF</acronym> et possède une route statique définie au niveau
+      système vers l'Internet. L'instruction donnée ci-dessus assure la
+      redistribution de la route statique vers <systemitem
+      class='systemname'>R2</systemitem> et <systemitem
+      class='systemname'>R3</systemitem>. Cette route apparaît comme une entrée
+      de type <option>E2</option> dans les tables de routage de ces
+      routeurs.</para>
+
+      <para>L'indicateur <option>E2</option> correspond au type par défaut des
+      routes apprises par le biais de la redistribution. La métrique est un
+      point important à considérer avec les routes de type <option>E2</option>.
+      Ces routes ne présentent que le coût du chemin allant du routeur
+      <acronym>ASBR</acronym> vers le réseau de destination ; ce qui ne
+      correspond pas au coût réel du chemin.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Comment la publication de route par défaut apparaît-elle sur les
+      différents routeurs <acronym>OSPF</acronym> ?</para>
+    </question>
+    <answer>
+
+      <para>En prenant l'exemple du routeur <systemitem
+      class='systemname'>R2</systemitem>, on retrouve les informations
+      suivantes :</para>
+
+      <itemizedlist>
+        <listitem>
+	<para>Vu du démon <systemitem class='daemon'>ospfd</systemitem></para>
+
+<screen width='80'>R2-ospfd# sh ip ospf route
+============ OSPF network routing table ============
+N    10.1.12.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0.12
+N    10.1.13.0/26          [2] area: 0.0.0.0
+                           via 10.1.12.1, eth0.12
+                           via 10.1.23.3, eth0.23
+N    10.1.23.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0.23
+
+============ OSPF router routing table =============
+R    0.0.0.1               [1] area: 0.0.0.0, ASBR
+                           via 10.1.12.1, eth0.12
+
+============ OSPF external routing table ===========
+N E2 0.0.0.0/0             [1/10] tag: 0
+                           via 10.1.12.1, eth0.12</screen>
+        </listitem>
+	<listitem>
+	<para>vu du démmon <systemitem class='daemon'>zebra</systemitem></para>
+
+<screen width='80'>R2-zebra# sh ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,
+       I - ISIS, B - BGP, > - selected route, * - FIB route
+
+O>* 0.0.0.0/0 [110/10] via 10.1.12.1, eth0.12, 00:19:15
+O   10.1.12.0/26 [110/1] is directly connected, eth0.12, 05:27:21
+C>* 10.1.12.0/26 is directly connected, eth0.12
+O>* 10.1.13.0/26 [110/2] via 10.1.12.1, eth0.12, 05:27:21
+  *                      via 10.1.23.3, eth0.23, 05:27:21
+O   10.1.23.0/26 [110/1] is directly connected, eth0.23, 05:44:12
+C>* 10.1.23.0/26 is directly connected, eth0.23
+C>* 127.0.0.0/8 is directly connected, lo</screen>
+        </listitem>
+	<listitem>
+	<para>vu du niveau système</para>
+
+<screen width='80'>$ /sbin/route -n
+Table de routage IP du noyau
+Destination     Passerelle      Genmask         Indic Metric Ref    Use Iface
+10.1.12.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.12
+10.1.13.0       10.1.12.1       255.255.255.192 UG    2      0        0 eth0.12
+10.1.23.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.23
+0.0.0.0         10.1.12.1       0.0.0.0         UG    10     0        0 eth0.12</screen>
+        </listitem>
+      </itemizedlist>
+
+      <para>La métrique relevée pour la route par défaut vaut
+      <option>10</option>. Il s'agit donc d'un lien à 10Mbps. Comme indiqué
+      précédemment, cette métrique ne comprend que le coût du lien allant du
+      routeur <systemitem class='systemname'>R1</systemitem>
+      <acronym>ASBR</acronym> vers l'Internet.</para>
+    </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='interco.ospf.dummies'>
+  <title>Ajout de routes fictives</title>
+
+  <para>L'introduction de nouvelles entrées fictives dans les tables de routage
+  est une pratique très répandue. Elle permet de qualifier le bon
+  fonctionnement du filtrage réseau ou d'un service Internet sans ajouter de
+  matériel. C'est d'ailleurs au service Web que cette section
+  s'intéresse.</para>
+
+  <qandaset>
+    <qandaentry>
+      <question>
+      <para>Quelles sont les opérations à effectuer pour pouvoir utiliser des
+      interfaces réseau virtuelles de type boucle locale sur un système
+      GNU/Linux ?</para>
+      </question>
+      <answer>
+      <para>Avec un noyau Linux, il est conseillé d'utiliser les interfaces
+      baptisées <wordasword>dummy</wordasword> pour ce genre d'usage. Les
+      opérations à effectuer consistent à charger le module du même nom en
+      mémoire et à appliquer une nouvelle configuration
+      <acronym>IP</acronym>.</para>
+
+<screen width='80'># modprobe -v dummy numdummies=2
+insmod /lib/modules/2.6.26-1-686/kernel/drivers/net/dummy.ko numdummies=2
+# ifconfig -a |grep dummy
+dummy0    Link encap:Ethernet  HWaddr de:17:c4:8a:04:27
+dummy1    Link encap:Ethernet  HWaddr b2:37:fb:84:5d:97</screen>
+
+      <para>En prenant l'exemple du routeur <systemitem
+      class='systemname'>R3</systemitem>, on créé une nouvelle interface avec
+      l'adresse <acronym>IP</acronym> : <systemitem
+      class='ipaddress'>10.1.3.3/30</systemitem>. Bien sûr, cette adresse ne
+      correspond à aucun réseau déjà connu des trois routeurs.</para>
+
+<screen width='80'># ifconfig dummy0 10.1.3.3/29
+# route -n
+Table de routage IP du noyau
+Destination     Passerelle      Genmask         Indic Metric Ref    Use Iface
+10.1.3.0        0.0.0.0         255.255.255.248 U     0      0        0 dummy0
+10.1.12.0       10.1.13.1       255.255.255.192 UG    2      0        0 eth0.13
+10.1.13.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.13
+10.1.23.0       0.0.0.0         255.255.255.192 U     0      0        0 eth0.23
+0.0.0.0         10.1.13.1       0.0.0.0         UG    10     0        0 eth0.13</screen>
+
+      <para>Cette nouvelle interface se retrouve automatiquement disponible
+      dans la configuration les deux démons de routages. Dans <systemitem
+      class='daemon'>zebra</systemitem> sur <systemitem
+      class='systemname'>R3</systemitem>, on obtient les informations suivante
+      sur l'interface <option>dummy0</option>.</para>
+
+<screen width='80'>R3-zebra# sh int dummy0
+Interface dummy0 is up, line protocol detection is disabled
+  index 5 metric 1 mtu 1500
+  flags: &lt;UP,BROADCAST,RUNNING,NOARP>
+  bandwidth 10000 kbps
+  inet 10.1.3.3/29 broadcast 10.1.3.7
+  inet6 fe80::dc17:c4ff:fe8a:427/64
+    0 input packets (0 multicast), 0 bytes, 0 dropped
+    0 input errors, 0 length, 0 overrun, 0 CRC, 0 frame
+    0 fifo, 0 missed
+    3 output packets, 210 bytes, 0 dropped
+    0 output errors, 0 aborted, 0 carrier, 0 fifo, 0 heartbeat
+    0 window, 0 collisions</screen>
+
+      <para>On a fixé manuellement à 10Mbps dans <systemitem
+      class='daemon'>zebra</systemitem> la bande passante associée à
+      l'interface <option>dummy0</option>. Ce paramètre à une influence sur le
+      calcul de métrique dans les bases de données
+      <acronym>OSPF</acronym>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les opérations à effectuer pour installer un service
+      Web en écoute exclusivement sur l'adresse <acronym>IP</acronym> de
+      l'interface <option>dummy0</option> ?</para>
+      </question>
+      <answer>
+      <para>Pour aller au plus court, on installe le paquet
+      <application>apache2</application>.</para>
+
+<screen width='80'>r3:~# aptitude install apache2-mpm-worker
+Lecture des listes de paquets... Fait
+Construction de l'arbre des dépendances
+Lecture des informations d'état... Fait
+Lecture de l'information d'état étendu
+Initialisation de l'état des paquets... Fait
+Lecture des descriptions de tâches... Fait
+Les NOUVEAUX paquets suivants vont être installés :
+  apache2-mpm-worker apache2-utils{a} apache2.2-common{a} libapr1{a}
+  libaprutil1{a} libexpat1{a} libmysqlclient15off{a} libpq5{a} mysql-common{a}
+0 paquets mis à jour, 9 nouvellement installés, 0 à enlever et 0 non mis à jour.
+Il est nécessaire de télécharger 3748ko d'archives. \
+Après dépaquetage, 10,3Mo seront utilisés.
+Voulez-vous continuer ? [Y/n/?]
+&lt;snipped/>
+Paramétrage de apache2-mpm-worker (2.2.9-10) ...
+Starting web server: apache2apache2: Could not reliably determine the server's
+    fully qualified domain name, using 127.0.1.1 for ServerName</screen>
+
+      <para>On modifie ensuite le fichier de configuration
+      <filename>/etc/apache2/ports.conf</filename> de façon à limiter l'accès à
+      une adresse <acronym>IP</acronym> unique.</para>
+
+<screen width='80'>r3:/etc/apache2# diff -uBb ports.conf.dpkg-dist ports.conf
+--- ports.conf.dpkg-dist        2008-11-28 23:37:25.000000000 +0100
++++ ports.conf  2008-11-28 23:37:45.000000000 +0100
+@@ -3,7 +3,7 @@
+ # /etc/apache2/sites-enabled/000-default
+
+  NameVirtualHost *:80
+  -Listen 80
+  +Listen 10.1.3.3:80
+
+   &lt;IfModule mod_ssl.c>
+       # SSL name based virtual hosts are not yet supported, therefore no</screen>
+
+      <para>Après avoir redémarré l'instance de serveur Web, on vérifie que la
+      nouvelle configuration est bien en place.</para>
+
+<screen width='80'># /etc/init.d/apache2 restart
+&lt;snipped>
+# lsof -i |grep apache2
+apache2   5885     root    3u  IPv4  10977       TCP 10.1.3.3:www (LISTEN)
+apache2   5889 www-data    3u  IPv4  10977       TCP 10.1.3.3:www (LISTEN)
+apache2   5894 www-data    3u  IPv4  10977       TCP 10.1.3.3:www (LISTEN)</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Comment ajouter la route correspondant au nouveau réseau
+      <systemitem class='ipaddress'>10.1.3.0/29</systemitem> dans le domaine de
+      routage <acronym>OSPF</acronym> ?</para>
+      </question>
+      <answer>
+      <para>Comme dans le cas de la mise en place des autres routes dans la
+      configuration du démon <systemitem class='daemon'>ospfd</systemitem>, on
+      ajoute une entrée <option>network</option> dans l'instance
+      <acronym>OSPF</acronym> du routeur <systemitem
+      class='systemname'>R3</systemitem>.</para>
+
+<screen width='80'>R3-ospfd(config)# router ospf
+R3-ospfd(config-router)# network 10.1.3.0/29 area 0</screen>
+
+      <para>On vérifie ensuite que cette entrée est bien intégrée dans la base
+      de données <acronym>OSPF</acronym>.</para>
+
+<screen width='80'>R3-ospfd(config)# sh ip ospf database</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Comment valider l'accès à ce service Web depuis les autres
+      routeurs ?</para>
+      </question>
+      <answer>
+      <para>En respectant l'ordre des protocoles de la pile
+      <acronym>TCP/IP</acronym>, on commence par valider la connectivité au
+      niveau réseau avant de passer à la couche transport et enfin au niveau
+      application.</para>
+
+      <para>À partir du routeur <systemitem class='systemname'>R1</systemitem>,
+      on utilise la séquence suivante :</para>
+      <itemizedlist>
+        <listitem>
+	<para>Niveau réseau : <command>ping</command></para>
+
+<screen width='80'>r1:~# ping -c 3 10.1.3.3
+PING 10.1.3.3 (10.1.3.3) 56(84) bytes of data.
+64 bytes from 10.1.3.3: icmp_seq=1 ttl=64 time=3.50 ms
+64 bytes from 10.1.3.3: icmp_seq=2 ttl=64 time=0.456 ms
+64 bytes from 10.1.3.3: icmp_seq=3 ttl=64 time=0.394 ms
+
+--- 10.1.3.3 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2006ms
+rtt min/avg/max/mdev = 0.394/1.451/3.504/1.452 ms</screen>
+	</listitem>
+	<listitem>
+	<para>Niveau transport : <command>tcptraceroute</command></para>
+
+<screen width='80'>r1:~# tcptraceroute 10.1.3.3
+traceroute to 10.1.3.3 (10.1.3.3), 30 hops max, 40 byte packets
+ 1  10.1.3.3 (10.1.3.3)  0.632 ms  0.563 ms  0.512 ms</screen>
+	</listitem>
+	<listitem>
+	<para>Niveau application : naviagteur Web</para>
+
+	<mediaobject>
+	  <imageobject>
+	  <imagedata fileref='images/www-r3.png'
+	  format='PNG' contentwidth='9.3cm' width='9.5cm'/>
+          </imageobject>
+          <textobject>
+	    <phrase>Capture d'écran serveur Web à l'adresse 10.1.3.3</phrase>
+          </textobject>
+          <caption>
+	    <para><link
+	    xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/interco.ospf/images/www-r3.png'>Capture
+	    d'écran serveur Web à l'adresse 10.1.3.3 - vue
+	    complète</link></para>
+          </caption>
+        </mediaobject>
+
+	<para>Cette dernière capture d'écran a été réalisée à partir du système
+	hôte sur lequel les instances de machines virtuelles correspondant aux
+	trois routeurs ont été lancées. Les routeurs sur machines virtuelles
+	<acronym>KVM</acronym> choisis pour mettre la topologie réseau en place
+	n'ont pas d'interface graphique. On accède donc au service Web par le
+	biais de l'interface graphique du système hôte. Voir <xref
+	linkend='interco.ospf.vm'/>.</para>
+
+	<para>Du point de vue réseau, le système hôte est raccordé au
+	commutateur virtuel <acronym>VDE</acronym> sur le port numéro 1 via son
+	interface <option>tap0</option> avec l'adresse <acronym>IP</acronym>
+	<systemitem class='ipaddress'>192.200.0.1/27</systemitem>.</para>
+	</listitem>
+      </itemizedlist>
+      </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.ospf.vm'>
+  <title>Manipulations sur machines virtuelles</title>
+
+  <para>Il est possible de réaliser l'ensemble des manipulations de ce support
+  à l'aide de trois instances de machines virtuelles et du commutateur virtuel
+  <citetitle>Virtual Distributed Ethernet</citetitle> présenté dans l'article
+  &url.vm;.</para>
+
+  <para>Voici quelques éléments sur la mie en œuvre de cette «infrastructure de
+  travaux pratiques».</para>
+
+  <screen width='80'>&topo-vm;</screen>
+
+  <sect2 xml:id='interco.ospf.vm.rtr'>
+    <title>Préparation des routeurs</title>
+
+  <para>Partant de la liste des images de machines virtuelles téléchargeables à
+  partir du serveur Web de l'infrastructure de de travaux pratiques STRI
+  (<systemitem>http://www.stri/vm/</systemitem>), on copie 3 images disques
+  identiques.</para>
+
+<screen width='80'>$ cd ~/vm
+$ mkdir ospf
+$ cp vm0-debian-i386.raw ospf/r1.raw
+$ cp vm0-debian-i386.raw ospf/r2.raw
+$ cp vm0-debian-i386.raw ospf/r3.raw</screen>
+
+  <para>Ensuite, on créé un script <wordasword>shell</wordasword> de lancement
+  des instances de «routeurs» dans lequel on fixe les paramètres
+  d'initialisation de ces mêmes «routeurs».</para>
+
+  <para>Attention ! Ce script ne doit être lancé qu'après l'initialisation
+  du commutateur virtuel pour que le brassage des routeurs sur les ports du
+  commutateur puisse se faire correctement.</para>
+
+<screen width='80'>$ cd ~/vm/ospf
+$ cat ospf-lab.sh
+
+#!/bin/bash
+
+../scripts/startup.sh r1.raw 512 2 
+
+../scripts/startup.sh r2.raw 512 3 
+
+../scripts/startup.sh r3.raw 512 4</screen>
+
+  <para>Le code du script <function>startup.sh</function> donné ci-dessous est
+  extrait de l'article cité plus haut.</para>
+
+<programlisting width='80'><xi:include href='files/startup.sh' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+  </sect2>
+
+  <sect2 xml:id='interco.ospf.vm.static-route'>
+    <title>Table de routage du système hôte</title>
+
+  <para>Pour que les réseaux de l'aire <acronym>OSPF</acronym> puissent
+  communiquer avec le système hôte et l'Internet, il est nécessaire de
+  compléter la table de routage du système hôte. Dans ce contexte le système
+  hôte joue le rôle d'un routeur central et la technique usuelle employée pour
+  répondre au besoin d'interconnexion consiste à implanter une «super route»
+  qui rassemble tous les réseaux de l'aire en une seule entrée.</para>
+
+  <para>L'aire <acronym>OSPF</acronym> étudiée contient quatre
+  réseaux :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>10.1.3.0/29 - réseau fictif ajouté sur R3,</para>
+    </listitem>
+    <listitem>
+    <para>10.1.12.0/26 - réseau correspondant au lien entre R1 et R2,</para>
+    </listitem>
+    <listitem>
+    <para>10.1.13.0/26 - réseau correspondant au lien entre R1 et R3,</para>
+    </listitem>
+    <listitem>
+    <para>10.1.23.0/26 - réseau correspondant au lien entre R2 et R3,</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>L'utilisation de l'outil <application>ipcalc</application> permet de
+  vérifier qu'un masque de 19 bits permet d'englober ces quatre réseaux en une
+  seule entrée.</para>
+
+<screen width='80'><prompt>$</prompt> ipcalc 10.1.0.0/19
+Address:   10.1.0.0             00001010.00000001.000 00000.00000000
+Netmask:   255.255.224.0 = 19   11111111.11111111.111 00000.00000000
+Wildcard:  0.0.31.255           00000000.00000000.000 11111.11111111
+=>
+Network:   10.1.0.0/19          00001010.00000001.000 00000.00000000
+HostMin:   10.1.0.1             00001010.00000001.000 00000.00000001
+HostMax:   10.1.31.254          00001010.00000001.000 11111.11111110
+Broadcast: 10.1.31.255          00001010.00000001.000 11111.11111111
+Hosts/Net: 8190                  Class A, Private Internet</screen>
+
+  <para>On complète donc la table de routage du système hôte avec l'instruction
+  suivante :</para>
+
+<screen width='80'><prompt>#</prompt> ip route add 10.1.0.0/19 dev tap0</screen>
+
+  <para>Le fait de désigner la destination par l'interface
+  <option>tap0</option> optimise le traitement dans la mesure où le processus
+  de commutation de paquet connaît directement l'interface sur laquelle placer
+  les paquets <acronym>IP</acronym> sans passer par un examen de la table de
+  routage ou plus exactement les <wordasword>hashes</wordasword> de la
+  <wordasword>Forwarding Information Base</wordasword>
+  (<acronym>FIB</acronym>).</para>
+
+  <para>Une fois cette nouvelle entrée de la table de routage du système hôte
+  en place, on peut valider l'accessibilité des réseaux de l'aire en testant le
+  service Web factice implanté sur le routeur R3 depuis le système hôte.</para>
+
+<screen width='80'><prompt>#</prompt> nmap -A -p80 10.1.3.3
+
+Starting Nmap 5.21 ( http://nmap.org ) at 2010-11-18 22:44 CET
+Nmap scan report for 10.1.3.3
+Host is up (0.0019s latency).
+PORT   STATE SERVICE VERSION
+80/tcp open  http    Apache httpd 2.2.16 ((Debian))
+|_html-title: Site doesn't have a title (text/html)
+&lt;snipped/></screen>
+  </sect2>
+
+  <sect2 xml:id='interco.ospf.vm.sw'>
+    <title>Configuration du commutateur virtuel vde</title>
+
+  <para>Comme indiqué dans l'article cité en référence ci-dessus, le lancement
+  du commutateur virtuel &url.vde; est intégré à la configuration du système
+  hôte. Voici un extrait du fichier
+  <filename>/etc/network/interfaces</filename> relatif à la configuration de
+  l'interface <systemitem>tap0</systemitem>.</para>
+
+<screen width='80'># The tap0 network interface
+iface tap0 inet static
+        address 192.200.0.1
+        netmask 255.255.255.224
+        network 192.200.0.0
+        broadcast 192.200.0.31
+        <emphasis>vde2-switch -</emphasis>
+        post-up /etc/init.d/isc-dhcp-server restart
+        post-up /etc/init.d/ntp restart
+        post-up /etc/init.d/bind9 reload</screen>
+
+  <para>Dans cette configuration, l'interface <systemitem>tap0</systemitem> est
+  automatiquement brassée sur le port <option>1</option> du commutateur et elle
+  utilise le <acronym>VLAN</acronym> numéro <option>0</option> par
+  défaut.</para>
+
+  <para>Une fois que l'on a lancé le script de lancement des instances de
+  machines virtuelles à l'aide de la commande :
+  <userinput><prompt>$</prompt> sh ./ospf-lab.sh</userinput>, on obtient les
+  informations suivantes à partir de l'interface de configuration du
+  commutateur.</para>
+
+  <para>Avant la mise en place des <acronym>VLAN</acronym>s sur les routeurs
+  et le commutateur, on visualise les connexions sur les 4 ports
+  occupés.</para>
+
+<screen width='80'>$ unixterm /var/run/vde2/tap0.mgmt
+VDE switch V.2.2.3
+(C) Virtual Square Team (coord. R. Davoli) 2005,2006,2007 - GPLv2
+
+vde$ port/print
+0000 DATA END WITH '.'
+Port 0001 untagged_vlan=0000 ACTIVE - Unnamed Allocatable
+ Current User: NONE Access Control: (User: NONE - Group: NONE)
+ IN:  pkts       2288          bytes              1288845
+ OUT: pkts       1239          bytes               221354
+  -- endpoint ID 0007 module tuntap      : tap0
+Port 0002 untagged_vlan=0000 ACTIVE - Unnamed Allocatable
+ Current User: ph1l Access Control: (User: NONE - Group: NONE)
+ IN:  pkts       1870          bytes               275892
+ OUT: pkts       2831          bytes              1328457
+  -- endpoint ID 0011 module unix prog   : QEMU user=ph1l PID=2982 \
+     SOCK=/var/run/vde2/tap0.ctl/.02982-00000
+Port 0003 untagged_vlan=0099 ACTIVE - Unnamed Allocatable
+ Current User: ph1l Access Control: (User: NONE - Group: NONE)
+ IN:  pkts        639          bytes                55474
+ OUT: pkts        645          bytes                57546
+  -- endpoint ID 0003 module unix prog   : QEMU user=ph1l PID=2986 \
+     SOCK=/var/run/vde2/tap0.ctl/.02986-00000
+Port 0004 untagged_vlan=0099 ACTIVE - Unnamed Allocatable
+ Current User: ph1l Access Control: (User: NONE - Group: NONE)
+ IN:  pkts        642          bytes                55372
+ OUT: pkts        638          bytes                57080
+  -- endpoint ID 0009 module unix prog   : QEMU user=ph1l PID=2989 \
+     SOCK=/var/run/vde2/tap0.ctl/.02989-00000
+.
+1000 Success</screen>
+
+  <para>On valide ainsi le brassage des routeurs.</para>
+
+  <table frame='all'>
+    <title>Brassage commutateur virtuel</title>
+  <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+  <colspec colname='c1'/>
+  <colspec colname='c2'/>
+  <colspec colname='c3'/>
+  <thead>
+    <row>
+      <entry align='center'>Port VDE</entry>
+      <entry align='center'>Routeur</entry>
+      <entry align='center'>Liaison</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row>
+      <entry>1</entry>
+      <entry>R1</entry>
+      <entry>Internet | Système hôte</entry>
+    </row>
+    <row>
+      <entry>2</entry>
+      <entry>R1</entry>
+      <entry>trunk R2 + R3</entry>
+    </row>
+    <row>
+      <entry>3</entry>
+      <entry>R2</entry>
+      <entry>trunk R1 + R3</entry>
+    </row>
+    <row>
+      <entry>4</entry>
+      <entry>R3</entry>
+      <entry>trunk R1 + R2</entry>
+    </row>
+  </tbody>
+  </tgroup>
+  </table>
+
+  <para>Une fois le brassage en place, on peut passer à la configuration des
+  <acronym>VLAN</acronym>s ; toujours via l'interface de configuration du
+  commutateur virtuel. Il est possible d'utiliser un fichier de sauvegarde de
+  la liste des instructions de configuration du commutateur :
+  <filename>vde.conf</filename> dans notre exemple. On charge ces instructions
+  dans le commutateur virtuel via la commande
+  <userinput><prompt>vde$</prompt> load /home/ph1l/vm/opsf/vde.conf</userinput>.</para>
+
+<screen width='80'>vde$ load /home/ph1l/vm/ospf/vde.conf
+
+vde[/home/ph1l/vm/ospf/vde.conf]: vlan/create 12
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: vlan/create 13
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: vlan/create 23
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: vlan/addport 12 2
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: vlan/addport 13 2
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: vlan/addport 12 3
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: vlan/addport 23 3
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: vlan/addport 13 4
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: vlan/addport 23 4
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: plugin/add /usr/lib/vde2/plugins/pdump.so
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: vlan/create 99
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: port/setvlan 3 99
+1000 Success
+vde[/home/ph1l/vm/ospf/vde.conf]: port/setvlan 4 99
+1000 Success
+1000 Success</screen>
+
+  <para>Cette syntaxe s'approche plus du mode <trademark>Hewlett
+  Packard</trademark> que du mode <trademark>Cisco</trademark>. Les trois
+  premières lignes servent à créer les <acronym>VLAN</acronym>s suivant la
+  dénomination :</para>
+
+  <informaltable frame='all'>
+  <tgroup cols='2'>
+  <colspec colwidth='1*'/>
+  <colspec colwidth='1*'/>
+  <tbody>
+  <row>
+    <entry><acronym>VLAN</acronym> numéro 12</entry>
+    <entry>Liaison R1 / R2</entry>
+  </row>
+  <row>
+    <entry><acronym>VLAN</acronym> numéro 13</entry>
+    <entry>Liaison R1 / R3</entry>
+  </row>
+  <row>
+    <entry><acronym>VLAN</acronym> numéro 23</entry>
+    <entry>Liaison R2 / R3</entry>
+  </row>
+  </tbody>
+  </tgroup>
+  </informaltable>
+
+  <para>Ensuite, les six lignes suivantes servent à désigner les
+  <acronym>VLAN</acronym>s ou les trames étiquetées à véhiculer vers les ports.
+  Par exemple, le port numéro 2 reçoit les trames avec les balises des
+  <acronym>VLAN</acronym>s 12 et 13.</para>
+
+  <para>Comme dans les cas précédents, on retrouve ces affectations via
+  l'interface de configuration du commutateur virtuel.</para>
+
+<screen width='80'>vde$ vlan/print
+0000 DATA END WITH '.'
+VLAN 0000
+ -- Port 0001 tagged=0 active=1 status=Forwarding
+ -- Port 0002 tagged=0 active=1 status=Forwarding
+VLAN 0012
+ -- Port 0002 tagged=1 active=1 status=Forwarding
+ -- Port 0003 tagged=1 active=1 status=Forwarding
+VLAN 0013
+ -- Port 0002 tagged=1 active=1 status=Forwarding
+ -- Port 0004 tagged=1 active=1 status=Forwarding
+VLAN 0023
+ -- Port 0003 tagged=1 active=1 status=Forwarding
+ -- Port 0004 tagged=1 active=1 status=Forwarding
+VLAN 0099
+ -- Port 0003 tagged=0 active=1 status=Forwarding
+ -- Port 0004 tagged=0 active=1 status=Forwarding
+.
+1000 Success</screen>
+  </sect2>
+
+  <sect2 xml:id='interco.ospf.vm.virtio'>
+    <title>Utilisation de l'interface virtio</title>
+
+  <para>Pour accéder à des débits réseau plus élevés sur les instances de
+  machines virtuelles, on utilise l'interface <wordasword>virtio</wordasword>
+  du noyau Linux. Il s'agit de mettre en place une
+  <emphasis>paravirtualisation</emphasis> dans laquelle le noyau de l'instance
+  de machine virtuelle est «modifié» pour accéder directement aux ressources du
+  système hôte.</para>
+
+  <para>Pour utiliser cette interface de
+  <emphasis>paravirtualisation</emphasis>, il n'est pas nécessaire d'intervenir
+  sur la configuration système des routeurs <systemitem
+  class='systemname'>R1</systemitem>, <systemitem
+  class='systemname'>R2</systemitem> et <systemitem
+  class='systemname'>R3</systemitem>. Les paquets de noyaux fournis par la
+  distribution <citetitle>Debian GNU/Linux</citetitle> possèdent toutes les
+  fonctions nécessaires.</para>
+
+  <para>Une fois la configuration de la paravirtualisation en place, on peut
+  utiliser l'outil <application>iperf</application> pour mesurer la capacité
+  réseau entre les routeurs <systemitem class='systemname'>R1</systemitem> et
+  <systemitem class='systemname'>R2</systemitem>. Voici un échantillon de
+  résultat obtenu.</para>
+
+  <para>Sur le routeur R2, on lance la partie serveur de l'outil
+  <application>iperf</application>.</para>
+
+<screen width='80'>etu@r2:~$ iperf -s -w 65536
+------------------------------------------------------------
+Server listening on TCP port 5001
+TCP window size:   128 KByte (WARNING: requested 64.0 KByte)
+------------------------------------------------------------</screen>
+
+  <para>Sur le routeur R1, on lance la partie cliente du même outil. On fixe
+  le temps de transmission à 180 secondes avec 4
+  <wordasword>threads</wordasword> en parallèle.</para>
+
+<screen width='80'>etu@r1:~$ iperf -c 10.1.12.2 -w 65536 -t 180 -P 4
+------------------------------------------------------------
+Client connecting to 10.1.12.2, TCP port 5001
+TCP window size:   128 KByte (WARNING: requested 64.0 KByte)
+------------------------------------------------------------
+[  4] local 10.1.12.1 port 35103 connected with 10.1.12.2 port 5001
+[  5] local 10.1.12.1 port 35104 connected with 10.1.12.2 port 5001
+[  3] local 10.1.12.1 port 35102 connected with 10.1.12.2 port 5001
+[  6] local 10.1.12.1 port 35105 connected with 10.1.12.2 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  4]  0.0-180.0 sec  7.88 GBytes    376 Mbits/sec
+[  5]  0.0-180.0 sec  7.94 GBytes    379 Mbits/sec
+[  3]  0.0-180.0 sec  7.67 GBytes    366 Mbits/sec
+[  6]  0.0-180.0 sec  7.72 GBytes    369 Mbits/sec
+<emphasis>[SUM]  0.0-180.0 sec  31.2 GBytes  1.49 Gbits/sec</emphasis></screen>
+
+  <para>Avec un débit total de 1.49 Gbits/sec, on peut dire que les
+  conditions de transmission réseau entre deux instances de systèmes
+  virtualisés sont très bonnes.</para>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='interco.ospf.refdocs'>
+  <title>Documents de référence</title>
+
+  <variablelist>
+    <varlistentry xml:id='interco.ospf.refdocs.archi-tp'>
+      <term><citetitle>Architecture réseau des travaux pratiques</citetitle></term>
+        <listitem>
+	<para>Le support &url.infra.tp;  présente la topologie physique de
+	la salle de travaux pratiques avec la &url.infra.tp.cabling; ainsi que
+	les configurations par défaut des équipements. On y trouve aussi le
+	plan d'adressage <acronym>IP</acronym> utilisé avec les autres supports
+	de travaux pratiques, le plan de numérotations des
+	<acronym>VLAN</acronym>s et les affectations des groupes de ports des
+	commutateurs.</para>
+	</listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.ospf.refdocs.config-interface-lan'>
+      <term><citetitle>Configuration d'une interface réseau</citetitle></term>
+        <listitem>
+	<para>Le support &url.config.interface.lan;  présente les opérations
+	de configuration d'une interface réseau et propose quelques
+	manipulations sur les protocoles de la pile
+	<acronym>TCP/IP</acronym></para>
+	</listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.ospf.refdocs.guide-routage-statique'>
+      <term><citetitle>Initiation au routage, 1ère partie</citetitle></term>
+      <listitem>
+	<para>L'article &url.zebra.static; introduit l'utilisation de
+	<application>quagga</application> et de son premier démon baptisé
+	<systemitem class='daemon'>zebra</systemitem>. Ce démon permet de
+	mettre en place un <emphasis>routage statique</emphasis> associé à la
+	table de routage définie dans la configuration du système.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.ospf.refdocs.guide-routage-ospf'>
+      <term><citetitle>Initiation au routage, 3ème partie</citetitle></term>
+      <listitem>
+	<para>L'article &url.zebra.ospf; introduit l'utilisation du protocole
+	<acronym>OSPF</acronym> sur plusieurs aires. Ce n'est pas l'objectif de
+	ce support qui se limite au routage dynamique dans un système autonome
+	unique ; donc une aire unique.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.ospf.refdocs.inter-vlan'>
+      <term><citetitle>Introduction au routage inter-VLAN</citetitle></term>
+      <listitem>
+      <para>Le support &url.inter-vlan-routing; introduit le principe du
+      routage inter-VLAN ainsi que ses conditions d'utilisation. C'est aussi un
+      support de travaux pratiques dans lequel on n'utilise que du routage
+      statique et de la traduction d'adresses sources
+      (<acronym>S-NAT</acronym>) pour acheminer le trafic utilisateur entre les
+      différents réseaux.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.ospf.refdocs.cisco-ospf'>
+      <term><citetitle>Open Shortest Path First (OSPF)</citetitle></term>
+      <listitem>
+	<para>La page consacrée au protocole sur le site
+	<trademark>Cisco</trademark> : &url.cisco-ospf; regroupe des
+	ressources importantes sur la conception d'architecture réseau
+	utilisant ce protocole.</para>
+
+	<para>On peut aussi citer les supports de formation <citetitle>Cisco
+	Networking Academy</citetitle> qui sont d'une excellente qualité sur
+	l'initiation à l'utilisation des protocoles de routage.
+	Malheureusement, ce ne sont pas des documents libres
+	d'utilisation.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='interco.ospf.refdocs.vm'>
+      <term><citetitle>Virtualisation système et enseignement</citetitle></term>
+      <listitem>
+      <para>Le support &url.vm; présente la solution de virtualisation intégrée
+      au noyau Linux : <acronym>KVM</acronym>. Associée au commutateur
+      &url.vde;, cette solution permet de construire des maquettes de travaux
+      pratiques très complètes en offrant de nombreuses fonctions réseau
+      «réelles» dont une table <link
+      xmlns="http://docbook.org/ns/docbook" xlink:href='http://en.wikipedia.org/wiki/CAM_Table'><acronym>CAM</acronym></link>.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+</article>
