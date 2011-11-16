@@ -11,7 +11,7 @@ SYMLINKS = \
         $(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
-	inter-vlan.routing.xml \
+	interco.inter-vlan.qa.xml \
 	inetdoc.urls.xml
 
 all: $(PROCESS)

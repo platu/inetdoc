@@ -42,7 +42,7 @@ ppp.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ppp.q/$(ABSTRACT_FILE
 netfilter.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.netfilter.q/$(ABSTRACT_FILE)
 	ln -s $< $@
 
-vlan.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/inter-vlan.routing/$(ABSTRACT_FILE)
+vlan.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.inter-vlan.qa/$(ABSTRACT_FILE)
 	ln -s $< $@
 
 ospf.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf/$(ABSTRACT_FILE)

@@ -18,7 +18,7 @@ SUBDIRS = \
 	interco.ppp.q \
 	interco.netfilter.qa \
 	interco.netfilter.q \
-	inter-vlan.routing \
+	interco.inter-vlan.qa \
 	interco.ospf
 
 # Type(s) de traitement
@@ -33,7 +33,7 @@ XML_FILES = \
 	interco.rawip.q/$(ABSTRACT_FILE) \
 	interco.ppp.q/$(ABSTRACT_FILE) \
 	interco.netfilter.q/$(ABSTRACT_FILE) \
-	inter-vlan.routing/$(ABSTRACT_FILE) \
+	interco.inter-vlan.qa/$(ABSTRACT_FILE) \
 	interco.ospf/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
