@@ -19,7 +19,8 @@ SUBDIRS = \
 	interco.netfilter.qa \
 	interco.netfilter.q \
 	interco.inter-vlan.qa \
-	interco.ospf
+	interco.ospf \
+	interco.cs
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
@@ -34,7 +35,8 @@ XML_FILES = \
 	interco.ppp.q/$(ABSTRACT_FILE) \
 	interco.netfilter.q/$(ABSTRACT_FILE) \
 	interco.inter-vlan.qa/$(ABSTRACT_FILE) \
-	interco.ospf/$(ABSTRACT_FILE)
+	interco.ospf/$(ABSTRACT_FILE) \
+	interco.cs/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 

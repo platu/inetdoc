@@ -1,0 +1,468 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+  "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!-- urls -->
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.debian-ref.network.config
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.debian.org/doc/manuals/reference/ch-gateway.en.html">
+   <citetitle>Debian Reference Chapter 10 - Network configuration</citetitle></link>'>
+
+<!ENTITY url.ppp-howto
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://tldp.org/HOWTO/PPP-HOWTO/">
+   <citetitle>Linux PPP HOWTO</citetitle></link>'>
+]>
+
+<article xml:id='interco.cs' xml:lang='fr'>
+
+<info>
+  <title>Étude de cas de synthèse sur l'interconnexion LAN/WAN</title>
+
+  &author;
+  <abstract>
+    <para>L'objectif de cette étude de cas est de faire la synthèse sur
+    l'ensemble du cycle de travaux pratiques sur le thème de l'interconnexion
+    réseau <acronym>LAN</acronym>/<acronym>WAN</acronym>. Côté réseaux étendus,
+    on retrouve la configuration des accès via <acronym>PPP</acronym> sur
+    trames «<acronym>HDLC</acronym> synchrones» (<acronym>RNIS</acronym>) et le
+    filtrage avec et sans traduction d'adresses. Côté réseaux locaux, on
+    reprend le routage inter-VLAN avec le protocole de routage dynamique
+    <acronym>OSPF</acronym>.</para>
+  </abstract>
+
+  <keywordset>
+    <keyword>inter-vlan</keyword>
+    <keyword>interface</keyword>
+    <keyword>isdn</keyword>
+    <keyword>ospf</keyword>
+    <keyword>ppp</keyword>
+    <keyword>quagga</keyword>
+    <keyword>routage</keyword>
+    <keyword>routing</keyword>
+    <keyword>rnis</keyword>
+    <keyword>trunk</keyword>
+    <keyword>vlan</keyword>
+    <keyword>zebra</keyword>
+  </keywordset>
+</info>
+
+<sect1 xml:id='interco.cs.legal.meta'>
+  &legal;
+
+  <sect2 xml:id='interco.cs.meta'>
+    <title>Meta-information</title>
+
+  <para>Ce document est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </sect2>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.cs.topologies'>
+  <title>Topologies réseaux</title>
+
+  <para>La topologie logique globale se présente comme une associations de
+  topologies triangulaires <acronym>LAN</acronym> et
+  <acronym>WAN</acronym>. L'ensemble des routeurs présentés appartiennent à une
+  seule aire <acronym>OSPF</acronym>.</para>
+
+  <mediaobject>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/interco.cs.topologie-logique.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/interco.cs.topologie-logique.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Topologie logique globale de synthèse</phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Les deux sous-topologies <acronym>LAN</acronym> reprennent
+  l'architecture étudiée dans le support &url.interco.ospf;. La seule
+  particularité ici réside dans la redondance de deux <acronym>VLAN</acronym>s
+  entre les routeurs <citetitle>Hub2</citetitle> et
+  <citetitle>Hub3</citetitle>.</para>
+
+  <mediaobject>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/interco.cs.topologie-lan.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/interco.cs.topologie-lan.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Topologies logiques LAN</phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Les quatre sous-topologies <acronym>WAN</acronym> reprennent
+  l'architecture étudiée dans le support &url.interco.ppp;. La différence ici
+  réside dans l'utilisation du protocole de routage dynamique
+  <acronym>OSPF</acronym> sur des les liens <acronym>WAN</acronym> point à
+  point.</para>
+
+  <mediaobject>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/interco.cs.topologie-wan.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/interco.cs.topologie-wan.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Topologies logiques WAN</phrase>
+    </textobject>
+  </mediaobject>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.cs.wan'>
+  <title>Plan d'adressage WAN</title>
+
+  <para>Les connexions <acronym>RNIS</acronym> des routeurs
+  <wordasword>Hubs</wordasword> se font directement sur les ports de
+  l'autocommutateur <acronym>RNIS</acronym> sachant que ces connexions
+  utilisent les deux canaux B du port <acronym>BRI</acronym>.</para>
+
+  <table xml:id='wan.addressing' frame='all' pgwide='1'>
+    <title>Affectation des rôles, des numéros de bus S0 et des adresses
+    IP</title>
+    <tgroup cols='7' align='left' colsep='1' rowsep='1'>
+    <colspec colnum='1' colwidth='1*'/>
+    <colspec colnum='2' colwidth='1.5*'/>
+    <colspec colnum='3' colwidth='1*'/>
+    <colspec colnum='4' colwidth='1*'/>
+    <colspec colnum='5' colwidth='1*'/>
+    <colspec colnum='6' colwidth='1*'/>
+    <colspec colnum='7' colwidth='3*'/>
+    <thead>
+      <row>
+      <entry>Groupe</entry>
+      <entry>Poste</entry>
+      <entry>Rôle</entry>
+      <entry>Bus S0</entry>
+      <entry>N° Tél.</entry>
+      <entry>Interface</entry>
+      <entry>Réseau/Authentification</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry morerows='5' valign='middle'>1</entry>
+      <entry morerows='1' valign='middle'>centares</entry>
+      <entry morerows='1' valign='middle'>Hub1</entry>
+      <entry align='right'>S0.1</entry>
+      <entry>104</entry>
+      <entry>ippp0</entry>
+      <entry><systemitem class='ipaddress'>192.168.104.1:192.168.104.2</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>S0.1</entry>
+      <entry>105</entry>
+      <entry>ippp1</entry>
+      <entry><systemitem class='ipaddress'>192.168.105.1:192.168.105.2</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>bespin</entry>
+      <entry morerows='1' valign='middle'>Spoke11</entry>
+      <entry align='right'>S0.2</entry>
+      <entry>106</entry>
+      <entry>ippp0</entry>
+      <entry align='center'><systemitem>etu_s11 / Sp0k3.11</systemitem></entry>
+      </row>
+      <row>
+      <entry>-</entry>
+      <entry>-</entry>
+      <entry>dummy0</entry>
+      <entry><systemitem class='ipaddress'>10.106.0.1/29</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>alderaan</entry>
+      <entry morerows='1' valign='middle'>Spoke12</entry>
+      <entry align='right'>S0.2</entry>
+      <entry>107</entry>
+      <entry>ippp0</entry>
+      <entry align='center'><systemitem>etu_s12 / Sp0k3.12</systemitem></entry>
+      </row>
+      <row>
+      <entry>-</entry>
+      <entry>-</entry>
+      <entry>dummy0</entry>
+      <entry><systemitem class='ipaddress'>10.107.0.1/29</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='5' valign='middle'>2</entry>
+      <entry morerows='1' valign='middle'>endor</entry>
+      <entry morerows='1' valign='middle'>Hub2</entry>
+      <entry align='right'>S0.3</entry>
+      <entry>108</entry>
+      <entry>ippp0</entry>
+      <entry><systemitem class='ipaddress'>192.168.107.1:192.168.107.2</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>S0.3</entry>
+      <entry>109</entry>
+      <entry>ippp1</entry>
+      <entry><systemitem class='ipaddress'>192.168.108.1:192.168.108.2</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>dagobah</entry>
+      <entry morerows='1' valign='middle'>Spoke21</entry>
+      <entry align='right'>S0.4</entry>
+      <entry>110</entry>
+      <entry>ippp0</entry>
+      <entry align='center'><systemitem>etu_s21 / Sp0k3.21</systemitem></entry>
+      </row>
+      <row>
+      <entry>-</entry>
+      <entry>-</entry>
+      <entry>dummy0</entry>
+      <entry><systemitem class='ipaddress'>10.110.0.1/29</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>coruscant</entry>
+      <entry morerows='1' valign='middle'>Spoke22</entry>
+      <entry align='right'>S0.4</entry>
+      <entry>111</entry>
+      <entry>ippp0</entry>
+      <entry align='center'><systemitem>etu_s22 / Sp0k3.22</systemitem></entry>
+      </row>
+      <row>
+      <entry>-</entry>
+      <entry>-</entry>
+      <entry>dummy0</entry>
+      <entry><systemitem class='ipaddress'>10.111.0.1/29</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='5' valign='middle'>3</entry>
+      <entry morerows='1' valign='middle'>hoth</entry>
+      <entry morerows='1' valign='middle'>Hub3</entry>
+      <entry align='right'>S0.5</entry>
+      <entry>112</entry>
+      <entry>ippp0</entry>
+      <entry><systemitem class='ipaddress'>192.168.111.1:192.168.111.2</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>S0.5</entry>
+      <entry>113</entry>
+      <entry>ippp1</entry>
+      <entry><systemitem class='ipaddress'>192.168.112.1:192.168.112.2</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>geonosis</entry>
+      <entry morerows='1' valign='middle'>Spoke31</entry>
+      <entry align='right'>S0.6</entry>
+      <entry>114</entry>
+      <entry>ippp0</entry>
+      <entry align='center'><systemitem>etu_s31 / Sp0k3.31</systemitem></entry>
+      </row>
+      <row>
+      <entry>-</entry>
+      <entry>-</entry>
+      <entry>dummy0</entry>
+      <entry><systemitem class='ipaddress'>10.114.0.1/29</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>felucia</entry>
+      <entry morerows='1' valign='middle'>Spoke32</entry>
+      <entry align='right'>S0.6</entry>
+      <entry>115</entry>
+      <entry>ippp0</entry>
+      <entry align='center'><systemitem>etu_s32 / Sp0k3.32</systemitem></entry>
+      </row>
+      <row>
+      <entry>-</entry>
+      <entry>-</entry>
+      <entry>dummy0</entry>
+      <entry><systemitem class='ipaddress'>10.115.0.1/29</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='5' valign='middle'>4</entry>
+      <entry morerows='1' valign='middle'>naboo</entry>
+      <entry morerows='1' valign='middle'>Hub4</entry>
+      <entry align='right'>S0.7</entry>
+      <entry>116</entry>
+      <entry>ippp0</entry>
+      <entry><systemitem class='ipaddress'>192.168.115.1:192.168.115.2</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>S0.7</entry>
+      <entry>117</entry>
+      <entry>ippp1</entry>
+      <entry><systemitem class='ipaddress'>192.168.116.1:192.168.116.2</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>mustafar</entry>
+      <entry morerows='1' valign='middle'>Spoke41</entry>
+      <entry align='right'>S0.8</entry>
+      <entry>118</entry>
+      <entry>ippp0</entry>
+      <entry align='center'><systemitem>etu_s41 / Sp0k3.41</systemitem></entry>
+      </row>
+      <row>
+      <entry>-</entry>
+      <entry>-</entry>
+      <entry>dummy0</entry>
+      <entry><systemitem class='ipaddress'>10.118.0.1/29</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='1' valign='middle'>tatooine</entry>
+      <entry morerows='1' valign='middle'>Spoke42</entry>
+      <entry align='right'>S0.8</entry>
+      <entry>119</entry>
+      <entry>ippp0</entry>
+      <entry align='center'><systemitem>etu_s42 / Sp0k3.42</systemitem></entry>
+      </row>
+      <row>
+      <entry>-</entry>
+      <entry>-</entry>
+      <entry>dummy0</entry>
+      <entry><systemitem class='ipaddress'>10.119.0.1/29</systemitem></entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.cs.lan'>
+  <title>Plan d'adressage LAN</title>
+
+  <para>Les seules connexions physiques imposées les liens montants vers
+  l'infrastructure de travaux pratiques. Ces connexions utilisent les ports
+  <systemitem>fa0/24</systemitem> des commutateurs indiqués dans le tableau
+  ci-dessous. Les ports doivent être configurés en mode
+  <wordasword>trunk</wordasword> avec le <acronym>VLAN</acronym> natif numéro
+  3. Le réseau <acronym>IP</acronym>. Le réseau <acronym>IP</acronym>
+  correspondant au <acronym>VLAN</acronym> numéro 3 a l'adresse : <systemitem
+  class='ipaddress'>172.16.0.0/20</systemitem>.</para>
+
+  <para>Comme indiqué dans la section «Plan d'adressage» du document
+  &url.infra.tp;, les adresses des routeurs <citetitle>Casper</citetitle> et
+  <citetitle>Cooper</citetitle> sont respectivement <systemitem
+  class='ipaddress'>172.16.0.4/20</systemitem> et <systemitem
+  class='ipaddress'>172.16.0.2/20</systemitem>.</para>
+
+  <table xml:id='lan.addressing' frame='all' pgwide='1'>
+    <title>Affectation des rôles, des numéros de VLANs et des adresses
+    IP</title>
+    <tgroup cols='7' align='left' colsep='1' rowsep='1'>
+    <colspec colnum='1' colwidth='1*'/>
+    <colspec colnum='3' colwidth='1.5*'/>
+    <colspec colnum='4' colwidth='1*'/>
+    <colspec colnum='5' colwidth='1*'/>
+    <colspec colnum='2' colwidth='2*'/>
+    <colspec colnum='6' colwidth='1*'/>
+    <colspec colnum='7' colwidth='3*'/>
+    <thead>
+      <row>
+      <entry>Groupe</entry>
+      <entry>Poste</entry>
+      <entry>Rôle</entry>
+      <entry>Commutateur</entry>
+      <entry>VLAN</entry>
+      <entry>Interface</entry>
+      <entry>Réseau</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry morerows='2' valign='middle'>1</entry>
+      <entry morerows='2' valign='middle'>centares</entry>
+      <entry morerows='2' valign='middle'>Hub1</entry>
+      <entry morerows='2' valign='middle'><systemitem class='systemname'>sw5.infra.stri</systemitem></entry>
+      <entry align='right'>3</entry>
+      <entry>eth0</entry>
+      <entry><systemitem class='ipaddress'>172.16.1.1/20</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>312</entry>
+      <entry>eth0.312</entry>
+      <entry><systemitem class='ipaddress'>10.0.12.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>313</entry>
+      <entry>eth0.313</entry>
+      <entry><systemitem class='ipaddress'>10.0.13.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='3' valign='middle'>2</entry>
+      <entry morerows='3' valign='middle'>endor</entry>
+      <entry morerows='3' valign='middle'>Hub2</entry>
+      <entry morerows='3' valign='middle'><systemitem class='systemname'>sw5.infra.stri</systemitem></entry>
+      <entry align='right'>312</entry>
+      <entry>eth0.312</entry>
+      <entry><systemitem class='ipaddress'>10.0.12.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>342</entry>
+      <entry>eth0.342</entry>
+      <entry><systemitem class='ipaddress'>10.0.42.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>323</entry>
+      <entry>eth0.323</entry>
+      <entry><systemitem class='ipaddress'>10.0.23.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>332</entry>
+      <entry>eth0.332</entry>
+      <entry><systemitem class='ipaddress'>10.0.32.2/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='3' valign='middle'>3</entry>
+      <entry morerows='3' valign='middle'>hoth</entry>
+      <entry morerows='3' valign='middle'>Hub3</entry>
+      <entry morerows='3' valign='middle'><systemitem class='systemname'>sw5.infra.stri</systemitem></entry>
+      <entry align='right'>343</entry>
+      <entry>eth0.343</entry>
+      <entry><systemitem class='ipaddress'>10.0.43.3</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>313</entry>
+      <entry>eth0.313</entry>
+      <entry><systemitem class='ipaddress'>10.0.13.3/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>323</entry>
+      <entry>eth0.323</entry>
+      <entry><systemitem class='ipaddress'>10.0.23.3/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>332</entry>
+      <entry>eth0.332</entry>
+      <entry><systemitem class='ipaddress'>10.0.32.3/26</systemitem></entry>
+      </row>
+      <row>
+      <entry morerows='2' valign='middle'>4</entry>
+      <entry morerows='2' valign='middle'>mustafar</entry>
+      <entry morerows='2' valign='middle'>Hub4</entry>
+      <entry morerows='2' valign='middle'><systemitem class='systemname'>sw5.infra.stri</systemitem></entry>
+      <entry align='right'>3</entry>
+      <entry>eth0</entry>
+      <entry><systemitem class='ipaddress'>172.16.4.1/20</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>342</entry>
+      <entry>eth0.342</entry>
+      <entry><systemitem class='ipaddress'>10.0.42.4/26</systemitem></entry>
+      </row>
+      <row>
+      <entry align='right'>343</entry>
+      <entry>eth0.343</entry>
+      <entry><systemitem class='ipaddress'>10.0.43.4/26</systemitem></entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+</sect1>
+</article>
