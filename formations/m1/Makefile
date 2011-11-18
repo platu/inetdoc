@@ -20,7 +20,8 @@ XML_FILES = \
 	ppp.tp.abstract.xml \
 	netfilter.tp.abstract.xml \
 	vlan.tp.abstract.xml \
-	ospf.tp.abstract.xml
+	ospf.tp.abstract.xml \
+	cs.tp.abstract.xml
 
 
 all: $(PROCESS)
@@ -46,4 +47,7 @@ vlan.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.inter-vlan.qa/$(ABST
 	ln -s $< $@
 
 ospf.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+cs.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.cs/$(ABSTRACT_FILE)
 	ln -s $< $@
