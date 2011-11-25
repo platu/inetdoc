@@ -46,7 +46,7 @@ netfilter.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.netfilter.q/$(A
 vlan.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.inter-vlan.qa/$(ABSTRACT_FILE)
 	ln -s $< $@
 
-ospf.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf/$(ABSTRACT_FILE)
+ospf.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf.q/$(ABSTRACT_FILE)
 	ln -s $< $@
 
 cs.tp.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.cs/$(ABSTRACT_FILE)
