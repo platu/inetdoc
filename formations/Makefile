@@ -6,16 +6,16 @@ ABSTRACT_FILE = transform_output/abstract.xml
 
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
-	m1 \
-	m2
+	interco-lan-wan \
+	security
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
 
 XML_FILES = \
 	biblio-formations.xml \
-	m1/$(ABSTRACT_FILE) \
-	m2/$(ABSTRACT_FILE)
+	interco-lan-wan/$(ABSTRACT_FILE) \
+	security/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 
