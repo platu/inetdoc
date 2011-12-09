@@ -30,11 +30,14 @@
   de tolérance aux pannes réseau (<wordasword>failover</wordasword>).</para>
   </abstract>
   <keywordset>
+    <keyword>connmark</keyword>
     <keyword>failover</keyword>
     <keyword>inetdoc</keyword>
     <keyword>iproute</keyword>
+    <keyword>iptables</keyword>
     <keyword>Linux</keyword>
     <keyword>load balancing</keyword>
+    <keyword>mangle</keyword>
     <keyword>ospf</keyword>
     <keyword>quagga</keyword>
     <keyword>wireshark</keyword>
@@ -55,6 +58,7 @@
   </section>
 </section>
 
+<?custom-pagebreak?>
 <section xml:id='ospf-triangle-multiple-default.presentation'>
   <title>Présentation de la topologie réseau étudiée</title>
 
@@ -81,7 +85,7 @@
   flux sortant et entrant de l'aire. Voici une représentation de la topologie
   logique en question.</para>
 
-  <mediaobject>
+  <mediaobject xml:id='ospf-triangle-multiple-default.presentation.topology'>
     <imageobject role='fo'>
     <imagedata format='PNG' fileref='images/interco.ospf.multiple-gw.png' width='12cm' scalefit='1' />
     </imageobject>
@@ -103,13 +107,93 @@
   voisins.</para>
 
   <para>À la topologie initiale de travaux pratiques, on a adjoint un réseau
-  local supplémentaire dans lequel on trouve un hôte baptisé
-  <citetitle>host</citetitle> (avec beaucoup d'originalité) ainsi que le fameux
-  routeur de niveau supérieur baptisé <citetitle>ISP</citetitle> pour
-  <wordasword>Internet Service Provider</wordasword>. Dans tous les tests
-  l'hôte est la source et la destination du trafic routé et la configuration du
-  routeur <citetitle>ISP</citetitle> fait l'objet de toute l'attention de cet
-  article.</para>
+  local supplémentaire dans lequel on trouve un hôte baptisé (avec beaucoup
+  d'originalité) <citetitle>host</citetitle> ainsi que le fameux routeur de
+  niveau supérieur baptisé <citetitle>ISP</citetitle> pour <wordasword>Internet
+  Service Provider</wordasword>. Dans tous les tests l'hôte
+  <citetitle>host</citetitle> est la source et la destination du trafic routé.
+  La configuration du routeur <citetitle>ISP</citetitle> fait l'objet de toute
+  l'attention de cet article.</para>
+</section>
+
+<section xml:id='ospf-triangle-multiple-default.ospf'>
+  <title>Routage au sein de l'aire OSPF</title>
+
+  <para>Sur <citetitle>R2</citetitle>, la table de routage vue du système est
+  donnée ci-dessous. Cette visualisation au «niveau du noyau» est la synthèse
+  de toutes les routes apprises par les différents canaux d'information :
+  routes statiques et protocoles de routage dynamique. Dans le cas du routeur
+  <citetitle>R2</citetitle>, les deux canaux d'information sont les connexions
+  directes et le protocole <acronym>OSPF</acronym>.</para> 
+
+  <itemizedlist>
+    <listitem>
+    <para>Toutes les entrées avec l'indication <literal>proto kernel</literal>
+    correpondent aux connexions directes héritées de la configuration des
+    interfaces réseau du routeur.</para>
+    </listitem>
+    <listitem>
+    <para>Toutes les entrées avec l'indication <literal>proto zebra</literal>
+    correspondent aux routes apprises via un démon actif du paquet
+    <systemitem>quagga</systemitem>. Ici, le démon <systemitem
+    class='daemon'>ospfd</systemitem> est la seule source d'information.</para>
+    </listitem>
+  </itemizedlist>
+
+<screen width='80'><prompt>$</prompt> ip route ls
+default  proto zebra  metric 10 
+        nexthop via 10.1.23.3  dev eth0.23 weight 1
+        nexthop via 10.1.12.1  dev eth0.12 weight 1
+10.1.12.0/26 dev eth0.12  proto kernel  scope link  src 10.1.12.2 
+10.1.13.0/26  proto zebra  metric 2 
+        nexthop via 10.1.12.1  dev eth0.12 weight 1
+        nexthop via 10.1.23.3  dev eth0.23 weight 1
+10.1.20.0/26 dev eth0  proto kernel  scope link  src 10.1.20.1 
+10.1.23.0/26 dev eth0.23  proto kernel  scope link  src 10.1.23.2</screen>
+
+  <para>La même table de routage vue du démon <systemitem
+  class='daemon'>zebra</systemitem> est donnée ci-dessous. Relativement à la
+  vue synthétique précédente, on obtient davantage d'informations sur les
+  mécanismes de décision.</para>
+
+<screen width='80'><prompt>R2-Zebra#</prompt> sh ip route 
+Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,
+       I - ISIS, B - BGP, > - selected route, * - FIB route
+
+O>* 0.0.0.0/0 [110/10] via 10.1.23.3, eth0.23, 1d10h31m
+  *                    via 10.1.12.1, eth0.12, 1d10h31m
+O   10.1.12.0/26 [110/1] is directly connected, eth0.12, 5d00h09m
+C>* 10.1.12.0/26 is directly connected, eth0.12
+O>* 10.1.13.0/26 [110/2] via 10.1.12.1, eth0.12, 5d00h09m
+  *                      via 10.1.23.3, eth0.23, 5d00h09m
+O   10.1.20.0/26 [110/1] is directly connected, eth0, 5d00h09m
+C>* 10.1.20.0/26 is directly connected, eth0
+O   10.1.23.0/26 [110/1] is directly connected, eth0.23, 5d00h09m
+C>* 10.1.23.0/26 is directly connected, eth0.23
+C>* 127.0.0.0/8 is directly connected, lo</screen>
+
+<screen width='80'><prompt>R2-ospfd#</prompt> sh ip ospf route 
+============ OSPF network routing table ============
+N    10.1.12.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0.12
+N    10.1.13.0/26          [2] area: 0.0.0.0
+                           via 10.1.12.1, eth0.12
+                           via 10.1.23.3, eth0.23
+N    10.1.20.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0
+N    10.1.23.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0.23
+
+============ OSPF router routing table =============
+R    0.0.0.1               [1] area: 0.0.0.0, ASBR
+                           via 10.1.12.1, eth0.12
+R    0.0.0.3               [1] area: 0.0.0.0, ASBR
+                           via 10.1.23.3, eth0.23
+
+============ OSPF external routing table ===========
+N E2 0.0.0.0/0             [1/10] tag: 0
+                           via 10.1.23.3, eth0.23
+                           via 10.1.12.1, eth0.12</screen>
 </section>
 
 <section xml:id='ospf-triangle-multiple-default.conclusion'>
@@ -119,7 +203,120 @@
   quatre instances de machines virtuelles.</para>
 </section>
 
-<appendix xml:id='ospf-triangle-multiple-default.zebra'>
+<appendix xml:id='ospf-triangle-multiple-default.vde'>
+  <title>Configuration de la commutation</title>
+
+  <para>Les interfaces réseau des instances de systèmes virtualisés sont un
+  brassées sur une instance de commutateur, virtuel lui aussi,
+  <citetitle>vde</citetitle>. Ce commutateur est fourni par le paquet
+  <systemitem>vde2</systemitem> et il est lancé lors de l'initialisation de
+  l'interface <option>tap0</option> sur le système hôte. Voici un extrait du
+  fichier <filename>/etc/network/interfaces</filename>.</para>
+
+<screen width='80'>auto tap0
+iface tap0 inet static
+        address 192.200.0.1
+        netmask 255.255.255.192
+        network 192.200.0.0
+        broadcast 192.200.0.63
+        vde2-switch -</screen>
+
+  <para>Le brassage correspondant à la vue <link
+  linkend='ospf-triangle-multiple-default.presentation.topology'>topologie
+  logique</link> est donné dans le tableau ci-dessous.</para> 
+
+  <table frame='all'>
+    <title>Brassage commutateur virtuel</title>
+  <tgroup cols='4' align='left' colsep='1' rowsep='1'>
+  <colspec colname='c1'/>
+  <colspec colname='c2'/>
+  <colspec colname='c3'/>
+  <colspec colname='c4'/>
+  <thead>
+    <row>
+      <entry align='center'>Port VDE</entry>
+      <entry align='center'>Hôte</entry>
+      <entry align='center'>Interface(s)</entry>
+      <entry align='center'>Liaison</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row>
+      <entry>1</entry>
+      <entry>Système hôte</entry>
+      <entry>tap0</entry>
+      <entry>commutateur vde</entry>
+    </row>
+    <row>
+      <entry>2</entry>
+      <entry>ISP</entry>
+      <entry>eth0</entry>
+      <entry>système hôte | Internet</entry>
+    </row>
+    <row>
+      <entry morerows='1'>3</entry>
+      <entry morerows='1'>ISP</entry>
+      <entry>eth1.101</entry>
+      <entry>downlink1</entry>
+    </row>
+    <row>
+      <entry>eth1.103</entry>
+      <entry>downlink2</entry>
+    </row>
+    <row>
+      <entry morerows='2'>4</entry>
+      <entry morerows='2'>R1</entry>
+      <entry>eth0.101</entry>
+      <entry>downlink1</entry>
+    </row>
+    <row>
+      <entry>eth0.13</entry>
+      <entry>trunk R1 + R3</entry>
+    </row>
+    <row>
+      <entry>eth0.12</entry>
+      <entry>trunk R1 + R2</entry>
+    </row>
+    <row>
+      <entry morerows='2'>5</entry>
+      <entry morerows='2'>R2</entry>
+      <entry>eth0</entry>
+      <entry>host</entry>
+    </row>
+    <row>
+      <entry>eth0.12</entry>
+      <entry>trunk R2 + R1</entry>
+    </row>
+    <row>
+      <entry>eth0.23</entry>
+      <entry>trunk R2 + R3</entry>
+    </row>
+    <row>
+      <entry morerows='2'>6</entry>
+      <entry morerows='2'>R3</entry>
+      <entry>eth0.103</entry>
+      <entry>downlink2</entry>
+    </row>
+    <row>
+      <entry>eth0.13</entry>
+      <entry>trunk R3 + R1</entry>
+    </row>
+    <row>
+      <entry>eth0.23</entry>
+      <entry>trunk R3 + R2</entry>
+    </row>
+    <row>
+      <entry>7</entry>
+      <entry>host</entry>
+      <entry>eth0</entry>
+      <entry>R2</entry>
+    </row>
+  </tbody>
+  </tgroup>
+  </table>
+</appendix>
+
+<appendix xml:id='ospf-triangle-multiple-default.quagga'>
   <title>Configuration du routage statique et dynamique</title>
 
   <para>Les configurations des démons <systemitem
@@ -145,7 +342,10 @@
   </informaltable>
 
   <para>Les configurations des démons <systemitem
-  class='daemon'>ospfd</systemitem> des trois routeurs sont données ci-dessous.</para>
+  class='daemon'>ospfd</systemitem> des trois routeurs sont données ci-dessous.
+  Les deux routeurs de bordure <citetitle>R1</citetitle> et
+  <citetitle>R3</citetitle> publient une route par défaut à l'aide de
+  l'instruction <userinput>default-information originate</userinput>.</para>
 
   <informaltable frame='none'>
     <tgroup cols='3'>
