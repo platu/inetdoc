@@ -56,6 +56,26 @@
   format PDF : <link
   xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
   </section>
+
+  <section xml:id='ospf-triangle-multiple-default.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super-utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </section>
 </section>
 
 <?custom-pagebreak?>
@@ -126,6 +146,7 @@
   commutateur Ethernet gigabit.</para>
 </section>
 
+<?custom-pagebreak?>
 <section xml:id='ospf-triangle-multiple-default.ospf'>
   <title>Routage au sein de l'aire OSPF</title>
 
@@ -290,6 +311,132 @@ N E2 0.0.0.0/0             [1/10] tag: 0
   class='systemname'>ISP</systemitem>. Sachant que tous les liens de la
   topologie étudiée sont identiques et ont le même coût, on se contente
   d'utiliser ces entrées de type <option>E2</option> en l'état.</para>
+</section>
+
+<section xml:id='ospf-triangle-multiple-default.load-balancing'>
+  <title>Répartition de trafic - <wordasword>load balancing</wordasword></title>
+
+  <para>Dans la configuration de l'aire <acronym>OSPF</acronym> présentée dans
+  la section précédente, les routeurs et les hôtes réseau en général disposent
+  de deux liens vers le routeur de niveau supérieur <systemitem
+  class='systemname'>ISP</systemitem>. Si les passerelles par défaut des deux
+  routeurs de bordure <systemitem class='systemname'>R1</systemitem> et
+  <systemitem class='systemname'>R3</systemitem> sont publiées via le protocole
+  de routage dynamique à destination de tous les routeurs de l'aire, le routeur
+  <systemitem class='systemname'>ISP</systemitem> ne dispose pas de cette
+  information.</para>
+
+  <para>Sans configuration particulière, le routage se fait uniquement sur la
+  base des adresses <acronym>IP</acronym> destination et le trafic sortant peut
+  transiter aussi bien par <systemitem class='systemname'>R1</systemitem> que
+  par <systemitem class='systemname'>R3</systemitem>. Le trafic retour ou
+  entrant transite exclusivement par <systemitem
+  class='systemname'>ISP</systemitem> et il est nécessaire de renseigner les
+  réseaux appartenant à l'aire <acronym>OSPF</acronym> dans sa table de
+  routage. La technique usuelle dans le contexte de la topologie étudiée
+  consiste à implanter une route de synthèse qui englobe la totalité des
+  réseaux situés aux niveaux inférieurs.</para>
+
+  <para>Pour déterminer l'adresse réseau qui englobe les réseau de l'aire, on
+  dispose de l'outil <command>aggregate</command> fourni avec le paquet du même
+  nom. Voici deux exemples d'exécution sur le routeur <systemitem
+  class='systemname'>R2</systemitem> après affichage de la table de
+  routage.</para>
+
+<screen width='80'><prompt>#</prompt> ip route ls
+default  proto zebra  metric 10 
+        nexthop via 10.1.23.3  dev eth0.23 weight 1
+        nexthop via 10.1.12.1  dev eth0.12 weight 1
+10.1.12.0/26 dev eth0.12  proto kernel  scope link  src 10.1.12.2 
+10.1.13.0/26  proto zebra  metric 2 
+        nexthop via 10.1.12.1  dev eth0.12 weight 1
+        nexthop via 10.1.23.3  dev eth0.23 weight 1
+10.1.20.0/26 dev eth0  proto kernel  scope link  src 10.1.20.1 
+10.1.23.0/26 dev eth0.23  proto kernel  scope link  src 10.1.23.2</screen>
+
+  <para>Dans le premier exemple ci-dessous, l'adresse <systemitem
+  class='ipaddress'>10.1.0.0/20</systemitem> n'englobe que les réseaux
+  <systemitem class='ipaddress'>10.1.12.0/26</systemitem> et <systemitem
+  class='ipaddress'>10.1.13.0/26</systemitem> marqués avec le signe
+  <keycap>-</keycap>. Le masque réseau <option>/20</option> est donc
+  insuffisant pour couvrir la liste complète des réseaux de niveau
+  inférieur.</para>
+
+<screen width='80'><prompt>#</prompt> (echo '10.1.0.0/20' ;\
+ip route ls | grep -Eo '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{2}') |\
+aggregate -v
+aggregate: maximum prefix length permitted will be 32
+[    1]   10.1.0.0/20
+[    2] - 10.1.12.0/26
+[    3] - 10.1.13.0/26
+[    4]   10.1.20.0/26
+[    5]   10.1.23.0/26</screen>
+
+  <para>Dans le second exemple ci-dessous, l'adresse <systemitem
+  class='ipaddress'>10.1.0.0/19</systemitem> englobe bien tous les réseaux de
+  l'aire <acronym>OSPF</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> (echo '10.1.0.0/19' ;\
+ip route ls | grep -Eo '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{2}') |\
+aggregate -v
+aggregate: maximum prefix length permitted will be 32
+[    1]   10.1.0.0/19
+[    2] - 10.1.12.0/26
+[    3] - 10.1.13.0/26
+[    4] - 10.1.20.0/26
+[    5] - 10.1.23.0/26</screen>
+
+  <para>On peut donc implanter sur le routeur <systemitem
+  class='systemname'>ISP</systemitem> une route statique de synthèse ou
+  <wordasword>static summary route</wordasword> désignant les deux passerelles
+  de l'aire <acronym>OSPF</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> ip route add 10.1.0.0/19 nexthop via 10.1.30.1 nexthop via 10.1.30.9</screen>
+
+  <para>Une fois cette commande exécutée, la table de routage du routeur
+  <systemitem class='systemname'>ISP</systemitem> est la suivante.</para>
+
+<screen width='80'><prompt>#</prompt> ip route ls
+default via 192.200.0.1 dev eth0 
+10.1.0.0/19 
+        nexthop via 10.1.30.1  dev eth1.101 weight 1
+        nexthop via 10.1.30.9  dev eth1.103 weight 1
+10.1.30.0/29 dev eth1.101  proto kernel  scope link  src 10.1.30.2 
+10.1.30.8/29 dev eth1.103  proto kernel  scope link  src 10.1.30.10 
+192.200.0.0/27 dev eth0  proto kernel  scope link  src 192.200.0.3</screen>
+
+   <para>C'est le mot clé <option>nexthop</option> qui sert à définir plusieurs
+   passerelles pour un même réseau de destination.</para>
+
+   <para>Maintenant que la capacité à exploiter les deux liens est implantée à
+   chaque extrémité, il ne reste qu'à valider le fonctionnement à partir du
+   trafic émis et reçu l'hôte <systemitem class='systemname'>host</systemitem>
+   transitant par <systemitem class='systemname'>ISP</systemitem>. C'est sur ce
+   routeur que l'on procède à l'analyse du trafic avec l'outil
+   <command>tshark</command> qui permet la capture de trafic en mode console.
+   Le système du routeur <systemitem class='systemname'>ISP</systemitem> a en
+   plus été configuré pour pouvoir effectuer les captures au niveau utilisateur
+   normal en appliquant les instructions données dans l'article
+   &url.wireshark-as-user;.</para>
+
+   <para>Voici une séquence typique de capture sur le routeur <systemitem
+   class='systemname'>ISP</systemitem> pendant le chargement d'une page
+   <wordasword>Web</wordasword> sur <systemitem
+   class='systemname'>host</systemitem>.</para>
+
+<screen width='80'><prompt>etu@isp:~$</prompt> screen tshark -i eth1 ! port 22  -w /var/tmp/multipath-host.pcap
+[detached from 13986.pts-0.isp]
+<prompt>etu@isp:~$</prompt> ssh 10.1.20.2
+Linux host 3.1.0-1-amd64 #1 SMP Mon Nov 14 08:02:25 UTC 2011 x86_64
+&lt;snipped/>
+<prompt>etu@host:~$</prompt> lynx www.iana.org
+Recherche  'www.iana.org' premier
+<prompt>etu@host:~$</prompt> logout
+Connection to 10.1.20.2 closed.
+<prompt>etu@isp:~$</prompt> screen -r
+[screen is terminating]
+<prompt>etu@isp:~$</prompt> ls -lh /var/tmp/multipath-host.pcap 
+-rw------- 1 etu etu 12K déc.  11 23:25 /var/tmp/multipath-host.pcap</screen>
 </section>
 
 <section xml:id='ospf-triangle-multiple-default.conclusion'>
