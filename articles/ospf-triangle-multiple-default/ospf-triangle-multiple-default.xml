@@ -109,22 +109,33 @@
   <para>À la topologie initiale de travaux pratiques, on a adjoint un réseau
   local supplémentaire dans lequel on trouve un hôte baptisé (avec beaucoup
   d'originalité) <citetitle>host</citetitle> ainsi que le fameux routeur de
-  niveau supérieur baptisé <citetitle>ISP</citetitle> pour <wordasword>Internet
-  Service Provider</wordasword>. Dans tous les tests l'hôte
-  <citetitle>host</citetitle> est la source et la destination du trafic routé.
-  La configuration du routeur <citetitle>ISP</citetitle> fait l'objet de toute
-  l'attention de cet article.</para>
+  niveau supérieur baptisé <systemitem class='systemname'>ISP</systemitem> pour
+  <wordasword>Internet Service Provider</wordasword>. Dans tous les tests
+  l'hôte <citetitle>host</citetitle> est la source et la destination du trafic
+  routé. La configuration du routeur <systemitem
+  class='systemname'>ISP</systemitem> fait l'objet de toute l'attention de cet
+  article.</para>
+
+  <para>Avant d'étudier le routage dans l'aire <acronym>OSPF</acronym> et les
+  conditions à satisfaire pour la répartition du trafic entre les deux liens de
+  raccordement de l'aire au routeur <systemitem
+  class='systemname'>ISP</systemitem> ainsi que la tolérance aux pannes sur ces
+  mêmes liens, il est important de préciser que toutes les connexions sont
+  homogènes. On considère que toutes les interfaces des routeurs et du poste de
+  travail <citetitle>host</citetitle> sont connectées sur des ports de
+  commutateur Ethernet gigabit.</para>
 </section>
 
 <section xml:id='ospf-triangle-multiple-default.ospf'>
   <title>Routage au sein de l'aire OSPF</title>
 
-  <para>Sur <citetitle>R2</citetitle>, la table de routage vue du système est
-  donnée ci-dessous. Cette visualisation au «niveau du noyau» est la synthèse
-  de toutes les routes apprises par les différents canaux d'information :
-  routes statiques et protocoles de routage dynamique. Dans le cas du routeur
-  <citetitle>R2</citetitle>, les deux canaux d'information sont les connexions
-  directes et le protocole <acronym>OSPF</acronym>.</para> 
+  <para>Sur <systemitem class='systemname'>R2</systemitem>, la table de routage
+  vue du système est donnée ci-dessous. Cette visualisation au «niveau du
+  noyau» est la synthèse de toutes les routes apprises par les différents
+  canaux d'information : routes statiques et protocoles de routage dynamique.
+  Dans le cas du routeur <systemitem class='systemname'>R2</systemitem>, les
+  deux canaux d'information sont les connexions directes et le protocole
+  <acronym>OSPF</acronym>.</para> 
 
   <itemizedlist>
     <listitem>
@@ -154,7 +165,37 @@ default  proto zebra  metric 10
   <para>La même table de routage vue du démon <systemitem
   class='daemon'>zebra</systemitem> est donnée ci-dessous. Relativement à la
   vue synthétique précédente, on obtient davantage d'informations sur les
-  mécanismes de décision.</para>
+  mécanismes d'apprentissage et de décision.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toutes les lignes débutant par le caractère <keycap>C</keycap>
+    correspondent au connexions directes.</para>
+    </listitem>
+    <listitem>
+    <para>Toutes les lignes débutant par le caractère <keycap>O</keycap>
+    correspondent aux routes apprises à l'aide du démon <systemitem
+    class='daemon'>ospfd</systemitem>.</para>
+    </listitem>
+    <listitem>
+    <para>Toutes les entrées marquées par le caractère <keycap>*</keycap>
+    correspondent aux routes retenues pour l'acheminement des paquets. Toutes
+    les routes listées sont présentes dans la <wordasword>Routing Information
+    Base</wordasword> (<acronym>RIB</acronym>) au niveau <wordasword>Control
+    Plane</wordasword> et celles qui sont marquées sont mémorisées dans la
+    <wordasword>Forwarding Information Base</wordasword>
+    (<acronym>FIB</acronym>) au niveau <wordasword>Data
+    Plane</wordasword>.</para>
+
+    <para>Avant stockage dans la <acronym>FIB</acronym>, les routes retenues
+    sont transformées (table de <wordasword>hash</wordasword>) pour assurer la
+    fonction de commutation de paquets. Cette fonction est plus ou moins
+    optimisée suivant les composants électroniques présents sur le routeur.
+    Dans le cas de cette maquette de travaux pratiques, les machines virtuelles
+    utilisent la mémoire vive pour stocker les tables de
+    <wordasword>hash</wordasword>.</para>
+    </listitem>
+  </itemizedlist>
 
 <screen width='80'><prompt>R2-Zebra#</prompt> sh ip route 
 Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,
@@ -171,6 +212,30 @@ C>* 10.1.20.0/26 is directly connected, eth0
 O   10.1.23.0/26 [110/1] is directly connected, eth0.23, 5d00h09m
 C>* 10.1.23.0/26 is directly connected, eth0.23
 C>* 127.0.0.0/8 is directly connected, lo</screen>
+
+  <para>La base des routes du démon <systemitem
+  class='daemon'>ospfd</systemitem> est donnée ci-dessous. On ne retrouve ici
+  que les routes présentes dans la configuration du démon local et celles
+  apprises via les échanges avec les démons <acronym>OSPF</acronym>
+  voisins.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Les réseaux correspondant aux connexions directes du routeur
+    apparaissent avec la mention <userinput>directly
+    attached</userinput>.</para>
+    </listitem>
+    <listitem>
+    <para>Les autres réseaux apparaissent avec l'adresse <acronym>IP</acronym>
+    du ou des routeurs voisins. Ainsi, depuis le routeur <systemitem
+    class='systemname'>R2</systemitem> le réseau <systemitem
+    class='ipaddress'>10.1.13.0/26</systemitem> est appris via les deux
+    routeurs <systemitem class='systemname'>R1</systemitem> (<systemitem
+    class='ipaddress'>10.1.12.1</systemitem>) et <systemitem
+    class='systemname'>R3</systemitem> (<systemitem
+    class='ipaddress'>10.1.23.3</systemitem>).</para>
+    </listitem>
+  </itemizedlist>
 
 <screen width='80'><prompt>R2-ospfd#</prompt> sh ip ospf route 
 ============ OSPF network routing table ============
@@ -194,6 +259,37 @@ R    0.0.0.3               [1] area: 0.0.0.0, ASBR
 N E2 0.0.0.0/0             [1/10] tag: 0
                            via 10.1.23.3, eth0.23
                            via 10.1.12.1, eth0.12</screen>
+
+  <para>Comme indiqué dans le support de travaux pratiques sur le <link
+  xlink:href='&url.interco.ospf.answers;'>Routage dynamique avec OSPF</link>,
+  l'utilisation de l'instruction <userinput>default-information
+  originate</userinput> sur les routeurs <systemitem
+  class='systemname'>R1</systemitem> et <systemitem
+  class='systemname'>R3</systemitem> change les rôles de ces deux routeurs. Ils
+  deviennent routeurs de bordure ou <wordasword>Autonomous System Boundary
+  Router</wordasword>. Ils sont situés à la frontière entre l'aire
+  <acronym>OSPF</acronym> et un autre système autonome qui peut utiliser un
+  autre type de routage.</para>
+
+  <para>Dans notre cas, les routeurs <systemitem
+  class='systemname'>R1</systemitem> et <systemitem
+  class='systemname'>R3</systemitem> possèdent une route statique définie au
+  niveau système vers <systemitem class='systemname'>ISP</systemitem>.
+  L'instruction donnée ci-dessus assure la redistribution des routes statiques
+  vers <systemitem class='systemname'>R2</systemitem>. Ces routes apparaissent
+  comme des entrées de type <option>E2</option> dans la table de <systemitem
+  class='systemname'>R2</systemitem>.</para>
+
+  <para>L'indicateur <option>E2</option> correspond au type par défaut des
+  routes apprises par le biais de la redistribution. La métrique est un point
+  important à considérer avec les routes de ce type. Elles ne présentent que le
+  coût du chemin allant du routeur <acronym>ASBR</acronym> vers le réseau de
+  destination (<option>10</option> dans notre exemple) ; ce qui ne correspond
+  pas au coût réel du chemin entre <systemitem
+  class='systemname'>R2</systemitem> et <systemitem
+  class='systemname'>ISP</systemitem>. Sachant que tous les liens de la
+  topologie étudiée sont identiques et ont le même coût, on se contente
+  d'utiliser ces entrées de type <option>E2</option> en l'état.</para>
 </section>
 
 <section xml:id='ospf-triangle-multiple-default.conclusion'>
@@ -343,9 +439,10 @@ iface tap0 inet static
 
   <para>Les configurations des démons <systemitem
   class='daemon'>ospfd</systemitem> des trois routeurs sont données ci-dessous.
-  Les deux routeurs de bordure <citetitle>R1</citetitle> et
-  <citetitle>R3</citetitle> publient une route par défaut à l'aide de
-  l'instruction <userinput>default-information originate</userinput>.</para>
+  Les deux routeurs de bordure <systemitem class='systemname'>R1</systemitem>
+  et <systemitem class='systemname'>R3</systemitem> publient une route par
+  défaut à l'aide de l'instruction <userinput>default-information
+  originate</userinput>.</para>
 
   <informaltable frame='none'>
     <tgroup cols='3'>
