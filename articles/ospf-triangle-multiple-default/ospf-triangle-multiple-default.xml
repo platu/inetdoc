@@ -288,9 +288,9 @@ N E2 0.0.0.0/0             [1/10] tag: 0
   class='systemname'>R1</systemitem> et <systemitem
   class='systemname'>R3</systemitem> change les rôles de ces deux routeurs. Ils
   deviennent routeurs de bordure ou <wordasword>Autonomous System Boundary
-  Router</wordasword>. Ils sont situés à la frontière entre l'aire
-  <acronym>OSPF</acronym> et un autre système autonome qui peut utiliser un
-  autre type de routage.</para>
+  Router</wordasword> (<acronym>ASBR</acronym>). Ils sont situés à la frontière
+  entre l'aire <acronym>OSPF</acronym> et un autre système autonome qui peut
+  utiliser un autre type de routage.</para>
 
   <para>Dans notre cas, les routeurs <systemitem
   class='systemname'>R1</systemitem> et <systemitem
@@ -325,6 +325,10 @@ N E2 0.0.0.0/0             [1/10] tag: 0
   de routage dynamique à destination de tous les routeurs de l'aire, le routeur
   <systemitem class='systemname'>ISP</systemitem> ne dispose pas de cette
   information.</para>
+
+  <section xml:id='ospf-triangle-multiple-default.load-balancing.summary'>
+    <title>Route de synthèse multichemins sur ISP - <wordasword>multipath
+    static summary route</wordasword></title>
 
   <para>Sans configuration particulière, le routage se fait uniquement sur la
   base des adresses <acronym>IP</acronym> destination et le trafic sortant peut
@@ -374,7 +378,9 @@ aggregate: maximum prefix length permitted will be 32
 
   <para>Dans le second exemple ci-dessous, l'adresse <systemitem
   class='ipaddress'>10.1.0.0/19</systemitem> englobe bien tous les réseaux de
-  l'aire <acronym>OSPF</acronym>.</para>
+  l'aire <acronym>OSPF</acronym>. Le masque réseau <option>/19</option> permet
+  de couvrir tous les réseaux de l'aire <acronym>OSPF</acronym> en une seule et
+  unique entrée.</para>
 
 <screen width='80'><prompt>#</prompt> (echo '10.1.0.0/19' ;\
 ip route ls | grep -Eo '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{2}') |\
@@ -405,24 +411,45 @@ default via 192.200.0.1 dev eth0
 10.1.30.8/29 dev eth1.103  proto kernel  scope link  src 10.1.30.10 
 192.200.0.0/27 dev eth0  proto kernel  scope link  src 192.200.0.3</screen>
 
-   <para>C'est le mot clé <option>nexthop</option> qui sert à définir plusieurs
-   passerelles pour un même réseau de destination.</para>
+  <itemizedlist>
+    <listitem>
+    <para>Le mot clé <option>nexthop</option> sert à définir plusieurs
+    passerelles pour un même réseau de destination.</para>
+    </listitem>
+    <listitem>
+    <para>Les interfaces via lesquelles les paquets doivent être transmis sont
+    ajoutées automatiquement en fonction de l'adresse <acronym>IP</acronym> de
+    passerelle. Par exemple, la passerelle <systemitem
+    class='ipaddress'>10.1.30.1</systemitem> est joignable via l'interface
+    <option>eth1.101</option>.</para>
+    </listitem>
+    <listitem>
+    <para>Sans indication particulière, les passerelles ont la même
+    pondération : <option>weight 1</option>. Comme précisé dans la <xref
+    linkend='ospf-triangle-multiple-default.presentation'/>, toutes les
+    liaisons sont homogènes et offrent le même débit réseau.</para>
+    </listitem>
+  </itemizedlist>
+  </section>
 
-   <para>Maintenant que la capacité à exploiter les deux liens est implantée à
-   chaque extrémité, il ne reste qu'à valider le fonctionnement à partir du
-   trafic émis et reçu l'hôte <systemitem class='systemname'>host</systemitem>
-   transitant par <systemitem class='systemname'>ISP</systemitem>. C'est sur ce
-   routeur que l'on procède à l'analyse du trafic avec l'outil
-   <command>tshark</command> qui permet la capture de trafic en mode console.
-   Le système du routeur <systemitem class='systemname'>ISP</systemitem> a en
-   plus été configuré pour pouvoir effectuer les captures au niveau utilisateur
-   normal en appliquant les instructions données dans l'article
-   &url.wireshark-as-user;.</para>
+  <section xml:id='ospf-triangle-multiple-default.load-balancing.analysis'>
+    <title>Analyse réseau sur ISP</title>
 
-   <para>Voici une séquence typique de capture sur le routeur <systemitem
-   class='systemname'>ISP</systemitem> pendant le chargement d'une page
-   <wordasword>Web</wordasword> sur <systemitem
-   class='systemname'>host</systemitem>.</para>
+  <para>Maintenant que la capacité à exploiter les deux liens est implantée à
+  chaque extrémité, il ne reste qu'à valider le fonctionnement à partir du
+  trafic émis et reçu l'hôte <systemitem class='systemname'>host</systemitem>
+  transitant par <systemitem class='systemname'>ISP</systemitem>. C'est sur ce
+  routeur que l'on procède à l'analyse du trafic avec l'outil
+  <command>tshark</command> qui permet la capture de trafic en mode console.
+  Le système du routeur <systemitem class='systemname'>ISP</systemitem> a en
+  plus été configuré pour pouvoir effectuer les captures au niveau utilisateur
+  normal en appliquant les instructions données dans l'article
+  &url.wireshark-as-user;.</para>
+
+  <para>Voici une séquence typique de capture sur le routeur <systemitem
+  class='systemname'>ISP</systemitem> pendant le chargement d'une page
+  <wordasword>Web</wordasword> sur <systemitem
+  class='systemname'>host</systemitem>.</para>
 
 <screen width='80'><prompt>etu@isp:~$</prompt> screen tshark -i eth1 ! port 22  -w /var/tmp/multipath-host.pcap
 [detached from 13986.pts-0.isp]
@@ -437,6 +464,40 @@ Connection to 10.1.20.2 closed.
 [screen is terminating]
 <prompt>etu@isp:~$</prompt> ls -lh /var/tmp/multipath-host.pcap 
 -rw------- 1 etu etu 12K déc.  11 23:25 /var/tmp/multipath-host.pcap</screen>
+
+  <itemizedlist>
+    <listitem>
+    <para>La commande <command>screen</command> fournie avec le paquet du même
+    nom, sert à ouvrir un terminal dans lequel on lance la capture des paquets
+    avec <command>tshark</command>.</para>
+    </listitem>
+    <listitem>
+    <para>L'interface utilisée pour la capture réseau est
+    <option>eth1</option>. Comme le «composant» contrôleur d'interface réseau
+    sur une machine virtuelle ne dispose pas de fonctions évoluées, tous les
+    types de trames transitant par l'interface sont capturés. On enregistre
+    ainsi les trames avec les balises <acronym>IEEE 802.1q</acronym> des
+    <acronym>VLAN</acronym>s <option>101</option> et
+    <option>103</option>.</para>
+    </listitem>
+    <listitem>
+    <para>L'option <option>! port 22</option> élimine tous les segments
+    utilisant le port <acronym>SSH</acronym> comme source ou comme destination.
+    Comme le protocole <acronym>SSH</acronym> est utilisé pour ouvrir les
+    sessions sur les routeurs et l'hôte <systemitem
+    class='systemname'>host</systemitem>, il est inutile de capturer ce
+    trafic.</para>
+    </listitem>
+    <listitem>
+    <para>Les paquets capturés sont enregistrés dans le fichier
+    <filename>/var/tmp/multipath-host.pcap</filename>. Comme le
+    <wordasword>directory sticky bit</wordasword> est positionné sur le
+    répertoire <filename class='directory'>/var/tmp/</filename>, l'utilisateur
+    normal dispose des droits d'écriture nécessaires à l'enregsitrement des
+    paquets capturés.</para>
+    </listitem>
+  </itemizedlist>
+  </section>
 </section>
 
 <section xml:id='ospf-triangle-multiple-default.conclusion'>
