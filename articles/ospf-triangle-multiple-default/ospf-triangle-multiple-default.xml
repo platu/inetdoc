@@ -12,6 +12,10 @@
 <!ENTITY r3-zebra       SYSTEM "files/r3-zebra.conf">
 <!ENTITY r3-ospfd       SYSTEM "files/r3-ospfd.conf">
 
+<!ENTITY url.multipath-host.pcap
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://www.inetdoc.net/articles/ospf-triangle-multiple-default/files/multipath-host.pcap'>multipath-host.pcap</link>">
+
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
 ]>
@@ -209,12 +213,11 @@ default  proto zebra  metric 10
     Plane</wordasword>.</para>
 
     <para>Avant stockage dans la <acronym>FIB</acronym>, les routes retenues
-    sont transformées (table de <wordasword>hash</wordasword>) pour assurer la
+    sont transformées (table de hachage) pour assurer la
     fonction de commutation de paquets. Cette fonction est plus ou moins
     optimisée suivant les composants électroniques présents sur le routeur.
     Dans le cas de cette maquette de travaux pratiques, les machines virtuelles
-    utilisent la mémoire vive pour stocker les tables de
-    <wordasword>hash</wordasword>.</para>
+    utilisent la mémoire vive pour stocker les tables de hachage.</para>
     </listitem>
   </itemizedlist>
 
@@ -327,13 +330,13 @@ N E2 0.0.0.0/0             [1/10] tag: 0
   information.</para>
 
   <section xml:id='ospf-triangle-multiple-default.load-balancing.summary'>
-    <title>Route de synthèse multichemins sur ISP - <wordasword>multipath
-    static summary route</wordasword></title>
+    <title>Route de synthèse multichemins sur le routeur ISP -
+    <wordasword>multipath static summary route</wordasword></title>
 
-  <para>Sans configuration particulière, le routage se fait uniquement sur la
-  base des adresses <acronym>IP</acronym> destination et le trafic sortant peut
-  transiter aussi bien par <systemitem class='systemname'>R1</systemitem> que
-  par <systemitem class='systemname'>R3</systemitem>. Le trafic retour ou
+  <para>Sans configuration particulière, le routage se fait principalement sur
+  la base des adresses <acronym>IP</acronym> destination et le trafic sortant
+  peut transiter aussi bien par <systemitem class='systemname'>R1</systemitem>
+  que par <systemitem class='systemname'>R3</systemitem>. Le trafic retour ou
   entrant transite exclusivement par <systemitem
   class='systemname'>ISP</systemitem> et il est nécessaire de renseigner les
   réseaux appartenant à l'aire <acronym>OSPF</acronym> dans sa table de
@@ -433,7 +436,7 @@ default via 192.200.0.1 dev eth0
   </section>
 
   <section xml:id='ospf-triangle-multiple-default.load-balancing.analysis'>
-    <title>Analyse réseau sur ISP</title>
+    <title>Analyse réseau sur le routeur ISP</title>
 
   <para>Maintenant que la capacité à exploiter les deux liens est implantée à
   chaque extrémité, il ne reste qu'à valider le fonctionnement à partir du
@@ -493,7 +496,7 @@ Connection to 10.1.20.2 closed.
     <filename>/var/tmp/multipath-host.pcap</filename>. Comme le
     <wordasword>directory sticky bit</wordasword> est positionné sur le
     répertoire <filename class='directory'>/var/tmp/</filename>, l'utilisateur
-    normal dispose des droits d'écriture nécessaires à l'enregsitrement des
+    normal dispose des droits d'écriture nécessaires à l'enregistrement des
     paquets capturés.</para>
     </listitem>
     <listitem>
@@ -509,7 +512,7 @@ Connection to 10.1.20.2 closed.
     <listitem>
     <para>Après avoir consulté une ou deux pages web, on referme la session sur
     <systemitem class='systemname'>host</systemitem> et on arrête la capture
-    réseau. Il ne reste alors qu'à analyser le contenu dy fichier de
+    réseau. Il ne reste alors qu'à analyser le contenu du fichier de
     capture.</para>
     </listitem>
   </itemizedlist>
@@ -530,8 +533,123 @@ Connection to 10.1.20.2 closed.
     </textobject>
   </mediaobject>
 
-  <para>Cette copie d'écran montre les échanges au niveau réseau. On retrouve
-  bien les adresses <acronym>IP</acronym> des différents protagonistes.</para>
+  <para>Cette copie d'écran montre les échanges au niveau réseau ainsi que les
+  protocoles utilisés par les couches supérieures. On retrouve bien les
+  adresses <acronym>IP</acronym> des différents protagonistes.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para><systemitem class='ipaddress'>10.1.20.2</systemitem> : hôte
+    <systemitem class='systemname'>host</systemitem> à l'initiative du trafic
+    réseau.</para>
+    </listitem>
+    <listitem>
+    <para><systemitem class='ipaddress'>192.200.0.1</systemitem> : système hôte
+    hébergeant les instances de machines virtuelles sur lequel on trouve aussi
+    un service de résolution des noms de domaines de type cache.</para>
+    </listitem>
+    <listitem>
+    <para><systemitem class='ipaddress'>192.0.32.8</systemitem> : serveur web
+    hébergeant le site <systemitem
+    class='systemname'>www.iana.org</systemitem>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>À première vue, la copie d'écran et l'identification des hôtes en
+  communication ne montrent rien d'original. Il faut aller jusqu'à la
+  visualisation des trames au niveau liaison pour caractériser la distribution
+  du trafic sur les différents liens.</para>
+
+  <para>Prenons les trois étapes de l'établissement de connexion
+  <acronym>TCP</acronym> entre le poste client et le serveur web.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>La demande d'établissement de connexion (<acronym>[SYN]</acronym>)
+    est émise par le poste client. Elle transite par le lien correspondant au
+    <acronym>VLAN</acronym> 103.</para>
+
+<screen width='80'>No.  Time        Source                Destination           Protocol Info
+  19 21.215999   10.1.20.2             192.0.32.9            TCP      56075 > http [SYN] Seq=0
+
+Frame 19: 78 bytes on wire (624 bits), 78 bytes captured (624 bits)
+Ethernet II, Src: RealtekU_12:34:06 (52:54:00:12:34:06), Dst: de:ad:be:ef:01:03 (de:ad:be:ef:01:03)
+802.1Q Virtual LAN, PRI: 0, CFI: 0, ID: 103
+    000. .... .... .... = Priority: Best Effort (default) (0)
+    ...0 .... .... .... = CFI: Canonical (0)
+    .... 0000 0110 0111 = ID: 103
+    Type: IP (0x0800)
+Internet Protocol Version 4, Src: 10.1.20.2 (10.1.20.2), Dst: 192.0.32.9 (192.0.32.9)
+Transmission Control Protocol, Src Port: 56075 (56075), Dst Port: http (80), Seq: 0, Len: 0</screen>
+    </listitem>
+    <listitem>
+    <para>L'acquittement de la demande d'établissement de connexion et du
+    numéro initial de séquence (<acronym>[SYN, ACK]</acronym>) du poste client
+    est émis par le serveur web. Il transite par le lien correspondant au
+    <acronym>VLAN</acronym> 101.</para>
+
+<screen width='80'>No.  Time        Source                Destination           Protocol Info
+  20 21.216434   192.0.32.9            10.1.20.2             TCP      http > 56075 [SYN, ACK] Seq=0 Ack=1
+
+Frame 20: 78 bytes on wire (624 bits), 78 bytes captured (624 bits)
+Ethernet II, Src: de:ad:be:ef:01:01 (de:ad:be:ef:01:01), Dst: RealtekU_12:34:04 (52:54:00:12:34:04)
+802.1Q Virtual LAN, PRI: 0, CFI: 0, ID: 101
+    000. .... .... .... = Priority: Best Effort (default) (0)
+    ...0 .... .... .... = CFI: Canonical (0)
+    .... 0000 0110 0101 = ID: 101
+Type: IP (0x0800)
+Internet Protocol Version 4, Src: 192.0.32.9 (192.0.32.9), Dst: 10.1.20.2 (10.1.20.2)
+Transmission Control Protocol, Src Port: http (80), Dst Port: 56075 (56075), Seq: 0, Ack: 1, Len: 0</screen>
+    </listitem>
+    <listitem>
+    <para>L'acquittement du numéro initial de séquence
+    (<acronym>[ACK]</acronym>) du serveur web est émis par le poste client. Il
+    transite par le lien correspondant au <acronym>VLAN</acronym> 103.</para>
+
+<screen width='80'>No.  Time        Source                Destination           Protocol Info
+  21 21.217229   10.1.20.2             192.0.32.9            TCP      56075 > http [ACK] Seq=1 Ack=1
+
+Frame 21: 70 bytes on wire (560 bits), 70 bytes captured (560 bits)
+Ethernet II, Src: RealtekU_12:34:06 (52:54:00:12:34:06), Dst: de:ad:be:ef:01:03 (de:ad:be:ef:01:03)
+802.1Q Virtual LAN, PRI: 0, CFI: 0, ID: 103
+    000. .... .... .... = Priority: Best Effort (default) (0)
+    ...0 .... .... .... = CFI: Canonical (0)
+    .... 0000 0110 0111 = ID: 103
+Type: IP (0x0800)
+Internet Protocol Version 4, Src: 10.1.20.2 (10.1.20.2), Dst: 192.0.32.9 (192.0.32.9)
+Transmission Control Protocol, Src Port: 56075 (56075), Dst Port: http (80), Seq: 1, Ack: 1, Len: 0</screen>
+    </listitem>
+  </orderedlist>
+
+  <note>
+    <para>Le fichier de capture réseau comprenant l'ensemble des échanges est
+    téléchargeable : &url.multipath-host.pcap;</para>
+  </note>
+
+  <para>Avec ces trois étapes de l'établissement d'une connexion
+  <acronym>TCP</acronym> on caractérise bien la répartition du trafic sur les
+  deux liens de transit entre les passerelles de l'aire <acronym>OSPF</acronym>
+  et le routeur de niveau supérieur <systemitem
+  class='systemname'>ISP</systemitem>. Cette répartition n'est pas
+  nécessairement équitable dans la mesure où l'alternance de l'utilisation des
+  liens n'intervient que lors des permutations entre les adresses
+  <acronym>IP</acronym> source et destination. Ainsi, avec un profil
+  utilisateur de type «globe oculaire passif», le téléchargement de flux vidéo
+  n'utilise qu'un seul lien ; ce qui provoque un déséquilibre en volume de
+  trafic sachant que la requête <acronym>HTTP</acronym> n'occupe que quelques
+  centaines d'octets tandis que le fichier vidéo demandé occupe quelques
+  mégaoctets. Si on disposait d'un parc important de postes de travail en lieu
+  et place du seul système <systemitem class='systemname'>host</systemitem>, on
+  pourrait dire que la répartition de trafic est statistiquement
+  équitable.</para>
+
+  <para>Si la balance de charge entre plusieurs liens, telle qu'elle est
+  présentée ici est très intéressante, elle peut cependant engendrer de gros
+  problèmes dans le cas ou un lien viendrait à être indisponible. En effet, la
+  solution de répartition utilise <emphasis>nécessairement</emphasis> toutes
+  les passerelles introduites dans les tables de routage. Il serait donc
+  souhaitable de compléter la solution en introduisant la notion de tolérance
+  aux pannes. C'est justement l'objet de la section suivante.</para>
   </section>
 </section>
 
