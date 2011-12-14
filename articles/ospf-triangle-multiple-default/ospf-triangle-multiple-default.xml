@@ -5,6 +5,8 @@
 <!ENTITY author         SYSTEM "author.xml">
 <!ENTITY legal          SYSTEM "legal.xml">
 
+<!ENTITY vde.conf       SYSTEM "files/vde.conf">
+
 <!ENTITY r1-zebra       SYSTEM "files/r1-zebra.conf">
 <!ENTITY r1-ospfd       SYSTEM "files/r1-ospfd.conf">
 <!ENTITY r2-zebra       SYSTEM "files/r2-zebra.conf">
@@ -645,11 +647,102 @@ Transmission Control Protocol, Src Port: 56075 (56075), Dst Port: http (80), Seq
 
   <para>Si la balance de charge entre plusieurs liens, telle qu'elle est
   présentée ici est très intéressante, elle peut cependant engendrer de gros
-  problèmes dans le cas ou un lien viendrait à être indisponible. En effet, la
+  problèmes dans le cas où un lien viendrait à être indisponible. En effet, la
   solution de répartition utilise <emphasis>nécessairement</emphasis> toutes
   les passerelles introduites dans les tables de routage. Il serait donc
   souhaitable de compléter la solution en introduisant la notion de tolérance
   aux pannes. C'est justement l'objet de la section suivante.</para>
+  </section>
+</section>
+
+<section xml:id='ospf-triangle-multiple-default.failover'>
+  <title>Tolérance aux pannes réseau - <wordasword>multilink
+  failover</wordasword></title>
+
+  <para>Pour aborder la tolérance aux pannes réseau sur les deux liens qui
+  relient l'aire <acronym>OSPF</acronym> au routeur de niveau supérieur
+  <systemitem class='systemname'>ISP</systemitem>, on reprend très exactement
+  la configuration de la section précédente avec répartition du trafic sur ces
+  deux mêmes liens.</para>
+
+  <para>Toujours comme dans le cas de la section précédente sur la répartition
+  de trafic, la tolérance aux pannes sur les passerelles de l'aire
+  <acronym>OSPF</acronym> est assurée par le protocole de routage dynamique. En
+  effet, <acronym>OSPF</acronym> étant un protocole à état de liens, l'ajout ou
+  le retrait d'un lien entraîne un nouveau calcul de la topologie par chacun
+  des routeurs de l'aire. On a vu précédemment, que les deux passerelles de
+  l'aire <acronym>OSPF</acronym> sont publiées par <systemitem
+  class='systemname'>R1</systemitem> et <systemitem
+  class='systemname'>R3</systemitem>. Les états des deux liens entre l'aire et
+  le routeur <systemitem class='systemname'>ISP</systemitem> sont donc intégrés
+  dans les calculs de topologie.</para>
+
+  <para>Une fois encore, sans configuration particulière le routeur <systemitem
+  class='systemname'>ISP</systemitem> ne dispose pas de fonctionnalité
+  permettant de faire évoluer sa table de routage en fonction de l'état des
+  liens sur lesquels il est directement connecté.</para>
+
+  <para>On se propose de compenser cette lacune en plusieurs étapes.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Au lieu de modifier une unique table de routage statique, on va créer
+    plusieurs tables de routage que l'on utilisera suivant le lien d'arrivée du
+    trafic sur le routeur <systemitem
+    class='systemname'>ISP</systemitem>.</para> 
+    </listitem>
+    <listitem>
+    <para>Pour identifier le trafic issu d'un lien, on va marquer ce trafic de
+    façon à ce que le trafic retour emprunte le même lien. Le point clé ici
+    étant que le routeur <systemitem class='systemname'>ISP</systemitem> ne
+    peut pas recevoir de trafic via un lien inactif.</para>
+    </listitem>
+  </itemizedlist>
+
+  <section xml:id='ospf-triangle-multiple-default.failover.rt_tables'>
+    <title>Tables de routage multiples sur le routeur ISP</title>
+
+  <para>Avec la distribution Debian GNU/Linux, le paquet
+  <application>iproute</application> fournit les outils nécessaires aux
+  manipulations sur les tables de routages multiples.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>On commence par éditer le fichier
+    <filename>/etc/iproute2/rt_tables</filename> qui permet de faire la
+    correspondance entre l'identifiant numérique de table et le nom que l'on
+    souhaite lui donner. Ici, on choisit de numéroter les deux tables de
+    routage supplémentaires avec les numéros des <acronym>VLAN</acronym>s de
+    chacun des liens de raccordement de l'aire <acronym>OSPF</acronym> au
+    routeur <systemitem class='systemname'>ISP</systemitem>.</para>
+
+<screen width='80'><prompt>$</prompt> cat /etc/iproute2/rt_tables 
+#
+# reserved values
+#
+255     local
+254     main
+253     default
+0       unspec
+#
+# local
+#
+101     downlink1
+103     downlink2</screen>
+    </listitem>
+    <listitem>
+    <para>Une fois les deux tables de routage supplémentaires disponibles, on
+    saisit la route de synthèse (<wordasword>static summary route</wordasword>)
+    dans chacune.</para>
+
+<screen width='80'><prompt>#</prompt> ip route add 10.1.0.0/19 via 10.1.30.1 src 10.1.30.2 table downlink1
+<prompt>#</prompt> ip route add 10.1.0.0/19 via 10.1.30.9 src 10.1.30.10 table downlink2</screen>
+
+    <para>Du point de vue configuration système, ces deux instructions sont
+    placées dans le fichier de configuration des interfaces réseau du routeur
+    <systemitem class='systemname'>ISP</systemitem>.</para>
+    </listitem>
+  </orderedlist> 
   </section>
 </section>
 
@@ -771,6 +864,11 @@ iface tap0 inet static
   </tbody>
   </tgroup>
   </table>
+
+  <para>Le fichier de configuration à charger au lancement du commutateur se
+  présente comme suit.</para>
+
+  <screen width='80'>&vde.conf;</screen>
 </appendix>
 
 <appendix xml:id='ospf-triangle-multiple-default.quagga'>
