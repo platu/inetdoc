@@ -7,6 +7,11 @@
 
 <!ENTITY vde.conf       SYSTEM "files/vde.conf">
 
+<!ENTITY isp-interfaces SYSTEM "files/isp-interfaces">
+<!ENTITY r1-interfaces  SYSTEM "files/r1-interfaces">
+<!ENTITY r2-interfaces  SYSTEM "files/r2-interfaces">
+<!ENTITY r3-interfaces  SYSTEM "files/r3-interfaces">
+
 <!ENTITY r1-zebra       SYSTEM "files/r1-zebra.conf">
 <!ENTITY r1-ospfd       SYSTEM "files/r1-ospfd.conf">
 <!ENTITY r2-zebra       SYSTEM "files/r2-zebra.conf">
@@ -727,22 +732,51 @@ Transmission Control Protocol, Src Port: 56075 (56075), Dst Port: http (80), Seq
 #
 # local
 #
-101     downlink1
-103     downlink2</screen>
+101     link101
+103     link103</screen>
     </listitem>
     <listitem>
     <para>Une fois les deux tables de routage supplémentaires disponibles, on
     saisit la route de synthèse (<wordasword>static summary route</wordasword>)
     dans chacune.</para>
 
-<screen width='80'><prompt>#</prompt> ip route add 10.1.0.0/19 via 10.1.30.1 src 10.1.30.2 table downlink1
-<prompt>#</prompt> ip route add 10.1.0.0/19 via 10.1.30.9 src 10.1.30.10 table downlink2</screen>
+<screen width='80'><prompt>#</prompt> ip route add 10.1.0.0/19 via 10.1.30.1 src 10.1.30.2 table link101
+<prompt>#</prompt> ip route add 10.1.0.0/19 via 10.1.30.9 src 10.1.30.10 table link103</screen>
 
     <para>Du point de vue configuration système, ces deux instructions sont
-    placées dans le fichier de configuration des interfaces réseau du routeur
-    <systemitem class='systemname'>ISP</systemitem>.</para>
+    placées dans le fichier de configuration des interfaces réseau du <link
+    linkend='ospf-triangle-multiple-default.interfaces.isp'>routeur <systemitem
+    class='systemname'>ISP</systemitem></link>.</para>
+    </listitem>
+    <listitem>
+    <para>On définit ensuite les conditions dans lesquelles ces tables de
+    routage seront utilisées.</para>
+
+<screen width='80'><prompt>#</prompt> ip rule add fwmark 101 table link101
+<prompt>#</prompt> ip rule add fwmark 103 table link103</screen>
+
+    <para>Ainsi, tout paquet <acronym>IP</acronym> portant la marque
+    <option>101</option> sera routé via la table <option>link101</option>. Il
+    en ira de même avec la marque <option>103</option> et la table
+    <option>link103</option>.</para>
     </listitem>
   </orderedlist> 
+
+  <para>Dans les fonctions réseau du noyau Linux on parle de <citetitle>routage
+  avancé</citetitle> dès que l'on ne se contente plus de l'examen de l'adresse
+  <acronym>IP</acronym> destination des paquets reçus sur une interface
+  réseau. L'utilisation d'un marquage des paquets pour orienter le routage
+  entre bien dans cette catégorie.</para>
+
+  <para>Les fonctions de routage avancé utilisent une base de données de
+  politiques de routage ou <wordasword>Routing Policy DataBase</wordasword>
+  (<acronym>RPDB</acronym>). En utilisant cette base, il est possible de
+  prendre une décision d'acheminement des paquets sur les différents champs des
+  en-têtes de paquet <acronym>IP</acronym>, les protocoles réseau, les
+  protocoles de transports et même la charge utile des paquets. Dans notre cas,
+  c'est le marquage des paquets qui permet d'identifier les liens par lesquels
+  ils ont transité. Ce marquage est contrôlé par les outils de filtrage réseau
+  du noyau Linux : <application>netfilter/iptables</application>.</para>
   </section>
 </section>
 
@@ -807,17 +841,17 @@ iface tap0 inet static
       <entry morerows='1'>3</entry>
       <entry morerows='1'>ISP</entry>
       <entry>eth1.101</entry>
-      <entry>downlink1</entry>
+      <entry>link101</entry>
     </row>
     <row>
       <entry>eth1.103</entry>
-      <entry>downlink2</entry>
+      <entry>link103</entry>
     </row>
     <row>
       <entry morerows='2'>4</entry>
       <entry morerows='2'>R1</entry>
       <entry>eth0.101</entry>
-      <entry>downlink1</entry>
+      <entry>link101</entry>
     </row>
     <row>
       <entry>eth0.13</entry>
@@ -845,7 +879,7 @@ iface tap0 inet static
       <entry morerows='2'>6</entry>
       <entry morerows='2'>R3</entry>
       <entry>eth0.103</entry>
-      <entry>downlink2</entry>
+      <entry>link103</entry>
     </row>
     <row>
       <entry>eth0.13</entry>
@@ -869,6 +903,49 @@ iface tap0 inet static
   présente comme suit.</para>
 
   <screen width='80'>&vde.conf;</screen>
+</appendix>
+
+<appendix xml:id='ospf-triangle-multiple-default.interfaces'>
+  <title>Configuration des interfaces</title>
+
+  <para>Les configurations des interfaces réseau des routeurs sont données
+  ci-dessous. Dans la liste des interfaces des différents routeurs, on retrouve
+  une sous-interface par <acronym>VLAN</acronym>. Ces sous-interfaces sont
+  configurées en utilisant la commande <command>ip</command> fournie avec le
+  paquet <application>iproute</application>. Comme cet article, s'appuie déjà
+  énormément sur <application>iproute</application>, on utilise aussi la
+  commande ip pour l'affectation des numéros de <acronym>VLAN</acronym>s. Par
+  défaut, les scripts spécifiques à la distribution Debian GNU/Linux utilisent
+  la commande <command>vconfig</command> fournie avec le paquet
+  <application>vlan</application>. Cette dernière commande est dorénavant
+  considérée comme obsolète.</para>
+
+  <variablelist>
+    <varlistentry xml:id='ospf-triangle-multiple-default.interfaces.isp'>
+      <term>Routeur <systemitem class='systemname'>ISP</systemitem></term>
+      <listitem>
+<screen width='80'>&isp-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='ospf-triangle-multiple-default.interfaces.r1'>
+      <term>Routeur <systemitem class='systemname'>R1</systemitem></term>
+      <listitem>
+<screen width='80'>&r1-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='ospf-triangle-multiple-default.interfaces.r2'>
+      <term>Routeur <systemitem class='systemname'>R2</systemitem></term>
+      <listitem>
+<screen width='80'>&r2-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='ospf-triangle-multiple-default.interfaces.r3'>
+      <term>Routeur <systemitem class='systemname'>R3</systemitem></term>
+      <listitem>
+<screen width='80'>&r3-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+  </variablelist>
 </appendix>
 
 <appendix xml:id='ospf-triangle-multiple-default.quagga'>
