@@ -219,12 +219,12 @@ default  proto zebra  metric 10
     (<acronym>FIB</acronym>) au niveau <wordasword>Data
     Plane</wordasword>.</para>
 
-    <para>Avant stockage dans la <acronym>FIB</acronym>, les routes retenues
-    sont transformées (table de hachage) pour assurer la
-    fonction de commutation de paquets. Cette fonction est plus ou moins
-    optimisée suivant les composants électroniques présents sur le routeur.
-    Dans le cas de cette maquette de travaux pratiques, les machines virtuelles
-    utilisent la mémoire vive pour stocker les tables de hachage.</para>
+    <para>Avant stockage dans la base <acronym>FIB</acronym>, les routes
+    retenues sont converties en une table de hachage pour assurer la fonction
+    de commutation de paquets. Cette fonction est plus ou moins optimisée
+    suivant les composants électroniques présents sur le routeur. Dans le cas
+    de cette maquette de travaux pratiques, les machines virtuelles utilisent
+    la mémoire vive pour stocker les tables de hachage.</para>
     </listitem>
   </itemizedlist>
 
@@ -333,7 +333,7 @@ N E2 0.0.0.0/0             [1/10] tag: 0
   routeurs de bordure <systemitem class='systemname'>R1</systemitem> et
   <systemitem class='systemname'>R3</systemitem> sont publiées via le protocole
   de routage dynamique à destination de tous les routeurs de l'aire, le routeur
-  <systemitem class='systemname'>ISP</systemitem> ne dispose pas de cette
+  <systemitem class='systemname'>ISP</systemitem>, lui ne dispose pas de cette
   information.</para>
 
   <section xml:id='ospf-triangle-multiple-default.load-balancing.summary'>
@@ -442,7 +442,7 @@ default via 192.200.0.1 dev eth0
   </itemizedlist>
   </section>
 
-  <section xml:id='ospf-triangle-multiple-default.load-balancing.analysis'>
+  <section xml:id='ospf-triangle-multiple-default.load-balancing.wireshark'>
     <title>Analyse réseau sur le routeur ISP</title>
 
   <para>Maintenant que la capacité à exploiter les deux liens est implantée à
@@ -778,6 +778,233 @@ Transmission Control Protocol, Src Port: 56075 (56075), Dst Port: http (80), Seq
   ils ont transité. Ce marquage est contrôlé par les outils de filtrage réseau
   du noyau Linux : <application>netfilter/iptables</application>.</para>
   </section>
+
+  <section xml:id='ospf-triangle-multiple-default.failover.mangle'>
+    <title>Marquage des paquets sur le routeur ISP</title>
+
+  <para>On distingue deux parties dans les outils de filtrage réseau du noyau
+  Linux. La partie noyau, baptisée <application>netfilter</application>,
+  comprend l'ensemble des fonctions disponibles ainsi que le découpage en
+  tables et en chaînes. Ces fonctions sont appelées et utilisées à l'aide de la
+  partie utilisateur baptisée <application>iptables</application>.
+  Généralement, la partie utilisateur est fournie avec un paquet du même nom.
+  Pour plus de détails sur l'organisation et la configuration du système de
+  filtrage, consulter le guide &url.iptables-tutorial.fr;.</para>
+
+  <para>Dans le cas de cet article, le marquage des paquets utilise la notion
+  d'altération de paquet ou <wordasword>packet mangling</wordasword>.</para>
+
+  <para>
+  <inlinemediaobject xml:id='ospf-triangle-multiple-default.failover.netfilter-mangle'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/netfilter-mangle.png' width='6cm' align='left' valign='top' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/netfilter-mangle.png' width='320px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Altération de paquets à l'aide des fonctions de filtrage du noyau Linux.</phrase>
+    </textobject>
+  </inlinemediaobject>
+  Comme le trafic émis et reçu par l'hôte <systemitem
+  class='systemname'>host</systemitem> ne fait que transiter par le routeur
+  <systemitem class='systemname'>ISP</systemitem>, on s'intéresse plus
+  particulièrement à la chaîne <systemitem>PREROUTING</systemitem> de la table
+  <systemitem>mangle</systemitem>. Les processus locaux du routeur ne sont donc
+  pas concernés par le marquage.
+  <warning>
+    <para>Le propos de cette section est le marquage et non le filtrage des
+    paquets routés par <systemitem class='systemname'>ISP</systemitem>. La
+    politique de filtrage est donc maintenue dans son état par défaut : «tout
+    ce qui n'est pas interdit est autorisé». Ici, aucun trafic n'est
+    interdit.</para>
+  </warning>
+  Une fois que la table et la chaîne sont choisies, il faut définir la
+  correspondance à utiliser. C'est à ce niveau qu'intervient une fonction très
+  intéressante : <systemitem>CONNMARK</systemitem>. Cette correspondance permet
+  d'associer le marquage des paquets au mécanisme de suivi des communications
+  réseau. Ainsi, un flux entrant dans le routeur <systemitem
+  class='systemname'>ISP</systemitem> via les interfaces de connexion à l'aire
+  <acronym>OSPF</acronym> (<option>eth1.101</option> ou
+  <option>eth1.103</option>) est marqué <emphasis>et enregistré</emphasis> dans
+  la table de suivi des communications. La marque peut alors être restituée à
+  l'arrivée du flux retour sur l'interface externe (<option>eth0</option>).
+  Les instructions correspondant aux choix effectués sont les suivantes.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Marquage des flux sortants de l'aire <acronym>OSPF</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> iptables -t mangle -A PREROUTING -i eth1.101 -j MARK --set-mark 0x65
+<prompt>#</prompt> iptables -t mangle -A PREROUTING -i eth1.103 -j MARK --set-mark 0x67
+<prompt>#</prompt> iptables -t mangle -A PREROUTING -i eth1.101 -j CONNMARK --save-mark
+<prompt>#</prompt> iptables -t mangle -A PREROUTING -i eth1.103 -j CONNMARK --save-mark</screen>
+    </listitem>
+    <listitem>
+    <para>Restauration du marquage des flux retours à destination de l'aire
+    <acronym>OSPF</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> iptables -t mangle -A PREROUTING -i eth0 -j CONNMARK --restore-mark</screen>
+    </listitem>
+  </itemizedlist>
+  
+  <para>Du point de vue configuration système, les règles appliquées à l'aide
+  de la commande <command>iptables</command> peuvent être enregistrées dans un
+  fichier de configuration et restaurées à chaque initialisation du routeur.
+  Voir <xref linkend='ospf-triangle-multiple-default.iptables' />.</para>
+
+  <para>Le fonctionnement du marquage peut être caractérisé à plusieurs
+  niveaux. En reprenant l'exemple de la consultation de pages
+  <wordasword>web</wordasword> depuis l'hôte <systemitem
+  class='systemname'>host</systemitem> et en consultant les résultats du
+  marquage des paquets, on obtient les informations suivantes.</para>
+
+  <variablelist>
+    <varlistentry>
+      <term>Consultation de la base FIB</term>
+      <term>Commutation de paquets IP</term>
+      <listitem>
+      <para>On retrouve les informations de marquage au niveau réseau dans la
+      <wordasword>Forwarding Information Base</wordasword>. La base
+      <acronym>FIB</acronym> est une table de hachage contenant une trace
+      l'ensemble des décisions de routage. La taille de la base augmente
+      rapidement avec le nombre des flux réseau routés par <systemitem
+      class='systemname'>ISP</systemitem>. C'est la raison pour laquelle on ne
+      donne pas une copie complète de cette base ci-dessous.</para>
+
+      <para>L'instruction de consultation de la base <acronym>FIB</acronym> est
+      la suivante.</para>
+
+<screen width='80'><prompt>$</prompt> ip route ls cache</screen>
+
+      <para>Deux exemples d'entrées portant la marque <option>101</option> ou
+      <option>0x65</option>.</para>
+
+<screen width='80'>192.0.32.8 from 10.1.20.2 via 192.200.0.1 dev eth0  src 10.1.30.2  mark 0x65
+    cache  iif eth1.101
+10.1.20.2 from 192.0.32.8 via 10.1.30.1 dev eth1.101  src 192.200.0.3  mark 0x65
+    cache  ipid 0x0be6 rtt 7ms rttvar 6ms cwnd 10 iif eth0</screen>
+
+      <para>La première ligne correspond à la décision d'acheminement des
+      paquets émis par <systemitem class='systemname'>host</systemitem>
+      (<systemitem class='ipaddress'>10.1.20.2</systemitem>) à destination de
+      l'adresse <systemitem class='ipaddress'>192.0.32.8</systemitem> reçus sur
+      l'interface <option>eth1.101</option>. La seconde ligne correspond à la
+      décision symétrique.</para>
+
+      <para>Deux exemples d'entrées portant la marque <option>103</option> ou
+      <option>0x67</option>.</para>
+
+<screen width='80'>192.0.32.9 from 10.1.20.2 via 192.200.0.1 dev eth0  src 10.1.30.2  mark 0x67
+    cache  iif eth1.103
+10.1.20.2 from 192.0.32.9 via 10.1.30.9 dev eth1.103  src 192.200.0.3  mark 0x67
+    cache  ipid 0x0be6 rtt 7ms rttvar 6ms cwnd 10 iif eth0</screen>
+
+      <para>Comme dans le cas des deux entrées précédentes, la première ligne
+      correspond à la décision d'acheminement des paquets émis par <systemitem
+      class='systemname'>host</systemitem> (<systemitem
+      class='ipaddress'>10.1.20.2</systemitem>) à destination de l'adresse
+      <systemitem class='ipaddress'>192.0.32.9</systemitem> reçus sur
+      l'interface <option>eth1.103</option> et la seconde ligne correspond à la
+      décision symétrique.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Consultation de la base conntrack</term>
+      <term>Table de suivi des communications</term>
+      <listitem>
+      <para>Les mêmes informations de marquage se retrouvent au niveau de la
+      table de suivi des communications réseau. Pour consulter les entrées de
+      cette table, on peut utiliser l'outil <command>conntrack</command> fourni
+      avec le paquet du même nom. Là encore, le nombre des entrées augmente
+      rapidement avec l'apparition de nouveaux flux réseau.</para>
+
+      <para>L'instruction de consultation de la table de suivi des
+      communications réseau est la suivante.</para>
+
+<screen width='80'><prompt>#</prompt> conntrack -L</screen>
+
+      <para>Deux exemples d'entrées portant la marque
+      <option>101</option>.</para>
+
+<screen width='80'>tcp      6 68 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37926 dport=80 src=192.0.32.8 dst=10.1.20.2 \
+                                      sport=80 dport=37926 [ASSURED] mark=101 use=1
+tcp      6 81 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37927 dport=80 src=192.0.32.8 dst=10.1.20.2 \
+                                      sport=80 dport=37927 [ASSURED] mark=101 use=1</screen>
+
+      <para>Un autre exemple d'entrée portant la marque
+      <option>103</option>.</para>
+
+<screen width='80'>tcp      6 92 TIME_WAIT src=10.1.20.2 dst=192.0.32.9 sport=56108 dport=80 src=192.0.32.9 dst=10.1.20.2 \
+                                      sport=80 dport=56108 [ASSURED] mark=103 use=1</screen>
+
+      <para>La table <option>conntrack</option> fait apparaître les conditions
+      d'identification d'un flux retour en identifiant en plus du protocole de
+      couche transport les paires d'adresses <acronym>IP</acronym> en
+      communication ainsi que les paires de numéros de ports utilisés.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Maintenant que les fonctions de marquage des paquets sont en place, les
+  liens actifs entre l'aire <acronym>OSPF</acronym> et le routeur de niveau
+  supérieur sont identifiés. Il reste à qualifier la tolérance aux pannes à
+  l'aide de l'analyse réseau.</para>
+  </section>
+
+  <section xml:id='ospf-triangle-multiple-default.failover.wireshark'>
+    <title>Analyse réseau sur le routeur ISP</title>
+
+  <para>Pour caractériser la tolérance aux pannes sur les liens réseau entre
+  l'aire <acronym>OSPF</acronym> et le routeur <systemitem
+  class='systemname'>ISP</systemitem>, on procède de la façon suivante.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>On lance la capture de trafic dans un terminal dédié sur le routeur
+    <systemitem class='systemname'>ISP</systemitem>.</para>
+    </listitem>
+    <listitem>
+    <para>On lance le téléchargement d'un image <acronym>iso</acronym> de
+    <acronym>DVD</acronym> dans un terminal dédié sur l'hôte <systemitem
+    class='systemname'>host</systemitem>. L'idée est d'effectuer les
+    interruptions de liens pendant qu'une transaction réseau est en
+    cours.</para>
+    </listitem>
+    <listitem>
+    <para>De retour sur <systemitem class='systemname'>ISP</systemitem>, on
+    identifie le lien utilisé pour le téléchargement à l'aide de la commande
+    <command>>conntrack</command>. C'est ce lien que l'on doit interrompre en
+    premier de façon à provoquer le basculement d'un lien vers l'autre en cas
+    de panne.</para>
+    </listitem>
+    <listitem>
+    <para>Partant du routeur <systemitem class='systemname'>ISP</systemitem>,
+    on se connecte sur <systemitem class='systemname'>R3</systemitem> puis
+    <systemitem class='systemname'>R1</systemitem> pour faire «tomber» le lien
+    correspondant au <acronym>VLAN</acronym> et à la marque
+    <option>101</option>. On rétablit ensuite ce même lien.</para>
+    </listitem>
+    <listitem>
+    <para>Partant du routeur <systemitem class='systemname'>ISP</systemitem>,
+    on se connecte sur <systemitem class='systemname'>R1</systemitem> puis
+    <systemitem class='systemname'>R3</systemitem> pour faire «tomber» le lien
+    correspondant au <acronym>VLAN</acronym> et à la marque
+    <option>103</option>. On rétablit ensuite ce même lien.</para>
+    </listitem>
+    <listitem>
+    <para>On retourne sur l'hôte <systemitem
+    class='systemname'>host</systemitem> pour constater que le téléchargement
+    est toujours en cours et se poursuit normalement. Ce téléchargement peut
+    maintenant être arrêté.</para>
+    </listitem>
+    <listitem>
+    <para>On arrête la capture de trafic sur <systemitem
+    class='systemname'>ISP</systemitem> et récupère le fichier d'enregistrement
+    des paquets capturés pour l'analyser.</para>
+    </listitem>
+  </orderedlist>
+  </section>
 </section>
 
 <section xml:id='ospf-triangle-multiple-default.conclusion'>
@@ -994,5 +1221,68 @@ iface tap0 inet static
     </tbody>
     </tgroup>
   </informaltable>
+</appendix>
+
+<appendix xml:id='ospf-triangle-multiple-default.iptables'>
+  <title>Configuration du filtrage réseau</title>
+
+  <para>Les règles de marquage des flux réseau transitant par le routeur
+  <systemitem class='systemname'>ISP</systemitem> sont enregistrées dans le
+  fichier <filename>/var/lib/iptables/active</filename> dont la copie est
+  donnée ci-dessous. Ce fichier est initialement créé à l'aide de l'instruction
+  suivante.</para>
+
+<screen width='80'><prompt>#</prompt> iptables-save >/var/lib/iptables/active</screen>
+
+  <para>Il est ensuite possible de l'éditer et de le compléter au
+  besoin.</para>
+
+<screen width='80'><prompt>#</prompt> cat /var/lib/iptables/active 
+# Table filter ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+# Table mangle ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*mangle
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+-A PREROUTING -i eth0 -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
+-A PREROUTING -i eth1.101 -j MARK --set-xmark 0x65/0xffffffff
+-A PREROUTING -i eth1.103 -j MARK --set-xmark 0x67/0xffffffff
+-A PREROUTING -i eth1.101 -j CONNMARK --save-mark --nfmask 0xffffffff --ctmask 0xffffffff
+-A PREROUTING -i eth1.103 -j CONNMARK --save-mark --nfmask 0xffffffff --ctmask 0xffffffff
+-A POSTROUTING -o eth0 -p tcp -m tcp --syn -m tcpmss --mss 1400:1536 -j TCPMSS --clamp-mss-to-pmtu
+COMMIT
+# Table nat    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+COMMIT</screen>
+
+  <para>Les règles contenues dans ce fichier sont appliquées à l'aide de
+  l'instruction suivante.</para>
+  
+<screen width='80'><prompt>#</prompt> iptables-restore &lt;/var/lib/iptables/active</screen>
+  
+  <para>On peut intégrer cette instruction dans les scripts d'initialisation
+  des interfaces réseau de façon à rendre  obligatoire l'application des
+  règles. Par exemple :</para>
+
+<screen width='80'><prompt>#</prompt> cat /etc/network/if-up.d/iptables 
+#!/bin/sh
+
+if [ -f "/var/lib/iptables/active" ]
+then
+  iptables-restore &lt;/var/lib/iptables/active
+fi
+
+exit 0</screen>
 </appendix>
 </article>
