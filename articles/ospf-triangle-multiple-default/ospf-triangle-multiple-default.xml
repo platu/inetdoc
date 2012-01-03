@@ -19,12 +19,17 @@
 <!ENTITY r3-zebra       SYSTEM "files/r3-zebra.conf">
 <!ENTITY r3-ospfd       SYSTEM "files/r3-ospfd.conf">
 
+<!ENTITY keepalive      SYSTEM "files/keepalive.sh">
+
 <!ENTITY url.multipath-host.pcap
   "<link xmlns='http://docbook.org/ns/docbook'
   xlink:href='http://www.inetdoc.net/articles/ospf-triangle-multiple-default/files/multipath-host.pcap'>multipath-host.pcap</link>">
 
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
+
+<!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
 ]>
 
 <article xml:lang='fr' xml:id='ospf-triangle-multiple-default'>
@@ -443,7 +448,7 @@ default via 192.200.0.1 dev eth0
   </section>
 
   <section xml:id='ospf-triangle-multiple-default.load-balancing.wireshark'>
-    <title>Analyse réseau sur le routeur ISP</title>
+    <title>Analyse réseau sur le routeur ISP avec répartition de trafic</title>
 
   <para>Maintenant que la capacité à exploiter les deux liens est implantée à
   chaque extrémité, il ne reste qu'à valider le fonctionnement à partir du
@@ -953,7 +958,7 @@ tcp      6 81 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37927 dport=80 src=19
   </section>
 
   <section xml:id='ospf-triangle-multiple-default.failover.wireshark'>
-    <title>Analyse réseau sur le routeur ISP</title>
+    <title>Analyse réseau sur le routeur ISP avec tolérance aux pannes</title>
 
   <para>Pour caractériser la tolérance aux pannes sur les liens réseau entre
   l'aire <acronym>OSPF</acronym> et le routeur <systemitem
@@ -974,7 +979,7 @@ tcp      6 81 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37927 dport=80 src=19
     <listitem>
     <para>De retour sur <systemitem class='systemname'>ISP</systemitem>, on
     identifie le lien utilisé pour le téléchargement à l'aide de la commande
-    <command>>conntrack</command>. C'est ce lien que l'on doit interrompre en
+    <command>conntrack</command>. C'est ce lien que l'on doit interrompre en
     premier de façon à provoquer le basculement d'un lien vers l'autre en cas
     de panne.</para>
     </listitem>
@@ -1004,7 +1009,120 @@ tcp      6 81 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37927 dport=80 src=19
     des paquets capturés pour l'analyser.</para>
     </listitem>
   </orderedlist>
+
+  <para>Voici une trace des commandes exécutées sur les différents routeurs et
+  sur l'hôte à l'initiative du trafic.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Sur le routeur <systemitem class='systemname'>ISP</systemitem>, la
+    capture de trafic est le point important.</para>
+
+<screen width='80'><prompt>$</prompt> screen tshark -i eth1 ! port 22  -w /var/tmp/failover-host.pcap</screen>
+    </listitem>
+    <listitem>
+    <para>Sur l'hôte <systemitem class='systemname'>host</systemitem>, on lance
+    le téléchargement «long».</para>
+
+<screen width='80'><prompt>$</prompt> screen wget http://cdimage.debian.org/debian-cd/6.0.3/amd64/iso-dvd/debian-6.0.3-amd64-DVD-1.iso</screen>
+    </listitem>
+    <listitem>
+    <para>Sur le routeur <systemitem class='systemname'>R1</systemitem>, on
+    désactive puis réactive le lien vers <systemitem
+    class='systemname'>ISP</systemitem>.</para>
+
+<screen width='80'><prompt>#</prompt> ifconfig eth0.101 down
+&lt;attendre un certain temps.../>
+<prompt>#</prompt> ifconfig eth0.101 up
+<prompt>#</prompt> ip ro add default via 10.1.30.2</screen>
+    </listitem>
+    <listitem>
+    <para>De même, sur le routeur <systemitem
+    class='systemname'>R3</systemitem>, on désactive puis réactive le lien vers
+    <systemitem class='systemname'>ISP</systemitem>.</para>
+
+<screen width='80'><prompt>#</prompt> ifconfig eth0.103 down
+&lt;attendre un certain temps.../>
+<prompt>#</prompt> ifconfig eth0.103 up
+<prompt>#</prompt> ip ro add default via 10.1.30.10</screen>
+    </listitem>
+  </itemizedlist>
+
+  <para>À la différence de la section <xref
+  linkend='ospf-triangle-multiple-default.load-balancing.wireshark' />, le
+  volume de trafic capturé est beaucoup plus important. On ne propose donc ici
+  qu'une représentation graphique caractérisant le basculement d'un lien sur
+  l'autre à chaque désactivation d'interface.</para>
+
+  <mediaobject xml:id='ospf-triangle-multiple-default.failover.wireshark.graph'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/failover-host.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/failover-host.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Caractérisation graphique de la tolérance aux pannes réseau.</phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Il y aurait beaucoup de remarques à faire sur cette capture de téléchargement. Simplement :</para>
+  
+  <itemizedlist>
+    <listitem>
+    <para>La courbe <emphasis>noire</emphasis> correspond à l'utilisation du
+    lien entre <systemitem class='systemname'>R1</systemitem> et <systemitem
+    class='systemname'>ISP</systemitem> : le <acronym>VLAN</acronym>
+    <option>101</option>.</para>
+    </listitem>
+    <listitem>
+    <para>La courbe <emphasis>rouge</emphasis> correspond à l'utilisation du
+    lien entre <systemitem class='systemname'>R3</systemitem> et <systemitem
+    class='systemname'>ISP</systemitem> : le <acronym>VLAN</acronym>
+    <option>103</option>.</para>
+    </listitem>
+    <listitem>
+    <para>La courbe <emphasis>verte</emphasis> est là pour indiquer que
+    certains délais observés lors des échanges sont dus à la communication de
+    bout en bout entre l'hôte <systemitem class='systemname'>host</systemitem>
+    et le serveur <wordasword>web</wordasword> et non au système de tolérance
+    aux pannes réseau.</para>
+    </listitem>
+  </itemizedlist>
   </section>
+</section>
+
+<section xml:id='ospf-triangle-multiple-default.failover-inbound'>
+  <title>Tolérance aux pannes réseau sur les flux descendants -
+  <wordasword>customized keepalive</wordasword></title>
+
+  <para>Dans la section précédente sur la tolérance aux pannes réseau, on a
+  uniquement caractérisé les flux sortants de l'aire <acronym>OSPF</acronym>.
+  Autrement dit, cette tolérance n'est effective que pour les flux émis à
+  partir des hôtes présents dans cette aire. Ces hôtes sont donc nécessairement
+  assimilés à des <emphasis>clients</emphasis> dans le modèle
+  client/serveur.</para>
+
+  <para>Considérons maintenant le cas où ces hôtes sont des serveurs dont le
+  contenu doit être accessible depuis l'Internet. Le trafic correspondant
+  transite toujours par le routeur <systemitem
+  class='systemname'>ISP</systemitem> mais celui-ci ne dispose d'aucun moyen de
+  détection de l'état des liens vers les routeurs <systemitem
+  class='systemname'>R1</systemitem> et <systemitem
+  class='systemname'>R3</systemitem>.</para>
+
+  <para>Les fonctions de détection de l'état des liens sont intrinsèques aux
+  protocoles de routage de type <wordasword>link-state</wordasword>. Une fois
+  que la convergence initiale est atteinte, les nouveaux calculs de topologie
+  n'interviennent que si un lien connu au préalable est désactivé ou réactivé.
+  La section 4.3 du standard &url.rfc2328; définit les 5 types de paquets du
+  protocole de routage. Le type 1 est justement le <wordasword>Hello
+  packet</wordasword> dont la fonction est de découvrir et de maintenir les
+  adjacences avec les routeurs <acronym>OSPF</acronym> voisins. Sur un réseau
+  de diffusion, comme dans le cas de cet article, ces paquets sont émis toutes
+  les 10 secondes et utilisent une adresse <acronym>IP</acronym> destination
+  multicast propre au protocole : <systemitem
+  class='ipaddress'>224.0.0.5</systemitem>.</para>
 </section>
 
 <section xml:id='ospf-triangle-multiple-default.conclusion'>
