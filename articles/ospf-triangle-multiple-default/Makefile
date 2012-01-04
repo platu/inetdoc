@@ -13,6 +13,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	ospf-triangle-multiple-default.xml \
+        author.xml \
+        legal.xml \
 	inetdoc.urls.xml \
 	rfc.urls.xml
 

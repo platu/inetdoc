@@ -12,6 +12,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	rnis.xml \
+        author.xml \
+        legal.xml \
 	rfc.urls.xml
 
 

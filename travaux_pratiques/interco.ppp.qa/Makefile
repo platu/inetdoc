@@ -13,6 +13,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	interco.ppp.qa.xml \
+        author.xml \
+        legal.xml \
 	inetdoc.urls.xml \
 	rfc.urls.xml
 

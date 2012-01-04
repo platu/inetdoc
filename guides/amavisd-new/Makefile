@@ -9,7 +9,10 @@ SYMLINKS = \
         $(MAIN_DIR)/common/author.xml \
         $(MAIN_DIR)/common/legal.xml
 
-XML_FILES = amavisd-new.xml
+XML_FILES = \
+	amavisd-new.xml \
+        author.xml \
+        legal.xml
 
 all: $(PROCESS)
 

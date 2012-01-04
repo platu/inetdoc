@@ -9,7 +9,10 @@ SYMLINKS = \
         $(MAIN_DIR)/common/author.xml \
         $(MAIN_DIR)/common/legal.xml
 
-XML_FILES = security.xml
+XML_FILES = \
+	security.xml \
+        author.xml \
+        legal.xml
 
 all: $(PROCESS)
 

@@ -17,6 +17,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	ospf-migration.xml \
+        author.xml \
+        legal.xml \
 	inetdoc.urls.xml
 
 all: $(PROCESS)

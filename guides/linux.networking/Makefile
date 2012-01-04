@@ -16,6 +16,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	linux.networking.xml \
+        authorgroup.xml \
+        legalgroup.xml \
 	inetdoc.urls.xml
 
 all: $(PROCESS)

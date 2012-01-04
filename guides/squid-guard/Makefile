@@ -9,6 +9,11 @@ SYMLINKS = \
         $(MAIN_DIR)/common/author.xml \
         $(MAIN_DIR)/common/legal.xml
 
+XML_FILES = \
+	squid-guard.xml \
+        author.xml \
+        legal.xml
+
 all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules

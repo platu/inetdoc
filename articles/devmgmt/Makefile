@@ -12,6 +12,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	devmgmt.xml \
+        author.xml \
+        legal.xml \
 	rfc.urls.xml
 
 

@@ -12,6 +12,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	vm.xml \
+        author.xml \
+        legal.xml \
 	inetdoc.urls.xml
 
 all: $(PROCESS)

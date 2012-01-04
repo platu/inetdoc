@@ -12,6 +12,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	interco.inter-vlan.qa.xml \
+        author.xml \
+        legal.xml \
 	inetdoc.urls.xml
 
 all: $(PROCESS)

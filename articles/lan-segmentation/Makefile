@@ -14,7 +14,9 @@ SYMLINKS = \
         $(MAIN_DIR)/common/legal.xml
 
 XML_FILES = \
-	lan-segmentation.xml
+	lan-segmentation.xml \
+        author.xml \
+        legal.xml
 
 all: $(PROCESS)
 

@@ -17,6 +17,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	infra.tp.xml \
+        author.xml \
+        legal.xml \
 	inetdoc.urls.xml \
 	rfc.urls.xml
 

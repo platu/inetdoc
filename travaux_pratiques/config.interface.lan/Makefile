@@ -13,6 +13,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	config.interface.lan.xml \
+        author.xml \
+        legal.xml \
 	inetdoc.urls.xml \
 	rfc.urls.xml
 

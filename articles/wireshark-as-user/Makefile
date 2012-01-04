@@ -10,7 +10,9 @@ SYMLINKS = \
         $(MAIN_DIR)/common/legal.xml
 
 XML_FILES = \
-	wireshark-as-user.xml
+	wireshark-as-user.xml \
+        author.xml \
+        legal.xml
 
 all: $(PROCESS)
 

@@ -13,6 +13,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	adressage.ipv4.xml \
+        author.xml \
+        legal.xml \
 	inetdoc.urls.xml \
 	rfc.urls.xml
 
