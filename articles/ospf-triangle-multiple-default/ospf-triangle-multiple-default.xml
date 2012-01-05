@@ -1123,6 +1123,143 @@ tcp      6 81 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37927 dport=80 src=19
   les 10 secondes et utilisent une adresse <acronym>IP</acronym> destination
   multicast propre au protocole : <systemitem
   class='ipaddress'>224.0.0.5</systemitem>.</para>
+
+  <para>Pour caractériser la tolérance aux pannes sur les flux entrants dans
+  l'aire <acronym>OSPF</acronym> via le routeur <systemitem
+  class='systemname'>ISP</systemitem>, on suit la séquence d'instructions
+  suivante.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>Sur le système hôte, on créé un petit script de téléchargement en
+    boucle que l'on exécute dans un terminal dédié.</para>
+
+<screen width='80'><prompt>$</prompt> cat download.sh 
+#!/bin/bash
+
+while true
+do
+  wget http://10.1.20.2/debian-6.0.3-amd64-CD-1.iso
+  rm debian-6.0.3-amd64-CD-1.iso
+done</screen>
+
+<screen width='80'><prompt>$</prompt> screen sh -x download.sh</screen>
+    </listitem>
+    <listitem>
+    <para>Sur le routeur <systemitem class='systemname'>ISP</systemitem>, on
+    commence par lancer la capture de trafic dans un terminal dédié. Ensuite,
+    on désactive puis réactive les interfaces réseau connectées aux liaisons
+    avec l'aire <acronym>OSPF</acronym>.</para>
+
+<screen width='80'><prompt>$</prompt> screen tshark -i eth1 ! port 22 -a filesize:8192000 -w /var/tmp/failover-host-inbound.pcap</screen>
+
+    <para>Le choix du lien à désactiver dépend de l'enregistrement des
+    communications après marquage des paquets provenant de l'aire
+    <acronym>OSPF</acronym>. Dans le cas ci-dessous, c'est le lien entre
+    <systemitem class='systemname'>R1</systemitem> et <systemitem
+    class='systemname'>ISP</systemitem> qui était utilisé avant la
+    désactivation de l'interface <option>eth1.101</option>.</para>
+
+<screen width='80'><prompt>#</prompt> conntrack -L
+tcp      6 299 ESTABLISHED src=192.200.0.1 dst=10.1.20.2 sport=50403 dport=80 \
+                           src=10.1.20.2 dst=192.200.0.1 \
+                           sport=80 dport=50403 [ASSURED] <emphasis>mark=101</emphasis> use=1
+&lt;snipped/>
+<prompt>#</prompt> ip link set dev eth1.101 down
+&lt;attendre au moins 10s/>
+<prompt>#</prompt> conntrack -L
+tcp      6 299 ESTABLISHED src=192.200.0.1 dst=10.1.20.2 sport=50405 dport=80 \
+                           src=10.1.20.2 dst=192.200.0.1 \
+                           sport=80 dport=50405 [ASSURED] <emphasis>mark=103</emphasis> use=1
+&lt;snipped/>
+<prompt>#</prompt> ip link set dev eth1.101 up
+&lt;attendre au moins 10s/>
+<prompt>#</prompt> conntrack -L
+tcp      6 299 ESTABLISHED src=192.200.0.1 dst=10.1.20.2 sport=50405 dport=80 \
+                           src=10.1.20.2 dst=192.200.0.1 \
+                           sport=80 dport=50405 [ASSURED] <emphasis>mark=103</emphasis> use=1
+&lt;snipped/>
+<prompt>#</prompt> ip link set dev eth1.103 down
+&lt;attendre au moins 10s/>
+<prompt>#</prompt> conntrack -L
+tcp      6 299 ESTABLISHED src=192.200.0.1 dst=10.1.20.2 sport=50405 dport=80 \
+                           src=10.1.20.2 dst=192.200.0.1 \
+                           sport=80 dport=50405 [ASSURED] <emphasis>mark=101</emphasis> use=1
+&lt;snipped/>
+<prompt>#</prompt> ip link set dev eth1.103 up</screen>
+    </listitem>
+  </orderedlist>
+
+  <para>Comme le téléchargement est effectué entre le système hôte et une
+  instance de machine virtuelle, les débits disponibles sont importants et le
+  volume de trafic capturé pour caractériser le basculement d'un lien sur
+  l'autre augmente très rapidement. Le graphique ci-dessous est un extrait
+  obtenu à partir d'une capture d'environ 1.2Go.</para>
+
+  <mediaobject xml:id='ospf-triangle-multiple-default.failover-inblound.wireshark.graph'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/failover-host-inbound.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/failover-host-inbound.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Caractérisation graphique de la tolérance aux pannes réseau.</phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Les choix de couleurs de courbes sont les mêmes que dans la section
+  précédente.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>La courbe <emphasis>noire</emphasis> correspond à l'utilisation du
+    lien entre <systemitem class='systemname'>R1</systemitem> et <systemitem
+    class='systemname'>ISP</systemitem> : le <acronym>VLAN</acronym>
+    <option>101</option>.</para>
+    </listitem>
+    <listitem>
+    <para>La courbe <emphasis>rouge</emphasis> correspond à l'utilisation du
+    lien entre <systemitem class='systemname'>R3</systemitem> et <systemitem
+    class='systemname'>ISP</systemitem> : le <acronym>VLAN</acronym>
+    <option>103</option>.</para>
+    </listitem>
+    <listitem>
+    <para>La courbe <emphasis>verte</emphasis> est là pour indiquer que les
+    interruptions de trafic correspondent à la rotation des fichiers
+    téléchargés sur le système hôte depuis le serveur
+    <wordasword>web</wordasword> installé sur l'hôte <systemitem
+    class='systemname'>host</systemitem>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Suite aux manipulations effectuées sur les interfaces du routeur
+  <systemitem class='systemname'>ISP</systemitem>, les journaux système des
+  deux routeurs en vis-à-vis donnent les résultats suivants.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Vu du routeur <systemitem class='systemname'>R1</systemitem> :</para>
+<screen width='80'><prompt>$</prompt> cat /var/log/r1-keepalive.log
+janv. 04 22:05:01: START
+janv. 04 22:05:01: daemonize ./r1-keepalive.sh
+janv. 04 22:05:01: daemonized ./r1-keepalive.sh
+janv. 04 22:05:01: alive_ping
+janv. 04 22:05:01: 10.1.30.2 is reachable, default route added
+janv. 04 22:12:36: 10.1.30.2 is not reachable, default route deleted
+janv. 04 22:13:11: 10.1.30.2 is reachable, default route added</screen>
+    </listitem>
+    <listitem>
+    <para>Vu du routeur <systemitem class='systemname'>R3</systemitem> :</para>
+<screen width='80'><prompt>$</prompt> cat /var/log/r3-keepalive.log 
+janv. 04 22:06:34: START
+janv. 04 22:06:34: daemonize ./r3-keepalive.sh
+janv. 04 22:06:34: daemonized ./r3-keepalive.sh
+janv. 04 22:06:34: alive_ping
+janv. 04 22:13:29: 10.1.30.10 is not reachable, default route deleted
+janv. 05 16:26:22: 10.1.30.10 is reachable, default route added</screen>
+    </listitem>
+  </itemizedlist>
 </section>
 
 <section xml:id='ospf-triangle-multiple-default.conclusion'>

@@ -1,12 +1,15 @@
 #!/bin/bash
 
-neighbor=10.1.30.2
+#* Adaptation d'un script publié par Lukas Ruf en 2006
+#* License: GPL3
+
+neighbor=10.1.30.10
 
 scriptname=`basename $0`
 scriptname=${scriptname%.*}
 delay=10 # sleep time
-logfile=/var/tmp/$scriptname.log  # file for debug messages
-lockfile=/var/tmp/$scriptname.lock # locking to avoid races
+logfile=/var/log/$scriptname.log  # file for debug messages
+lockfile=/var/lock/$scriptname.lock # locking to avoid races
 
 # control where to log debug messages to:
 # debugfile = 0 : log to /dev/null
