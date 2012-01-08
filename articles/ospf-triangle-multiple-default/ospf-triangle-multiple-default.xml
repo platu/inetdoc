@@ -19,11 +19,17 @@
 <!ENTITY r3-zebra       SYSTEM "files/r3-zebra.conf">
 <!ENTITY r3-ospfd       SYSTEM "files/r3-ospfd.conf">
 
-<!ENTITY keepalive      SYSTEM "files/keepalive.sh">
-
 <!ENTITY url.multipath-host.pcap
   "<link xmlns='http://docbook.org/ns/docbook'
   xlink:href='http://www.inetdoc.net/articles/ospf-triangle-multiple-default/files/multipath-host.pcap'>multipath-host.pcap</link>">
+
+<!ENTITY url.r1-keepalive.sh
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://www.inetdoc.net/articles/ospf-triangle-multiple-default/files/r1-keepalive.sh'>r1-keepalive.sh</link>">
+
+<!ENTITY url.r3-keepalive.sh
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://www.inetdoc.net/articles/ospf-triangle-multiple-default/files/r1-keepalive.sh'>r3-keepalive.sh</link>">
 
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
@@ -1096,12 +1102,12 @@ tcp      6 81 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37927 dport=80 src=19
   <title>Tolérance aux pannes réseau sur les flux descendants -
   <wordasword>customized keepalive</wordasword></title>
 
-  <para>Dans la section précédente sur la tolérance aux pannes réseau, on a
-  uniquement caractérisé les flux sortants de l'aire <acronym>OSPF</acronym>.
-  Autrement dit, cette tolérance n'est effective que pour les flux émis à
-  partir des hôtes présents dans cette aire. Ces hôtes sont donc nécessairement
-  assimilés à des <emphasis>clients</emphasis> dans le modèle
-  client/serveur.</para>
+  <para>Dans la section précédente, qui traite aussi de la tolérance aux pannes
+  réseau, on a uniquement caractérisé les flux sortants de l'aire
+  <acronym>OSPF</acronym>. Autrement dit, cette tolérance n'est effective que
+  pour les flux émis à partir des hôtes présents dans cette aire. Ces hôtes
+  sont donc nécessairement assimilés à des <emphasis>clients</emphasis> dans le
+  modèle client/serveur.</para>
 
   <para>Considérons maintenant le cas où ces hôtes sont des serveurs dont le
   contenu doit être accessible depuis l'Internet. Le trafic correspondant
@@ -1123,6 +1129,71 @@ tcp      6 81 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37927 dport=80 src=19
   les 10 secondes et utilisent une adresse <acronym>IP</acronym> destination
   multicast propre au protocole : <systemitem
   class='ipaddress'>224.0.0.5</systemitem>.</para>
+
+  <para>Comme le routeur <systemitem class='systemname'>ISP</systemitem>
+  n'appartient pas au même domaine d'administration que les trois autres
+  routeurs de l'aire <acronym>OSPF</acronym>, aucune adjacence n'est formée sur
+  les deux liens de sortie de cette aire. On se propose donc de compenser
+  l'absence de contrôle d'état à l'aide de scripts maison.</para>
+
+  <section xml:id='ospf-triangle-multiple-default.failover-inbound.keepalive'>
+    <title>Scripts de contrôle d'état de lien - <wordasword>keepalive shell
+    scripts</wordasword></title>
+
+  <para>L'objectif ici n'est pas de reproduire un fonctionnement aussi
+  sophistiqué que celui offert par un protocole de routage dynamique, mais de
+  trouver une solution à moindre coût qui permette de manipuler les routes par
+  défaut des routeurs <systemitem class='systemname'>R1</systemitem> et
+  <systemitem class='systemname'>R3</systemitem> à partir des réponses aux
+  requêtes <acronym>ICMP</acronym> de type <option>8</option>
+  (<wordasword>echo</wordasword>).</para>
+
+  <para>Avant d'aller plus loin dans la présentation de la technique utilisée
+  ici, il faut rappeler que l'architecture étudiée ne comprend que des
+  interfaces Ethernet sur lesquelles transitent des trames avec des balises
+  <acronym>IEEE 802.1Q</acronym>. On ne dispose donc pas d'informations
+  provenant de la couche physique sur le fonctionnement de ces interfaces. Si
+  les deux liens à contrôler étaient de type série, les scripts présentés
+  ci-dessous seraient totalement inutiles puisque les composants contrôleurs
+  des liaisons série détectent directement les interruptions de
+  transmission.</para>
+
+  <para>Il faut aussi ajouter que, même avec des réseaux locaux Ethernet,
+  d'autres solutions existent. Ainsi, il est possible d'utiliser le protocole
+  <acronym>PPPoE</acronym> qui offre toutes les fonctions du protocole
+  <acronym>PPP</acronym> sur des liaisons Ethernet. Pour un exemple de mise en
+  œuvre, voir l'article &url.pppoe;.</para>  
+
+  <para>Avec l'architecture correspondant à la vue <link
+  linkend='ospf-triangle-multiple-default.presentation.topology'>topologie
+  logique</link>, on place deux scripts développés en langage
+  <wordasword>shell</wordasword> qui fonctionnent en permanence sur les
+  routeurs <systemitem class='systemname'>R1</systemitem> et <systemitem
+  class='systemname'>R3</systemitem>. Le code ce ces deux scripts est donné
+  dans l'<xref linkend='ospf-triangle-multiple-default.keepalive'/>.</para>
+
+<screen width='80'>while $(true) ; do
+  msg=$(/bin/ping -W 2 -n -c 1 ${neighbor} 2>&amp;1 | egrep '(bytes from|100% packet loss)')
+
+  if [[ "${msg}" =~ "bytes from" ]] &amp;&amp; [[ ! -e /tmp/${neighbor}_up ]]; then
+    ip route add default via ${neighbor}
+    touch /tmp/${neighbor}_up
+    keepalive_debug "${neighbor} is reachable, default route added"
+  fi
+
+  if [[ "${msg}" =~ "100% packet loss" ]] &amp;&amp; [[ -e /tmp/${neighbor}_up ]]; then
+    ip route del default via ${neighbor}
+    rm -f /tmp/${neighbor}_up
+    keepalive_debug "${neighbor} is not reachable, default route deleted"
+  fi
+
+  sleep ${delay}
+done</screen>
+  </section>
+
+  <section xml:id='ospf-triangle-multiple-default.failover-inbound.wireshark'>
+    <title>Analyse réseau sur le routeur ISP avec tolérance aux pannes sur les
+    flux entrants</title>
 
   <para>Pour caractériser la tolérance aux pannes sur les flux entrants dans
   l'aire <acronym>OSPF</acronym> via le routeur <systemitem
@@ -1260,6 +1331,7 @@ janv. 04 22:13:29: 10.1.30.10 is not reachable, default route deleted
 janv. 05 16:26:22: 10.1.30.10 is reachable, default route added</screen>
     </listitem>
   </itemizedlist>
+  </section>
 </section>
 
 <section xml:id='ospf-triangle-multiple-default.conclusion'>
@@ -1539,5 +1611,31 @@ then
 fi
 
 exit 0</screen>
+</appendix>
+
+<appendix xml:id='ospf-triangle-multiple-default.keepalive'>
+  <title>Scripts de contrôle d'état de liens</title>
+
+  <para>Les deux scripts ci-dessous assurent un contrôle permanent sur les deux
+  liens entre l'aire <acronym>OSPF</acronym> et le routeur <systemitem
+  class='systemname'>ISP</systemitem> à l'aide des messages d'information
+  <acronym>ICMP</acronym> <wordasword>echo/reply</wordasword>.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Routeur <systemitem class='systemname'>R1</systemitem> :
+    &url.r1-keepalive.sh;.</para>
+
+<screen width='80'><xi:include href='files/r1-keepalive.sh' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+    </listitem>
+    <listitem>
+    <para>Routeur <systemitem class='systemname'>R3</systemitem> :
+    &url.r3-keepalive.sh;.</para>
+
+<screen width='80'><xi:include href='files/r3-keepalive.sh' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+    </listitem>
+  </itemizedlist>
 </appendix>
 </article>

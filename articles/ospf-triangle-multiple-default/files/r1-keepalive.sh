@@ -53,13 +53,13 @@ function alive_ping() {
   while $(true) ; do
     msg=$(/bin/ping -W 2 -n -c 1 ${neighbor} 2>&1 | egrep '(bytes from|100% packet loss)')
 
-    if [ "`echo ${msg} | egrep -o 'bytes from'`" == "bytes from" ] && [ ! -e /tmp/${neighbor}_up ]; then
+    if [[ "${msg}" =~ "bytes from" ]] && [[ ! -e /tmp/${neighbor}_up ]]; then
       ip route add default via ${neighbor}
       touch /tmp/${neighbor}_up
       keepalive_debug "${neighbor} is reachable, default route added"
     fi
 
-    if [ "`echo ${msg} | egrep -o '100% packet loss'`" == "100% packet loss" ] && [ -e /tmp/${neighbor}_up ]; then
+    if [[ "${msg}" =~ "100% packet loss" ]] && [[ -e /tmp/${neighbor}_up ]]; then
       ip route del default via ${neighbor}
       rm -f /tmp/${neighbor}_up
       keepalive_debug "${neighbor} is not reachable, default route deleted"
