@@ -1150,7 +1150,7 @@ tcp      6 81 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37927 dport=80 src=19
 
   <para>Avant d'aller plus loin dans la présentation de la technique utilisée
   ici, il faut rappeler que l'architecture étudiée ne comprend que des
-  interfaces Ethernet sur lesquelles transitent des trames avec des balises
+  interfaces Ethernet sur lesquelles transitent des trames avec balises
   <acronym>IEEE 802.1Q</acronym>. On ne dispose donc pas d'informations
   provenant de la couche physique sur le fonctionnement de ces interfaces. Si
   les deux liens à contrôler étaient de type série, les scripts présentés
@@ -1166,31 +1166,84 @@ tcp      6 81 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37927 dport=80 src=19
 
   <para>Avec l'architecture correspondant à la vue <link
   linkend='ospf-triangle-multiple-default.presentation.topology'>topologie
-  logique</link>, on place deux scripts développés en langage
-  <wordasword>shell</wordasword> qui fonctionnent en permanence sur les
-  routeurs <systemitem class='systemname'>R1</systemitem> et <systemitem
-  class='systemname'>R3</systemitem>. Le code ce ces deux scripts est donné
-  dans l'<xref linkend='ospf-triangle-multiple-default.keepalive'/>.</para>
+  logique</link> présentée au début à la <xref
+  linkend='ospf-triangle-multiple-default.presentation' />, on place deux
+  scripts développés en langage <wordasword>shell</wordasword> qui fonctionnent
+  en permanence sur les routeurs <systemitem class='systemname'>R1</systemitem>
+  et <systemitem class='systemname'>R3</systemitem>. Le code ce ces deux
+  scripts est donné dans l'<xref
+  linkend='ospf-triangle-multiple-default.keepalive'/>.</para>
+
+  <para>La partie intéressante de ces deux scripts est extraite
+  ci-dessous.</para>
 
 <screen width='80'>while $(true) ; do
-  msg=$(/bin/ping -W 2 -n -c 1 ${neighbor} 2>&amp;1 | egrep '(bytes from|100% packet loss)')
+  msg=$(/bin/ping -W 2 -n -c 1 ${neighbor} 2>&amp;1 | egrep '(bytes from|100% packet loss)') <co xml:id='keepalive.icmp'/>
 
-  if [[ "${msg}" =~ "bytes from" ]] &amp;&amp; [[ ! -e /tmp/${neighbor}_up ]]; then
-    ip route add default via ${neighbor}
-    touch /tmp/${neighbor}_up
-    keepalive_debug "${neighbor} is reachable, default route added"
+  if [[ "${msg}" =~ "bytes from" ]] &amp;&amp; [[ ! -e /tmp/${neighbor}_up ]]; then <co xml:id='keepalive.test.add'/>
+    ip route add default via ${neighbor} <co xml:id='keepalive.route.add'/>
+    touch /tmp/${neighbor}_up <co xml:id='keepalive.state.add'/>
+    keepalive_debug "${neighbor} is reachable, default route added" <co xml:id='keepalive.debug.add'/>
   fi
 
-  if [[ "${msg}" =~ "100% packet loss" ]] &amp;&amp; [[ -e /tmp/${neighbor}_up ]]; then
-    ip route del default via ${neighbor}
-    rm -f /tmp/${neighbor}_up
-    keepalive_debug "${neighbor} is not reachable, default route deleted"
+  if [[ "${msg}" =~ "100% packet loss" ]] &amp;&amp; [[ -e /tmp/${neighbor}_up ]]; then <co xml:id='keepalive.test.del'/>
+    ip route del default via ${neighbor} <co xml:id='keepalive.route.del'/>
+    rm -f /tmp/${neighbor}_up <co xml:id='keepalive.state.del'/>
+    keepalive_debug "${neighbor} is not reachable, default route deleted" <co xml:id='keepalive.debug.del'/>
   fi
 
-  sleep ${delay}
+  sleep ${delay} <co xml:id='keepalive.delay'/>
 done</screen>
+
+  <calloutlist>
+    <callout arearefs='keepalive.icmp'>
+    <para>La collecte du message d'information <acronym>ICMP</acronym> se fait
+    à l'aide d'une seule requête dont on a limité le temps d'attente de réponse
+    à 2 secondes. En fonction de cette réponse on extrait deux chaînes de
+    caractères : "<literal>bytes from</literal>" si la réponse est positive ou
+    "<literal>100% packet loss</literal>" si aucune réponse n'a été
+    obtenue dans le temps imparti.</para>
+
+    <para>La réponse stockée dans la variable <literal>${msg}</literal>.</para>
+    </callout>
+    <callout arearefs='keepalive.test.add keepalive.test.del'>
+    <para>Suivant le contenu de la variable <literal>${msg}</literal> et de
+    l'état précédemment enregistré du lien, on ajoute ou supprime la route par
+    défaut vers le routeur <systemitem
+    class='systemname'>ISP</systemitem>.</para>
+    </callout>
+    <callout arearefs='keepalive.route.add keepalive.route.del'>
+    <para>La commande d'ajout et de suppression de la route par défaut suppose
+    que le propriétaire du processus a la capacité à utiliser cette
+    instruction.</para>
+
+    <para>La variable <literal>${neighbor}</literal> contient l'adresse
+    <acronym>IP</acronym> de la passerelle à atteindre.</para>
+    </callout>
+    <callout arearefs='keepalive.state.add keepalive.state.del'>
+    <para>Le fichier <filename>/tmp/${neighbor}_up</filename> est utilisé comme
+    variable d'état. Il est créé lors de l'ajout de la route par défaut lorsque
+    le lien vers le routeur <systemitem class='systemname'>ISP</systemitem> est
+    à nouveau actif. Il est effacé lorsque ce même lien est perdu.</para>
+    </callout>
+    <callout arearefs='keepalive.debug.add keepalive.debug.del'>
+    <para>Les deux scripts utilisent une fonction de journalisation système
+    embryonnaire <literal>keepalive_debug</literal> qui permet d'enregistrer
+    les mouvements sur les liens. Une copie des messages générés à l'aide de
+    cette fonction est donnée à la fin de la section suivante sur l'analyse
+    réseau.</para>
+    </callout>
+    <callout arearefs='keepalive.delay'>
+    <para>Dans le cas de cette maquette, le délai a été fixé à 10 secondes par
+    l'intermédiaire de la variable <literal>${delay}</literal>. L'idée étant
+    d'avoir un comportement qui se rapproche de la période des
+    <wordasword>Hello packets</wordasword> du protocole
+    <acronym>OSPF</acronym>.</para>
+    </callout>
+  </calloutlist>
   </section>
 
+<?custom-pagebreak?>
   <section xml:id='ospf-triangle-multiple-default.failover-inbound.wireshark'>
     <title>Analyse réseau sur le routeur ISP avec tolérance aux pannes sur les
     flux entrants</title>
@@ -1337,10 +1390,32 @@ janv. 05 16:26:22: 10.1.30.10 is reachable, default route added</screen>
 <section xml:id='ospf-triangle-multiple-default.conclusion'>
   <title>Pour conclure</title>
 
-  <para>Voilà comment on illustre quelques notions de routage avancé avec
-  quatre instances de machines virtuelles.</para>
+  <para>Cet article est une illustration de quelques notions de routage avancé
+  avec quatre instances de machines virtuelles. Il peut paraître un peu long ;
+  comme la plupart des documents publiés sur
+  <citetitle>inetdoc.net</citetitle>. Il se distingue cependant par le fait
+  qu'à chaque élément de configuration avancé, on précise la démarche suivie
+  pour caractériser la fonction implantée et on donne un extrait des résultats
+  obtenus.</para>
+
+  <para>Même s'il est question de routage «avancé», la section sur la
+  répartition de trafic illustre parfaitement le cours sur les modélisations.
+  On caractérise le fait que chaque paquet <acronym>IP</acronym> peut suivre un
+  chemin propre au niveau réseau tout en préservant une connexion de bout en
+  bout au niveau transport. On retrouve ainsi les notions de réseau à
+  commutation de paquets et de protocole orienté connexion.</para>
+
+  <para>Le marquage de paquets et l'enregistrement des communications sont
+  aussi très intéressants et montrent qu'il est possible d'utiliser ces
+  mécanismes sans nécessairement avoir recours à la traduction d'adresses.
+  Sujet au combien polémique.</para>
+
+  <para>Enfin, l'architecture étudiée n'est qu'un exemple de ce qu'il est
+  possible de faire avec des systèmes GNU/Linux. Il existe bien d'autres
+  solutions ou variations pour aboutir au même résultat !</para>
 </section>
 
+<?custom-pagebreak?>
 <appendix xml:id='ospf-triangle-multiple-default.vde'>
   <title>Configuration de la commutation</title>
 
@@ -1459,6 +1534,7 @@ iface tap0 inet static
   <screen width='80'>&vde.conf;</screen>
 </appendix>
 
+<?custom-pagebreak?>
 <appendix xml:id='ospf-triangle-multiple-default.interfaces'>
   <title>Configuration des interfaces</title>
 
@@ -1502,6 +1578,7 @@ iface tap0 inet static
   </variablelist>
 </appendix>
 
+<?custom-pagebreak?>
 <appendix xml:id='ospf-triangle-multiple-default.quagga'>
   <title>Configuration du routage statique et dynamique</title>
 
@@ -1550,6 +1627,7 @@ iface tap0 inet static
   </informaltable>
 </appendix>
 
+<?custom-pagebreak?>
 <appendix xml:id='ospf-triangle-multiple-default.iptables'>
   <title>Configuration du filtrage réseau</title>
 
@@ -1613,28 +1691,35 @@ fi
 exit 0</screen>
 </appendix>
 
+<?custom-pagebreak?>
 <appendix xml:id='ospf-triangle-multiple-default.keepalive'>
   <title>Scripts de contrôle d'état de liens</title>
 
   <para>Les deux scripts ci-dessous assurent un contrôle permanent sur les deux
   liens entre l'aire <acronym>OSPF</acronym> et le routeur <systemitem
   class='systemname'>ISP</systemitem> à l'aide des messages d'information
-  <acronym>ICMP</acronym> <wordasword>echo/reply</wordasword>.</para>
+  <acronym>ICMP</acronym> <wordasword>echo/reply</wordasword>. Le propriétaire
+  du processus doit avoir la capacité à ajouter ou supprimer une route au
+  niveau noyau.</para>
 
   <itemizedlist>
     <listitem>
-    <para>Routeur <systemitem class='systemname'>R1</systemitem> :
-    &url.r1-keepalive.sh;.</para>
+    <para>Sur le routeur <systemitem class='systemname'>R1</systemitem>, la
+    passerelle à joindre est à l'adresse <systemitem
+    class='ipaddress'>10.1.30.2</systemitem>. Le code du script est
+    téléchargeable à partir du lien suivant : &url.r1-keepalive.sh;.</para>
 
 <screen width='80'><xi:include href='files/r1-keepalive.sh' parse='text'
 xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
     </listitem>
     <listitem>
-    <para>Routeur <systemitem class='systemname'>R3</systemitem> :
-    &url.r3-keepalive.sh;.</para>
+    <para>Sur le routeur <systemitem class='systemname'>R3</systemitem>, la
+    passerelle à joindre est à l'adresse <systemitem
+    class='ipaddress'>10.1.30.10</systemitem>. Le code du script est
+    téléchargeable à partir du lien suivant : &url.r3-keepalive.sh;.</para>
 
-<screen width='80'><xi:include href='files/r3-keepalive.sh' parse='text'
-xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+     <para>Le code de ce script est identique au précédent à l'exception de la
+     valeur attribuée à la variable <literal>${neighbor}</literal>.</para>
     </listitem>
   </itemizedlist>
 </appendix>
