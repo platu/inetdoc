@@ -13,6 +13,7 @@ SUBDIRS = \
 	modelisation \
 	wireshark-as-user \
 	rnis \
+	ethernet \
 	pppoe \
 	adressage.ipv4 \
 	ospf-migration \
@@ -31,6 +32,7 @@ XML_FILES = \
 	modelisation/$(ABSTRACT_FILE) \
 	wireshark-as-user/$(ABSTRACT_FILE) \
 	rnis/$(ABSTRACT_FILE) \
+	ethernet/$(ABSTRACT_FILE) \
 	pppoe/$(ABSTRACT_FILE) \
 	adressage.ipv4/$(ABSTRACT_FILE) \
 	ospf-migration/$(ABSTRACT_FILE) \
