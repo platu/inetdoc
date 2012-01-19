@@ -16,7 +16,8 @@ SYMLINKS = \
 XML_FILES = \
 	lan-segmentation.xml \
         author.xml \
-        legal.xml
+        legal.xml \
+	$(wildcard images/*.png)
 
 all: $(PROCESS)
 
