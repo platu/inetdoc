@@ -20,6 +20,7 @@ XML_FILES = \
 	modelisations.abstract.xml \
 	ethernet.abstract.xml \
 	lan-segmentation.abstract.xml \
+	adressage.ipv4.abstract.xml \
         author.xml \
         legal.xml \
         inetdoc.urls.xml
@@ -35,5 +36,8 @@ ethernet.abstract.xml: $(MAIN_DIR)/articles/ethernet/$(ABSTRACT_FILE)
 	ln -s $< $@
 
 lan-segmentation.abstract.xml: $(MAIN_DIR)/articles/lan-segmentation/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+adressage.ipv4.abstract.xml: $(MAIN_DIR)/articles/adressage.ipv4/$(ABSTRACT_FILE)
 	ln -s $< $@
 
