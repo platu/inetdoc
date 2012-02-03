@@ -21,6 +21,8 @@ XML_FILES = \
 	ethernet.abstract.xml \
 	lan-segmentation.abstract.xml \
 	adressage.ipv4.abstract.xml \
+	config.interface.lan.abstract.xml \
+	intro.analyse.abstract.xml \
         author.xml \
         legal.xml \
         inetdoc.urls.xml
@@ -41,3 +43,8 @@ lan-segmentation.abstract.xml: $(MAIN_DIR)/articles/lan-segmentation/$(ABSTRACT_
 adressage.ipv4.abstract.xml: $(MAIN_DIR)/articles/adressage.ipv4/$(ABSTRACT_FILE)
 	ln -s $< $@
 
+config.interface.lan.abstract.xml: $(MAIN_DIR)/travaux_pratiques/config.interface.lan/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+intro.analyse.abstract.xml: $(MAIN_DIR)/travaux_pratiques/intro.analyse/$(ABSTRACT_FILE)
+	ln -s $< $@

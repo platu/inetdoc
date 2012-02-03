@@ -8,7 +8,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 SUBDIRS = \
 	images \
 	infra.tp \
-	config.interface.lan \
+	if-lan.qa \
 	intro.analyse \
 	interco.kernel.qa \
 	interco.kernel.q \
