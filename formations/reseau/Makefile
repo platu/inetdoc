@@ -23,6 +23,7 @@ XML_FILES = \
 	adressage.ipv4.abstract.xml \
 	config.interface.lan.abstract.xml \
 	intro.analyse.abstract.xml \
+	socket-c.abstract.xml \
         author.xml \
         legal.xml \
         inetdoc.urls.xml
@@ -47,4 +48,7 @@ config.interface.lan.abstract.xml: $(MAIN_DIR)/travaux_pratiques/config.interfac
 	ln -s $< $@
 
 intro.analyse.abstract.xml: $(MAIN_DIR)/travaux_pratiques/intro.analyse/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+socket-c.abstract.xml: $(MAIN_DIR)/dev/socket-c/$(ABSTRACT_FILE)
 	ln -s $< $@
