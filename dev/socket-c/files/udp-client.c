@@ -61,8 +61,8 @@ int main()
   puts("\nEntrez quelques caractères au clavier.");
   puts("Le serveur les modifiera et les renverra.");
   puts("Pour sortir, entrez une ligne avec le caractère '.' uniquement.");
-  puts("Si une ligne dépasse MAX_MSG caractères,");
-  puts("seuls les MAX_MSG premiers caractères seront utilisés.\n");
+  puts("Si une ligne dépasse "xstr(MAX_MSG)" caractères,");
+  puts("seuls les "xstr(MAX_MSG)" premiers caractères seront utilisés.\n");
 
   // Invite de commande pour l'utilisateur et lecture des caractères jusqu'à la
   // limite MAX_MSG. Puis suppression du saut de ligne en mémoire tampon.
