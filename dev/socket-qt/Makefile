@@ -18,7 +18,8 @@ XML_FILES = \
 	socket-qt.xml \
         author.xml \
         legal.xml \
-	inetdoc.urls.xml
+	inetdoc.urls.xml \
+	$(wildcard qtcreator/*.cpp)
 
 all: $(PROCESS)
 
