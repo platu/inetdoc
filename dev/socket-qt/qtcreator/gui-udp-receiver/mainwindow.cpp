@@ -26,6 +26,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
 MainWindow::~MainWindow()
 {
+    listenSocket->close();
+
     delete ui;
 }
 
