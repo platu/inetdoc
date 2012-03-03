@@ -21,7 +21,8 @@ MainWindow::MainWindow(QWidget *parent) :
     QObject::connect(listenSocket, SIGNAL(readyRead()),
                 this, SLOT(processPendingDatagrams()));
 
-    QObject::connect(ui->pushButton,SIGNAL(clicked()),this,SLOT(close()));
+    QObject::connect(ui->pushButton, SIGNAL(clicked()),
+                this, SLOT(close()));
 }
 
 MainWindow::~MainWindow()
@@ -32,7 +33,7 @@ MainWindow::~MainWindow()
 }
 
 void MainWindow::processPendingDatagrams()
- {
+{
 
     while (listenSocket->hasPendingDatagrams())  {
         QByteArray datagram;
@@ -41,7 +42,7 @@ void MainWindow::processPendingDatagrams()
 
         msg = datagram.data();
         ui->senderLabel->setText(tr("Depuis : %1:%2") .arg(senderAddress.toString()) .arg(senderPort));
-        ui->msgLabel->setText(tr("Message : \"%1\"").arg(msg));
+        ui->msgLabel->setText(tr("Message : \"%1\""). arg(msg));
 
         msg = msg.toUpper();
         qDebug() << datagram.data();
