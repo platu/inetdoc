@@ -36,16 +36,25 @@ void MainWindow::processPendingDatagrams()
 {
 
     while (listenSocket->hasPendingDatagrams())  {
+
         QByteArray datagram;
+
         datagram.resize(listenSocket->pendingDatagramSize());
-        listenSocket->readDatagram(datagram.data(), datagram.size(), &senderAddress, &senderPort);
+        listenSocket->readDatagram(datagram.data(), datagram.size(), 
+	                           &senderAddress, 
+				   &senderPort);
 
         msg = datagram.data();
-        ui->senderLabel->setText(tr("Depuis : %1:%2") .arg(senderAddress.toString()) .arg(senderPort));
-        ui->msgLabel->setText(tr("Message : \"%1\""). arg(msg));
+	qDebug() << "Depuis : " << senderAddress.toString() << ':' << senderPort;
+	qDebug() << "Message : " << msg;
+
+        ui->senderLabel->setText(tr("Depuis : %1:%2")
+	                         . arg(senderAddress.toString())
+				 . arg(senderPort));
+        ui->msgLabel->setText(tr("Message : \"%1\"")
+	                      . arg(msg));
 
         msg = msg.toUpper();
-        qDebug() << datagram.data();
 
         datagram.clear();
         datagram.append(msg);

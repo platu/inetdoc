@@ -11,6 +11,14 @@
 <!ENTITY url.qt-network-programming
    '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://doc.qt.nokia.com/4.7/network-programming.html">
    <citetitle>Qt Network Programming</citetitle></link>'>
+
+<!ENTITY url.gui-udp-receiver
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.inetdoc.net/dev/socket-qt/qtcreator/gui-udp-receiver.tar.gz">
+   <filename>gui-udp-receiver.tar.gz</filename></link>'>
+
+<!ENTITY url.nogui-udp-receiver
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.inetdoc.net/dev/socket-qt/qtcreator/nogui-udp-receiver.tar.gz">
+   <filename>nogui-udp-receiver.tar.gz</filename></link>'>
 ]>
 
 <article xml:id='socket-qt' xml:lang='fr'>
@@ -317,8 +325,7 @@ udp        0      0 *:8888            *:*                     3321/QtCreator_UDP
 <programlisting width='80'>QUdpSocket listenSocket;
 QByteArray datagram;
 QHostAddress senderAddress;
-quint16 senderPort;
-</programlisting>
+quint16 senderPort;</programlisting>
 
   <variablelist>
     <varlistentry>
@@ -420,6 +427,11 @@ if (listenSocket.waitForReadyRead(100))<co xml:id='wait'/> {
 
 <programlisting width='80'><xi:include href='qtcreator/nogui-udp-receiver/main.cpp'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+
+  <note>
+    <para>Le code complet du projet est disponible via le fichier
+    &url.nogui-udp-receiver;.</para>
+  </note>
   </sect2>
 </sect1>
 
@@ -604,7 +616,87 @@ parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
     </callout>
   </calloutlist>
 
-  <para>Pour le traitement des datagrammes,</para>
+  <para>Pour le traitement des datagrammes, c'est le code du sous-programme
+  <function>processPendingDatagrams()</function> qui assure la lecture, le
+  passage en majuscules des caractères de la chaîne et la réémission.
+  L'opération de transformation des caractères en majuscules n'est qu'une
+  illustration d'un traitement possible. Comme la plupart des protocoles de
+  l'Internet sont basés sur l'échange de messages sous forme de chaînes de
+  caractères, on utilise ici une forme minimaliste de traitement par requête -
+  réponse.</para>
+
+<programlisting width='80'>&lt;snipped/>
+void MainWindow::processPendingDatagrams()
+{
+
+  while (listenSocket->hasPendingDatagrams())  {<co xml:id='pendingDatagrams'/>
+
+    QByteArray datagram;
+
+    datagram.resize(listenSocket->pendingDatagramSize());
+    listenSocket->readDatagram(datagram.data(), datagram.size(),
+                               &amp;senderAddress, &amp;senderPort);<co xml:id='readDatagram'/>
+
+    msg = datagram.data();
+    qDebug() &lt;&lt; "Depuis : " &lt;&lt; senderAddress.toString() &lt;&lt; ':' &lt;&lt; senderPort;
+    qDebug() &lt;&lt; Message : " &lt;&lt; msg;
+
+    ui->senderLabel->setText(tr("Depuis : %1:%2") 
+                             . arg(senderAddress.toString())
+			     . arg(senderPort));<co xml:id='senderLabel'/>
+    ui->msgLabel->setText(tr("Message : \"%1\"")
+                             . arg(msg));<co xml:id='msgLabel'/>
+
+    msg = msg.toUpper();
+
+    datagram.clear();
+    datagram.append(msg);
+
+    if (listenSocket->writeDatagram(datagram, senderAddress, senderPort) &lt; 0) {<co xml:id='writeDatagram'/>
+       qDebug("Émission du message modifié impossible");
+       listenSocket->close();
+       exit(1);
+       }
+    }
+}</programlisting>
+
+  <para>On retrouve les éléments du précédent programme en mode console dans le
+  code ci-dessus.</para>
+
+  <calloutlist>
+    <callout arearefs='pendingDatagrams'>
+    <para>La méthode <function>hasPendingDatagrams()</function> renvoie la
+    valeur booléenne <varname>vrai</varname> tant qu'un datagramme est présent
+    dans la file d'attente.</para>
+    </callout>
+    <callout arearefs='readDatagram'>
+    <para>La méthode <function>readDatagram()</function> collecte les données
+    du datagramme ainsi que sa provenance en identifiant l'adresse de
+    l'émetteur et le numéro de port source utilisé.</para>
+    </callout>
+    <callout arearefs='senderLabel'>
+    <para>La méthode <function>setText()</function> est appelée pour changer le
+    texte référencé par l'étiquette <varname>senderLabel</varname> dans la
+    fenêtre <varname>MainWindow</varname>. On fait apparaître l'adresse
+    <acronym>IP</acronym> et le numéro de port de l'émetteur du message.</para>
+    </callout>
+    <callout arearefs='msgLabel'>
+    <para>La méthode <function>setText()</function> est à nouveau appelée pour
+    changer le texte référencé par l'étiquette <varname>msgLabel</varname> dans
+    la fenêtre <varname>MainWindow</varname>. On fait apparaître ici le contenu
+    de la chaîne de caractères reçue.</para>
+    </callout>
+    <callout arearefs='writeDatagram'>
+    <para>Une fois la chaîne de caractères transformée, elle est renvoyée à
+    l'émetteur à l'aide de la méthode
+    <function>writeDatagram()</function>.</para>
+    </callout>
+  </calloutlist>
+
+  <note>
+    <para>Le code complet du projet est disponible via le fichier
+    &url.gui-udp-receiver;.</para>
+  </note>
   </sect2>
 </sect1>
 
