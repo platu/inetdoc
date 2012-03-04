@@ -1,0 +1,2642 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY phl   	     	   	SYSTEM "author.xml">
+<!ENTITY legal 			SYSTEM "legal.xml">
+
+<!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.ieee80211.wikipedia
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.wikipedia.org/wiki/IEEE_802.11">
+  <citetitle>IEEE 802.11</citetitle></link>'>
+
+<!ENTITY url.ieee
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.ieee.org/">
+  <citetitle>Institute of Electrical and Electronic Engineers</citetitle></link>'>
+
+<!ENTITY url.ieee80211.standard
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://standards.ieee.org/getieee802/802.11.html">
+  <citetitle>IEEE 802.11 LAN/MAN Wireless LANS</citetitle></link>'>
+
+<!ENTITY url.kismet
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.kismetwireless.net/">
+  <citetitle>Kismet 802.11 layer2 wireless network sniffer</citetitle></link>'>
+
+<!ENTITY url.wireshark
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.wireshark.org/">
+  <citetitle>Wireshark: The World&#39;s Most Popular Network Protocol Analyzer</citetitle></link>'>
+
+<!ENTITY url.wireshark.capture.setup
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://wiki.wireshark.org/CaptureSetup/WLAN">
+  <citetitle>WLAN (IEEE 802.11) capture setup</citetitle></link>'>
+
+<!ENTITY url.wpasupplicant
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://hostap.epitest.fi/wpa_supplicant/">
+  <citetitle>Linux WPA/WPA2/IEEE 802.1X Supplicant</citetitle></link>'>
+]>
+
+<article xml:lang='fr' xml:id='config.interface.wlan'>
+<info>
+  <title>Configuration d'une interface de réseau sans fil IEEE 802.11</title>
+  &phl;
+  <abstract>
+    <para>Introduction à la configuration d'une interface de réseau sans fil
+    avec le système GNU/Linux : identification du type d'interface, de ses
+    caractéristiques et manipulation de ses paramètres. Ce support fournit une
+    méthodologie de dépannage simple d'une connexion sur un réseau sans fil
+    IEEE 802.11.</para>
+  </abstract>
+
+  <keywordset>
+    <keyword>802.11</keyword>
+    <keyword>ifconfig</keyword>
+    <keyword>iwconfig</keyword>
+    <keyword>iwlist</keyword>
+    <keyword>interface</keyword>
+    <keyword>kismet</keyword>
+    <keyword>ping</keyword>
+    <keyword>ieee 802.11</keyword>
+    <keyword>supplicant</keyword>
+    <keyword>wireless</keyword>
+    <keyword>wireshark</keyword>
+    <keyword>wpagui</keyword>
+    <keyword>wpa_cli</keyword>
+    <keyword>wpasupplicant</keyword>
+  </keywordset>
+</info>
+
+<?custom-pagebreak?>
+<sect1 xml:id='config.interface.wlan.legal.meta'>
+  &legal;
+  <sect2 xml:id='config.interface.wlan.meta'>
+    <title>Méta-information</title>
+    
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+  <para>Toutes les commandes utilisées dans ce document ne sont pas spécifiques
+  à une version particulière des systèmes UNIX ou GNU/Linux. C'est la
+  distribution <citetitle>Debian GNU/Linux</citetitle> qui est utilisée
+  pour les tests présentés. Voici une liste des paquets contenant les
+  commandes utilisées dans ce document :</para>
+  <itemizedlist>
+    <listitem>
+    <para><application>pciutils</application> - Linux PCI Utilities</para>
+    </listitem>
+    <listitem>
+    <para><application>net-tools</application> - The NET-3 networking
+    toolkit</para>
+    </listitem>
+    <listitem>
+    <para><application>ifupdown</application> - High level tools to configure
+    network interfaces</para>
+    </listitem>
+    <listitem>
+    <para><application>iputils-ping</application> - Tools to test the
+    reachability of network hosts</para>
+    </listitem>
+    <listitem>
+    <para><application>kismet</application> - Wireless 802.11b monitoring
+    tool</para>
+    </listitem>
+    <listitem>
+    <para><application>wireless-tools</application> - Tools for manipulating
+    Linux Wireless Extensions</para>
+    </listitem>
+    <listitem>
+    <para><application>wireshark</application> - network traffic
+    analyzer</para>
+    </listitem>
+    <listitem>
+    <para><application>wpagui</application> - GUI for wpa_supplicant</para>
+    </listitem>
+    <listitem>
+    <para><application>wpasupplicant</application> - Client support for WPA and
+    WPA2 (IEEE 802.11i)</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='config.interface.lan.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='config.interface.wlan.identification'>
+  <title>Identification des interfaces disponibles</title>
+
+  <para>Avant de pouvoir configurer une interface, il faut que le pilote de
+  périphérique correspondant ait été chargé en mémoire. Comme une interface
+  réseau est un dispositif matériel, c'est au niveau du noyau Linux que
+  l'opération doit s'effectuer. Soit le pilote d'interface a été inclus dans la
+  partie monolithique du noyau soit il est chargé sous forme de module.
+  C'est cette dernière solution qui est le plus souvent retenue. Un module peut
+  être chargé ou déchargé à volonté sans avoir à redémarrer la machine.</para>
+
+  <sect2 xml:id='identification.periph'>
+    <title>Comment identifier le périphérique réseau ?</title>
+
+    <para>Il existe une grande variété de contrôleurs d'interface réseau sans
+    fil. À chaque composant correspond un pilote logiciel spécifique. Qu'il
+    s'agisse d'une carte additionnelle ou d'un composant intégré sur la carte
+    mère, le contrôleur est toujours un périphérique connecté à un bus
+    <acronym>PCI</acronym>, <acronym>USB</acronym> ou <acronym>ISA</acronym>
+    pour les modèles les plus anciens. Les commandes <command>lspci</command>
+    du paquet <application>pciutils</application>, <command>lsusb</command> du
+    paquet <application>usbutils</application> et <command>lspcmcia</command>
+    du paquet <application>pcmciautils</application> donnent la liste des
+    périphériques reliés respectivement aux bus <acronym>PCI</acronym>,
+    <acronym>USB</acronym> ou <acronym>ISA</acronym>.</para>
+    
+    <para>Voici quelques exemples caractéristiques obtenus à l'aide des
+    commandes <userinput><prompt>$</prompt> lspci -v</userinput>,
+    <userinput><prompt>$</prompt> lsusb</userinput> ou
+    <userinput><prompt>$</prompt> lspcmcia -v</userinput>.</para>
+
+    <itemizedlist>
+      <listitem>
+	<para>Un contrôleur de marque <trademark>Intel</trademark> intégré sur
+	carte mère</para>
+<screen width='80'>0c:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG [Golan] Network Connection (rev 02)
+        Subsystem: Intel Corporation Device 1021
+        Flags: bus master, fast devsel, latency 0, IRQ 31
+        Memory at f1fff000 (32-bit, non-prefetchable) [size=4K]
+        Capabilities: [c8] Power Management version 2
+        Capabilities: [d0] MSI: Mask- 64bit+ Count=1/1 Enable+
+        Capabilities: [e0] Express Legacy Endpoint, MSI 00
+        Capabilities: [100] Advanced Error Reporting
+        Capabilities: [140] Device Serial Number 65-5e-54-ff-ff-3c-1f-00
+        Kernel driver in use: iwl3945</screen>
+      </listitem>
+      <listitem>
+	<para>Un contrôleur mini PCI de marque <trademark>Intel</trademark>
+	intégré sur carte mère.</para>
+<screen width='80'>03:03.0 Network controller: Intel Corporation PRO/Wireless 2915ABG ...
+        Subsystem: Intel Corporation Unknown device 1021
+        Flags: bus master, medium devsel, latency 64, IRQ 18
+        Memory at dceff000 (32-bit, non-prefetchable) [size=4K]
+        Capabilities: [dc] Power Management version 2</screen>
+      </listitem>
+      <listitem>
+	<para>Un contrôleur de marque <trademark>Broadcom</trademark> sur une
+	carte PCCARD.</para>
+<screen width='80'>06:00.0 Network controller: Broadcom Corporation BCM4306 \
+                           802.11b/g Wireless LAN Controller (rev 03)
+        Subsystem: Linksys Device 4320
+        Flags: bus master, fast devsel, latency 64, IRQ 11
+        Memory at 2c000000 (32-bit, non-prefetchable) [size=8K]
+        Capabilities: [40] Power Management version 2
+        Kernel driver in use: b43-pci-bridge
+        Kernel modules: ssb
+</screen>
+      </listitem>
+      <listitem>
+	<para>Un contrôleur de marque <trademark>Realtek</trademark> connecté
+	sur un bus USB.</para>
+<screen width='80'>Bus 001 Device 003: ID 0bda:8187 Realtek Semiconductor Corp. RTL8187 Wireless Adapter</screen>
+      </listitem>
+      <listitem>
+	<para>Un contrôleur de marque <trademark>Cisco</trademark> sur une
+	carte PCMCIA.</para>
+<screen width='80'>Socket 1 Bridge:        [yenta_cardbus]         (bus ID: 0000:00:04.1)
+        Configuration:  state: on       ready: yes
+                        Voltage: 5.0V Vcc: 5.0V Vpp: 5.0V
+Socket 1 Device 0:      [airo_cs]               (bus ID: 1.0)
+        Configuration:  state: on
+        Product Name:   Cisco Systems 350 Series Wireless LAN Adapter
+        Identification: manf_id: 0x015f card_id: 0x000a
+                        function: 6 (network)
+                        prod_id(1): "Cisco Systems" (0xa17c320e)
+                        prod_id(2): "350 Series Wireless LAN Adapter" (0x3d011600)
+</screen>
+      </listitem>
+    </itemizedlist>
+
+    <para>Certaines interfaces présentent quelques singularités quant à
+    l'emploi de logiciel directement intégré sur les composants ; les
+    <wordasword>firmwares</wordasword>. Quelques éléments sur l'obtention de
+    ces <wordasword>firmwares</wordasword> sont donné à la <xref
+    linkend='config.interface.wlan.config-firmware'/>.</para>
+  </sect2>
+
+  <sect2 xml:id='identification.modprobe'>
+    <title>Comment vérifier que l'interface de réseau sans fil est bien
+    gérée ?</title>
+
+    <para>Les pilotes logiciels des composants sont chargés dynamiquement lors
+    de l'initialisation du système d'exploitation. Dans la plupart des cas, ils
+    sont chargés en mémoire sous forme de modules. On peut vérifier que ces
+    pilotes logiciels ont bien été chargés en consultant les messages systèmes
+    et la liste des modules chargés en mémoire.</para>
+
+    <para>Voici un extrait des messages d'initialisation du système avec le
+    contrôleur <trademark>Intel</trademark> dont le pilote logiciel est baptisé
+    <systemitem>ipw2200</systemitem>. Ces messages sont obtenus à l'aide de la
+    commande <command>dmesg</command>.</para>
+
+<screen width='80'># dmesg |grep -1 ipw2200
+ipw2200: Intel(R) PRO/Wireless 2200/2915 Network Driver, 1.2.0kdmprq
+ipw2200: Copyright(c) 2003-2006 Intel Corporation
+ACPI: PCI Interrupt 0000:03:03.0[A] -> GSI 17 (level, low) -> IRQ 18
+ipw2200: Detected Intel PRO/Wireless 2915ABG Network Connection
+ipw2200: Detected geography ZZE (13 802.11bg channels, 19 802.11a channels)
+ACPI: PCI Interrupt 0000:00:1e.3[B] -> GSI 17 (level, low) -> IRQ 18
+</screen>
+
+    <para>On retrouve aussi ce nom de pilote dans la liste des modules chargés
+    en mémoire. Cette liste est obtenue à l'aide de la commande
+    <command>lsmod</command>.</para>
+
+<screen width='80'># lsmod |grep ipw2200
+ipw2200               177864  0
+ieee80211              33864  1 ipw2200
+firmware_class         10240  2 pcmcia,ipw2200</screen>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='config.interface.wlan.wireless-tools'>
+  <title>Utilisation du kit wireless-tools</title>
+
+<note>
+  <para>Les outils présentés ci-dessous doivent être remplacés dans un futur
+  proche par une nouvelle interface de programmation et de configuration
+  baptisée <application>iw</application>. Tant que l'intégration de ce nouvel
+  outil n'est pas achevée dans la distribution Debian GNU/Linux, les
+  informations données dans cette section restent d'actualité. Pour plus de
+  détails sur l'évolution de cette «migration», il faut consulter le fichier de
+  documentation du paquet <application>iw</application> :
+  <filename>/usr/share/doc/iw/README.Debian</filename>.</para>
+</note>
+
+  <para>Le kit <application>wireless-tools</application> contient les outils de
+  configuration d'interface de réseau sans fil IEEE 802.11 au niveau
+  liaison.</para>
+
+  <para>Relativement aux réseaux filaires de type Ethernet, il existe un grand
+  nombre de paramètres à configurer au niveau liaison de données sur une
+  interface IEEE 802.11 avant de passer au niveau réseau. Les outils
+  fournis avec le paquet <application>wireless-tools</application> peuvent être
+  utilisés par des logiciels graphiques de configuration réseau ou
+  individuellement.</para>
+
+  <para>Voici les informations sur la version utilisée pour les tests
+  présentés dans ce document.</para>
+
+<screen width='80'>$ dpkg -l wireless-tools
+Souhait=inconnU/Installé/suppRimé/Purgé/H=à garder
+| État=Non/Installé/fichier-Config/dépaqUeté/échec-conFig/H=semi-installé
+|/ Err?=(aucune)/H=à garder/besoin Réinstallation/X=les deux (État,Err: maj=mauvais)
+||/ Nom                Version        Description
++++-==================-==============-================================================
+ii  wireless-tools     29-1           Tools for manipulating Linux Wireless Extensions</screen>
+  
+  <para>Dans cette section, on s'intéresse à l'utilisation individuelle des
+  différents outils dont voici la liste.</para>
+
+  <variablelist>
+    <varlistentry xml:id='wireless-tools.iwconfig'>
+      <term><command>iwconfig</command></term>
+      <listitem>
+      <para>La commande <link
+      linkend='config.interface.wlan.wireless-tools.iwconfig'><command>iwconfig</command></link>
+      est le principal outil de manipulation des paramètres d'une interface de
+      réseau sans fil. Son mode de fonctionnement est calqué sur celui de la
+      commande <command>ifconfig</command> qui est utilisée pour le paramétrage
+      au niveau réseau avec le protocole <acronym>IP</acronym>.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='wireless-tools.iwevent'>
+      <term><command>iwevent</command></term>
+      <listitem>
+      <para>La commande <command>iwevent</command> sert à afficher les
+      évènements générés par le pilote d'interface ou les évolutions sur le
+      réseau.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='wireless-tools.iwgetid'>
+      <term><command>iwgetid</command></term>
+      <listitem>
+      <para>La commande <command>iwgetid</command> renvoie des valeurs de
+      paramètres individuels de configuration. Si les informations fournies
+      sont identiques à celles affichées par la commande
+      <command>iwconfig</command>, <command>iwgetid</command> est plus facile à
+      intégrer dans les scripts des outils de configuration réseau
+      interactifs.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='wireless-tools.iwlist'>
+      <term><command>iwlist</command></term>
+      <listitem>
+      <para>La commande <command>iwlist</command> sert à afficher des
+      informations complémentaires à celles fournies par
+      <command>iwconfig</command>.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='wireless-tools.iwpriv'>
+      <term><command>iwpriv</command></term>
+      <listitem>
+      <para>La commande <command>iwpriv</command> sert à afficher (et|ou)
+      configurer les paramètres complémentaires d'une interface. Dans la
+      plupart des cas, il s'agit du support d'extensions qui ne font pas
+      vraiment partie de la norme IEEE 802.11.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='wireless-tools.iwspy'>
+      <term><command>iwspy</command></term>
+      <listitem>
+      <para>La commande <command>iwspy</command> sert à collecter les
+      statistiques de communication radio sur une <link
+      linkend='config.interface.wlan.gloss.sta'>station</link> ou un <link
+      linkend='config.interface.wlan.gloss.ap'>point d'accès</link>.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <sect2 xml:id='config.interface.wlan.wireless-tools.iwconfig'>
+    <title>Commande iwconfig</title>
+
+  <para>Voici trois exemples d'exécution de la commande sans spécification de
+  paramètre. Comme dans le cas de la commande <command>ifconfig</command>,
+  l'exécution de la commande <command>iwconfig</command> affiche l'ensemble des
+  valeurs courantes des options de l'interface.</para>
+
+  <para>Résultats obtenu avec une interface IEEE 802.11b.</para>
+
+<screen width='80'>$ /sbin/iwconfig wlan0
+
+wlan0     IEEE 802.11-DS  ESSID:"wlan.lab" <co xml:id='_80211b_ssid'/>
+          Mode:Managed<co xml:id='_80211b_mode'/>  Frequency:2.442 GHz<co xml:id='_80211b_freq'/>  Access Point: 00:0E:83:88:E8:D4<co xml:id='_80211b_ap'/>
+          Bit Rate:11 Mb/s   Tx-Power=20 dBm   Sensitivity=0/65535
+          Retry limit:16   RTS thr:off   Fragment thr:off
+          Power Management:off
+          Link Quality=100/100  Signal level=-34 dBm  Noise level=-90 dBm
+          Rx invalid nwid:9418  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:54513   Missed beacon:0</screen>
+
+  <para>Résultats obtenu avec une interface IEEE 802.11g.</para>
+
+<screen width='80'>$ /sbin/iwconfig wlan0
+
+wlan0     IEEE 802.11g  ESSID:"linux.home" <co xml:id='_80211g_ssid'/>
+          Mode:Managed<co xml:id='_80211g_mode'/>  Frequency:2.412 GHz<co xml:id='_80211g_freq'/>  Access Point: 00:0F:66:DC:3D:31<co xml:id='_80211g_ap'/>
+          Bit Rate:54 Mb/s   Tx-Power=20 dBm   Sensitivity=8/0
+          Retry limit:7   RTS thr:off   Fragment thr:off
+          Encryption key:&lt;snipped/&gt;   Security mode:open
+          Power Management:off
+          Link Quality=99/100  Signal level=-23 dBm  Noise level=-88 dBm
+          Rx invalid nwid:0  Rx invalid crypt:4  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0</screen>
+
+  <para>Résultats obtenu avec une interface non associée.</para>
+
+<screen width='80'>$ /sbin/iwconfig wlan0
+wlan0     unassociated  ESSID:off/any <co xml:id='_80211_nossid'/>
+          Mode:Managed<co xml:id='_80211_mode'/>  Channel=0<co xml:id='_80211_freq'/>  Access Point: Not-Associated<co xml:id='_80211_ap'/>
+          Bit Rate:0 kb/s   Tx-Power=20 dBm   Sensitivity=8/0
+          Retry limit:7   RTS thr:off   Fragment thr:off
+          Encryption key:off
+          Power Management:off
+          Link Quality:0  Signal level:0  Noise level:0
+          Rx invalid nwid:0  Rx invalid crypt:4  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:12   Missed beacon:0</screen>
+
+  <calloutlist>
+    <callout arearefs='_80211b_ssid _80211g_ssid _80211_nossid'>
+      <para>Informations sur le type de réseau sans-fil et l'identification du
+      service.</para>
+
+      <para>La chaîne <literal>IEEE 802.11-DS</literal> désigne un réseau de
+      type IEEE 802.11b alors que la chaîne
+      <literal>IEEE 802.11g</literal> désigne directement le type de
+      réseau.</para>
+
+      <para>L'acronyme <link
+      linkend='config.interface.wlan.gloss.ssid'><acronym>ESSID</acronym></link>
+      signifie <wordasword>Extended Service Set Identifier</wordasword>. La
+      chaîne de 32 caractères maximum correspondante identifie le domaine
+      réseau auquel appartient l'interface.</para>
+
+      <para>L'option <option>essid</option> de la commande
+      <command>iwconfig</command> sert à configurer le nom de réseau. C'est la
+      première option à paramétrer lors de l'implantation d'une station dans un
+      nouveau réseau. La syntaxe est du type :</para>
+<screen width='80'># iwconfig wlan&lt;i&gt; essid "&lt;myOwnWLAN&gt;"</screen>      
+    </callout>
+
+    <callout arearefs='_80211b_mode _80211g_mode _80211_mode'>
+      <para>Informations sur le type d'infrastructure du réseau sans fil.</para>
+
+      <para>Dans les trois exemples, l'interface appartient a une
+      infrastructure simple ou étendue. L'option <option>mode</option> est
+      positionnée à la valeur <literal>Managed</literal>.</para>
+
+      <para>Cette option <option>mode</option> peut prendre plusieurs valeurs.
+      Dans le contexte de ce document, on ne s'intéresse qu'aux trois valeurs
+      suivantes :</para>
+
+      <variablelist>
+        <varlistentry xml:id='iwconfig.mode.adhoc'>
+	  <term>Ad-Hoc</term>
+	  <listitem>
+	  <para>Dans ce mode, l'interface s'associe directement aux autres
+	  stations sans utiliser un point d'accès. C'est le mode à utiliser
+	  lorsque l'on souhaite communiquer d'un hôte à l'autre sans
+	  information sur la présence d'une infrastructure.</para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry xml:id='iwconfig.mode.managed'>
+	  <term>Managed</term>
+	  <listitem>
+	  <para>Dans ce mode, l'interface s'associe à une infrastructure réseau
+	  comprenant un ou plusieurs point d'accès et peut gérer les
+	  déplacements entre zones de couverture radio
+	  (<wordasword>roaming</wordasword>).</para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry xml:id='iwconfig.mode.monitor'>
+	  <term>Monitor</term>
+	  <listitem>
+	  <para>Dans ce mode, l'interface est placée en mode moniteur passif et
+	  collecte l'ensemble des trames présentes dans sa zone de couverture
+	  radio. C'est dans ce mode que l'on peut capturer et analyser les
+	  trames de gestion et de contrôle du réseau sans fil.</para>
+	  </listitem>
+	</varlistentry>
+      </variablelist>
+
+      <para>La syntaxe d'utilisation de cette option est du type :</para>
+<screen width='80'># iwconfig wlan&lt;i&gt; mode managed</screen>      
+
+      <para>Pour plus d'information sur les autres valeurs de l'option
+      <option>mode</option>, consulter les pages de manuels de la commande
+      <command>iwconfig</command> :
+      <userinput><prompt>$</prompt> man iwconfig</userinput>.</para>
+    </callout>
+  </calloutlist>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.wireless-tools.iwlist'>
+    <title>Commande iwlist</title>
+
+  <para>Cette commande permet d'obtenir des informations complémentaires à
+  celles fournies par la commande <command>iwconfig</command>. La liste des
+  options est donnée à l'aide de la séquence
+  <userinput><prompt>$</prompt> /sbin/iwlist --help</userinput>.</para>
+
+  <para>Voici quelques exemples d'utilisations courantes de cette
+  commande.</para>
+
+  <sect3 xml:id='config.interface.wlan.wireless-tools.iwlist.channels'>
+    <title>Comment obtenir la liste des canaux accessible depuis
+    l'interface ?</title>
+
+  <para>Liste des canaux accessibles depuis une interface réseau
+  IEEE 802.11b simple.</para>
+
+<screen width='80'>$ /sbin/iwlist wlan0 channel
+wlan0     14 channels in total; available frequencies :
+          Channel 01 : 2.412 GHz
+          Channel 02 : 2.417 GHz
+          Channel 03 : 2.422 GHz
+          Channel 04 : 2.427 GHz
+          Channel 05 : 2.432 GHz
+          Channel 06 : 2.437 GHz
+          Channel 07 : 2.442 GHz
+          Channel 08 : 2.447 GHz
+          Channel 09 : 2.452 GHz
+          Channel 10 : 2.457 GHz
+          Channel 11 : 2.462 GHz
+          Channel 12 : 2.467 GHz
+          Channel 13 : 2.472 GHz
+          Channel 14 : 2.484 GHz
+          Current Frequency=2.442 GHz (Channel 7)</screen>
+
+  <para>Liste des canaux accessibles depuis une interface réseau
+  IEEE 802.11a/b/g.</para>
+
+<screen width='80'>$ /sbin/iwlist wlan0 channel
+wlan0     32 channels in total; available frequencies :
+          Channel 01 : 2.412 GHz
+          Channel 02 : 2.417 GHz
+          Channel 03 : 2.422 GHz
+          Channel 04 : 2.427 GHz
+          Channel 05 : 2.432 GHz
+          Channel 06 : 2.437 GHz
+          Channel 07 : 2.442 GHz
+          Channel 08 : 2.447 GHz
+          Channel 09 : 2.452 GHz
+          Channel 10 : 2.457 GHz
+          Channel 11 : 2.462 GHz
+          Channel 12 : 2.467 GHz
+          Channel 13 : 2.472 GHz
+          Channel 36 : 5.18 GHz
+          Channel 40 : 5.2 GHz
+          Channel 44 : 5.22 GHz
+          Channel 48 : 5.24 GHz
+          Channel 52 : 5.26 GHz
+          Channel 56 : 5.28 GHz
+          Channel 60 : 5.3 GHz
+          Channel 64 : 5.32 GHz
+          Channel 100 : 5.5 GHz
+          Channel 104 : 5.52 GHz
+          Channel 108 : 5.54 GHz
+          Channel 112 : 5.56 GHz
+          Channel 116 : 5.58 GHz
+          Channel 120 : 5.6 GHz
+          Channel 124 : 5.62 GHz
+          Channel 128 : 5.64 GHz
+          Channel 132 : 5.66 GHz
+          Channel 136 : 5.68 GHz
+          Channel 140 : 5.7 GHz
+          Current Frequency=2.412 GHz (Channel 1)</screen>
+  </sect3>
+
+  <sect3 xml:id='config.interface.wlan.wireless-tools.iwlist.scan'>
+    <title>Quelles sont les infrastructures accessibles depuis
+    l'interface ?</title>
+
+  <para>Recherche des infrastructures de réseau sans fil disponibles dans la
+  zone de couverture radio de l'interface.</para>
+
+<screen width='80'>$ /sbin/iwlist wlan0 scan
+wlan0     Scan completed :
+          Cell 01 - Address: 00:0F:66:DC:3D:31
+                    ESSID:"linux.home"
+                    Protocol:IEEE 802.11bg
+                    Mode:Master
+                    Channel:1
+                    Encryption key:on
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 6 Mb/s; 9 Mb/s
+                              11 Mb/s; 12 Mb/s; 18 Mb/s; 24 Mb/s; 36 Mb/s
+                              48 Mb/s; 54 Mb/s
+                    Quality=97/100  Signal level=-28 dBm
+                    IE: WPA Version 1
+                        Group Cipher : TKIP
+                        Pairwise Ciphers (1) : TKIP
+                        Authentication Suites (1) : PSK
+                    Extra: Last beacon: 1960ms ago
+          Cell 02 - Address: 00:0E:83:88:E8:D4
+                    ESSID:"wlan.lab"
+                    Protocol:IEEE 802.11b
+                    Mode:Master
+                    Channel:6
+                    Encryption key:off
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s
+                    Quality=92/100  Signal level=-38 dBm
+                    Extra: Last beacon: 1765ms ago</screen>
+    </sect3>
+  </sect2>
+
+
+  <sect2 xml:id='config.interface.wlan.wireless-tools.conclude'>
+    <title>Bilan sur le kit wireless-tools</title>
+
+  <para>Les deux commandes <command>iwconfig</command> et
+  <command>iwlist</command> sont les deux outils principaux du kit
+  <application>wireless-tools</application>. Ces commandes sont essentielles à
+  la compréhension des mécanismes de fonctionnement du niveau liaison de
+  données d'un réseau sans-fil avant authentification. Les autres commandes
+  sont moins pertinentes dans la mesure où elles correspondent à de la collecte
+  d'informations qui peuvent être obtenues par ailleurs : journaux
+  systèmes, noyau, etc.</para>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='config.interface.wlan.kismet'>
+  <title>Utilisation de kismet</title>
+
+  <para>Le logiciel <link
+  linkend='config.interface.wlan.refer.kismet'><application>kismet</application></link>
+  entre dans la catégorie des «sondeurs réseau» ou <wordasword>wireless network
+  sniffers</wordasword>. Il offre de nombreuses possibilités qui sortent du
+  cadre de ce document. Cet outil permet de répondre à un objectif
+  simple : <emphasis>recenser les équipements IEEE 802.11 actifs dans
+  la zone de couverture radio actuelle</emphasis>.</para>
+
+  <para>Avant de procéder à ses propres tests, il faut chercher à se placer
+  dans les meilleures conditions. Dans le cas des réseaux sans-fils, on cherche
+  à se positionner sur un canal libre de toute interférence. L'utilisation de
+  <application>kismet</application> permet de sélectionner un canal
+  IEEE 802.11 non occupé.</para>
+
+  <sect2 xml:id='config.interface.wlan.kismet.install'>
+    <title>Installation de kismet</title>
+
+  <para>Cet outil est fourni en paquet avec la distribution Debian GNU/Linux.
+  Il suffit donc d'installer ce paquet avec la commande
+  <userinput><prompt>#</prompt> apt-get install kismet</userinput>
+  et de contrôler les informations correspondantes avec la commande
+  <userinput><prompt>$</prompt> apt-cache show kismet</userinput>.</para>
+
+  <para>Voici les informations de version sur le paquet
+  <application>kismet</application> utilisé pour le présent document.</para>
+
+<screen width='80'>$ dpkg -l kismet
+Souhait=inconnU/Installé/suppRimé/Purgé/H=à garder
+| État=Non/Installé/fichier-Config/dépaqUeté/échec-conFig/H=semi-installé
+|/ Err?=(aucune)/H=à garder/besoin Réinstallation/X=les deux (État,Err: maj=mauvais)
+||/ Nom                Version                 Description
++++-==================-=======================-================================
+ii  kismet             2008-05-R1-4+b1         Wireless 802.11b monitoring tool</screen>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.kismet.config'>
+    <title>Configuration de kismet</title>
+
+  <para>Comme avec tous les logiciels d'analyse réseau, la configuration de
+  <application>kismet</application> dépend des droits d'accès donnés à
+  l'utilisateur pour prélever les informations directement sur l'interface
+  réseau et du type de cette interface.</para>
+
+    <sect3 xml:id='config.interface.wlan.kismet.config.sudo'>
+      <title>Délégation des droits d'accès avec sudo</title>
+
+  <para>Pour ce qui est des droits d'accès, soit on exécute le logiciel à
+  partir du niveau super utilisateur, soit on délègue les droits du super
+  utilisateur pour cet outil. Dans le dernier cas, on fait appel à
+  <application>sudo</application> pour la délégation des droits.</para>
+
+  <para>Voici un extrait du fichier de configuration
+  <filename>/etc/sudoers</filename> de <application>sudo</application> dans
+  lequel on a ajouté <application>kismet</application> dans la liste des outils
+  autorisés pour l'utilisateur <systemitem
+  class='username'>phil</systemitem>.</para>
+
+<screen width='80'># /etc/sudoers
+#
+# This file MUST be edited with the 'visudo' command as root.
+
+&lt;snipped/&gt;
+phil    ALL=NOPASSWD: /sbin/iwspy, /sbin/iwconfig, /usr/bin/kismet</screen>
+
+  <para>Une fois cette délégation des droits mise en place, on lance le
+  logiciel à l'aide de la commande
+  <userinput><prompt>$</prompt> sudo kismet</userinput> depuis
+  n'importe quelle console.</para>
+    </sect3>
+
+    <sect3 xml:id='config.interface.wlan.kismet.config.int'>
+      <title>Configuration du type d'interface</title>
+
+  <para>On doit éditer le fichier de configuration
+  <filename>/etc/kismet.conf</filename> pour identifier le type d'interface
+  réseau sans fil utilisée au niveau du paramètre <option>source</option>
+  suivant la syntaxe
+  <literal>source=type,interface,name[,channel]</literal>.</para>
+
+  <para>Les listes des types d'interfaces supportées est donnée dans la section
+  <citetitle>Capture sources</citetitle> du fichier de documentation fourni
+  avec le paquet <application>kismet</application> :
+  <filename>/usr/share/doc/kismet/README.gz</filename>.</para>
+
+  <para>Voici les trois exemples de paramètres à utiliser qui correspondent aux
+  trois exemples d'interface donnés dans la <xref
+  linkend='config.interface.wlan.identification'/>.</para>
+
+  <variablelist>
+    <varlistentry xml:id='kismet.config.int.ipw2200'>
+      <term>Intel Corporation PRO/Wireless 2915ABG</term>
+      <listitem>
+<screen width='80'>source=ipw2200,wlan0,MyWlan</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='kismet.config.int.bcm43xx'>
+      <term>Broadcom Corporation BCM4306 802.11b/g</term>
+      <listitem>
+<screen width='80'>source=bcm43xx,wlan0,MyWlan</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='kismet.config.int.airo'>
+      <term>Cisco Systems 350 Series Wireless LAN Adapter</term>
+      <listitem>
+<screen width='80'>source=cisco_wifix,eth1:wifi0,MyWlan</screen>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+    </sect3>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.kismet.run'>
+    <title>Exécution de kismet</title>
+
+  <para>Une fois la configuration en place, il ne reste plus qu'à lancer
+  <application>kismet</application> et attendre quelques minutes pour que le
+  recensement des équipements actifs soit complet.</para>
+
+  <para>Pour que le logiciel <application>kismet</application> puisse scruter
+  les communications sur l'ensemble des 14 canaux utilisables par les réseaux
+  IEEE 802.11b/g, il faut placer l'interface en mode
+  <option>monitor</option>. Voici les commandes à utiliser pour
+  reconfigurer l'interface réseau sachant qu'aucune configuration n'a été
+  effectuée auparavant.</para>
+
+  <variablelist xml:id='config.interface.wlan.monitor_mode'>
+    <varlistentry xml:id='kismet.run.int.ipw2200'>
+      <term>Intel Corporation PRO/Wireless 2915ABG</term>
+      <listitem>
+<screen width='80'># iwconfig wlan0 essid any
+# iwconfig wlan0 mode monitor</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='kismet.run.int.bcm43xx'>
+      <term>Broadcom Corporation BCM4306 802.11b/g</term>
+      <listitem>
+<screen width='80'># iwconfig wlan0 essid any
+# iwconfig wlan0 mode monitor</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='kismet.run.int.airo'>
+      <term>Cisco Systems 350 Series Wireless LAN Adapter</term>
+      <listitem>
+      <para>Pour analyser le trafic relatif à l'infrastructure à laquelle
+      l'interface appartient, il faut utiliser l'option
+      <option>rfmon</option>.</para>
+<screen width='80'>echo "Mode: rfmon" >/proc/driver/aironet/&lt;interface&gt;/Config</screen>
+      <para>Pour analyser le trafic relatif à l'ensemble des infrastructures
+      disponibles, il faut utiliser l'option <option>y</option>.</para>
+<screen width='80'>echo "Mode: y" >/proc/driver/aironet/&lt;interface&gt;/Config</screen>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  
+  <para>Si on affiche l'état de l'interface en cours d'exécution, on constate
+  qu'aucune valeur <option>SSID</option> n'est affectée, que (la fréquence|le
+  canal) change à chaque exécution et que l'interface n'est pas associée à un
+  point d'accès.</para>
+
+<screen width='80'>$ sudo iwconfig wlan0
+wlan0     unassociated  ESSID:off/any
+          Mode:Monitor  Frequency=2.457 GHz  Access Point: Not-Associated
+          Bit Rate:0 kb/s   Tx-Power=20 dBm   Sensitivity=8/0</screen>
+
+  <para>Les deux copies d'écran ci-dessous donnent un exemple des informations
+  obtenues avec <application>kismet</application>.</para>
+
+  <para>L'écran principal de <application>kismet</application> affiche la liste
+  des identificateurs de service (<acronym>SSID</acronym>), des indicateurs
+  d'états, et la quantité de trames de gestion échangées.</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/kismet_network_list.png" format="PNG" contentwidth='15.5cm' width='16cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Copie d'écran Kismet</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/kismet_network_list.png'>
+    Copie d'écran Kismet - vue complète</link></para>
+  </caption>
+</mediaobject>
+
+  <para>En appuyant sur la touche <keycap>a</keycap>, on obtient une synthèse
+  sur le taux d'occupation des canaux.</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/kismet_statistics.png" format="PNG" contentwidth='10.5cm' width='11cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Statistiques Kismet</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/kismet_statistics.png'>
+    Statistiques Kismet - vue complète</link></para>
+  </caption>
+</mediaobject>
+
+  <para>L'exploitation des données affichées ci-dessus montre que 6
+  équipements (stations ou points d'accès) sont présents sur le canal 11 et un
+  point d'accès sur le canal 1. Le champ est donc relativement libre pour
+  effectuer des tests sur les canaux non adjacents à ceux qui sont déjà
+  occupés.</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/2.4_GHz_Wi-Fi_channels_802.11bg_WLAN.png" format="PNG" contentwidth='16.5cm' width='17cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Définition des canaux Wifi</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://en.wikipedia.org/wiki/File:2.4_GHz_Wi-Fi_channels_(802.11b,g_WLAN).png'>
+    Canaux Wifi - source Wikipédia</link></para>
+  </caption>
+</mediaobject>
+
+  <para>Pour les besoins des travaux pratiques, on peut configurer le point
+  d'accès pour qu'il utilise l'un des canaux de la liste : 5, 6, 7. De
+  cette façon, les mesures effectuées ne seront pas perturbées par les signaux
+  issus des autres équipements actifs dans la zone de couverture radio.</para>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.kismet.conclude'>
+    <title>Bilan sur l'utilisation de kismet</title>
+
+  <para><application>Kismet</application> se révèle être un outil
+  particulièrement intéressant pour le recensement et l'évaluation du taux
+  d'occupation des canaux dans la zone de couverture radio étudiée. Dans la
+  plupart des cas, les boîtes DSL/Wifi distribuées par les opérateurs Internet
+  sont toutes configurées d'usine sur les mêmes canaux. Une des premières
+  étapes d'optimisation des communications radio consiste à utiliser un canal
+  relativement peu occupé pour limiter les interférences entres points d'accès
+  qui desservent des infrastructures différentes.</para>
+
+  <para>Ceci dit, il faut préciser que l'utilisation de
+  <application>Kismet</application> dans un contexte d'infrastructure de type
+  <wordasword>Hot Spot</wordasword> permet de capturer l'ensemble du trafic
+  réseau des utilisateurs <emphasis>en clair</emphasis>. Il va sans dire que ce
+  genre d'écoute radio n'est pas conforme au bon usage des moyens de
+  télécommunications ; même si c'est un moyen pédagogique très efficace
+  pour sensibiliser les utilisateurs sur les limites de la confidentialité des
+  communications.</para>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='config.interface.wlan.wireshark'>
+  <title>Utilisation de Wireshark</title>
+
+  <para>Cette section a pour but de présenter l'utilisation de l'analyseur
+  réseau <xref linkend='config.interface.wlan.refer.wireshark'/> dans le
+  contexte spécifique des réseau sans-fils IEEE 802.11. Une première
+  présentation de cet analyseur et de son usage pour les protocoles de couche
+  réseau et plus est disponible avec le support &url.intro.analyse;.</para>
+
+  <para>La singularité de l'analyse des réseaux sans-fils tient au fait qu'une
+  interface ne peut pas être utilisée en mode infrastructure
+  (<wordasword>managed</wordasword>) et en mode d'analyse radio
+  (<wordasword>monitor</wordasword>) simultanément.</para>
+
+  <para>L'analyse en mode infrastructure ne peut capturer que des trames
+  Ethernet «classiques». Ce contexte est strictement identique à l'analyse sur
+  des réseaux filaires.</para>
+
+  <para>L'analyse radio sert à capturer des trames de gestion échangées entre
+  stations et points d'accès. C'est le mode d'analyse qui est principalement
+  utilisé dans le contexte de ce document.</para>
+
+  <para>Les opérations de configuration d'interface pour passer en mode analyse
+  radio sont identiques à celles présentées dans la <xref
+  linkend='config.interface.wlan.kismet' />. Les commandes diffèrent suivant le
+  <link linkend='config.interface.wlan.monitor_mode'>modèle
+  d'interface</link>.</para>
+
+  <para>Voici quelques indications sur l'utilisation de
+  <application>wireshark</application> en mode analyse radio.</para>
+
+  <variablelist>
+    <varlistentry xml:id='config.interface.wlan.wireshark.encap'>
+      <term>Type d'encapsulation</term>
+      <term><option>IEEE 802.11 plus radiotap WLAN header</option></term>
+      <listitem>
+	<para>Si cette option de capture de trame n'apparaît pas dans les
+	options, c'est que l'interface réseau n'est pas correctement configurée
+	pour une analyse radio. Il faut alors reprendre les opérations de
+	configuration avec la commande
+	<application>iwconfig</application>.</para>
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wireshark-radiotap.png" format="PNG" contentwidth='9.5cm' width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Encapsulation de trame analyse radio</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wireshark-radiotap.png'>
+    Encapsulation de trame analyse radio - vue complète</link></para>
+  </caption>
+</mediaobject>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='config.interface.wlan.wireshark.beacon-filter'>
+      <term>Filtrage des trames de type Beacon</term>
+      <term><option>!(wlan.fc.type_subtype == 0x08)</option></term>
+      <listitem>
+	<para>Suivant la densité des points d'accès, il est très probable que
+	la phase de capture de trame soit noyée dans un flot continu de trame
+	de type <xref linkend='config.interface.wlan.gloss.beacon'/>. Bien
+	souvent, les points d'accès sont très mal paramétrés et émettent ces
+	trames à une fréquence trop élevée relativement au fonctionnement
+	optimal de l'infrastructure sans-fil. De plus, ces trames ont pour
+	conséquence d'activer les interfaces sans-fil des stations présentes
+	dans la zone de couverture radio. Ces activations répétées entraînent
+	une consommation plus importante pour les stations fonctionnant sur
+	batteries. Il est donc conseillé d'augmenter la période d'émission des
+	trames <wordasword>Beacon</wordasword> pour optimiser le temps de
+	fonctionnement des équipements mobiles sur batteries.</para>
+
+	<para>Pour filtrer ces trames non désirées et isoler plus facilement
+	les échanges intéressants, on sélectionne une trame de type
+	<wordasword>Beacon</wordasword> et on applique la règle
+	suivante :</para>
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wireshark-beacon-filter.png" format="PNG" contentwidth='9.5cm' width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Filtrage des trames de type Beacon</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wireshark-beacon-filter.png'>
+    Filtrage des trames de type Beacon - vue complète</link></para>
+  </caption>
+</mediaobject>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+
+<sect1 xml:id='config.interface.wlan.lab'>
+  <title>Travaux pratiques</title>
+
+  <sect2 xml:id='config.interface.wlan.lab.prep'>
+    <title>Travail préparatoire</title>
+
+  <para>Avant de lancer les mesures proprement dites, il faut sélectionner un
+  canal IEEE 802.11 libre et configurer le point d'accès en
+  conséquence. On commence donc par procéder à une détection des canaux déjà
+  occupés avec l'aide de <link
+  linkend='config.interface.wlan.kismet'><application>kismet</application></link>.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para>Identifier le type de l'interface de réseau sans fil
+      IEEE 802.11.</para>
+      </question>
+      <answer>
+      <para>Reprendre la démarche présentée dans la section <xref
+      linkend='identification.periph'/>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Vérifier que l'interface de réseau sans n'est pas configurée pour
+      un accès réseau particulier à l'aide des commandes
+      <command>ifconfig -a</command> et <command>iwconfig</command>.</para>
+      </question>
+      <answer>
+      <para>Aucune adresse <acronym>IP</acronym> ne doit être affectée à
+      l'interface et elle ne doit pas être associée à un point d'accès.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Recenser l'état d'occupation des canaux IEEE 802.11 et
+      choisir un canal libre non adjacent à un canal occupé. Relever aussi la
+      liste des identificateurs de services (<acronym>SSID</acronym>) exploités
+      dans la zone de couverture radio.</para>
+      </question>
+      <answer>
+      <para>Reprendre la démarche présentée dans la section <xref
+      linkend='config.interface.wlan.kismet'/>. Le relevé des
+      <acronym>SSID</acronym> permet repérer les adresses
+      <acronym>MAC</acronym> utilisées par les autres points d'accès.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Faire un schéma de l'infrastructure de travaux pratique en
+      identifiant tous les éléments de la norme IEEE 802.11 :
+      <acronym>DS</acronym>, <acronym>STA</acronym>, <acronym>AP</acronym> et
+      <acronym>SSID</acronym>.</para>
+      </question>
+      <answer>
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wlan-infrastructure.png" format="PNG" contentwidth='15.5cm' width='16cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Schéma type d'infrastructure réseau sans-fil</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wlan-infrastructure.png'>
+    Schéma type d'infrastructure réseau sans-fil - vue complète</link></para>
+  </caption>
+</mediaobject>
+      </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.lab.setup'>
+    <title>Configuration de l'interface IEEE 802.11</title>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para>Configurer l'interface IEEE 802.11 pour qu'elle appartienne à
+      l'infrastructure <option>wlan.lab</option>.</para>
+      </question>
+      <answer>
+      <para>Visualiser l'état de l'interface à l'aide de la commande
+      <command>iwconfig</command> avant et après l'affectation du paramètre
+      <option>essid</option>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les informations qui montrent que l'interface est
+      associée à l'infrastructure <option>wlan.lab</option> ?</para>
+      </question>
+      <answer>
+      <para>Si l'association est correcte, la commande
+      <command>iwconfig</command> doit donner l'adresse <acronym>MAC</acronym>
+      du point d'accès.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les opérations à réaliser pour configurer l'interface
+      au niveau réseau ?</para>
+      </question>
+      <answer>
+      <para>Visualiser l'état de l'interface à l'aide de la commande
+      <command>ifconfig</command> avant et après l'affectation d'une adresse
+      <acronym>IP</acronym>.</para>
+      </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.lab.rf'>
+    <title>Analyse des conditions de communications radio</title>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para>Quel est le niveau de puissance, exprimé en mW, utilisé sur
+      l'interface réseau ? Configurer l'interface pour limiter la
+      puissance d'émission à 1 mW.</para>
+      </question>
+      <answer>
+      <para>Visualiser l'état de l'interface à l'aide de la commande
+      <command>iwconfig</command> avant et après l'affectation du paramètre
+      <option>txpower</option>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelle est l'opération à réaliser pour configurer l'interface
+      en mode d'analyse radio ?</para>
+      </question>
+      <answer>
+      <para>Reprendre les commandes proposées dans la <xref
+      linkend='config.interface.wlan.kismet' /> en fonction du <link
+      linkend='config.interface.wlan.monitor_mode'>type d'interface</link>
+      utilisée. Visualiser l'état de l'interface avant et après l'affectation
+      du paramètre <option>mode</option>.</para>
+      </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.lab.frame'>
+    <title>Analyse des trames IEEE 802.11</title>
+
+  <para>On s'intéresse ici à l'étude des trames spécifiques de la couche
+  liaison des communications sans fils. Pour cette étude, on utilise
+  l'analyseur réseau <link
+  linkend='config.interface.wlan.refer.wireshark'><application>wireshark</application></link>
+  qui va permettre d'identifier les équipements actifs en présence et les
+  différentes phases de communication.</para>
+
+  <para>Ce scénario suppose qu'une première station (<acronym>STA</acronym>)
+  soit placée en mode analyse radio et analyse les échanges avec
+  <application>wireshark</application> pendant qu'une seconde station effectue
+  les opérations normales de configuration et d'association avec le point
+  d'accès (<acronym>AP</acronym>).</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para>Comment valider le fonctionnement de l'analyseur réseau
+      <application>wireshark</application> en mode analyse radio ?</para>
+      </question>
+      <answer>
+      <para>Relativement au mode de fonctionnement normal, la capture de trame
+      doit offrir le type d'encapsulation
+      <option>IEEE 802.11 plus radiotap WLAN header</option>.
+      Si ce type d'encapsulation n'est pas disponible, c'est que l'interface
+      est en mode infrastructure :
+      <wordasword>managed</wordasword>.</para>
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wireshark-radiotap.png" format="PNG" contentwidth='9.5cm' width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Encapsulation de trame analyse radio</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wireshark-radiotap.png'>
+    Encapsulation de trame analyse radio - vue complète</link></para>
+  </caption>
+</mediaobject>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quels sont les types d'équipement à l'origine des trames de type
+      <wordasword>Beacon</wordasword> et
+      <wordasword>Probe</wordasword> ?</para>
+      </question>
+      <answer>
+      <para>À l'aide des adresses <acronym>MAC</acronym> déjà identifiées et de
+      la capture des trames, on peut distinguer les émissions des stations
+      (<acronym>STA</acronym>) et des points d'accès
+      (<acronym>AP</acronym>).</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Comment supprimer l'affichage des trames de type
+      <wordasword>Beacon</wordasword> une fois la capture réalisée avec
+      <application>wireshark</application> ?</para>
+      </question>
+      <answer>
+      <para>À l'aide de la fonction de filtrage, il est possible de
+      sélectionner les trames qui ne doivent pas être prises en compte lors de
+      l'analyse. L'expression à saisir est :
+      <option>!(wlan.fc.type_subtype == 0x08)</option>. On peut obtenir le même
+      résultat graphiquement à partir des menus de la fenêtre d'analyse des
+      protocoles.</para>
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wireshark-beacon-filter.png" format="PNG" contentwidth='9.5cm' width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Filtrage des trames de type Beacon</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wireshark-beacon-filter.png'>
+    Filtrage des trames de type Beacon - vue complète</link></para>
+  </caption>
+</mediaobject>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les différentes phases de la reconnaissance d'une
+      station par un point d'accès ?</para>
+      </question>
+      <answer>
+      <para>À partir d'une capture réalisée pendant qu'une station est insérée
+      dans la zone de couverture radio d'un point d'accès, relever les
+      phases :</para>
+      <simplelist type='horiz' columns='2'>
+      <member><option>Probe Request</option></member>
+      <member><option>Probe Response</option></member>
+      <member><option>Authentication</option></member>
+      <member><option>Acknowledgement</option></member>
+      <member><option>Association Request</option></member>
+      <member><option>Association Response</option></member>
+      </simplelist>
+
+      <para>Reconstituer le graphique suivant en indiquant les adresses
+      <acronym>MAC</acronym> des équipements présents :</para>
+<screen width='80'>   __________             _¡_____¡_
+  |    STA   |           |    AP   |
+   ¯¯¯¯¯¯¯¯¯¯             ¯¯¯¯¯¯¯¯¯
+                 &lt;--- beacons
+   probe request ---&gt;
+                 &lt;--- probe response
+   authentication request ---&gt;
+                 &lt;--- authentication response
+   association request ---&gt;
+                 &lt;--- association response
+</screen>
+      </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='config.interface.wlan.auth-infrastructure'>
+  <title>Infrastructure Wi-Fi et méthodes d'authentification</title>
+
+  <para>Les sections suivantes présentent quelques exemples de configurations
+  d'interfaces de réseaux sans-fils en partant d'un cas pratique d'exploitation
+  simple. On utilise une infrastructure domestique simple pour illustrer les
+  méthodes d'authentification des interfaces Wi-Fi auprès d'un point
+  d'accès.</para>
+
+  <para>L'infrastructure étudiée utilise un routeur <trademark>Cisco
+  Systems</trademark> <citetitle>ISR 877W</citetitle>. Ce type de routeur offre
+  des fonctions beaucoup plus étendues que les «boxes» des fournisseurs d'accès
+  internet. Le point important ici étant la granularité dans les possibilités
+  de configuration du système d'exploitation. Ceci dit, n'importe quel point
+  d'accès devrait faire l'affaire dans la mesure où les protocoles
+  d'authentification illustrés sont supportés. Les équipements Cisco sont
+  configurables entièrement en mode console ce qui facilite la rédaction de ce
+  document en évitant la multiplication des copies d'écrans de pages Web de
+  serveur intégré dans les équipements moins complets.</para>
+
+  <para>La terme «routeur» est usurpé dans cet exemple. En effet, on utilise
+  les fonctions réseaux sans-fils en mode <emphasis>pont</emphasis> entre
+  l'interface Wi-Fi et une interface filaire de l'équipement.</para> 
+
+  <para>Côté GNU/Linux, on s'intéresse aux mêmes possibilités de configuration
+  sur le système d'exploitation du poste client : généralement un
+  ordinateur portable. On distingue la phase de mise au point des paramètres
+  d'authentification de la phase de sauvegarde qui permet de s'associer à la
+  demande à différentes infrastructures de réseaux sans-fils.</para>
+
+  <para>Pour chaque cas traité, on donne les configurations du point d'accès
+  (<acronym>AP</acronym>) et de la station associée
+  (<acronym>STA</acronym>).</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wlan-cookbook.png" format="PNG" contentwidth='15.5cm' width='16cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Infrastructure Wi-Fi type</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wlan-cookbook.png'>
+    Infrastructure Wi-Fi type - vue complète</link></para>
+  </caption>
+</mediaobject>
+</sect1> 
+
+<sect1 xml:id='config.interface.wlan.auth-noauth'>
+  <title>Association sans authentification</title>
+
+  <para>Ce premier exemple sert à mettre en place la configuration minimale
+  nécessaire à la validation des communications radio. Il permet aussi
+  d'illustrer le fonctionnement des outils utilisés.</para>
+
+  <para>Les caractéristiques générales de cet exemple sont les
+  suivantes :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Identification du service Wi-Fi (<acronym>SSID</acronym>) :
+    <option>open</option></para>
+    </listitem>
+    <listitem>
+    <para>Réseau local virtuel (<acronym>VLAN</acronym>) utilisé sur le routeur
+    ISR 877W : numéro 2</para>
+    </listitem>
+    <listitem>
+    <para>Réseau <acronym>IP</acronym> utilisé : <systemitem
+    class='ipaddress'>192.168.1.0/24</systemitem></para>
+    </listitem>
+  </itemizedlist>
+
+  <sect2 xml:id='config.interface.wlan.auth-noauth.ap'>
+    <title>Configuration du point d'accès : routeur ISR 877W</title>
+
+  <para>On commence de façon très classique par la version du système
+  d'exploitation utilisée et par la liste des interfaces réseau
+  reconnues.</para>
+
+<screen width='80'>Cisco IOS Software, C870 Software (C870-ADVIPSERVICESK9-M), Version 12.4(20)T, RELEASE SOFTWARE (fc3)
+Technical Support: http://www.cisco.com/techsupport
+Copyright (c) 1986-2008 by Cisco Systems, Inc.
+Compiled Fri 11-Jul-08 06:08 by prod_rel_team
+
+&lt;snipped/>
+
+Cisco 877W (MPC8272) processor (revision 0x300) with 118784K/12288K bytes of memory.
+Processor board ID FCZ113860FX
+MPC8272 CPU Rev: Part Number 0xC, Mask Number 0x10
+4 FastEthernet interfaces
+1 ATM interface
+1 802.11 Radio
+128K bytes of non-volatile configuration memory.
+28672K bytes of processor board System flash (Intel Strataflash)
+</screen>
+
+  <para>On décrit ensuite les éléments de configuration minimale à partir des
+  commandes ci-dessous.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Configuration du pont au niveau global.</para>
+<screen width='80'>! Activation de la fonction Integrated Routind and Bridging
+bridge irb
+! Choix du protocole Spanning Tree
+bridge 2 protocol ieee
+! Activation du routage des paquets sur l'interface virtuelle de pont 
+! BVI: Bridge Virtual Interface
+bridge 2 route ip
+</screen>
+    </listitem>
+    <listitem>
+    <para>Configuration de l'interface de pont.</para>
+<screen width='80'>! Interface virtuelle activée automatiquement
+interface BVI2
+ip address 192.168.1.2 255.255.255.0
+</screen>
+    </listitem>
+    <listitem>
+    <para>Configuration de l'identificateur de service Wi-Fi
+    (<acronym>SSID</acronym>) au niveau global.</para>
+<screen width='80'>dot11 ssid open
+vlan 2
+authentication open
+guest-mode
+</screen>
+    </listitem>
+    <listitem>
+    <para>Configuration de l'interface Wi-Fi.</para>
+<screen width='80'>interface Dot11Radio0
+! Adresse IP affectée au niveau pont (BVI2)
+no ip address
+! Choix du mode de chiffrement minimal
+encryption mode wep optional
+! Correspondance avec le SSID défini
+ssid open
+! Sous interface propre au VLAN 2 et appartenant au pont 2
+interface Dot11Radio0.2
+ encapsulation dot1Q 2
+ bridge-group 2
+</screen>
+    </listitem>
+    <listitem>
+    <para>Configuration de l'interface de réseau local virtuel
+    (<wordasword>Switched Virtual Interface</wordasword> ou
+    <acronym>SVI</acronym>).</para>
+<screen width='80'>interface Vlan2
+! Adresse IP affectée au niveau pont (BVI2)
+no ip address
+! Interface appartenant au pont 2
+bridge-group 2
+</screen>
+    </listitem>
+    <listitem>
+    <para>Configuration des interfaces filaires dans le <acronym>VLAN</acronym>
+    numéro 2.</para>
+<screen width='80'>int range fa0 - 3
+switchport access vlan 2
+</screen>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.auth-noauth.sta'>
+    <title>Configuration de la station sans outil d'authentification</title>
+
+  <para>On procède de la même façon que dans la section précédente sur la
+  configuration du point d'accès. On donne les caractéristiques de la station
+  utilisée  un ordinateur portable.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Interface réseau sans-fil reconnue par le noyau Linux :</para>
+<screen width='80'>$ lspci | grep -i network
+0c:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG Network Connection (rev 02)
+</screen>
+    <para>Sur un ordinateur portable «moderne», l'interface de réseau sans fil
+    est intégrée sur la carte mère. On retrouve cette interface dans la liste
+    des périphériques connectés au bus <acronym>PCI</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Liste des interfaces ayant des fonctions réseau sans-fil :</para>
+<screen width='80'># iwconfig
+lo        no wireless extensions.
+
+eth0      no wireless extensions.
+
+wmaster0  no wireless extensions.
+
+wlan0     IEEE 802.11  ESSID:""
+          Mode:Managed  Frequency:2.447 GHz  Access Point: Not-Associated
+          Tx-Power=15 dBm
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+          Encryption key:off
+          Link Quality:0  Signal level:0  Noise level:0
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+</screen>
+    <para>On relève qu'à ce stade de la configuration aucun identifiant de
+    cellule Wi-Fi n'est affecté (<option>ESSID:""</option>) et que l'interface
+    n'est associée à aucun point d'accès :
+    <option>Access Point: Not-Associated</option>.</para>
+    </listitem>
+    <listitem>
+    <para>Liste des interfaces disponibles à la configuration :</para>
+<screen width='80'># ifconfig 
+&lt;snipped/>
+wlan0     Link encap:Ethernet  HWaddr 00:1f:3c:54:5e:65  
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1     
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 lg file transmission:1000              
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)              
+
+wlan0:avahi Link encap:Ethernet  HWaddr 00:1f:3c:54:5e:65  
+          inet adr:169.254.5.5  Bcast:169.254.255.255  Masque:255.255.0.0
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1                     
+
+wmaster0  Link encap:UNSPEC  HWaddr 00-1F-3C-54-5E-65-00-00-00-00-00-00-00-00-00-00  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1                         
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0                         
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0                       
+          collisions:0 lg file transmission:1000                                     
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)                                     
+</screen>
+    <para>On relève qu'aucune adresse <acronym>IP</acronym> n'a été affectée à
+    l'interface Wi-Fi.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Une fois que l'on a validé le fonctionnement de l'interface de réseau
+  sans fil, on passe aux tests de communication. Comme nous sommes dans un cas
+  extrêmement simple, on peut se contenter d'une configuration à la
+  console.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>On désactive les paramètres activés lors de l'initialisation du
+    système d'exploitation.</para>
+<screen width='80'># ifdown wlan0
+There is already a pid file /var/run/dhclient.wlan0.pid with pid 5901
+killed old client process, removed PID file                          
+Internet Systems Consortium DHCP Client V3.1.1                       
+Copyright 2004-2008 Internet Systems Consortium.                     
+All rights reserved.                                                 
+For info, please visit http://www.isc.org/sw/dhcp/                   
+
+wmaster0: unknown hardware address type 801
+wmaster0: unknown hardware address type 801
+Listening on LPF/wlan0/00:1f:3c:54:5e:65   
+Sending on   LPF/wlan0/00:1f:3c:54:5e:65   
+Sending on   Socket/fallback               
+</screen>
+    </listitem>
+    <listitem>
+    <para>On affecte l'identifiant de réseau Wi-Fi.</para>
+<screen width='80'># iwconfig wlan0 essid open
+# iwconfig 
+&lt;snipped/>
+
+wlan0     IEEE 802.11  ESSID:"open"
+          Mode:Managed  Frequency:2.447 GHz  Access Point: Not-Associated
+          Tx-Power=15 dBm
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+          Encryption key:off
+          Link Quality:0  Signal level:0  Noise level:0
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+</screen>
+    </listitem>
+    <listitem>
+    <para>On vérifie que l'association avec le point d'accès se fait bien ; dès
+    que l'interface est active.</para>
+<screen width='80'># ifconfig wlan0 up
+# iwconfig 
+&lt;snipped/>
+
+wlan0     IEEE 802.11  ESSID:"open"
+          Mode:Managed  Frequency:2.447 GHz  Access Point: 00:1D:45:B7:EF:00
+          Bit Rate=54 Mb/s   Tx-Power=15 dBm
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+          Encryption key:off
+          Link Quality=100/100  Signal level=-19 dBm  Noise level=-60 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+</screen>
+    <para>On relève l'adresse <acronym>MAC</acronym> du point d'accès auquel
+    l'interface est associée
+    (<option>Access Point: 00:1D:45:B7:EF:00</option>) ainsi que les
+    paramètres qualitatifs de la couverture radio. Voir <xref
+    linkend='config.interface.wlan.wireless-tools.iwconfig'/>.</para>
+    </listitem>
+    <listitem>
+    <para>La configuration du niveau réseau ne présente pas difficulté. Elle se
+    fait soit manuellement soit à l'aide du client <acronym>DHCP</acronym>
+    lorsque ce service est disponible. Voir la référence <xref
+    linkend='config.interface.wlan.refer.lan'/>.</para>
+<screen width='80'># dhclient3 wlan0
+Internet Systems Consortium DHCP Client V3.1.1
+Copyright 2004-2008 Internet Systems Consortium.
+All rights reserved.
+For info, please visit http://www.isc.org/sw/dhcp/
+
+wmaster0: unknown hardware address type 801
+wmaster0: unknown hardware address type 801
+Listening on LPF/wlan0/00:1f:3c:54:5e:65
+Sending on   LPF/wlan0/00:1f:3c:54:5e:65
+Sending on   Socket/fallback
+DHCPDISCOVER on wlan0 to 255.255.255.255 port 67 interval 8
+DHCPOFFER from 192.168.1.1
+DHCPREQUEST on wlan0 to 255.255.255.255 port 67
+DHCPACK from 192.168.1.1
+bound to 192.168.1.103 -- renewal in 690 seconds.
+</screen>
+    </listitem>
+  </itemizedlist>
+
+<note>
+  <title>Comment éviter les <wordasword>HotSpots</wordasword> ?</title>
+  <para>Suivant le contexte de couverture radio, il est fort probable que les
+  manipulations soient perturbées par la présence de point d'accès de type
+  <wordasword>HotSpots</wordasword>. Ces points d'accès émettent des trames de
+  type <xref linkend='config.interface.wlan.gloss.beacon'/> à un rythme assez
+  élevé.</para> 
+  <para>Pour éviter une association à un point d'accès
+  <wordasword>HotSpot</wordasword>, on peut utiliser les commandes de
+  configuration dans l'ordre suivant :</para>
+  <orderedlist>
+    <listitem>
+    <para>Désactivation de l'interface :
+    <command>ifdown wlan0</command></para>
+    </listitem>
+    <listitem>
+    <para>Affectation du <acronym>SSID</acronym> voulu :
+    <command>iwconfig wlan0 essid open</command></para>
+    </listitem>
+    <listitem>
+    <para>Activation de l'interface :
+    <command>ifconfig wlan0 up</command></para>
+    </listitem>
+    <listitem>
+    <para>Réaffectation du <acronym>SSID</acronym> voulu :
+    <command>iwconfig wlan0 essid open</command></para>
+    </listitem>
+  </orderedlist>
+  <para>En tout état de cause, un recensement des points d'accès présents dans
+  la zone de couverture radio permet de repérer les «éléments perturbateurs».
+  Voir <xref linkend='config.interface.wlan.kismet'/>.</para>
+</note>
+
+  <para>Le tour est joué ! Il est maintenant possible de communiquer avec
+  l'Internet «en clair» dans la zone de couverture radio du point d'accès
+  sachant qu'il est lui même raccordé à une passerelle via le réseau filaire.
+  Cette configuration correspond presque aux <wordasword>hotspots</wordasword>
+  disponibles dans les lieux publics. Il manque le portail captif opérateur qui
+  permet «d'extorquer des sommes exorbitantes» aux usagers isolés qui n'ont pas
+  d'autre solution de communication.</para> 
+
+  <para>Enfin, il reste à afficher les messages des systèmes permettant de
+  confirmer que les opérations de configuration se sont bien déroulées.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Côté station, les messages systèmes donnent les informations sur le
+    fonctionnement de l'interface réseau sans fil IEEE 802.11.</para>
+<screen width='80'># dmesg
+&lt;snipped/>
+Registered led device: iwl-phy0:radio
+Registered led device: iwl-phy0:assoc
+Registered led device: iwl-phy0:RX
+Registered led device: iwl-phy0:TX
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:1d:45:b7:ef:00
+wlan0: RX authentication from 00:1d:45:b7:ef:00 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:1d:45:b7:ef:00
+wlan0: RX AssocResp from 00:1d:45:b7:ef:00 (capab=0x421 status=0 axml:id=4)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:1d:45:b7:ef:00)
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+wlan0: no IPv6 routers present
+</screen>
+
+    <para>Le message <option>wlan0: link becomes ready</option> déclenche les
+    opération de configuration de niveau réseau une fois la partie association
+    effectuée. On retrouve les étapes du synoptique ci dessous.</para>
+
+<screen width='80'>   __________             _¡_____¡_
+  |    STA   |           |    AP   |
+   ¯¯¯¯¯¯¯¯¯¯             ¯¯¯¯¯¯¯¯¯
+                 &lt;--- beacons
+   probe request ---&gt;
+                 &lt;--- probe response
+   authentication request ---&gt;
+                 &lt;--- authentication response
+   association request ---&gt;
+                 &lt;--- association response
+</screen>
+    </listitem>
+    <listitem>
+    <para>Côté point d'accès, les mêmes éléments sont présents dans les
+    journaux systèmes et dans la table des associations.</para>
+
+<screen width='80'>#sh dot11 associations
+
+802.11 Client Stations on Dot11Radio0:
+
+SSID [open] :
+
+MAC Address    IP address      Device        Name            Parent         State
+001f.3c54.5e65 192.168.1.103   unknown       -               self           Assoc
+
+#sh dot11 statistics client-traffic
+Clients:
+4-001f.3c54.5e65 pak in 9387 bytes in 1288304 pak out 5915 bytes out 2475207
+      dup 170 decrpyt err 0 mic mismatch 0 mic miss 0
+      tx retries 280 data retries 280 rts retries 0
+      signal strength 32 signal quality 130
+</screen>
+    </listitem>
+  </itemizedlist>
+  </sect2> 
+
+  <sect2 xml:id='config.interface.wlan.auth-noauth.supplicant'>
+    <title>Configuration de la station avec les outils d'authentification</title>
+  
+  <para>Dans la section précédente, toutes les opérations réalisées à la
+  console sont à répéter à chaque réinitialisation du système sachant qu'aucune
+  sauvegarde de la configuration n'a été faite. L'objectif de cette section est
+  justement de mettre en place une configuration sauvegardée. De plus, on
+  présente les outils qui vont permettre d'utiliser différentes méthodes
+  d'authentification par la suite.</para>
+
+  <para>Pour être capable de sauvegarder une configuration avec ou sans
+  authentification il faut d'abord spécifier qu'une interface est de type Wi-Fi
+  et qu'elle a recours à un <xref
+  linkend='config.interface.wlan.gloss.supplicant'/>.</para>
+
+  <para>Sur un système Debian GNU/Linux, c'est le fichier
+  <filename>/etc/network/interfaces</filename> qui contient les paramètres de
+  niveau 3 (<acronym>IP</acronym>) des interfaces réseau. Les paquets
+  <application>wpasupplicant</application> et <application>wpagui</application>
+  fournissent le logiciel nécessaire au processus conduisant à l'<link
+  linkend='config.interface.wlan.gloss.association'>association</link> de la
+  station au point d'accès au niveau 2 (<acronym>MAC</acronym>).</para> 
+
+  <para>De façon classique, on obtient les informations sur les paquets
+  relatifs au <wordasword>supplicant</wordasword> en interrogeant le
+  gestionnaire de paquets.</para>
+
+<screen width='80'># dpkg -l wpa* |grep ^ii
+ii  wpagui          0.6.4-1   GUI for wpa_supplicant
+ii  wpasupplicant   0.6.4-1   Client support for WPA and WPA2 (IEEE 802.11i)
+</screen>
+
+  <para>La principale ressource documentaire se trouve dans le fichier
+  <filename>/usr/share/doc/wpasupplicant/README.Debian.gz</filename> du paquet
+  <application>wpasupplicant</application>. Le mode de configuration le plus
+  intéressant et celui utilisé dans ce document est baptisé <wordasword>Mode
+  #2: Roaming Mode</wordasword>. Ce mode offre plusieurs fonctionnalités
+  intéressantes.</para>
+  
+  <para>Comme son nom l'indique, le mode «vagabondage»
+  (<wordasword>roaming</wordasword>) doit supporter plusieurs configurations
+  suivant la zone de couverture radio dans laquelle se trouve la station :
+  lieu public, infrastructure d'entreprise, réseau domestique, etc. Le système
+  de la station doit donc pouvoir changer de configuration dynamiquement sans
+  qu'il soit nécessaire de le réinitialiser. Dans le contexte de ce document,
+  il est possible d'interagir avec le <wordasword>supplicant</wordasword> et de
+  tester les paramètres de configuration au cas par cas.</para>
+  
+  <para>Voici une copie du fichier <filename>/etc/network/interfaces</filename>
+  faisant appel au <wordasword>supplicant</wordasword> en mode
+  <wordasword>roaming</wordasword>. Aucune définition d'infrastructure de
+  réseau sans-fil n'a encore été implantée dans ce fichier.</para>
+
+<screen width='80'># The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The Ethernet network interface
+allow-hotplug eth0
+iface eth0 inet dhcp
+
+# The Wi-Fi network interface
+allow-hotplug wlan0
+iface wlan0 inet manual<co xml:id='config.interface.wlan.auth-supplicant.sta.manual'/>
+        wpa-driver wext<co xml:id='config.interface.wlan.auth-supplicant.sta.wpa-driver'/>
+        wpa-roam /etc/wpa_supplicant/wpa_supplicant.conf<co xml:id='config.interface.wlan.auth-supplicant.sta.wpa-roam'/>
+</screen>
+ 
+  <para>Ce fichier comprend trois interfaces :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>L'interface de boucle locale <option>lo</option> nécessaire aux
+    communications réseau (<acronym>TCP/IP</acronym>) entre les processus
+    locaux exécutés sur la station.</para>
+    </listitem>
+    <listitem>
+    <para>L'interface filaire Ethernet <option>eth0</option> dont la
+    configuration réseau est obtenue dynamiquement via le service <xref
+    linkend='config.interface.wlan.gloss.dhcp'/>.</para>
+    </listitem>
+    <listitem>
+    <para>L'interface Wi-Fi <option>wlan0</option> est configurée en mode
+    manuel. Ses paramètres sont détaillés ci-après.</para>
+    </listitem>
+  </itemizedlist>
+
+  <calloutlist>
+    <callout arearefs='config.interface.wlan.auth-supplicant.sta.manual'>
+      <para>L'interface de réseau sans-fil est placée en mode manuel pour la
+      configuration du niveau réseau sachant que l'on doit faire appel à un
+      service particulier pour la configuration au niveau liaison : le
+      <xref linkend='config.interface.wlan.gloss.supplicant'/>. C'est cet outil
+      qui est responsable de la gestion des associations entre la station
+      (<acronym>STA</acronym>) et les différents point d'accès
+      (<acronym>AP</acronym>) accessibles.</para>
+
+      <para>La configuration du niveau réseau se fait à partir d'un identifiant
+      d'interface partagé entre les fichiers de configuration du
+      <wordasword>supplicant</wordasword> et celui des interfaces ; c'est à
+      dire le fichier présenté ci-dessus
+      (<filename>/etc/network/interfaces</filename>).</para>
+    </callout>
+
+    <callout arearefs='config.interface.wlan.auth-supplicant.sta.wpa-driver'>
+      <para>Le paramètre <option>wpa-driver</option> désigne l'interface
+      logicielle d'échange entre le <xref
+      linkend='config.interface.wlan.gloss.supplicant'/> et le pilote
+      d'interface réseau. La valeur <option>wext</option> correspond au mode
+      d'échange par défaut sachant que l'interface utilisée dans cet exemple
+      est de marque <trademark>Intel</trademark>.</para>
+    </callout>
+
+    <callout arearefs='config.interface.wlan.auth-supplicant.sta.wpa-roam'>
+      <para>Le paramètre <option>wpa-roam</option> désigne le fichier de
+      configuration du <xref
+      linkend='config.interface.wlan.gloss.supplicant'/>. C'est ce fichier qui
+      doit contenir la liste des réseaux sans-fils auxquels la station est
+      susceptible de se connecter. Pour chacun des réseaux sans-fils
+      utilisables, un certain nombre de paramètres doivent doivent être
+      présents. Les plus importants sont l'<link
+      linkend='config.interface.wlan.gloss.ssid'>identifiant</link> de cellule
+      ou d'infrastructure et les méthodes d'authentification.</para>
+    </callout>
+  </calloutlist>
+
+  <para>Voici une copie du fichier de configuration du <xref
+  linkend='config.interface.wlan.gloss.supplicant'/> avant introduction de
+  définition de réseau sans-fil.</para>
+
+<screen width='80'># cat /etc/wpa_supplicant/wpa_supplicant.conf
+ctrl_interface=/var/run/wpa_supplicant<co xml:id='config.interface.wlan.auth-supplicant.sta.wpa-ctrl'/>
+update_config=1<co xml:id='config.interface.wlan.auth-supplicant.sta.wpa-update'/>
+</screen>
+
+  <calloutlist>
+    <callout arearefs='config.interface.wlan.auth-supplicant.sta.wpa-ctrl'>
+      <para>Le paramètre <option>ctrl_interface</option> désigne le répertoire
+      contenant le <wordasword>socket</wordasword> de communication avec
+      l'interface réseau sans-fil.</para>
+    </callout>
+    <callout arearefs='config.interface.wlan.auth-supplicant.sta.wpa-update'>
+      <para>La valeur du paramètre <option>update_config</option> autorise la
+      mise à jour dynamique du fichier de configuration à partir des logiciels
+      <application>wpa_gui</application> et
+      <application>wpa_cli</application>.</para>
+    </callout>
+  </calloutlist>
+
+  <para>Avant de se lancer dans les opérations de configuration avec
+  l'interface graphique fournie par le paquet
+  <application>wpagui</application>, il faut que l'utilisateur normal ait la
+  capacité à utiliser cette interface. Dans ce but, on doit déléguer les droits
+  d'utilisation du programme <filename>/usr/sbin/wpa_gui</filename> en suivant
+  la démarche donnée dans la <xref
+  linkend='config.interface.wlan.kismet.config.sudo'/>. La ligne concernant
+  l'utilisateur normal <systemitem class='username'>phil</systemitem> du
+  fichier <filename>/etc/sudoers</filename> devient :</para>
+ 
+<screen width='80'>phil    ALL=NOPASSWD: /sbin/iwspy, /sbin/iwconfig, /usr/bin/kismet, /usr/sbin/wpa_gui
+</screen>
+
+  <para>À partir de cette étape, on peut lancer les opérations de configuration
+  en dialoguant avec le <wordasword>supplicant</wordasword> via le
+  <wordasword>socket</wordasword> dédié à l'interface. Voici un exemple
+  d'identification de l'exécution du processus <xref
+  linkend='config.interface.wlan.gloss.supplicant'/> et du
+  <wordasword>socket</wordasword> de communication avec l'interface réseau
+  <option>wlan0</option>.</para>
+
+<screen width='80'># ps auxww |grep wpa |grep -v grep
+root      2801  0.0  0.0  21020  1020 ?        S&lt;s  09:42   0:00 \
+	/sbin/wpa_supplicant -B -P /var/run/wpa_supplicant.wlan0.pid \
+	-i wlan0 -D wext -q -f /var/log/wpa_supplicant.wlan0.log \
+	-C /var/run/wpa_supplicant
+
+# ll /var/run/wpa_supplicant/wlan0
+srwxrwx--- 1 root root 0 aoû 20 09:42 /var/run/wpa_supplicant/wlan0
+</screen>
+
+  <para>Voici les copies d'écran présentant la mise en place de la
+  configuration minimale sans authentification.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>Lancement de <application>wpagui</application>.</para>
+
+<screen width='80'>$ sudo wpa_gui
+Selected interface 'wlan0'
+Trying to connect to '/var/run/wpa_supplicant/wlan0'
+</screen>
+    </listitem>
+    <listitem>
+    <para>Une fois l'application lancée, la première opération à faire est de
+    lancer un recensement des points d'accès visibles depuis la station en
+    utilisant le bouton <guimenuitem>SCAN</guimenuitem>.</para>
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wpa_gui0.png" format="PNG" contentwidth='9.5cm' width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Copie d'écran initial wpa_gui</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wpa_gui0.png'>
+    Copie d'écran initial wpa_gui - vue complète</link></para>
+  </caption>
+</mediaobject>
+    </listitem>
+    <listitem>
+    <para>Un nouvel appui sur le bouton <guimenuitem>SCAN</guimenuitem> lance
+    la reconnaissance des points d'accès accessibles.</para>
+
+    <para>Le résultat du recensement donne la liste des cellules visibles de la
+    station avec leurs identifiants <acronym>SSID</acronym> ainsi que les modes
+    d'authentification supportés. Ces informations sont issues des trames de
+    requête <xref linkend='config.interface.wlan.gloss.probe'/> émises par la
+    station en direction des différents points d'accès «visibles». Cette
+    «visibilité» dépend elle-même des trames <xref
+    linkend='config.interface.wlan.gloss.beacon'/> émises par les points
+    d'accès.</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wpa_gui1.png" format="PNG" contentwidth='9.5cm' width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Copie d'écran scan wpa_gui</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wpa_gui1.png'>
+    Copie d'écran scan wpa_gui - vue complète</link></para>
+  </caption>
+</mediaobject>
+    </listitem>
+    <listitem>
+    <para>Un double click sur le <acronym>SSID</acronym> du réseau Wi-Fi voulu
+    ouvre une fenêtre de configuration des paramètres
+    d'authentification.</para>
+
+    <para>Dans le cas présent, on utilise l'identifiant <option>open</option>
+    et il n'est pas nécessaire de modifier les paramètres d'authentification
+    puisque l'on accède à un réseau ouvert.</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wpa_gui2.png" format="PNG" contentwidth='9.5cm' width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Copie d'écran authentification wpa_gui</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wpa_gui2.png'>
+    Copie d'écran authentification wpa_gui - vue complète</link></para>
+  </caption>
+</mediaobject>
+    </listitem>
+    <listitem>
+    <para>Enfin, une fois l'association réalisée, il ne reste plus qu'à lancer
+    le client <acronym>DHCP</acronym> pour solliciter le serveur, obtenir une
+    configuration réseau <acronym>IP</acronym> correcte et une référence de
+    serveur de noms de domaines. Sachant qu'aucune configuration de niveau
+    réseau n'a encore été sauvegardée dans le fichier
+    <filename>/etc/network/interfaces</filename>, il est nécessaire de lancer
+    manuellement la requête <acronym>DHCP</acronym>, à l'aide de la
+    commande :
+    <userinput><prompt>#</prompt> dhclient3 wlan0</userinput>. On obtient
+    ainsi une fenêtre du type ci-dessous.</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wpa_gui3.png" format="PNG" contentwidth='9.5cm' width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Configuration complète wpa_gui</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wpa_gui3.png'>
+    Configuration complète wpa_gui - vue complète</link></para>
+  </caption>
+</mediaobject>
+    </listitem>
+    <listitem>
+    <para>Pour sauvegarder les paramètres de la configuration courante, on
+    passe par le menu <guimenuitem>File</guimenuitem> puis par l'option
+    <guimenuitem>Save Configuration</guimenuitem>. Cette opération est possible
+    grâce au paramètre <option>update_config=1</option> préalablement placé
+    dans le fichier
+    <filename>/etc/wpa_supplicant/wpa_supplicant.conf</filename>.</para>
+
+<mediaobject>
+  <imageobject>
+    <imagedata fileref="images/wpa_gui4.png" format="PNG" contentwidth='9.5cm' width='10cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Sauvegarde de configuration avec wpa_gui</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/config.interface.wlan/images/wpa_gui4.png'>
+    Sauvegarde de configuration avec wpa_gui - vue complète</link></para>
+  </caption>
+</mediaobject>
+    </listitem>
+  </orderedlist>
+
+  <para>Le résultat des manipulations réalisées via l'interface graphique du
+  programme <application>wpa_gui</application> se retrouve dans le fichier de
+  configuration du <wordasword>supplicant</wordasword>.</para>
+
+<screen width='80'># cat /etc/wpa_supplicant/wpa_supplicant.conf
+ctrl_interface=/var/run/wpa_supplicant
+update_config=1
+
+network={
+        ssxml:id="open"
+        key_mgmt=NONE
+        id_str=""
+}
+</screen>
+
+  <para>Cette configuration doit être complétée au niveau réseau en faisant le
+  lien entre le fichier de configuration du <wordasword>supplicant</wordasword>
+  (<filename>/etc/wpa_supplicant/wpa_supplicant.conf</filename>) et le fichier
+  de configuration de niveau réseau des interfaces
+  (<filename>/etc/network/interfaces</filename>) via la chaîne de caractères
+  d'identification désignée par le paramètre <option>id_str</option>.</para>
+
+  <para>Dans cet exemple, on utilise la chaîne <option>open_testPod</option> et
+  les fichiers de configuration sont édités comme ci-dessous.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Fichier
+    <filename>/etc/wpa_supplicant/wpa_supplicant.conf</filename> :</para>
+<screen width='80'>ctrl_interface=/var/run/wpa_supplicant
+update_config=1
+
+network={
+        id_str="open_testPod"
+        ssxml:id="open"
+        key_mgmt=NONE
+}
+</screen>
+    </listitem>
+    <listitem>
+    <para>Fichier
+    <filename>/etc/network/interfaces</filename> :</para>
+<screen width='80'># The Wi-Fi network interface
+allow-hotplug wlan0
+iface wlan0 inet manual
+        wpa-driver wext
+        wpa-roam /etc/wpa_supplicant/wpa_supplicant.conf
+
+# id_str="open_testPod"
+iface open_testPod inet dhcp
+</screen>
+    </listitem>
+  </itemizedlist>
+  </sect2> 
+
+  <sect2 xml:id='config.interface.wlan.auth-noauth.hotspot'>
+    <title>Configuration de la station pour accéder à un <wordasword>hotspot</wordasword></title>
+
+  <para>Dans les lieux publics, la tendance est au développement de la
+  couverture radio Wi-Fi via un accès de type <wordasword>hotspot</wordasword>.
+  Les opérateurs de téléphonie mobile sont très présents sur ce segment de
+  marché. L'idée force consiste à dupliquer le modèle économique de la
+  téléphonie mobile sur les accès aux réseaux sans-fils. Dans ce contexte, la
+  station doit s'associer à n'importe quel point d'accès, obtenir une
+  configuration réseau complète et se retrouver «piégée» par un portail captif
+  qui intercepte toutes les communications réseau <acronym>IP</acronym>. Ce
+  portail captif tient le rôle de point de facturation en fonction du temps de
+  communication de la même façon qu'une carte téléphonique prépayée.</para>
+
+  <para>Du point de vue configuration de l'interface de station, on reprend les
+  mêmes éléments que dans la section précédente en omettant de préciser
+  l'identifiant <xref linkend='config.interface.wlan.gloss.ssid'/>. Les
+  fichiers de configuration sont complétés de la façon suivante :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Fichier
+    <filename>/etc/wpa_supplicant/wpa_supplicant.conf</filename> :</para>
+<screen width='80'>ctrl_interface=/var/run/wpa_supplicant
+update_config=1
+
+network={
+        id_str="open_testPod"
+        ssxml:id="open"
+        key_mgmt=NONE
+}
+
+network={
+        id_str="hotspot"
+        ssxml:id=""
+        key_mgmt=NONE
+}
+</screen>
+    </listitem>
+    <listitem>
+    <para>Fichier
+    <filename>/etc/network/interfaces</filename> :</para>
+<screen width='80'># The Wi-Fi network interface
+allow-hotplug wlan0
+iface wlan0 inet manual
+        wpa-driver wext
+        wpa-roam /etc/wpa_supplicant/wpa_supplicant.conf
+
+# id_str="open_testPod"
+iface open_testPod inet dhcp
+
+# id_str="hotspot"
+iface hotspot inet dhcp
+</screen>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.auth-noauth.ipsec'>
+    <title>Chiffrement du trafic de la station avec ipsec</title>
+
+  <para>Dans le contexte des sections précédentes, le trafic réseau
+  <acronym>IP</acronym> émis depuis la station circule «en clair» sur les ondes
+  radio.</para>
+
+<screen width='80'># dpkg -l ipsec-tools racoon |grep ^ii
+ii  ipsec-tools            1:0.7.1-1                IPsec tools for Linux
+ii  racoon                 1:0.7.1-1                IPsec IKE keying daemon
+</screen>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='config.interface.wlan.config-firmware'>
+  <title>Notes sur le support matériel et les
+  <wordasword>firmwares</wordasword></title>
+
+  <para>Après d'âpres discussion au sein de la communauté des développeurs
+  Debian, il a été décidé de publier les logiciels binaires dans des paquets de
+  la catégorie <wordasword>non-free</wordasword>. Les
+  <wordasword>firmwares</wordasword> dont l'installation est présentée ici
+  entrent justement dans cette liste de paquets dédiés.</para>
+
+  <sect2 xml:id='config.interface.wlan.config-firmware.intel'>
+    <title>Interfaces de type Intel</title>
+
+  <para>Les interfaces de marque <trademark>Intel</trademark> nécessitent un
+  <wordasword>firmware</wordasword> spécifique pour fonctionner correctement.
+  Ce logiciel binaire est aujourd'hui distribué via un paquet baptisé
+  <application>firmware-iwlwifi</application> qui supporte les différentes
+  familles de contrôleurs de la marque.</para>
+
+  <para>Les copies d'écran ci-dessous montrent qu'il n'est plus nécessaire
+  de télécharger manuellement ces <wordasword>firmwares</wordasword> à partir
+  de sites différents pas toujours faciles à identifier.</para>
+
+<screen width='80'>$ dpkg -l firmware-iwlwifi | grep -2 ^ii
+||/ Nom                Version   Description
++++-==================-=========-===================================================================
+ii  firmware-iwlwifi   0.16      Binary firmware for Intel Wireless 3945, 4965 and 5000-series cards</screen>
+
+<screen width='80'>$ dpkg -L firmware-iwlwifi | grep ucode
+/lib/firmware/iwlwifi-4965-2.ucode
+/lib/firmware/iwlwifi-3945-1.ucode
+/lib/firmware/iwlwifi-4965-1.ucode
+/lib/firmware/iwlwifi-5000-1.ucode
+/lib/firmware/iwlwifi-3945-2.ucode</screen>
+
+  <para>Le logiciel binaire est appelé automatiquement lors du chargement du
+  pilote d'interface en mémoire pendant l'initialisation du système.</para>
+
+<screen width='80'>$ dmesg |grep iwl3945 |grep firmware
+iwl3945 0000:0c:00.0: firmware: requesting iwlwifi-3945-2.ucode
+iwl3945 loaded firmware version 15.28.2.8</screen>
+
+  <para>Une fois ce chargement en mémoire effectué l'interface
+  <application>wlan0</application> doit être prête pour les étapes de
+  configuration suivantes et accessible via la commande
+  <command>iwconfig</command>.</para>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.config-firmware.b43'>
+    <title>Interfaces de type Broadcom b43</title>
+
+  <para>Avec l'arrivée du noyau 2.6.26, les interfaces PC-CARD de type BCM4306
+  de la marque <trademark>Broadcom</trademark> sont intégrées dans les outils
+  <application>mac80211</application> sous le nom
+  <acronym>b43</acronym>.</para>
+
+  <para>Ce même noyau 2.6.26 est intégré dans la version stable de la
+  distribution Debian GNU/Linux baptisée <wordasword>Lenny</wordasword>. Il est
+  donc justifié de préciser quelques éléments sur l'utilisation de ce type
+  d'interface avec cette nouvelle génération de logiciel de pilotage.</para>
+
+  <para>Tout d'abord, il est préférable de reprendre la reconnaissance et le
+  recensement des interfaces réseau à zéro pour que les entrées Wi-Fi soient
+  correctement positionnées.</para>
+  
+  <para>C'est le démon <systemitem class='daemon'>udev</systemitem> qui à la
+  charge de «convertir» les références des composants électriquement actifs
+  reconnus par le noyau en entrées de type périphérique dans le système
+  d'exploitation. Ce démon est fourni par le paquet du même nom et les règles
+  de nommage des interfaces réseau sont placées dans le répertoire <filename
+  class='directory'>/etc/udev/rules.d</filename>. Voici les informations sur
+  l'état du système utilisé pour la rédaction de cette section.</para>
+
+<screen width='80'># dpkg -l udev |grep ^ii
+ii  udev       0.125-6                 /dev/ and hotplug management daemon
+
+# ll /etc/udev/rules.d/ |grep net
+-rw-r--r-- 1 root root  537 aoû 31 14:42 70-persistent-net.rules
+-rw-r--r-- 1 root root 3,1K aoû 31 14:40 75-persistent-net-generator.rules
+</screen>
+
+  <para>Si l'interface Wi-Fi a précédemment été configurée sous la référence
+  <option>bcm43xx</option>, il faut effacer le fichier
+  <filename>70-persistent-net.rules</filename> à l'aide de la commande
+  <command># rm /etc/udev/rules.d/70-persistent-net.rules</command> et
+  redémarrer le système. On se croirait sous Windoze !</para>
+
+  <para>Une fois que le nouveau jeu de règles est activé, on obtient les
+  entrées suivantes dans le nouveau fichier
+  <filename>70-persistent-net.rules</filename>.</para>
+
+<screen width='80'># cat /etc/udev/rules.d/70-persistent-net.rules
+# This file was automatically generated by the /lib/udev/write_net_rules
+# program run by the persistent-net-generator.rules rules file.
+#
+# You can modify it, as long as you keep each rule on a single line.
+
+# PCI device 0x8086:0x1229 (e100)
+SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="00:d0:59:9d:29:c6", \
+                  ATTR{type}=="1", KERNEL=="eth*", NAME="eth0"
+
+# PCI device 0x14e4:0x4320 (b43)
+SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="00:12:17:b6:9c:98", \
+                  ATTR{type}=="1", KERNEL=="wlan*", NAME="wlan0"
+</screen>
+
+  <para>Avec ces règles, la liste des interfaces obtenues via les commandes
+  <command>ifconfig</command> (et|ou) <command>iwconfig</command> fait bien
+  apparaître les entrées <option>wlan0</option> et
+  <option>wmaster0</option>.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Commande de configuration du niveau Wi-Fi :</para>
+
+<screen width='80'># iwconfig
+lo        no wireless extensions.
+
+eth0      no wireless extensions.
+
+wmaster0  no wireless extensions.
+
+wlan0     IEEE 802.11  ESSID:"open"
+          Mode:Managed  Frequency:2.427 GHz  Access Point: 00:1D:45:B7:EF:00
+          Bit Rate=54 Mb/s   Tx-Power=27 dBm
+          Retry min limit:7   RTS thr:off   Fragment thr=2352 B
+          Encryption key:off
+          Link Quality=91/100  Signal level=-37 dBm  Noise level=-69 dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+</screen>
+    </listitem>
+    <listitem>
+    <para>Commande de configuration du niveau réseau <acronym>IP</acronym> :</para>
+
+<screen width='80'># ifconfig
+eth0      Link encap:Ethernet  HWaddr 00:d0:59:9d:29:c6
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 lg file transmission:1000
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+lo        Link encap:Boucle locale
+          inet adr:127.0.0.1  Masque:255.0.0.0
+          adr inet6: ::1/128 Scope:Hôte
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:88 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:88 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 lg file transmission:0
+          RX bytes:5312 (5.1 KiB)  TX bytes:5312 (5.1 KiB)
+
+wlan0     Link encap:Ethernet  HWaddr 00:12:17:b6:9c:98
+          inet adr:192.168.1.6  Bcast:192.168.1.255  Masque:255.255.255.0
+          adr inet6: fe80::212:17ff:feb6:9c98/64 Scope:Lien
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:13362 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:15606 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 lg file transmission:1000
+          RX bytes:8907944 (8.4 MiB)  TX bytes:1824997 (1.7 MiB)
+
+wmaster0  Link encap:UNSPEC  HWaddr 00-12-17-B6-9C-98-77-6C-00-00-00-00-00-00-00-00
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 lg file transmission:1000
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+</screen>
+    </listitem>
+  </itemizedlist>
+
+  <para>Le logiciel de pilotage intégré à l'interface ou
+  <wordasword>firmware</wordasword> est fourni par le constructeur
+  <trademark>LinkSys</trademark>. Le contenu de ce logiciel est protégé puisque
+  seuls les binaires sont fournis. Il n'est donc pas possible de le recompiler
+  à partir des sources comme on le fait couramment avec le noyau Linux.
+  Cependant, l'interface entre le noyau et ce logiciel binaire est possible.
+  C'est ce qui est fait dans le cas du pilote <option>b43</option>. C'est un
+  module du noyau Linux qui fait appel au <wordasword>firmware</wordasword>
+  constructeur pour utiliser les fonctions Wi-Fi.</para>
+
+  <para>La distribution Debian GNU/Linux fournit un paquet baptisé
+  <application>b43-fwcutter</application> qui permet de télécharger le
+  <wordasword>firmware</wordasword> et de l'installer dans l'arborescence du
+  système d'exploitation. Voici les informations le paquet et sur
+  l'arborescence d'installation.</para>
+
+<screen width='80'># dpkg -l b43* |grep ^ii
+ii  b43-fwcutter      1:011-5     Utility for extracting Broadcom 43xx firmware
+
+# ls -l /lib/firmware/b43*
+</screen>
+
+  <para>L'utilisation du <wordasword>firmware</wordasword> se retrouve dans les
+  messages systèmes lors de l'activation de l'interface ; au démarrage par
+  exemple. La commande <command># dmesg | less</command> permet de parcourir
+  les messages correspondants. Voir les lignes débutant par
+  <option>firmware:</option> dans la copie d'écran ci-dessous.</para>
+
+<screen width='80'>b43-pci-bridge 0000:06:00.0: enabling device (0000 -> 0002)
+ACPI: PCI Interrupt 0000:06:00.0[A] -> Link [C142] -> GSI 11 (level, low) -> IRQ 11
+PCI: Setting latency timer of device 0000:06:00.0 to 64
+ssb: Sonics Silicon Backplane found on PCI device 0000:06:00.0
+b43-phy0: Broadcom 4306 WLAN found
+phy0: Selected rate control algorithm 'pid'
+Broadcom 43xx driver loaded [ Features: PMLR, Firmware-ID: FW13 ]
+&lt;snipped>
+input: b43-phy0 as /class/input/input6
+firmware: requesting b43/ucode5.fw
+firmware: requesting b43/pcm5.fw
+firmware: requesting b43/b0g0initvals5.fw
+firmware: requesting b43/b0g0bsinitvals5.fw
+b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
+Registered led device: b43-phy0::tx
+Registered led device: b43-phy0::rx
+Registered led device: b43-phy0::radio
+NET: Registered protocol family 10
+lo: Disabled Privacy Extensions
+ADDRCONF(NETDEV_UP): eth0: link is not ready
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:1d:45:b7:ef:00
+wlan0: RX authentication from 00:1d:45:b7:ef:00 (alg=0 transaction=2 status=0)
+wlan0: authenticated
+wlan0: associate with AP 00:1d:45:b7:ef:00
+wlan0: RX AssocResp from 00:1d:45:b7:ef:00 (capab=0x421 status=0 axml:id=2)
+wlan0: associated
+wlan0: switched to short barker preamble (BSSID=00:1d:45:b7:ef:00)
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+</screen>
+
+  <para>Ces messages systèmes sont la conséquence du chargement des modules de
+  pilotage du noyau Linux. On obtient la liste des modules relatifs à
+  l'interface à l'aide de la commande donnée ci-après.</para>
+
+<screen width='80'># lsmod | grep b43
+b43                   110748  0
+rfkill                  5652  3 rfkill_input,b43
+rng_core                3940  1 b43
+mac80211              139680  1 b43
+led_class               3908  1 b43
+input_polldev           3752  1 b43
+ssb                    33476  1 b43
+pcmcia                 29548  2 b43,ssb
+firmware_class          6816  2 b43,pcmcia
+pcmcia_core            31892  5 b43,ssb,pcmcia,yenta_socket,rsrc_nonstatic
+</screen>
+
+  <para>À partir de là, les opérations de configuration de l'interface de
+  réseau sans-fil n'ont rien de spécifique au modèle de composant
+  utilisé. Il n'y a plus qu'à se référer aux sections ci-dessus.</para>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='config.interface.wlan.refer'>
+  <title>Documents de référence &amp; outils</title>
+
+  <sect2 xml:id='config.interface.wlan.refer.standards'>
+    <title>Normes &amp; standards</title>
+
+  <variablelist>
+    <varlistentry xml:id='config.interface.wlan.refer.ieee80211'>
+      <term><citetitle>IEEE 802.11 Standard</citetitle></term>
+      <listitem>
+	<para>La page &url.ieee80211.standard; permet de télécharger les
+	standards publiés par le sous-comité 802.11 de l'&url.ieee;.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.refer.tools'>
+    <title>Outils utilisés</title>
+
+  <variablelist>
+    <varlistentry xml:id='config.interface.wlan.refer.kismet'>
+      <term><citetitle>Kismet</citetitle></term>
+      <listitem>
+	<para>Le logiciel &url.kismet; est utilisé dans ce document pour
+	recenser les équipements sans fils actifs dans la zone de couverture
+	radio. Il offre de nombreuses autres possibilités.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='config.interface.wlan.refer.wireshark'>
+      <term><citetitle>Wireshark</citetitle></term>
+      <listitem>
+	<para>L'analyseur de réseau &url.wireshark; est un outil essentiel pour
+	l'étude et l'analyse des formats de trames IEEE 802.11. La page
+	&url.wireshark.capture.setup; donne les instructions sur la
+	configuration d'une interface réseau sans fil avant capture.</para>
+	<para>Pour obtenir plus d'informations sur l'utilisation de
+	<citetitle>Wireshark</citetitle>, consulter le support
+	&url.intro.analyse;.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.refer.inetdoc'>
+    <title>Références inetdoc.LiNUX</title>
+
+  <variablelist>
+    <varlistentry xml:id='config.interface.wlan.refer.models'>
+      <term><citetitle>Modélisations réseau</citetitle></term>
+      <listitem>
+	<para>L'article &url.modelisations; présente les caractéristiques
+	générales des réseaux de télécommunications et les deux principales
+	modélisations utilisées dans les réseaux contemporains.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='config.interface.wlan.refer.lan'>
+      <term><citetitle>Configuration d'une interface réseau</citetitle></term>
+      <listitem>
+	<para>Le support &url.config.interface.lan; présente les commandes de
+	configuration d'une interface réseau filaire ainsi que les
+	manipulations sur les tables de routage et la résolution des noms de
+	domaines.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  </sect2>
+
+  <sect2 xml:id='config.interface.wlan.refer.other'>
+    <title>Autres références</title>
+
+  <variablelist>
+    <varlistentry xml:id='config.interface.wlan.refer.ieee80211_wikipedia'>
+      <term><citetitle>Page Wikipédia IEEE 802.11</citetitle></term>
+      <listitem>
+	<para>L'article &url.ieee80211.wikipedia; présente les caractéristiques
+	de la norme IEEE 802.11 de façon correcte même si quelques corrections
+	sont à apporter.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='config.interface.wlan.gloss'>
+  <title>Glossaire des acronymes</title>
+
+  <variablelist>
+    <varlistentry xml:id='config.interface.wlan.gloss.ap'>
+      <term><wordasword>Access Point</wordasword></term>
+      <term><wordasword>Wireless Access Point</wordasword></term>
+      <term>AP</term>
+      <term>WAP</term>
+      <listitem>
+      <para>Dans le standard IEEE 802.11, un point d'accès est un
+      équipement actif qui accède aux réseaux filaire et radio. Il offre des
+      services de communications aux <link
+      linkend='config.interface.wlan.gloss.sta'>stations</link> équipées
+      d'interfaces de réseau sans fil dans sa zone de couverture radio.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='config.interface.wlan.gloss.association'>
+      <term><wordasword>association</wordasword></term>
+      <term>processus d'association</term>
+      <listitem>
+      <para>La notion d'<wordasword>association</wordasword> dans les réseaux
+      sans-fils du type IEEE 802.11 correspond à l'établissement d'une
+      liaison point à point entre une <link
+      linkend='config.interface.wlan.gloss.sta'>station</link> et un <link
+      linkend='config.interface.wlan.gloss.ap'>point d'accès</link>. Cette
+      association se fait au niveau liaison une fois que toutes les conditions
+      sont réunies :</para>
+      <itemizedlist>
+        <listitem>
+	<para>L'interface de la station à été configurée avec le même <link
+	linkend='config.interface.wlan.gloss.ssid'>identifiant</link> que celui
+	desservi par le point d'accès.</para>
+	</listitem>
+	<listitem>
+	<para>Les débits disponibles sur l'interface de la station sont
+	compatibles avec ceux délivrés par le point d'accès.</para>
+	</listitem>
+	<listitem>
+	<para>Le processus d'authentification de la station auprès de
+	l'infrastructure de réseau sans fil à abouti avec succès.</para>
+	</listitem>
+      </itemizedlist>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='config.interface.wlan.gloss.beacon'>
+      <term><wordasword>beacon</wordasword></term>
+      <term><wordasword>Wi-Fi beacons</wordasword></term>
+      <listitem>
+      <para>Dans le standard IEEE 802.11, une trame
+      <wordasword>beacon</wordasword> est une trame de diffusion émise par le
+      point d'accès (<acronym>AP</acronym>) à destination de toutes les
+      stations (<acronym>STA</acronym>). Le rôle de ces
+      <wordasword>beacons</wordasword> est de fournir les caractéristiques de
+      la cellule Wi-Fi : l'identifiant <acronym>SSID</acronym>, la liste
+      des débits disponibles ainsi que les modes et méthodes
+      d'authentification.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='config.interface.wlan.gloss.dhcp'>
+      <term><acronym>DHCP</acronym></term>
+      <term><wordasword>Dynamic Host Control Protocol</wordasword></term>
+      <listitem>
+      <para>Le protocole <acronym>DHCP</acronym> est utilisé par les stations
+      pour obtenir automatiquement les paramètres de configuration au niveau
+      réseau ainsi et les paramètres du service de noms de domaines.
+      Généralement, au niveau réseau les paramètres sont : adresse IP,
+      masque réseau et adresse IP de passerelle de sortie du réseau. Pour la
+      résolution des noms de domaines, le service <acronym>DHCP</acronym> doit
+      fournir au moins une adresse IP de serveur <acronym>DNS</acronym>.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='config.interface.wlan.gloss.ds'>
+      <term><wordasword>Distribution System</wordasword></term>
+      <term>DS</term>
+      <listitem>
+      <para>Dans le standard IEEE 802.11, l'acronyme <acronym>DS</acronym>
+      qualifie l'infrastructure filaire de connexion des points d'accès. Dans
+      les réseaux sans-fils contemporains, cette infrastructure relie tous les
+      points d'accès à des commutateurs dédiés chargés du contrôle de la
+      couverture radio en fonction de l'évolution dynamique des conditions de
+      propagation : taux d'occupation des bâtiments, nombre de stations,
+      interférences, détection de points d'accès étrangers, etc.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='config.interface.wlan.gloss.mac'>
+      <term><wordasword>Media Access Control</wordasword></term>
+      <term>MAC</term>
+      <term>Adresse MAC</term>
+      <listitem>
+	<para>Dans un premier temps, cet acronyme désigne la sous-couche la
+	plus basse de la couche liaison de données du modèle contemporain (Voir
+	<xref linkend='config.interface.wlan.refer.models'/>). Sa définition a
+	est donnée dans les standards IEEE 802. Cette sous-couche est
+	placée au dessus de la couche physique. Elle est responsable de la
+	délimitation de la suite de bits en une trame sans erreur.</para>
+
+	<para>Dans un deuxième temps, l'acronyme désigne aussi de format
+	d'adressage utilisé dans la trame. Une adresse <acronym>MAC</acronym>
+	est constituée de six octets notés en hexadécimal séparés par deux
+	points. On retrouve ce type d'adresses principalement dans les réseaux
+	Ethernet IEEE 802.3 et sans fils IEEE 802.11.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='config.interface.wlan.gloss.probe'>
+      <term><wordasword>probe</wordasword></term>
+      <term><wordasword>probe request</wordasword></term>
+      <term><wordasword>probe response</wordasword></term>
+      <listitem>
+	<para>Les trames de type <wordasword>probe</wordasword> sont utilisées
+	par les stations lorsqu'elles veulent connaître les caractéristiques
+	d'un point d'accès visible depuis leur interface Wi-Fi en vue d'une
+	association. Les trames de requête (<wordasword>probe
+	request</wordasword>) sont généralement émises sur tous les canaux en
+	utilisant un identifiant <xref
+	linkend='config.interface.wlan.gloss.ssid'/> recherché et en donnant la
+	liste des modes d'authentification et des débits supportés. Le point
+	d'accès sollicité réponds (<wordasword>probe response</wordasword>)
+	alors en renvoyant une trames contenant les mêmes informations
+	indiquant ce qu'il supporte de son côté.</para>
+
+	<para>Cet échange de trames <wordasword>probe
+	request</wordasword> / <wordasword>probe response</wordasword> est
+	un préalable à toute association.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='config.interface.wlan.gloss.ssid'>
+      <term><wordasword>Service Set IDentifier</wordasword></term>
+      <term>SSID</term>
+      <term>BSS</term>
+      <term>ESS</term>
+      <term>ESSID</term>
+      <listitem>
+	<para>Le premier acronyme désigne le nom de l'infrastructure réseau
+	auquel une interface appartient. Ce nom est une chaîne de 32 caractères
+	maximum. Comme une infrastructure de réseau sans fil constitue un
+	«ensemble de services», on a baptisé l'identification de cette
+	infrastructure : <wordasword>Service Set
+	IDentifier</wordasword>.</para>
+
+	<para>Les deux acronymes suivants sont relatifs au type
+	d'infrastructure. Par définition, une infrastructure de type
+	<wordasword>Basic Service Set</wordasword> ne comprend qu'un <link
+	linkend='config.interface.wlan.gloss.ap'>point d'accès
+	(<acronym>AP</acronym>)</link> qui gère seul les <link
+	linkend='config.interface.wlan.gloss.sta'>stations
+	(<acronym>STA</acronym>)</link> présentes dans la zone de couverture
+	radio. En réalisant une interconnexion des points d'accès via un réseau
+	filaire, on obtient une infrastructure de type <wordasword>Extended
+	Service Set</wordasword>.</para>
+
+	<para>Enfin, la commande <link
+	linkend='config.interface.wlan.wireless-tools.iwconfig'><command>iwconfig</command></link>
+	fait apparaître l'acronyme <acronym>ESSID</acronym> qui identifie le
+	nom de l'infrastructure quel que soit son type.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='config.interface.wlan.gloss.sta'>
+      <term><wordasword>Station</wordasword></term>
+      <term>STA</term>
+      <listitem>
+      <para>Dans le standard IEEE 802.11, une station est un hôte du
+      réseau sans-fil. Un hôte doit être authentifié et associé à un <link
+      linkend='config.interface.wlan.gloss.ap'>point d'accès</link> pour
+      accéder aux autres réseaux (généralement l'Internet).</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='config.interface.wlan.gloss.supplicant'>
+      <term><wordasword>supplicant</wordasword></term>
+      <listitem>
+      <para>Le terme <wordasword>supplicant</wordasword> est utilisé dans le
+      standard IEEE 802.1X pour désigner un hôte de segment réseau point à
+      point qui cherche à s'authentifier auprès d'un service d'authentification
+      (<wordasword>authenticator</wordasword>). Ce service d'authentification
+      est situé à l'autre extrémité de la liaison point à point. Dans la
+      pratique, le <wordasword>supplicant</wordasword> est un logiciel installé
+      sur le poste utilisateur. Le système d'exploitation de l'utilisateur
+      lance ce logiciel qui soumet ses paramètres (clés, certificats, mot de
+      passe, etc.) pour accéder à un réseau sécurisé. Lorsque
+      l'authentification est validée, le service
+      <wordasword>authenticator</wordasword> doit connecter le poste
+      utilisateur au réseau.</para> 
+      <para>Sur les systèmes GNU/Linux, le logiciel de référence est :
+      &url.wpasupplicant;.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+</article>

@@ -8,7 +8,8 @@ ABSTRACT_FILE = transform_output/abstract.xml
 SUBDIRS = \
 	images \
 	infra.tp \
-	if-lan.qa \
+	config.interface.lan \
+	config.interface.wlan \
 	intro.analyse \
 	interco.kernel.qa \
 	interco.kernel.q \
@@ -30,6 +31,7 @@ XML_FILES = \
 	biblio-travaux_pratiques.xml \
 	infra.tp/$(ABSTRACT_FILE) \
 	config.interface.lan/$(ABSTRACT_FILE) \
+	config.interface.wlan/$(ABSTRACT_FILE) \
 	intro.analyse/$(ABSTRACT_FILE) \
 	interco.kernel.q/$(ABSTRACT_FILE) \
 	interco.rawip.q/$(ABSTRACT_FILE) \
