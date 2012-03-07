@@ -30,6 +30,9 @@
 
 <xsl:import href="&db_xsl_path;/xhtml-1_1/chunk.xsl"/>
 
+<!-- highlight templates -->
+<xsl:import href="&db_xsl_path;/xhtml-1_1/highlight.xsl"/>
+
 <!--###################################################
                      Custom Settings
     ################################################### -->   
@@ -62,6 +65,8 @@
 <!--###################################################
                      HTML Settings
     ################################################### -->   
+    <xsl:param name="highlight.source" select="1" />
+    <xsl:param name="highlight.default.language" />
 
     <xsl:param name="use.id.as.filename" select="1" />
     <xsl:param name="html.stylesheet">inetdoc.css</xsl:param>

@@ -31,6 +31,7 @@
   xmlns:d="http://docbook.org/ns/docbook" exclude-result-prefixes="d">
                 
 <xsl:import href="&db_xsl_path;/fo/docbook.xsl"/>
+<xsl:import href="&db_xsl_path;/fo/highlight.xsl"/>
 
 <!--###################################################
                    Custom Settings
@@ -76,6 +77,9 @@
 
     <!-- Line height in body text -->
     <xsl:param name="line-height">1.15</xsl:param>
+
+    <xsl:param name="highlight.source" select="1"></xsl:param>
+    <xsl:param name="highlight.default.language"></xsl:param>
 
     <!-- Monospaced fonts are smaller than regular text -->
     <xsl:attribute-set name="monospace.properties">
