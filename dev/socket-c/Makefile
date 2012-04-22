@@ -19,7 +19,8 @@ XML_FILES = \
         author.xml \
         legal.xml \
 	inetdoc.urls.xml \
-	$(wildcard files/*.c)
+	$(wildcard files/*.c) \
+	$(wildcard images/*.odg)
 
 all: $(PROCESS)
 

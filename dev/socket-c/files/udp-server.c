@@ -46,12 +46,6 @@ int main()
     exit(EXIT_FAILURE);
   }
 
-  // Attente des requêtes des clients.
-  // C'est un appel non bloquant ; c'est-à-dire qu'il enregistre ce programme
-  // auprès du système comme devant attendre des connexions sur ce socket avec
-  // cette tâche. Ensuite, l'exécution se poursuit.
-  listen(listenSocket, 5);
-  
   printf("Attente de requête sur le port %hu\n", listenPort);
 
   while (1) {
