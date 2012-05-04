@@ -7,7 +7,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
 	reseau \
-	admin-sys-standalone \
+	sysadm-base \
 	interco-lan-wan \
 	security
 
@@ -17,7 +17,7 @@ PROCESS = subdirs xml2xhtml xml2pdf
 XML_FILES = \
 	biblio-formations.xml \
 	reseau/$(ABSTRACT_FILE) \
-	admin-sys-standalone/$(ABSTRACT_FILE) \
+	sysadm-base/$(ABSTRACT_FILE) \
 	interco-lan-wan/$(ABSTRACT_FILE) \
 	security/$(ABSTRACT_FILE)
 
