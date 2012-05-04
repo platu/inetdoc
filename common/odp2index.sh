@@ -17,7 +17,7 @@ EOF
 for file in `ls $1-*[0-9].png`; do \
 cat >> "$2" <<-EOF
 <a href='`basename $file .png`.html'>
-<img src='`basename $file .png`.idx.png' width='200' height='150'
+<img src='`basename $file .png`.idx.png' width='200'
      alt='Page `echo $file |sed 's/[-,a-z,A-Z,.]*//g'`' />
 </a>
 EOF

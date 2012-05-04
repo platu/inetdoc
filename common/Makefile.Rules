@@ -178,6 +178,14 @@ ifndef ODP_FILES
 ODP_FILES	:= $(wildcard *.odp)
 endif
 
+ifndef geometry
+geometry	= 800x600
+endif
+
+ifndef thumb-geometry
+thumb-geometry	= 200x150
+endif
+
 BASENAME = $(basename $(firstword $(ODP_FILES)))
 
 odp2xhtml: \
@@ -185,9 +193,9 @@ odp2xhtml: \
 	$(STYLESHEET).css \
 	$(MAIN_DIR)/odp/$(BASENAME).odp \
 	$(MAIN_DIR)/pdf/$(BASENAME).pdf \
-	$(OUTPUT)/$(BASENAME)-01.ppm \
-	$(BASENAME)-01.idx.png \
-	$(BASENAME)-01.png \
+	$(OUTPUT)/$(BASENAME)-00.png \
+	$(BASENAME)-00.idx.png \
+	$(BASENAME)-00.png \
 	index.html
 
 $(MAIN_DIR)/odp/$(BASENAME).odp: $(BASENAME).odp
@@ -197,29 +205,26 @@ $(MAIN_DIR)/pdf/%.pdf: %.odp
 	@if [ -z $(libreoffice) ]; then echo 'libreoffice indisponible'; exit 1; fi
 	@if [ ! -f $(HOME)/bin/DocumentConverter.py ]; then echo 'script de conversion PDF indisponible'; exit 1; fi
 	# Génération du fichier imprimable PDF
-	@$(libreoffice) -headless -nofirststartwizard -nologo -norestore -accept="socket,port=8100;urp;" &
-	@sleep 5s
-	@python $(HOME)/bin/DocumentConverter.py $? $@
-	@killall soffice
+	@$(libreoffice) --headless --invisible --convert-to pdf -outdir $(MAIN_DIR)/pdf $?
 
-$(OUTPUT)/$(BASENAME)-01.ppm: $(MAIN_DIR)/pdf/$(BASENAME).pdf
+$(OUTPUT)/$(BASENAME)-00.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf
 	# Génération d'un fichier image par vue
 	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
-	@pdftoppm $? $(OUTPUT)/$(BASENAME)
+	@convert -density 720 $? -resample 150 $(OUTPUT)/$(BASENAME)-%02d.png
 
-$(BASENAME)-01.idx.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(OUTPUT)/$(BASENAME)-01.ppm
+$(BASENAME)-00.idx.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(OUTPUT)/$(BASENAME)-00.png
 	# Génération d'une vignette par vue
-	@for file in `ls $(OUTPUT)/*.ppm`; do \
-		convert -thumbnail 200x150 $$file `basename $$file .ppm`.idx.png ;\
+	@for file in `ls $(OUTPUT)/*.png`; do \
+		convert -quality 95 -thumbnail $(thumb-geometry) $$file `basename $$file .png`.idx.png ;\
 	done
 
-$(BASENAME)-01.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(OUTPUT)/$(BASENAME)-01.ppm
+$(BASENAME)-00.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(OUTPUT)/$(BASENAME)-00.png
 	# Génération d'une image par vue
-	@for file in `ls $(OUTPUT)/*.ppm`; do \
-		convert -resize 800x600 $$file `basename $$file .ppm`.png ;\
+	@for file in `ls $(OUTPUT)/*.png`; do \
+		convert -quality 95 -resize $(geometry) $$file `basename $$file .png`.png ;\
 	done
 
-index.html: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(BASENAME)-01.idx.png $(BASENAME)-01.png
+index.html: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(BASENAME)-00.idx.png $(BASENAME)-00.png
 	@rm -rf *.html $(OUTPUT)/*.html
 	# Formatage XHTML de la page d'index
 	$(MAIN_DIR)/common/odp2index.sh $(BASENAME) $(OUTPUT)/$@.tmp
