@@ -3,13 +3,11 @@ MAIN_DIR = $(HOME)/inetdoc
 endif
 
 # Type(s) de traitement
-PROCESS = xml2xhtml xml2pdf
+PROCESS = odp2xhtml
 
-XML_FILES = lartc.xml
+geometry = 1067x600
+thumb-geometry = 267x150
 
-all: $(PROCESS) lartc.html
+all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
-
-lartc.html: index.html
-	ln -s $< $@
