@@ -8,6 +8,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 SUBDIRS = \
 	sysadm-base-1 \
 	sysadm-base-2 \
+	sysadm-base-3 \
 	stockage-reseau \
 	network-filesystems
 
