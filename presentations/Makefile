@@ -9,6 +9,7 @@ SUBDIRS = \
 	sysadm-base-1 \
 	sysadm-base-2 \
 	sysadm-base-3 \
+	sysadm-base-4 \
 	stockage-reseau \
 	network-filesystems
 
