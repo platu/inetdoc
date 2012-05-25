@@ -10,6 +10,7 @@ SUBDIRS = \
 	infosecconcepts \
 	dynamips-dynagen \
 	devmgmt \
+	ssh-ios \
 	modelisation \
 	wireshark-as-user \
 	rnis \
@@ -29,6 +30,7 @@ XML_FILES = \
 	infosecconcepts/$(ABSTRACT_FILE) \
 	dynamips-dynagen/$(ABSTRACT_FILE) \
 	devmgmt/$(ABSTRACT_FILE) \
+	ssh-ios/$(ABSTRACT_FILE) \
 	modelisation/$(ABSTRACT_FILE) \
 	wireshark-as-user/$(ABSTRACT_FILE) \
 	rnis/$(ABSTRACT_FILE) \
