@@ -1,0 +1,74 @@
+TITLE: Compte utilisateur local &#38; accès SSH sur un équipement Cisco
+AUTHOR: Philippe Latu
+DATE: vendredi 25 mai 2012, 17:21:00 (UTC+0200)
+DESC: 
+FORMAT: raw
+-----
+BODY:
+<p>Les équipements réseau Cisco disposent d'un mode d'authentification minimal
+avec plusieurs niveaux de «privilèges». Historiquement, les deux niveaux
+couramment utilisés sont le premier et le dernier. Le niveau 1, baptisé <i>User
+EXEC mode</i>, est comparable à l'utilisateur normal d'un système GNU/Linux. Il
+ne donne accès qu'à la consultation d'informations telles que l'état des
+interfaces ou la table de routage. Le niveau 15, baptisé <i>Privileged EXEC
+mode</i>, est comparable au super utilisateur d'un même système GNU/Linux.</p>
+
+<p>Comme les capacités d'un équipement réseau en matière d'usages multimédias
+sur l'Internet sont pour le moins limitées, l'utilisation du compte utilisateur
+normal ne présente pratiquement aucun intérêt. Si on se connecte à un
+équipement, c'est fatalement pour effectuer une opération de configuration qui
+nécessite des droits étendus sur le système. Voici donc la liste des commandes
+à implanter pour accéder directement au niveau <i>Privileged EXEC mode</i> tout
+en chiffrant les communications à l'aide du protocole <tt>SSH</tt>.</p>
+
+<pre>! Activation du modèle d'authentification AAA
+<b>aaa new-model</b>
+
+! Création de la liste d'authentification par défaut.
+! Elle est appliquée automatiquement à toutes les interfaces.
+! Elle utilise les comptes utilisateurs définis localement.
+<b>aaa authentication login default local</b>
+
+! Définition de la base locale comme source d'information
+! sur les autorisations.
+<b>aaa authorization exec default local</b>
+
+! Création du compte utilisateur local avec les droits étendus.
+<b>username <i>myusername</i> privilege 15 secret <i>mysecretpassword</i></b>
+
+! Définition du nom de domaine nécessaire pour la génération
+! des clés SSH
+<b>ip domain name my-own.lab</b>
+
+! Génération des clés SSH
+<b>crypto key generate rsa label SSH-KEY modulus 4096</b>
+
+! Paramétrage du protocole SSH
+! . version 2
+<b>ip ssh version 2</b>
+! . temps d'attente maximum pendant l'établissement de la connexion
+<b>ip ssh time-out 60</b>
+! . nombre maximum de tentatives de connexion avant réinitialisation
+!   de l'interface
+<b>ip ssh authentication-retries 4</b>
+
+! Paramétrage interface d'accès console
+! . déconnexion automatique après 5 minutes d'inactivité
+! . entrée directe au niveau super utilisateur
+! . synchronisation des messages système et de la journalisation
+<b>line con 0
+ exec-timeout 5
+ privilege level 15
+ logging synchronous</b>
+
+! Paramétrage interface d'accès distant
+! . déconnexion automatique après 5 minutes d'inactivité
+! . accès via le protocole SSH uniquement
+<b>line vty 0 4
+ exec-timeout 5 0
+ transport input ssh</b>
+</pre>
+
+<p>Voilà pour ce billet sur le mode pense-bête dont le code peut être
+copié/collé facilement.</p>
+END-----
