@@ -59,7 +59,7 @@
     <xsl:param name="generate.index" select="1"/>
     <xsl:param name="make.index.markup" select="0"/>
 
-    <!-- images rendering tests -->
+    <!-- images -->
     <xsl:param name="use.svg" select="1"/>
     <xsl:param name="use.role.for.mediaobject" select="1"/>
 
