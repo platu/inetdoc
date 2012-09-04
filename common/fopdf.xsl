@@ -44,9 +44,13 @@
     <xsl:param name="ulink.footnotes" select="1" />
 
     <!-- <?custom-pagebreak?> inserts a page break at this point -->
-
     <xsl:template match="processing-instruction('custom-pagebreak')">
       <fo:block break-before='page'/>
+    </xsl:template>
+
+    <!-- <?custom-linebreak?> inserts a line break at this point -->
+    <xsl:template match="processing-instruction('custom-linebreak')">
+      <fo:block space-after.optimum="3pt" />
     </xsl:template>
 
     <xsl:attribute-set name="xref.properties">
@@ -161,7 +165,7 @@
             <fo:block color="#333" text-align="left"
 		      font-family="DejaVuSans" font-weight="bold" padding="3pt"
                       margin-top="6pt">
-              <xsl:value-of select="d:info/d:abstract"/> 
+              <xsl:value-of select="d:info/d:abstract"/>
             </fo:block>
           </xsl:when>
         </xsl:choose>

@@ -13,11 +13,21 @@ SYMLINKS = \
         $(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
-	sysadm-base.xml \
+	sysadm-net.xml \
         author.xml \
         legal.xml \
         inetdoc.urls.xml
+#	seance1.abstract.xml \
+#	seance2.abstract.xml \
+#	seance3.abstract.xml \
+#	seance4.abstract.xml \
+#	seance5.abstract.xml \
+#	seance6.abstract.xml \
 
 all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
+
+seance1.abstract.xml: $(MAIN_DIR)/guides/linux.networking/$(ABSTRACT_FILE)
+	ln -s $< $@
+

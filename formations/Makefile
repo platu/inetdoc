@@ -8,6 +8,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 SUBDIRS = \
 	reseau \
 	sysadm-base \
+	sysadm-net \
 	interco-lan-wan \
 	security
 
@@ -18,6 +19,7 @@ XML_FILES = \
 	biblio-formations.xml \
 	reseau/$(ABSTRACT_FILE) \
 	sysadm-base/$(ABSTRACT_FILE) \
+	sysadm-net/$(ABSTRACT_FILE) \
 	interco-lan-wan/$(ABSTRACT_FILE) \
 	security/$(ABSTRACT_FILE)
 
