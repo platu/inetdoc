@@ -1,0 +1,1716 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.bonding
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.linuxfoundation.org/collaborate/workgroups/networking/bonding">
+   <citetitle>bonding</citetitle></link>'>
+
+<!ENTITY url.etherchannel
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.cisco.com/en/US/tech/tk389/tk213/technologies_white_paper09186a0080092944.shtml">
+   <citetitle>etherchannel</citetitle></link>'>
+
+<!ENTITY url.multipath
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://sources.redhat.com/lvm2/wiki/MultipathUsageGuide">
+   <citetitle>multipath</citetitle></link>'>
+
+<!ENTITY url.open-iscsi
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.open-iscsi.org/">
+   <citetitle>Open-iSCSI</citetitle></link>'>
+
+<!ENTITY url.iscsitarget
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://iscsitarget.sourceforge.net/">
+   <citetitle>iSCSI Enterprise Target</citetitle></link>'>
+
+<!ENTITY url.ext4howto
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://ext4.wiki.kernel.org/index.php/Ext4_Howto">
+   <citetitle>Ext4 Howto</citetitle></link>'>
+
+<!ENTITY url.moduleassistant
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://wiki.debian.org/fr/ModuleAssistant">
+   <citetitle>Module-Assistant</citetitle></link>'>
+
+<!ENTITY url.iscsi.debian.wiki
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://wiki.debian.org/iSCSI">
+   <citetitle>iSCSI and Debian</citetitle></link>'>
+
+<!ENTITY url.iscsi.linux-mag.introduction
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.linux-mag.com/id/7605/">
+   <citetitle>Introduction to iSCSI</citetitle></link>'>
+
+<!ENTITY url.iscsi.unixgarden
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.unixgarden.com/index.php/administration-reseau/le-support-du-protocole-iscsi-dans-linux">
+   <citetitle>Le support du protocole iSCSI dans Linux</citetitle></link>'>
+
+<!ENTITY url.iscsi.sync_page_range
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://sourceforge.net/mailarchive/message.php&#63;msg_name=E2BB8074E5500C42984D980D4BD78EF9029E41AF&#37;40MFG-NYC-EXCH2.mfg.prv">
+   <filename>file-io.c</filename></link>'>
+
+<!ENTITY url.sparse_file
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.wikipedia.org/wiki/Sparse_file">
+   <citetitle>Sparse file</citetitle></link>'>
+]>
+
+<article xml:id='sysadm-net.iscsi.qa' xml:lang='fr'>
+
+<info>
+  <title>Introduction au réseau de stockage iSCSI</title>
+
+  &author;
+  <abstract>
+    <para>Ce support de travaux pratiques est consacré à l'étude d'une
+    infrastructure de stockage illustrant les technologies DAS (Direct Attached
+    Storage), SAN (Storage Area Network) et la redondance de niveau 1 (RAID1).
+    La technologie iSCSI est utilisée pour la partie SAN, c'est un exemple
+    d'accès «en mode bloc» aux unités de stockage réseau. La redondance de
+    niveau 1 utilise les fonctions intégrées au noyau Linux. L'infrastructure
+    proposée montre comment les différentes technologies élémentaires peuvent
+    être combinées pour atteindre les objectifs de haute disponibilité et de
+    sauvegarde.</para>
+  </abstract>
+
+  <keywordset>
+    <keyword>DAS</keyword>
+    <keyword>debian</keyword>
+    <keyword>dkms</keyword>
+    <keyword>iscsi</keyword>
+    <keyword>initiator</keyword>
+    <keyword>linux</keyword>
+    <keyword>mdadm</keyword>
+    <keyword>RAID</keyword>
+    <keyword>SAN</keyword>
+    <keyword>target</keyword>
+  </keywordset>
+</info>
+
+<sect1 xml:id='sysadm-net.iscsi.qa.legal.meta'>
+  &legal;
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.meta'>
+    <title>Méta-information</title>
+    
+  <para>Ce document est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </sect2>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super-utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.iscsi.qa.affectation'>
+  <title>Adressage IP des postes de travail</title>
+
+  <para>À partir de l'infrastructure proposée dans la <link
+  linkend='sysadm-net.iscsi.qa.topology'>section suivante</link>, on constitue
+  des couples de postes de travail qui vont partager le même domaine de
+  diffusion durant la séance de travaux pratiques.</para>
+
+  <para>Ces opérations de réaffectation du plan d'adressage
+  <acronym>IP</acronym> sont répétées à chaque début de séance de travaux
+  pratiques. Elles s'appuient sur les indications données dans le document
+  &url.infra.tp;.</para>
+
+  <table frame='all' pgwide='1'>
+    <title>Affectation des adresses et des réseaux IP</title>
+    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+    <thead>
+      <row>
+      <entry> Poste 1</entry>
+      <entry> Poste 2</entry>
+      <entry> Passerelle par défaut</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry>alderaan</entry>
+      <entry>bespin</entry>
+      <entry><systemitem class='ipaddress'>10.4.4.1/23</systemitem></entry>
+      </row>
+      <row>
+      <entry>centares</entry>
+      <entry>coruscant</entry>
+      <entry><systemitem class='ipaddress'>192.168.109.1/25</systemitem></entry>
+      </row>
+      <row>
+      <entry>dagobah</entry>
+      <entry>endor</entry>
+      <entry><systemitem class='ipaddress'>10.0.117.1/27</systemitem></entry>
+      </row>
+      <row>
+      <entry>felucia</entry>
+      <entry>geonosis</entry>
+      <entry><systemitem class='ipaddress'>10.7.10.1/23</systemitem></entry>
+      </row>
+      <row>
+      <entry>hoth</entry>
+      <entry>mustafar</entry>
+      <entry><systemitem class='ipaddress'>172.19.112.1/26</systemitem></entry>
+      </row>
+      <row>
+      <entry>naboo</entry>
+      <entry>tatooine</entry>
+      <entry><systemitem class='ipaddress'>192.168.111.1/25</systemitem></entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+
+  <para>Une fois la passerelle du réseau IP affecté à chaque paire de postes de
+  travaux pratiques, il faut rechercher dans le document &url.infra.tp; les
+  éléments nécessaires à la connexion physique de ces postes. Les étapes
+  usuelles sont les suivantes :</para>
+
+  <orderedlist>
+    <listitem>
+    <para>Attribuer une adresse IP à chacun des postes en fonction de l'espace
+    d'adressage du réseau défini.</para>
+    </listitem>
+    <listitem>
+    <para>Rechercher le numéro de VLAN correspondant au réseau IP
+    attribué.</para>
+    </listitem>
+    <listitem>
+    <para>Repérer le commutateur sur lequel des ports ont été affectés au VLAN
+    recherché. Connecter les deux postes de travaux pratiques sur les ports
+    identifiés.</para>
+    </listitem>
+    <listitem>
+    <para>Configurer les interfaces réseau de chaque poste : adresse,
+    masque et passerelle par défaut. Valider la connectivité IP entre les deux
+    postes puis avec les autres réseaux de l'infrastructure de travaux
+    pratiques.</para>
+    </listitem>
+  </orderedlist>
+</sect1>
+
+<sect1 xml:id='sysadm-net.iscsi.qa.topology'>
+  <title>Technologie iSCSI et topologie de travaux pratiques</title>
+    
+  <para>Cette section présente sommairement la technologie
+  <acronym>iSCSI</acronym> et a pour but d'attribuer les rôles et les tâches de
+  chacun des postes de travaux pratiques en fonction de la topologie mise en
+  œuvre. Ce support de travaux pratiques fait suite à la présentation sur le
+  &url.storage; utilisée en cours.</para>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.topology.techno'>
+    <title>Bases de la technologie iSCSI</title>
+
+  <mediaobject>
+    <imageobject>
+    <imagedata fileref='images/topologie-iscsi.png' format='PNG' contentwidth='15cm' width='15.5cm'/>
+    </imageobject>
+    <textobject>
+    <phrase>Topologie iSCSI basique</phrase>
+    </textobject>
+    <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.inetdoc.net/travaux_pratiques/sysadm-net.iscsi.qa/images/topologie-iscsi.png'>
+    Topologie iSCSI basique - vue complète</link></para>
+    </caption>
+  </mediaobject>
+
+  <para>La technologie <acronym>iSCSI</acronym> dont l'acronyme reprend la
+  définition historique <wordasword>Internet Small Computer System
+  Interface</wordasword> est un protocole réseau de stockage basé sur le modèle
+  <acronym>TCP/IP</acronym>. Le principe de base consiste à encapsuler des
+  commandes <acronym>SCSI</acronym> dans des paquets <acronym>IP</acronym>
+  transmis entre un hôte et une unité de disque. Comme les paquets
+  <acronym>IP</acronym> peuvent être perdus (et|ou) retransmis, ils peuvent
+  très bien ne pas arriver dans l'ordre d'émission. Le protocole
+  <acronym>iSCSI</acronym> doit donc conserver une trace de la séquence de
+  transmission de commandes <acronym>SCSI</acronym>. Les commandes sont placées
+  dans une file d'attente dans l'ordre d'émission.</para>
+
+  <para>La technologie <acronym>iSCSI</acronym> a initialement été développée
+  par <citetitle>IBM</citetitle> et a ensuite été soumise à
+  l'<acronym>IETF</acronym> (<wordasword>Internet Engineering Task
+  Force</wordasword>). Le standard a été publié par le comité <wordasword>IP
+  Storage Working Group</wordasword> en août 2002.</para>
+
+  <para>On peut identifier deux fonctions principales dans la technologie
+  <acronym>iSCSI</acronym>. La première est la fonction
+  <wordasword>target</wordasword>. C'est un système simple qui contient l'unité
+  de disque. Ce système peut être matériel ou logiciel. Dans le cas de ces
+  travaux pratiques, il s'agit d'un poste de travail utilisant son second
+  disque dur comme unité de stockage <acronym>SAN</acronym>. La seconde
+  fonction est baptisée <wordasword>initiator</wordasword>. Elle correspond au
+  «client» qui utilise l'unité de stockage réseau. Ici, l'autre poste de
+  travaux pratiques joue ce rôle de client.</para>
+
+  <para>Fondamentalement, <acronym>iSCSI</acronym> est un protocole de la
+  famille <wordasword>Storage Area Network</wordasword>
+  (<acronym>SAN</acronym>). Le client ou <wordasword>initiator</wordasword>
+  accède à une unité de stockage en <emphasis>mode bloc</emphasis>. Ce mode de
+  fonctionnement est quasi identique à la technologie <wordasword>Fibre
+  Channel</wordasword>. Le type de réseau constitue la principale différence
+  entre ces deux technologies. La technologie <acronym>iSCSI</acronym> s'appuie
+  sur <acronym>TCP/IP</acronym> alors que <wordasword>Fibre
+  Channel</wordasword> comprend une définition de réseau propre
+  (<acronym>FC</acronym>) qui nécessite des équipements spécifiques.</para>
+
+  <para>Ces dernières années, la technologie <acronym>iSCSI</acronym> gagne en
+  popularité relativement à son ainée pour plusieurs raisons.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Le prix des configurations <acronym>iSCSI</acronym> peut être bien
+    meilleur marché qu'avec la technologie <wordasword>Fibre
+    Channel</wordasword>. Si les performances d'un réseau au Gigabit Ethernet
+    suffisent, un réseau de stockage <acronym>iSCSI</acronym> devient très
+    attractif.</para>
+
+    <para>Attention cependant à bien identifier quand d'autres techniques sont
+    associées à <acronym>iSCSI</acronym> pour accroître les débits réseau et
+    donc les performances du stockage. Dans ces techniques complémentaires on
+    trouve l'agrégation de canaux baptisée &url.bonding; sur les systèmes
+    GNU/Linux et &url.etherchannel; sur les équipements
+    <citetitle>Cisco</citetitle>. Sous ces deux dénominations différentes se
+    cache un même standard : l'IEEE 802.3ad <wordasword>Dynamic link
+    aggregation</wordasword> qui rend l'utilisation de cette technique
+    totalement transparente entre équipements hétérogènes. En appliquant ce
+    principe d'agrégation de canaux, on peut pratiquement assimiler les
+    performances de quatre liens Gigabit Ethernet à celles d'un lien
+    <wordasword>Fibre Channel</wordasword>. Une autre technique consiste à
+    utiliser aussi plusieurs liens dans une optique et redondance et de balance
+    de charge. Elle est appelée &url.multipath;.</para>
+    </listitem>
+    <listitem>
+    <para>L'utilisation d'une technologie réseau unique est nettement moins
+    complexe à administrer. En effet, on optimise les coûts, les temps de
+    formation et d'exploitation en utilisant une architecture de commutation
+    homogène. C'est un des avantages majeurs de la technologie Ethernet sur ses
+    concurrentes.</para>
+    </listitem>
+    <listitem>
+    <para>Au début de son exploitation, le coût d'un réseau 10 Gigabit Ethernet
+    est prohibitif relativement à toutes les autres solutions. On peut espérer
+    que le coût d'acquisition des équipements 10GigE suivra le même profil que
+    pour les débits antérieurs et que ces réseaux vont se démocratiser. Du
+    point de vue hôte, le point déterminant est l'uniformisation de l'interface
+    réseau. En effet, avec une interface 10GigE on ne devrait plus avoir de
+    distinction entre <acronym>NIC</acronym> et <acronym>HBA</acronym>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Aujourd'hui la technologie <acronym>iSCSI</acronym> est supportée par
+  tous les systèmes d'exploitation communs. Côté GNU/Linux, plusieurs projets
+  ont vu le jour dans les années qui ont suivi la publication du standard en
+  2002. Pour la partie <wordasword>initiator</wordasword> les développements
+  des deux projets phares ont fusionné pour ne plus fournir qu'un seul code
+  source ; celui disponible à l'adresse &url.open-iscsi;. La partie
+  <wordasword>target</wordasword> a suivi un processus analogue et le code
+  source est disponible à l'adresse &url.iscsitarget;. On peut simplement
+  regretter que la partie <wordasword>Kernelspace</wordasword> n'ait pas encore
+  été intégrée dans l'arborescence principale du noyau Linux. La mise en œuvre
+  du rôle <wordasword>target</wordasword> nécessite donc des manipulations
+  spécifiques pour compiler les modules si le système d'exploitation ne fournit
+  pas le service <acronym>DKMS</acronym> (<wordasword>Dynamic Kernel Module
+  Support</wordasword>).</para> 
+
+  <para>On retrouve tous les éléments utiles sous forme de paquets dans la
+  distribution Debian GNU/Linux.</para>
+
+<screen width='80'><prompt>$</prompt> aptitude search iscsi
+p   iscsitarget       - iSCSI Enterprise Target userland tools
+p   iscsitarget-dkms  - iSCSI Enterprise Target kernel module source - dkms version
+p   libiscsi-bin      - iSCSI client shared library - utilities
+p   libiscsi-dev      - iSCSI client shared library
+p   libiscsi1         - iSCSI client shared library
+p   open-iscsi        - High performance, transport independent iSCSI implementation</screen>
+  </sect2>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.topology.infrastructure'>
+    <title>Infrastructure de stockage étudiée</title>
+
+  <para>Le séquencement des opérations à réaliser lors de la séance de travaux
+  pratiques est décrit dans le tableau ci-dessous. Les deux postes occupent
+  chacun un rôle distinct. Comme le rôle <wordasword>initiator</wordasword>
+  demande moins de travail de préparation, c'est à ce poste que l'on confie les
+  essais des outils de <wordasword>micro-benchmark</wordasword>.</para>
+
+  <table frame='all' pgwide='1'>
+    <title>Attribution des rôles</title>
+    <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+    <colspec colnum='1' colname='c1' colwidth='1*'/>
+    <colspec colnum='2' colname='c2' colwidth='1*'/>
+    <thead>
+      <row>
+      <entry>Rôle <wordasword>initiator</wordasword></entry>
+      <entry>Rôle <wordasword>target</wordasword></entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry>Préparation d'une unité de stockage locale pour évaluer les
+      différences entre les accès <acronym>DAS</acronym> et
+      <acronym>SAN</acronym></entry>
+      <entry>Préparation d'une unité de stockage
+      <acronym>iSCSI</acronym></entry>
+      </row>
+      <row>
+      <entry namest='c1' nameend='c2' align='center'>Installation des
+      outils</entry>
+      </row>
+      <row>
+      <entry>Mise au point des scripts d'évaluation des performances du
+      stockage</entry>
+      <entry>Compilation et configuration des outils de déploiement d'une unité
+      de stockage <acronym>iSCSI</acronym></entry>
+      </row>
+      <row>
+      <entry namest='c1' nameend='c2' align='center'>Validation de la
+      configuration <acronym>SAN</acronym> <acronym>iSCSI</acronym></entry>
+      </row>
+      <row>
+      <entry namest='c1' nameend='c2' align='center'>Étude comparative des
+      performances</entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.iscsi.qa.storage'>
+  <title>Préparation d'une unité de stockage</title>
+
+  <para>Dans cette section on présente les manipulations à effectuer pour
+  préparer une unité de stockage à son utilisation dans une configuration
+  <acronym>DAS</acronym> (et|ou) <acronym>SAN</acronym>.</para>
+
+<warning>
+  <para>Les commandes données dans les réponses correspondent à l'utilisation
+  de machines virtuelles. Les unités de disques apparaissent donc sous le nom
+  <option>/dev/vd[a-z]</option>. Les unités de disques physiques d'un système
+  réel apparaissent sous le nom <option>/dev/sd[a-z]</option>.</para> 
+</warning>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.storage.blank'>
+    <title>Destruction de la table des partitions</title>
+
+  <para>Sachant que les disques des postes de travaux pratiques sont utilisés
+  régulièrement, il est préférable de se placer dans le contexte d'utilisation
+  d'une unité de disque vierge de tout système de fichiers.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+      <para><phrase>Quelle est la syntaxe d'appel de l'outil
+      <application>parted</application> qui permet de visualiser la table de
+      partition d'une unité de disque ?</phrase></para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> parted /dev/vda print
+Model: Virtio Block Device (virtblk)
+Disk /dev/vda: 34,4GB
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
+
+Number  Start   End     Size    Type      File system  Flags
+ 1      1049kB  256MB   255MB   primary   ext2         boot
+ 2      257MB   34,4GB  34,1GB  extended
+ 5      257MB   34,4GB  34,1GB  logical                lvm</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para><phrase>Quelle est la syntaxe de la commande <command>dd</command>
+      qui permet d'effacer complètement la table des partitions d'une unité de
+      disque ?</phrase></para>
+    </question>
+    <answer>
+    <para>La commande suivante écrit des 0 dans les 4 premiers blocs de 512 octets de l'unité de disque.</para>
+
+<screen width='80'><prompt>#</prompt> dd if=/dev/zero of=/dev/vdb bs=512 count=4
+4+0 enregistrements lus
+4+0 enregistrements écrits
+2048 octets (2,0 kB) copiés, 0,00135867 s, 1,5 MB/s
+
+<prompt>#</prompt> parted  /dev/vdb print
+Error: /dev/vdb: unrecognised disk label</screen>
+    </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.storage.setup'>
+    <title>Création de la table des partitions et formatage</title>
+
+  <para>Une fois que l'on dispose d'une unité de disque vierge, on peut passer
+  à l'étape de création de la table des partitions. Dans le contexte de ces
+  travaux pratiques, cette opération doit être effectuée deux fois sur les
+  postes de travail pour les deux types d'unité de stockage utilisées.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>Le second disque physique des postes de travail est destiné à
+    intégrer l'unité logique <acronym>RAID1</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Le disque réseau iSCSI est disponible une fois que la configuration
+    du rôle <wordasword>initiator</wordasword> est active.</para>
+    </listitem>
+  </orderedlist>
+  
+  <para>Cette manipulation est l'opération de plus bas niveau qui caractérise
+  un accès réseau au stockage en <emphasis>mode bloc</emphasis> et non en mode
+  fichier.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+      <para><phrase>Quelles sont les instructions de l'outil
+      <application>parted</application> qui permettent de créer une partition
+      primaire unique couvrant la totalité de l'espace de stockage de l'unité
+      de disque ?</phrase></para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> parted /dev/vdb
+GNU Parted 2.3
+Using /dev/vdb
+Welcome to GNU Parted! Type 'help' to view a list of commands.
+(parted) <emphasis>print</emphasis>
+Error: /dev/vdb: unrecognised disk label
+(parted) <emphasis>mklabel gpt</emphasis>
+(parted) <emphasis>print</emphasis>
+Model: Virtio Block Device (virtblk)
+Disk /dev/vdb: 85,9GB
+Sector size (logical/physical): 512B/512B
+Partition Table: gpt
+
+Number  Start  End  Size  File system  Name  Flags
+
+(parted) <emphasis>mkpart ext4 1 -1</emphasis>
+(parted) <emphasis>print</emphasis>
+Model: Virtio Block Device (virtblk)
+Disk /dev/vdb: 85,9GB
+Sector size (logical/physical): 512B/512B
+Partition Table: gpt
+
+Number  Start   End     Size    File system  Name  Flags
+ 1      1049kB  85,9GB  85,9GB  ext4         ext4
+
+(parted) quit</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para><phrase>Quelle est la syntaxe de la commande de formatage de la
+      partition créée lors de l'étape précédente ?</phrase></para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> <emphasis>mkfs.ext4 /dev/vdb1</emphasis>
+mke2fs 1.42.5 (29-Jul-2012)
+Étiquette de système de fichiers=
+Type de système d'exploitation : Linux
+Taille de bloc=4096 (log=2)
+Taille de fragment=4096 (log=2)
+« Stride » = 0 blocs, « Stripe width » = 0 blocs
+5242880 i-noeuds, 20971008 blocs
+1048550 blocs (5.00%) réservés pour le super utilisateur
+Premier bloc de données=0
+Nombre maximum de blocs du système de fichiers=4294967296
+640 groupes de blocs
+32768 blocs par groupe, 32768 fragments par groupe
+8192 i-noeuds par groupe
+Superblocs de secours stockés sur les blocs : 
+        32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208, 
+        4096000, 7962624, 11239424, 20480000
+
+Allocation des tables de groupe : complété
+Écriture des tables d'i-noeuds : complété
+Création du journal (32768 blocs) : complété
+Écriture des superblocs et de l'information de comptabilité du système de
+fichiers : complété</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para><phrase>Quelle est la syntaxe de la commande de visualisation des attributs
+      du système de fichiers créé lors du formatage ?</phrase></para>
+
+      <para>Les informations utiles sur les attributs sont fournies à la page
+      &url.ext4howto;.</para>
+    </question>
+    <answer>
+
+<screen width='80'><prompt>#</prompt> <emphasis>tune2fs -l /dev/vdb1</emphasis>
+# tune2fs -l /dev/vdb1
+tune2fs 1.42.5 (29-Jul-2012)
+Filesystem volume name:   &lt;none>
+Last mounted on:          &lt;not available>
+Filesystem UUID:          224f6aad-16c0-4923-8949-0628a8e10228
+Filesystem magic number:  0xEF53
+Filesystem revision #:    1 (dynamic)
+Filesystem features:      has_journal ext_attr resize_inode dir_index \
+                          filetype extent flex_bg sparse_super large_file \
+			  huge_file uninit_bg dir_nlink extra_isize
+Filesystem flags:         signed_directory_hash 
+Default mount options:    user_xattr acl
+Filesystem state:         clean
+Errors behavior:          Continue
+Filesystem OS type:       Linux
+Inode count:              5242880
+Block count:              20971008
+Reserved block count:     1048550
+Free blocks:              20594924
+Free inodes:              5242869
+First block:              0
+Block size:               4096
+Fragment size:            4096
+Reserved GDT blocks:      1019
+Blocks per group:         32768
+Fragments per group:      32768
+Inodes per group:         8192
+Inode blocks per group:   512
+Flex block group size:    16
+Filesystem created:       Wed Sep  5 19:25:31 2012
+Last mount time:          n/a
+Last write time:          Wed Sep  5 19:25:34 2012
+Mount count:              0
+Maximum mount count:      -1
+Last checked:             Wed Sep  5 19:25:31 2012
+Check interval:           0 (&lt;none>)
+Lifetime writes:          1412 MB
+Reserved blocks uid:      0 (user root)
+Reserved blocks gid:      0 (group root)
+First inode:              11
+Inode size:               256
+Required extra isize:     28
+Desired extra isize:      28
+Journal inode:            8
+Default directory hash:   half_md4
+Directory Hash Seed:      14e590af-337a-483a-a36f-76f97263b601
+Journal backup:           inode blocks</screen>
+    </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.iscsi.qa.initiator'>
+  <title>Configuration du système initiator</title>
+
+  <para>Dans cette partie, on prépare le système auquel on a attribué le rôle
+  <wordasword>initiator</wordasword>.</para>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.package'>
+    <title>Sélection du paquet et lancement du service</title>
+
+  <qandaset>
+    <qandaentry>
+    <question>
+      <para><phrase>Comment identifier et installer le paquet correspondant au
+      rôle <wordasword>initiator</wordasword> ?</phrase></para>
+
+      <para>En effectuant une recherche simple dans le catalogue des paquets
+      disponibles, on obtient la liste des paquets dont le nom contient la
+      chaîne de caractères <option>iscsi</option>.</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> aptitude search iscsi
+p   iscsitarget         - iSCSI Enterprise Target userland tools
+p   iscsitarget-dkms    - iSCSI Enterprise Target kernel module source - dkms version
+p   iscsitarget-source  - iSCSI Enterprise Target kernel module source
+p   open-iscsi          - High performance, transport independent iSCSI implementation</screen>
+    
+      <para>On remarque que le paquet <systemitem>open-iscsi</systemitem> est
+      le seul qui ne soit pas identifié comme appartenant à la catégorie
+      <wordasword>target</wordasword>.</para>
+
+<screen width='80'><prompt>#</prompt> aptitude install open-iscsi</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para><phrase>Comment lancer le service
+      <wordasword>initiator</wordasword> et valider son fonctionnement
+      ?</phrase></para>
+
+      <para>À partir de la liste des fichiers du paquet on peut identifier les
+      éléments de démarrage et de configuration du service.</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> dpkg -L open-iscsi
+/.
+/etc
+/etc/init.d
+<emphasis>/etc/init.d/open-iscsi</emphasis>
+/etc/init.d/umountiscsi.sh
+/etc/network
+/etc/network/if-up.d
+/etc/default
+/etc/default/open-iscsi
+/etc/iscsi
+<emphasis>/etc/iscsi/iscsid.conf</emphasis>
+/etc/iscsi/initiatorname.iscsi
+/usr
+/usr/share
+/usr/share/man
+/usr/share/man/man8
+/usr/share/man/man8/iscsiadm.8.gz
+/usr/share/man/man8/iscsid.8.gz
+/usr/share/man/man8/iscsi_discovery.8.gz
+/usr/share/man/man8/iscsistart.8.gz
+/usr/share/man/man8/iscsi-iname.8.gz
+/usr/share/initramfs-tools
+/usr/share/initramfs-tools/hooks
+/usr/share/initramfs-tools/hooks/iscsi
+/usr/share/initramfs-tools/scripts
+/usr/share/initramfs-tools/scripts/local-top
+/usr/share/initramfs-tools/scripts/local-top/iscsi
+/usr/share/doc
+/usr/share/doc/open-iscsi
+/usr/share/doc/open-iscsi/copyright
+/usr/share/doc/open-iscsi/README.Debian.gz
+/usr/share/doc/open-iscsi/README.gz
+/usr/share/doc/open-iscsi/changelog.Debian.gz
+/usr/share/doc/open-iscsi/changelog.gz
+/usr/sbin
+/usr/sbin/iscsi-iname
+/usr/sbin/iscsid
+/usr/sbin/iscsi_discovery
+/usr/sbin/iscsistart
+/usr/bin
+<emphasis>/usr/bin/iscsiadm</emphasis>
+/var
+/var/lib
+/var/lib/open-iscsi</screen>
+
+      <para>Le lancement du service se fait de façon classique à partir de
+      l'arbrescence des scripts des niveaux de démarrage
+      (<wordasword>runlevels</wordasword>).</para>
+
+<screen width='80'><prompt>#</prompt> /etc/init.d/open-iscsi restart</screen>
+
+      <para>On peut ensuite consulter les journaux système pour valider
+      l'initialisation du ou des démons.</para>
+
+<screen width='80'><prompt>#</prompt> grep -i iscsi /var/log/syslog
+2ndInitiator kernel: [50475.436562] Loading iSCSI transport class v2.0-870.
+2ndInitiator kernel: [50475.471559] iscsi: registered transport (tcp)
+2ndInitiator kernel: [50475.612327] iscsi: registered transport (iser)
+2ndInitiator iscsid: iSCSI logger with pid=6725 started!
+2ndInitiator iscsid: transport class version 2.0-870. iscsid version 2.0-871
+2ndInitiator iscsid: iSCSI daemon with pid=6726 started!</screen>
+
+      <para>On retrouve les informations correspondantes aux messages ci-dessus
+      dans la liste des processus actifs.</para>
+
+<screen width='80'><prompt>#</prompt> ps aux | grep -i iscsi
+root      6717  0.0  0.0      0     0 ?        S    01:47   0:00 [iscsi_eh]
+root      6725  0.0  0.1   4056   512 ?        Ss   01:47   0:00 /usr/sbin/iscsid
+root      6726  0.0  0.4   4548  2500 ?        S&lt;Ls 01:47   0:00 /usr/sbin/iscsid
+root      6750  0.0  0.1   9612   896 pts/0    S+   01:48   0:00 grep -i iscsi</screen>
+    </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.tests'>
+    <title>Tests de fonctionnement du service</title>
+
+  <qandaset>
+    <qandaentry>
+    <question>
+      <para>Quelle est la commande principale du rôle
+      <wordasword>initiator</wordasword> qui permet de tester la connectivité
+      <acronym>iSCSCI</acronym> ?</para>
+    </question>
+    <answer>
+      <para>En consultant la liste des fichiers du paquet
+      <systemitem>open-iscsi</systemitem> donnée ci-dessus, on ne relève qu'un
+      seul outil binaire : la commande <command>iscsiadm</command>.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelles sont les options de découverte proposées avec cette commande
+      de configuration ? Donner un exemple fournissant l'identifiant de
+      l'unité de stockage réseau accessible.</para>
+    </question>
+    <answer>
+
+<screen width='80'><prompt>#</prompt> iscsiadm -m discovery --type sendtargets --portal=192.200.0.12:3260
+192.200.0.12:3260,1 iqn.2011-04.lab.stri:1stInitiator.disk
+192.200.0.12:3260,1 iqn.2011-04.lab.stri:2ndInitiator.disk</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelles sont les options de connexion proposées avec cette même
+      commande ? Donner un exemple illustrant l'établissement d'une
+      connexion.</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> iscsiadm -m node -T iqn.2011-04.lab.stri:1stInitiator.disk -p 192.200.0.12 -l
+Logging in to [iface: default, target: iqn.2011-04.lab.stri:1stInitiator.disk, portal: 192.200.0.12,3260]
+Login to [iface: default, target: iqn.2011-04.lab.stri:1stInitiator.disk, portal: 192.200.0.12,3260]: successful</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Comment obtenir les caractéristiques de l'unité de stockage
+      <acronym>iSCSI</acronym> utilisée ?</para>
+    </question>
+    <answer>
+      <para>On peut consulter les journaux système. Voici un extrait du fichier
+      <filename>/var/log/syslog</filename>.</para>
+
+<screen width='80'><prompt>#</prompt> egrep '(sd|scsi)' /var/log/syslog
+1stInitiator kernel: [51051.744035] iscsi: registered transport (tcp)
+1stInitiator kernel: [51051.783694] iscsi: registered transport (iser)
+1stInitiator iscsid: iSCSI logger with pid=6546 started!
+1stInitiator iscsid: transport class version 2.0-870. iscsid version 2.0-871
+1stInitiator iscsid: iSCSI daemon with pid=6547 started!
+1stInitiator kernel: [51066.871258] scsi3 : iSCSI Initiator over TCP/IP
+1stInitiator kernel: [51067.138424] scsi 3:0:0:0: Direct-Access     IET      VIRTUAL-DISK     0    PQ: 0 ANSI: 4
+1stInitiator kernel: [51067.139571] sd 3:0:0:0: Attached scsi generic sg1 type 0
+1stInitiator kernel: [51067.144997] sd 3:0:0:0: [sda] 67108864 512-byte logical blocks: (34.3 GB/32.0 GiB)
+1stInitiator kernel: [51067.146307] sd 3:0:0:0: [sda] Write Protect is off
+1stInitiator kernel: [51067.146310] sd 3:0:0:0: [sda] Mode Sense: 77 00 00 08
+1stInitiator kernel: [51067.146965] sd 3:0:0:0: [sda] Write cache: disabled, read cache: enabled, doesn't support DPO or FUA
+1stInitiator kernel: [51067.148615]  sda: unknown partition table
+1stInitiator kernel: [51067.152320] sd 3:0:0:0: [sda] Attached SCSI disk
+1stInitiator iscsid: connection1:0 is operational now</screen>
+    </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.automatic'>
+    <title>Configuration système</title>
+
+  <para>Une fois la connexion à la ressource <acronym>iSCSI</acronym> testée,
+  on peut passer à la configuration système de façon à retrouver le volume de
+  stockage après une réinitialisation du système
+  <wordasword>initiator</wordasword>.</para>
+
+  <qandaset>
+    <qandaentry>
+    <question>
+    <para>Comment rendre la connexion à l'unité de stockage automatique lors de
+    l'initialisation du système
+    <wordasword>initiator</wordasword> ?</para>
+    </question>
+    <answer>
+    <para>Le fichier <filename>/etc/iscsi/iscsid.conf</filename> contient une
+    directive dans la section <wordasword>Startup settings</wordasword> qui
+    rend automatique l'accès à une ressource déjà enregistrée. Voici le contenu
+    de cette section extraite du fichier de configuration.</para>
+
+<screen width='80'>#*****************
+# Startup settings
+#*****************
+
+# To request that the iscsi initd scripts startup a session set to "automatic".
+node.startup = automatic</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para>Comment authentifier la connexion entre les systèmes
+    <wordasword>initiator</wordasword> et
+    <wordasword>target</wordasword> ?</para>
+    </question>
+    <answer>
+    <para>Le mécanisme d'authentification le plus communément utilisé dans le
+    déploiement des connexions <acronym>iSCSI</acronym> s'appuie sur
+    <acronym>CHAP</acronym> (<wordasword>Challenge-Handshake Authentication
+    Protocol</wordasword>. Il s'agit d'une méthode d'authentification entre
+    deux hôtes pairs sans échange de mot de passe en clair sur le réseau. Cette
+    méthode suppose que les deux hôtes utilisent le même mot de passe.</para>
+
+    <para>Le nom d'utilisateur et le mot de passe sont respectivement définis
+    dans les fichiers <filename>/etc/ietd.conf</filename> et
+    <filename>/etc/iscsi/iscsid.conf</filename> des systèmes
+    <wordasword>target</wordasword> et
+    <wordasword>initiator</wordasword>.</para>
+
+    <itemizedlist>
+      <listitem>
+      <para>Système <wordasword>target</wordasword> :</para>
+
+<screen width='80'>
+Target iqn.2010-04.lab.stri:san.disk
+        # Users, who can access this target. The same rules as for discovery
+        # users apply here.
+        # Leave them alone if you don't want to use authentication.
+        IncomingUser etu-san MyS3cr3t-54n
+&lt;snipped/></screen>
+      </listitem>
+      <listitem>
+      <para>Système <wordasword>initiator</wordasword> :</para>
+
+<screen width='80'><prompt>#</prompt> *************
+# CHAP Settings
+# *************
+
+# To enable CHAP authentication set node.session.auth.authmethod
+# to CHAP. The default is None.
+node.session.auth.authmethod = CHAP
+
+# To set a CHAP username and password for initiator
+# authentication by the target(s), uncomment the following lines:
+node.session.auth.username = etu-san
+node.session.auth.password = MyS3cr3t-54n
+</screen>
+
+      <para>Le même principe peut être appliqué au mécanisme de découverte en
+      appliquant un couple <wordasword>login/password</wordasword> identique ou
+      non à la suite de ce fichier de configuration.</para>
+      </listitem>
+    </itemizedlist>
+    </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.iscsi.qa.target'>
+  <title>Configuration du système target</title>
+
+  <para>Dans cette partie, on prépare le système auquel on a attribué le rôle
+  <wordasword>target</wordasword>. Cette préparation comprend deux
+  étapes : la construction et l'installation d'un paquet contenant le
+  module de la partie <wordasword>KernelSpace</wordasword> du service et la
+  configuration des outils de la partie <wordasword>UserSpace</wordasword> pour
+  lancer le démon <systemitem class='daemon'>ietd</systemitem>.</para>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.target.build'>
+    <title>Sélection des paquets et compilation du module</title>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+      <para><phrase>Quels sont les paquets de la distribution Debian GNU/Linux
+      qui permettent de configurer un système avec le rôle
+      <wordasword>target</wordasword> ?</phrase></para>
+
+      <para>En effectuant une recherche simple dans le catalogue des paquets
+      disponibles, on obtient la liste des paquets dont le nom contient la
+      chaîne de caractères <option>iscsi</option>.</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> aptitude search iscsi
+p   iscsitarget       - iSCSI Enterprise Target userland tools
+p   iscsitarget-dkms  - iSCSI Enterprise Target kernel module source - dkms version
+p   libiscsi-bin      - iSCSI client shared library - utilities
+p   libiscsi-dev      - iSCSI client shared library
+p   libiscsi1         - iSCSI client shared library
+p   open-iscsi        - High performance, transport independent iSCSI implementation</screen>
+    
+    <para>Dans la liste ci-dessus, on distingue deux éléments. Le premier
+    paquet : <systemitem>iscsitarget-dkms</systemitem> contient le code source
+    du module qui doit être chargé en mémoire pour faire fonctionner le
+    service. Ce module doit être compilé en fonction de la version du noyau
+    actif sur le système. La version <acronym>DKMS</acronym> associée à la
+    gestion des dépendances permet de construire automatiquement un paquet
+    correspodant à la version du noyau Linux utilisée. Le second paquet :
+    <systemitem>iscsitarget</systemitem> contient le logiciel de gestion du
+    service.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para><phrase>Quelle est la commande d'installation des paquets
+      nécessaires à la compilation des modules et à la configuration du rôle
+      <wordasword>target</wordasword> ?</phrase></para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> # aptitude install iscsitarget iscsitarget-dkms
+Les NOUVEAUX paquets suivants vont être installés : 
+  binutils{a} cpp{a} cpp-4.6{a} cpp-4.7{a} dkms{a} fakeroot{a} gcc{a}
+  gcc-4.6{a} gcc-4.6-base{a} gcc-4.7{a} iscsitarget iscsitarget-dkms
+  libc-dev-bin{a} libc6-dev{a} libgmp10{a} libgomp1{a} libitm1{a} libmpc2{a}
+  libmpfr4{a} libquadmath0{a} linux-headers-3.2.0-3-amd64{a}
+  linux-headers-3.2.0-3-common{a} linux-headers-amd64{a} linux-kbuild-3.2{a}
+  linux-libc-dev{a} make{a} manpages-dev{a} menu{a} 
+0 paquets mis à jour, 28 nouvellement installés, 0 à enlever et 0 non mis à jour.
+Il est nécessaire de télécharger 42,7 Mo d'archives. Après dépaquetage, 124 Mo seront utilisés.
+Voulez-vous continuer ? [Y/n/?]
+&lt;snipped/>
+</screen>
+
+    <para>On retrouve le module compilé à l'aide du service
+    <acronym>DKMS</acronym> dans l'arborescence usuelle des modules du noyau
+    Linux.</para>
+
+<screen width='80'><prompt>#</prompt> ll /lib/modules/`uname -r`/updates/dkms
+total 132K
+-rw-r--r-- 1 root root 128K sept.  5 22:20 iscsi_trgt.ko</screen>
+    </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.target.config'>
+    <title>Configuration du service</title>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+      <para><phrase>Quel est le paquet qui contient les éléments de
+      configuration du service dans l'espace utilisateur ?</phrase></para>
+
+      <para>On reprend la liste des paquets <acronym>iSCSI</acronym>
+      installés pour identifier celui qui contient le démon du service.</para>
+    </question>
+    <answer>
+
+<screen width='80'><prompt>#</prompt> aptitude search ~iiscsi
+i   iscsitarget        - iSCSI Enterprise Target userland tools
+i   iscsitarget-dkms   - iSCSI Enterprise Target kernel module source - dkms version</screen>
+
+      <para>Une fois le paquet identifié, on peut lister son contenu.</para>
+
+<screen width='80'><prompt>#</prompt> dpkg -L iscsitarget
+/.
+/etc
+/etc/init.d
+/etc/init.d/iscsitarget
+/etc/default
+<emphasis>/etc/default/iscsitarget</emphasis>
+/etc/sysctl.d
+/etc/sysctl.d/30-iscsitarget.conf
+/etc/iet
+<emphasis>/etc/iet/ietd.conf</emphasis>
+/etc/iet/targets.allow
+/etc/iet/initiators.allow
+/usr
+/usr/share
+/usr/share/man
+/usr/share/man/man5
+/usr/share/man/man5/ietd.conf.5.gz
+/usr/share/man/man8
+/usr/share/man/man8/ietd.8.gz
+/usr/share/man/man8/ietadm.8.gz
+/usr/share/lintian
+/usr/share/lintian/overrides
+/usr/share/lintian/overrides/iscsitarget
+/usr/share/doc
+/usr/share/doc/iscsitarget
+/usr/share/doc/iscsitarget/ChangeLog.gz
+/usr/share/doc/iscsitarget/copyright
+/usr/share/doc/iscsitarget/README.Debian
+/usr/share/doc/iscsitarget/README.vmware
+/usr/share/doc/iscsitarget/README.gz
+/usr/share/doc/iscsitarget/changelog.Debian.gz
+/usr/share/doc/iscsitarget/changelog.gz
+/usr/share/doc/iscsitarget/NEWS.Debian.gz
+/usr/sbin
+/usr/sbin/ietadm
+<emphasis>/usr/sbin/ietd</emphasis></screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para><phrase>Quelle est l'opération à effectuer pour lancer
+      automatiquement le service lors de l'initialisation du système
+      ?</phrase></para>
+
+      <para>Le répertoire <filename class='directory'>/etc/default</filename>
+      contient une liste de fichiers de contrôle qui servent à paramétrer les
+      services lors de leur démarrage.</para>
+    </question>
+    <answer>
+      <para>Dans la liste donnée dans la question ci-dessus, on relève le
+      fichier <filename>/etc/default/iscsitarget</filename> dont le contenu
+      est à éditer pour activer le service.</para>
+
+<screen width='80'><prompt>#</prompt> cat /etc/default/iscsitarget
+ISCSITARGET_ENABLE=true</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para><phrase>Quel est le fichier de configuration principal du service ?
+      Quelles sont les entrées utiles au fonctionnement du rôle
+      <wordasword>target</wordasword> ?</phrase></para>
+
+      <para>Toujours à partir de la liste des fichiers du paquets, on recherche
+      les fichiers appartenant au répertoire <filename
+      class='directory'>/etc/</filename> pour identifier celui qui sert à
+      configurer le démon.</para>
+    </question>
+    <answer>
+      <para>Ici, on repère facilement le fichier
+      <filename>/etc/iet/ietd.conf</filename> que l'on doit éditer pour donner
+      accès à l'unité de stockage réseau.</para>
+
+      <para>Parmi les multiples choix disponibles pour la désignation des
+      unités de stockage que l'on souhaite rendre accessible via le réseau, on
+      peut retenir deux solutions classiques. Pour ces deux solutions on donne
+      un exemple de fichier de configuration.</para>
+
+      <itemizedlist>
+        <listitem>
+	<para>On peut désigner une unité physique locale en mode bloc
+	(<acronym>DAS</acronym>) comme ressource cible
+	<acronym>iSCSI</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> egrep -v '(^*#|^$)' /etc/iet/ietd.conf
+Target iqn.2012-09.lab.stri:san.disk
+        Lun 0 Path=<emphasis>/dev/vdb,Type=blockio</emphasis>
+	Alias san.disk</screen>
+	</listitem>
+	<listitem>
+	<para>On peut désigner un fichier local comme ressource cible
+	<acronym>iSCSI</acronym>. Cette seconde option est intéressante pour
+	fournir plusieurs unités logiques (<acronym>LUN</acronym>) à partir
+	d'un même volume local (<acronym>DAS</acronym>).</para>
+
+<screen width='80'><prompt>#</prompt> egrep -v '(^*#|^$)' /etc/iet/ietd.conf 
+Target iqn.2011-04.lab.stri:1stInitiator.disk
+        Lun 0 Path=<emphasis>/var/lib/target/1stInitiator.disk,Type=fileio</emphasis>
+        Alias 1stInitiator.disk
+Target iqn.2011-04.lab.stri:2ndInitiator.disk
+        Lun 1 Path=<emphasis>/var/lib/target/2ndInitiator.disk,Type=fileio</emphasis>
+        Alias 2ndInitiator.disk</screen>
+	</listitem>
+      </itemizedlist>
+
+      <para>Deux remarques sur les choix de configuration :</para>
+
+      <itemizedlist>
+        <listitem>
+	  <para>La technologie <acronym>iSCSI</acronym> dispose d'un schéma de
+	  nommage propre défini dans le document standard <link
+	  xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.ietf.org/rfc/rfc3721.txt'>RFC3721</link>. Le format
+	  retenu ici est baptisé <acronym>iqn</acronym> (<wordasword>iSCSI
+	  Qualified Name</wordasword>). Il s'agit d’une chaîne qui débute par
+	  "iqn." suivie d’une date au format AAAA-MM, du nom de l’autorité qui
+	  a attribué le nom (le nom de domaine à l’envers), puis une autre
+	  chaîne unique qui identifie le nœud de stockage.</para>
+	</listitem>
+	<listitem>
+	  <para>On a choisi de n'utiliser aucun mécanisme d'authentification
+	  sachant que la configuration se fait dans un contexte de travaux
+	  pratiques et non d'exploitation sur un réseau réel.</para>
+	</listitem>
+      </itemizedlist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+	<para>Comment lancer le service et s'assurer de son bon
+	fonctionnement ?</para>
+      </question>
+      <answer>
+	<para>Pour ce qui est du lancement du service, on retrouve l'appel
+	classique au script appartenant aux niveaux de démarrage
+	(<wordasword>runlevels</wordasword>).</para>
+
+<screen width='80'><prompt>#</prompt> /etc/init.d/iscsitarget restart</screen>
+
+	<para>Ensuite, pour le contrôle de l'état du service, on passe par les
+	étapes classiques.</para>
+
+	<itemizedlist>
+	  <listitem>
+	    <para>Consultation des journaux système.</para>
+
+<screen width='80'><prompt>#</prompt> grep -i iscsi /var/log/syslog
+Apr  6 11:46:32 targetSrv kernel: [   40.416451] iSCSI Enterprise Target Software - version 1.4.20.2
+Apr  6 11:46:32 targetSrv kernel: [   40.416691] iscsi_trgt: Registered io type fileio
+Apr  6 11:46:32 targetSrv kernel: [   40.416693] iscsi_trgt: Registered io type blockio
+Apr  6 11:46:32 targetSrv kernel: [   40.416695] iscsi_trgt: Registered io type nullio</screen>
+	  </listitem>
+	  <listitem>
+	    <para>Recherche dans la liste des processus actifs.</para>
+
+<screen width='80'><prompt>#</prompt> ps aux | grep ietd
+root      1022  0.0  0.1   3916   544 ?        Ss   Apr06   0:00 /usr/sbin/ietd
+root      6325  0.0  0.1   9616   884 pts/0    S+   00:43   0:00 grep ietd</screen>
+	  </listitem>
+	  <listitem>
+	    <para>Comme il s'agit d'un service réseau, on peut identifier les
+	    ports ouverts correspondant au démon.</para>
+
+<screen width='80'><prompt>#</prompt> lsof -i | grep ietd
+ietd    1022        root    7u  IPv4   3875      0t0  TCP *:3260 (LISTEN)
+ietd    1022        root    8u  IPv6   3876      0t0  TCP *:3260 (LISTEN)</screen>
+	  </listitem>
+	</itemizedlist>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+	<para>Comment autoriser l'accès à la ressource de stockage pour tout le
+	réseau local ?</para>
+      </question>
+      <answer>
+	<para>On utilise le fichier <filename>/etc/initiators.allow</filename>
+	pour configurer les accès réseau. Une fois de plus, on va au plus
+	simple en retenant l'adresse du réseau local sachant que ce réseau ne
+	contient que deux hôtes.</para>
+
+<screen width='80'><prompt>#</prompt> egrep -v ^# /etc/iet/initiators.allow
+ALL 192.200.0.0/27</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+	<para>Comment visualiser l'état de la session d'accès à la ressource de
+	stockage <acronym>iSCSI</acronym> ?</para>
+      </question>
+      <answer>
+	<para>On consulte le fichier <filename>/proc/net/iet/session</filename>
+	qui donne l'état courant de la session avec l'adresse IP du système
+	<acronym>initiator</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> cat /proc/net/iet/session
+tid:2 name:iqn.2011-04.lab.stri:2ndInitiator.disk
+tid:1 name:iqn.2011-04.lab.stri:1stInitiator.disk</screen>
+      </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.iscsi.qa.raid1'>
+  <title>Configuration d'une unité logique RAID1</title>
+
+  <para>Dans cette partie, on crée une unité logique <acronym>RAID1</acronym>
+  composée d'une unité de disque locale et d'une unité de disque
+  <acronym>iSCSI</acronym> dans le but d'illustrer une solution de réplication
+  synchrone. En effet, dans un volume <acronym>RAID1</acronym> chaque disque
+  contient à tout moment exactement les mêmes données. Ici, le contenu de
+  l'unité de disque locale est identique à celui de l'unité de disque réseau.
+  La réplication ainsi réalisée est dite synchrone puisque toute écriture
+  locale est dupliquée sur le réseau de stockage
+  <acronym>iSCSI</acronym>.</para>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.raid1.config'>
+    <title>Sélection du paquet et création de l'unité de stockage</title>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+      <para>Quel est le paquet qui contient les outils de configuration et de
+      gestion des différents types d'unités <acronym>RAID</acronym> logicielles
+      ?</para>
+    </question>
+    <answer>
+      <para>On utilise à nouveau les recherches dans les listes de paquets de
+      la distribution.</para>
+
+<screen width='80'><prompt>#</prompt> apt-cache search software raid
+&lt;snipped/>
+mdadm - tool to administer Linux MD arrays (software RAID)
+&lt;snipped/></screen>
+
+      <para>Une fois le paquet identifié et installé, on peut lister son
+      contenu et isoler les commandes utilisateur.</para>
+
+<screen width='80'><prompt>#</prompt> dpkg -L mdadm | grep bin
+/sbin
+/sbin/mdmon
+/sbin/mdadm-startall
+/sbin/mdadm</screen>
+      </answer>
+    </qandaentry>
+    <qandaentry>
+    <question>
+      <para>Quelle est la syntaxe de la commande <command>mdadm</command> qui
+      permet de créer l'unité logique <acronym>RAID1</acronym> ?</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> mdadm --create /dev/md0 --level=raid1 --raid-devices=2 /dev/sda /dev/vdb
+mdadm: partition table exists on /dev/sda but will be lost or
+       meaningless after creating array
+mdadm: Note: this array has metadata at the start and
+    may not be suitable as a boot device.  If you plan to
+    store '/boot' on this device please ensure that
+    your boot-loader understands md/v1.x metadata, or use
+    --metadata=0.90
+Continue creating array? y
+mdadm: Defaulting to version 1.2 metadata
+mdadm: array /dev/md0 started.</screen>
+    </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.raid1.manage'>
+    <title>Manipulations sur l'unité de stockage RAID1</title>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+      <para>Comment connaître l'état de l'unité logique <acronym>RAID1</acronym> ?</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> cat /proc/mdstat</screen>
+    </answer>
+    </qandaentry>
+    <qandaentry>
+    <question>
+      <para>Comment afficher la liste des propriétés de l'unité logique <acronym>RAID1</acronym> ?</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> mdadm --detail /dev/md0</screen>
+    </answer>
+    </qandaentry>
+    <qandaentry>
+    <question>
+      <para>Comment rendre la configuration système permanente ?</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> mdadm --detail --scan >> /etc/mdadm/mdadm.conf</screen>
+    </answer>
+    </qandaentry>
+    <qandaentry>
+    <question>
+      <para>Comment rendre la configuration système permanente ?</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> mdadm --detail --scan >> /etc/mdadm/mdadm.conf</screen>
+    </answer>
+    </qandaentry>
+    <qandaentry>
+    <question>
+      <para>Comment arrêter le gestionnaire <acronym>RAID</acronym> ?</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> mdadm --stop /dev/md0</screen>
+    </answer>
+    </qandaentry>
+    <qandaentry>
+    <question>
+      <para>Comment retirer une unité du gestionnaire <acronym>RAID</acronym> ?</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> mdadm /dev/md0 --fail /dev/sda --remove /dev/sda</screen>
+    </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.iscsi.qa.vm'>
+  <title>Manipulations sur machines virtuelles</title>
+
+  <para>Il est possible de réaliser l'ensemble des manipulations de ce support
+  à l'aide de trois instances de machines virtuelles et du commutateur virtuel
+  <citetitle>Virtual Distributed Ethernet</citetitle> présenté dans l'article
+  &url.vm;</para>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.vm.host'>
+    <title>Préparation du système hôte</title>
+
+  <para>L'infrastructure à implanter sur le système hôte est la
+  suivante.</para>
+
+  <mediaobject>
+    <imageobject>
+    <imagedata fileref='images/topologie-iscsi-vm.png' format='PNG' contentwidth='15cm' width='15.5cm'/>
+    </imageobject>
+    <textobject>
+    <phrase>Topologie virtualisation iSCSI</phrase>
+    </textobject>
+    <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='http://www.linux-france.org/prj/inetdoc/cours/sysadm-net.iscsi.qa/images/topologie-iscsi-vm.png'>
+    Topologie virtualisation iSCSI - vue complète</link></para>
+    </caption>
+  </mediaobject>
+
+  <para>On débute avec la création des fichiers image des trois systèmes
+  virtuels. Les fichiers de type <filename>.qcow2</filename> sont des images
+  compressées et sont plus faciles à transférer que les fichiers de type
+  <filename>.raw</filename>.</para>
+
+<screen width='80'>mkdir -p ~/vm/iscsi
+cd ~/vm/iscsi
+
+cp ../vm0-debian-testing-amd64-base.qcow2 targetSrv.qcow2
+cp ../vm0-debian-testing-amd64-base.qcow2 1stInitiator.qcow2
+cp ../vm0-debian-testing-amd64-base.qcow2 2ndInitiator.qcow2
+
+for file in *.qcow2; do qemu-img convert -f qcow2 -O raw $file `basename $file .qcow2`.raw; done
+
+rm *.qcow2</screen>
+
+  <para>On crée ensuite les fichiers correspondant aux unités de stockage
+  supplémentaires.</para>
+
+<screen width='80'>qemu-img create -f raw targetSrv-disk.raw 80G
+qemu-img create -f raw 1stInitiator-disk.raw 32G
+qemu-img create -f raw 2ndInitiator-disk.raw 32G</screen>
+
+  <para>Enfin, il ne reste qu'à mettre en place le script de lancement de ces
+  trois systèmes avec leurs unités de stockages respectives.</para>
+
+<screen width='80'>#!/bin/bash
+
+../scripts/startup.sh targetSrv.raw 512 2 \
+    -drive file=targetSrv-disk.raw,if=virtio,boot=off
+
+../scripts/startup.sh 1stInitiator.raw 512 3 \
+    -drive file=1stInitiator-disk.raw,if=virtio,boot=off 
+
+../scripts/startup.sh 2ndInitiator.raw 512 4 \
+    -drive file=2ndInitiator-disk.raw,if=virtio,boot=off</screen>
+
+  <para>Ce script fait lui-même appel au script commun
+  <filename>startup.sh</filename> qui sert à initialiser une instance de
+  machine virtuelle en utilisant comme paramètres le nom du fichier image, la
+  quantité de <acronym>RAM</acronym> et le port du commutateur
+  <acronym>VDE</acronym>. Le &url.vm.startup.sh; est donné en annexe de
+  l'article &url.vm;.</para>
+  </sect2>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.vm.targetSrv'>
+    <title>Serveur target iSCSI</title>
+
+  <para>Cette instance de système virtuel joue le rôle du système
+  <wordasword>target</wordasword> <acronym>iSCSI</acronym>. On reprend donc ici
+  les manipulations présentées dans la <xref
+  linkend='sysadm-net.iscsi.qa.target'/> après avoir préparé le volume de
+  stockage et les fichiers ressource cible <acronym>iSCSI</acronym>.</para>
+
+  <para>Lors de l'initialisation des trois systèmes virtuels, on a ajouté un
+  fichier disque de 80Go à l'instance baptisée
+  <systemitem>targetSrv</systemitem>. C'est ce volume de stockage qui est
+  utilisé pour ouvrir l'accès aux deux unités ressources cible
+  <acronym>iSCSI</acronym>.</para>
+
+  <para>On reprend les manipulations de la <xref
+  linkend='sysadm-net.iscsi.qa.storage'/> pour le partitionnement et le
+  formatage du volume physique virtuel repéré
+  <filename>/dev/vdb</filename>.</para>
+
+<screen width='80'>dd if=/dev/zero of=/dev/vdb bs=512 count=4
+
+parted /dev/vdb mklabel gpt
+parted /dev/vdb mkpart primary ext4 1 -1
+
+mkfs.ext4 /dev/vdb1
+
+mkdir /var/lib/target
+
+mount /dev/vdb1 /var/lib/target</screen>
+
+  <para>Pour rendre ce montage «permanent», on édite le fichier
+  <filename>/etc/fstab</filename> après avoir identifié le volume de
+  stockage.</para>
+
+<screen width='80'>blkid | grep vdb
+/dev/vdb1: UUID="10f56553-ca7c-4827-b43f-8ef664fcef6f" TYPE="ext4"
+
+echo UUID="10f56553-ca7c-4827-b43f-8ef664fcef6f" \
+  /var/lib/target/ \
+  ext4 \
+  defaults \
+  0      2 >>/etc/fstab</screen>
+
+  <para>Une fois le montage du volume effectué à partir du répertoire <filename
+  class='directory'>/var/lib/target</filename>, on peut créer les fichiers
+  ressources cible <acronym>iSCSI</acronym> à l'aide de la commande
+  <command>dd</command>. On crée des fichier de type &url.sparse_file; pour
+  optimiser l'occupation disque réelle sur le système hôte.</para>
+
+  <para>Pour respecter le scénario des travaux pratiques, on utilise des
+  fichiers de 32Go composés de blocs de 4Ko qui correspondent au volumes de
+  stockage des deux autres instances de machines virtuelles. La «formule de
+  calcul» devient : <literal>(32 x 1024 x 1024 x 1024) / (4 x 1024) =
+  8388608</literal>.</para>
+
+<screen width='80'><prompt>#</prompt> mkdir /var/lib/iscsi-target
+<prompt>#</prompt> cd /var/lib/iscsi-target/
+<prompt>#</prompt> dd if=/dev/null of=1stInitiator.disk bs=4k seek=8388608
+0+0 enregistrements lus
+0+0 enregistrements écrits
+0 octet (0 B) copié, 1,3982e-05 s, 0,0 kB/s
+<prompt>#</prompt> dd if=/dev/null of=2ndInitiator.disk bs=4k seek=8388608
+0+0 enregistrements lus
+0+0 enregistrements écrits
+0 octet (0 B) copié, 1,217e-05 s, 0,0 kB/s
+<prompt>#</prompt> ls -lAh
+total 0
+-rw-r--r-- 1 root root 32G sept.  5 22:38 1stInitiator.disk
+-rw-r--r-- 1 root root 32G sept.  5 22:38 2ndInitiator.disk
+<prompt>#</prompt> du -hs *.disk
+0       1stInitiator.disk
+0       2ndInitiator.disk</screen>
+
+  <para>Comme indiqué dans la <xref linkend='sysadm-net.iscsi.qa.target'/>, on
+  installe les paquets <systemitem>iscsitarget</systemitem> et
+  <systemitem>iscsitarget-dkms</systemitem>. Le fichier de configuration du
+  démon <systemitem class='daemon'>ietd</systemitem> contient les références
+  aux deux fichiers ci-dessus.</para>
+
+<screen width='80'>egrep -v '(^*#|^$)' /etc/iet/ietd.conf 
+Target iqn.2011-04.lab.stri:1stInitiator.disk
+        Lun 0 Path=/var/lib/target/1stInitiator.disk,Type=fileio
+        Alias 1stInitiator.disk
+Target iqn.2011-04.lab.stri:2ndInitiator.disk
+        Lun 1 Path=/var/lib/target/2ndInitiator.disk,Type=fileio
+        Alias 2ndInitiator.disk</screen>
+
+  <para>Une fois le service démarré, ces deux ressources cibles
+  <acronym>iSCSI</acronym> sont utilisables.</para>
+
+<screen width='80'>cat /proc/net/iet/session
+tid:2 name:iqn.2011-04.lab.stri:2ndInitiator.disk
+tid:1 name:iqn.2011-04.lab.stri:1stInitiator.disk</screen>
+  </sect2>
+
+  <sect2 xml:id='sysadm-net.iscsi.qa.vm.initiator'>
+    <title>Clients initiator iSCSI</title>
+
+  <para>Ces deux instances de système virtuel jouent le rôle du système
+  <wordasword>initiator</wordasword> <acronym>iSCSI</acronym>. On reprend donc
+  ici les manipulations présentées dans la <xref
+  linkend='sysadm-net.iscsi.qa.initiator'/> avant de passer à la configuration
+  de l'unité logique <acronym>RAID1</acronym>.</para>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.iscsi.qa.refdocs'>
+  <title>Documents de référence</title>
+
+  <variablelist>
+    <varlistentry xml:id='sysadm-net.iscsi.qa.infra.tp'>
+    <term><citetitle>Architecture réseau des travaux pratiques</citetitle></term>
+    <listitem>
+      <para>&url.infra.tp; : présentation de l'implantation des
+      équipements d'interconnexion réseau dans l'armoire de brassage et du plan
+      d'adressage <acronym>IP</acronym> prédéfini pour l'ensemble des séances
+      de travaux pratiques. Ce document est utilisé dans la <xref
+      linkend='sysadm-net.iscsi.qa.affectation'/>.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.iscsi.qa.config.interface.lan'>
+      <term><citetitle>Configuration d'une interface réseau</citetitle></term>
+      <listitem>
+        <para>&url.config.interface.lan; : tout sur la configuration des
+	interfaces réseau de réseau local ; notamment les explications sur
+	les opérations «rituelles» de début de travaux pratiques :</para>
+
+<screen width='80'><prompt>#</prompt> ifdown eth0
+# ifconfig eth0 192.168.0.2 netmask 255.255.255.240
+# route add default gw 192.168.0.1
+# ping 192.168.0.1
+# ping 172.16.80.1
+# ping www.cict.fr</screen>
+
+	<para>Comme dans le cas précédent, ce document est utile pour effectuer
+	les opérations demandées dans la <xref
+	linkend='sysadm-net.iscsi.qa.affectation'/>.</para>
+      </listitem>
+    </varlistentry>
+    
+    <varlistentry xml:id='sysadm-net.iscsi.qa.introduction'>
+    <term><citetitle>Introduction to iSCSI</citetitle></term>
+    <listitem>
+      <para>L'article intitulé &url.iscsi.linux-mag.introduction; du site Linux
+      Magazine présente les points clés de la technologie
+      <acronym>iSCSI</acronym>. Il complète la <xref
+      linkend='sysadm-net.iscsi.qa.topology'/>.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.iscsi.qa.unixgarden'>
+    <term><citetitle>Le support du protocole iSCSI dans Linux</citetitle></term>
+    <listitem>
+      <para>L'article &url.iscsi.unixgarden; de la rubrique «Administration
+      Réseau» du site <citetitle>Unix Garden</citetitle> présente l'ensemble
+      des manipulations effectuées dans ce support de travaux pratiques. C'est
+      une référence indispensable.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.iscsi.qa.debian.wiki'>
+    <term><citetitle>iSCSI - Debian Wiki</citetitle></term>
+    <listitem>
+      <para>La page &url.iscsi.debian.wiki; contient deux sous-rubriques sur
+      les rôles <wordasword>initiator</wordasword> et
+      <wordasword>target</wordasword>. Ces sous-rubriques correspondent
+      respectivement à la <xref linkend='sysadm-net.iscsi.qa.initiator'/> et à
+      la <xref linkend='sysadm-net.iscsi.qa.target'/>. On y retrouve les paquets
+      à utiliser et les principales commandes de configuration.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.iscsi.qa.file-io.patch'>
+    <term><citetitle>[patch] 2.6.32 removed sync_page_range</citetitle></term>
+    <listitem>
+      <para>La correction du fichier source &url.iscsi.sync_page_range; permet
+      de compiler le module du noyau Linux nécessaire au rôle
+      <wordasword>target</wordasword>. Un <wordasword>patch</wordasword> plus
+      succinct est proposé dans la <xref
+      linkend='sysadm-net.iscsi.qa.target.build'/>.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+
+<appendix xml:id='sysadm-net.iscsi.qa.target-source'>
+  <title>Configuration du système target sans service DKMS</title>
+
+  <para>Dans cette annexe, on prépare un système auquel on a attribué le rôle
+  <wordasword>target</wordasword>. Les opérations présentées ici ne font pas
+  appel au service <acronym>DKMS</acronym> (<wordasword>Dynamic Kernel Module
+  Support</wordasword>) qui doit être disponible avec les distributions
+  GNU/Linux récentes. Le contenu de cette annexe devrait donc devenir
+  <emphasis>obsolète</emphasis>.</para>
+
+  <para>La préparation comprend deux étapes : la construction et l'installation
+  d'un paquet contenant le module de la partie
+  <wordasword>KernelSpace</wordasword> du service et la configuration des
+  outils de la partie <wordasword>UserSpace</wordasword> pour lancer le démon
+  <systemitem class='daemon'>ietd</systemitem>.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+      <para>Quels sont les paquets de la distribution Debian GNU/Linux qui
+      permettent de configurer un système avec le rôle
+      <wordasword>target</wordasword> ?</para>
+    </question>
+    <answer>
+      <para>En effectuant une recherche simple dans le catalogue des paquets
+      disponibles, on obtient la liste des paquets dont le nom contient la
+      chaîne de caractères <option>iscsi</option>.</para>
+
+<screen width='80'>$ aptitude search iscsi
+p   iscsitarget         - iSCSI Enterprise Target userland tools
+p   iscsitarget-source  - iSCSI Enterprise Target kernel module source
+p   open-iscsi          - High performance, transport independent iSCSI implementation</screen>
+    
+    <para>On remarque que le paquet <systemitem>iscsitarget-source</systemitem>
+    contient le code source du module qui doit être chargé en mémoire pour
+    faire fonctionner le service. Ce module doit être compilé en fonction de la
+    version du noyau actif sur le système. Il faut donc installer de tous les
+    outils de la chaîne de développement nécessaires. Heureusement, la
+    distribution Debian fournit un outil générique dédié à la construction de
+    paquets de modules : &url.moduleassistant;.</para>
+ 
+<screen width='80'>$ aptitude search module-assistant
+i   module-assistant    - tool to make module package creation easier</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelle est la commande d'installation des paquets nécessaires à la
+      compilation des modules et à la configuration du rôle
+      <wordasword>target</wordasword> ?</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> aptitude install iscsitarget iscsitarget-source module-assistant</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelles sont les instructions de l'outil
+      <application>module-assistant</application> qui permettent de préparer la
+      compilation des modules et la mise à jour de la base des
+      paquets ?</para>
+    </question>
+    <answer>
+<screen width='80'><prompt>#</prompt> m-a prepare -t
+Récupération des sources du noyau de la version : 2.6.32-3-amd64
+apt-get install linux-headers-2.6.32-3-amd64</screen>
+
+<screen width='80'><prompt>#</prompt> m-a update -t</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Quelle est la syntaxe de construction du paquet des modules
+      <option>iscsitarget</option> ?</para>
+    </question>
+    <answer>
+      <para>La commande de construction du paquet contenant le
+      module est la suivante :</para>
+
+<screen width='80'><prompt>#</prompt> m-a a-i iscsitarget -t</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para>Comment installer le paquet construit avec l'outil
+      <application>module-assistant</application> ?</para>
+    </question>
+    <answer>
+      <para>Les paquets construits avec l'outil
+      <application>module-assistant</application> sont toujours placé à la
+      racine de l'arborescence des sources du noyau Linux ; soit le
+      répertoire <filename class='directory'>/usr/src</filename>.</para>
+
+<screen width='80'><prompt>#</prompt> ls -goAh /usr/src/
+total 100K
+-rw-r--r-- 1  43K avril 28 20:49 <emphasis>iscsitarget-module-2.6.32-3-amd64_0.4.17+svn229-1.4+2.6.32-9_amd64.deb</emphasis>
+-rw-r--r-- 1 3,7K avril 28 20:44 iscsi-target.patch
+-rw-r--r-- 1  38K févr. 16 11:37 iscsitarget.tar.bz2
+lrwxrwxrwx 1   37 avril 28 20:36 linux -> /usr/src/linux-headers-2.6.32-3-amd64
+drwxr-xr-x 4 4,0K avril 28 20:29 linux-headers-2.6.32-3-amd64
+drwxr-xr-x 4 4,0K avril 28 20:29 linux-headers-2.6.32-3-common
+lrwxrwxrwx 1   26 avril 28 20:29 linux-kbuild-2.6.32 -> ../lib/linux-kbuild-2.6.32
+lrwxrwxrwx 1   28 avril 28 20:30 linux-OLDVERSION.1272479765 -> linux-headers-2.6.32-3-amd64
+drwxr-xr-x 3 4,0K févr. 16 11:37 modules</screen>
+
+      <para>Comme il s'agit d'un paquet local au système, il s'installe à
+      l'aide de la commande <command>dpkg</command>.</para>
+
+<screen width='80'><prompt>#</prompt> dpkg -i iscsitarget-module-2.6.32-3-amd64_0.4.17+svn229-1.4+2.6.32-9_amd64.deb</screen>
+
+      <para>On peut donc faire le bilan des paquets <acronym>iSCSI</acronym>
+      installés sur le système ayant le rôle
+      <wordasword>target</wordasword>.</para>
+
+<screen width='80'><prompt>#</prompt> aptitude search ~iiscsi
+i   iscsitarget                        - iSCSI Enterprise Target userland tools
+i   iscsitarget-module-2.6.32-3-amd64  - iSCSI Enterprise Target module for Linux (kernel 2.6.32-3-amd64)
+i   iscsitarget-source                 - iSCSI Enterprise Target kernel module source</screen>
+    </answer>
+    </qandaentry>
+  </qandaset>
+</appendix>
+</article>

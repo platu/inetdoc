@@ -11,6 +11,8 @@ SUBDIRS = \
 	config.interface.lan \
 	config.interface.wlan \
 	intro.analyse \
+	sysadm-net.iscsi.qa \
+	sysadm-net.iscsi.q \
 	interco.kernel.qa \
 	interco.kernel.q \
 	interco.rawip.qa \
@@ -33,6 +35,7 @@ XML_FILES = \
 	config.interface.lan/$(ABSTRACT_FILE) \
 	config.interface.wlan/$(ABSTRACT_FILE) \
 	intro.analyse/$(ABSTRACT_FILE) \
+	sysadm-net.iscsi.q/$(ABSTRACT_FILE) \
 	interco.kernel.q/$(ABSTRACT_FILE) \
 	interco.rawip.q/$(ABSTRACT_FILE) \
 	interco.ppp.q/$(ABSTRACT_FILE) \
