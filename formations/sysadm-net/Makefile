@@ -16,18 +16,13 @@ XML_FILES = \
 	sysadm-net.xml \
         author.xml \
         legal.xml \
-        inetdoc.urls.xml
-#	seance1.abstract.xml \
-#	seance2.abstract.xml \
-#	seance3.abstract.xml \
-#	seance4.abstract.xml \
-#	seance5.abstract.xml \
-#	seance6.abstract.xml \
+        inetdoc.urls.xml \
+	sysadm-net.iscsi.abstract.xml
 
 all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
 
-seance1.abstract.xml: $(MAIN_DIR)/guides/linux.networking/$(ABSTRACT_FILE)
+sysadm-net.iscsi.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.iscsi.q/$(ABSTRACT_FILE)
 	ln -s $< $@
 
