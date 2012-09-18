@@ -17,12 +17,16 @@ XML_FILES = \
         author.xml \
         legal.xml \
         inetdoc.urls.xml \
-	sysadm-net.iscsi.abstract.xml
+	sysadm-net.iscsi.abstract.xml \
+	sysadm-net.nfs.abstract.xml
 
 all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
 
 sysadm-net.iscsi.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.iscsi.q/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+sysadm-net.nfs.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.nfs.q/$(ABSTRACT_FILE)
 	ln -s $< $@
 
