@@ -18,7 +18,8 @@ XML_FILES = \
         legal.xml \
         inetdoc.urls.xml \
 	sysadm-net.iscsi.abstract.xml \
-	sysadm-net.nfs.abstract.xml
+	sysadm-net.nfs.abstract.xml \
+	sysadm-net.ldap.abstract.xml
 
 all: $(PROCESS)
 
@@ -30,3 +31,5 @@ sysadm-net.iscsi.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.iscsi.q/
 sysadm-net.nfs.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.nfs.q/$(ABSTRACT_FILE)
 	ln -s $< $@
 
+sysadm-net.ldap.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.ldap.q/$(ABSTRACT_FILE)
+	ln -s $< $@

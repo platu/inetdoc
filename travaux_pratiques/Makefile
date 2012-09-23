@@ -15,6 +15,8 @@ SUBDIRS = \
 	sysadm-net.iscsi.q \
 	sysadm-net.nfs.qa \
 	sysadm-net.nfs.q \
+	sysadm-net.ldap.qa \
+	sysadm-net.ldap.q \
 	interco.kernel.qa \
 	interco.kernel.q \
 	interco.rawip.qa \
@@ -39,6 +41,7 @@ XML_FILES = \
 	intro.analyse/$(ABSTRACT_FILE) \
 	sysadm-net.iscsi.q/$(ABSTRACT_FILE) \
 	sysadm-net.nfs.q/$(ABSTRACT_FILE) \
+	sysadm-net.ldap.q/$(ABSTRACT_FILE) \
 	interco.kernel.q/$(ABSTRACT_FILE) \
 	interco.rawip.q/$(ABSTRACT_FILE) \
 	interco.ppp.q/$(ABSTRACT_FILE) \
