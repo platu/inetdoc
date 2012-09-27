@@ -19,7 +19,8 @@ XML_FILES = \
         inetdoc.urls.xml \
 	sysadm-net.iscsi.abstract.xml \
 	sysadm-net.nfs.abstract.xml \
-	sysadm-net.ldap.abstract.xml
+	sysadm-net.ldap.abstract.xml \
+	sysadm-net.autofs-ldap-nfs.abstract.xml
 
 all: $(PROCESS)
 
@@ -32,4 +33,7 @@ sysadm-net.nfs.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.nfs.q/$(AB
 	ln -s $< $@
 
 sysadm-net.ldap.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.ldap.q/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+sysadm-net.autofs-ldap-nfs.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.autofs-ldap-nfs.q/$(ABSTRACT_FILE)
 	ln -s $< $@
