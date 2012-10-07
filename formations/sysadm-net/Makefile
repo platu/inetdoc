@@ -20,7 +20,8 @@ XML_FILES = \
 	sysadm-net.iscsi.abstract.xml \
 	sysadm-net.nfs.abstract.xml \
 	sysadm-net.ldap.abstract.xml \
-	sysadm-net.autofs-ldap-nfs.abstract.xml
+	sysadm-net.autofs-ldap-nfs.abstract.xml \
+	sysadm-net.dns.abstract.xml
 
 all: $(PROCESS)
 
@@ -36,4 +37,7 @@ sysadm-net.ldap.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.ldap.q/$(
 	ln -s $< $@
 
 sysadm-net.autofs-ldap-nfs.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.autofs-ldap-nfs.q/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+sysadm-net.dns.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.dns.q/$(ABSTRACT_FILE)
 	ln -s $< $@

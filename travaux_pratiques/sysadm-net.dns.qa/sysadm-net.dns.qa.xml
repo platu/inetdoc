@@ -1,0 +1,1910 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.bv9arm
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://ftp.isc.org/isc/bind9/cur/9.8/doc/arm/Bv9ARM.html">
+  <citetitle>BIND 9 Administrator Reference Manual</citetitle></link>'>
+
+<!ENTITY url.bind.template
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.cymru.com/Documents/secure-bind-template.html">
+  <citetitle>Secure BIND Template</citetitle></link>'>
+]>
+
+<article xml:id="sysadm-net.dns.qa" xml:lang="fr">
+
+<info>
+  <title>Introduction au service DNS</title>
+
+  &author;
+  <abstract>
+    <para>Ce support de travaux pratiques sur le service
+    <wordasword>Domain Name System</wordasword> s'appuie sur le
+    logiciel <application>BIND</application>. Côté client ou
+    <wordasword>resolver</wordasword>, il illustre les différents tests de
+    fonctionnement du service à l'aide de la <command>dig</command>. Côté
+    serveur, il présente l'utilisation du service suivant 3 modes : cache
+    seulement (<wordasword>cache-only</wordasword>), maître
+    (<wordasword>primary</wordasword>|<wordasword>master</wordasword>) et
+    esclave
+    (<wordasword>secondary</wordasword>|<wordasword>slave</wordasword>).</para>
+  </abstract>
+  <keywordset>
+    <keyword>Debian</keyword>
+    <keyword>dns</keyword>
+    <keyword>bind</keyword>
+    <keyword>bind9</keyword>
+    <keyword>dig</keyword>
+    <keyword>named</keyword>
+    <keyword>Resource Record</keyword>
+  </keywordset>
+</info>
+
+<sect1 xml:id='sysadm-net.dns.qa.legal.meta'>
+  &legal;
+
+  <sect2 xml:id='sysadm-net.dns.qa.meta'>
+    <title>Meta-information</title>
+    
+  <para>Ce document est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </sect2>
+
+  <sect2 xml:id='sysadm-net.dns.qa.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super-utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='sysadm-net.dns.qa.lab'>
+  <title>Architecture type de travaux pratiques</title>
+
+  <para>Comme indiqué dans le support &url.infra.tp;, on part d'une
+  configuration type avec deux de postes de travail qui partagent le même
+  domaine de diffusion. Le schéma d'une maquette utilisant deux instances de
+  machines virtuelles et un système hôte est le suivant :</para>
+
+  <table frame='all' pgwide='1' xml:id='sysadm-net.dns.affectation.table'>
+    <title>Adressage IP des postes et attribution des zones DNS</title>
+    <tgroup cols='5' align='left' colsep='1' rowsep='1'>
+      <colspec colwidth='0.8*'/>
+      <colspec colwidth='1*'/>
+      <colspec colwidth='0.8*'/>
+      <colspec colwidth='1*'/>
+      <colspec colwidth='1*'/>
+    <thead>
+      <row>
+      <entry>Poste 1 : serveur primaire</entry>
+      <entry>Adresse IP</entry>
+      <entry>Poste 2 : serveur secondaire</entry>
+      <entry>Passerelle par défaut</entry>
+      <entry>zone DNS</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry>Alderaan</entry>
+      <entry><systemitem class='ipaddress'>192.168.126.66/28</systemitem></entry>
+      <entry>Bespin</entry>
+      <entry><systemitem class='ipaddress'>192.168.126.65/28</systemitem></entry>
+      <entry><systemitem class='domainname'>zone1.lan-213.stri</systemitem></entry>
+      </row>
+      <row>
+      <entry>Centares</entry>
+      <entry><systemitem class='ipaddress'>172.19.115.194/26</systemitem></entry>
+      <entry>Coruscant</entry>
+      <entry><systemitem class='ipaddress'>172.19.115.193/26</systemitem></entry>
+      <entry><systemitem class='domainname'>zone2.lan-213.stri</systemitem></entry>
+      </row>
+      <row>
+      <entry>Dagobah</entry>
+      <entry><systemitem class='ipaddress'>192.168.109.2/25</systemitem></entry>
+      <entry>Endor</entry>
+      <entry><systemitem class='ipaddress'>192.168.109.1/25</systemitem></entry>
+      <entry><systemitem class='domainname'>zone3.lan-213.stri</systemitem></entry>
+      </row>
+      <row>
+      <entry>Felucia</entry>
+      <entry><systemitem class='ipaddress'>10.7.10.2/23</systemitem></entry>
+      <entry>Geonosis</entry>
+      <entry><systemitem class='ipaddress'>10.7.10.1/23</systemitem></entry>
+      <entry><systemitem class='domainname'>zone4.lan-213.stri</systemitem></entry>
+      </row>
+      <row>
+      <entry>Hoth</entry>
+      <entry><systemitem class='ipaddress'>10.5.6.2/23</systemitem></entry>
+      <entry>Mustafar</entry>
+      <entry><systemitem class='ipaddress'>10.5.6.1/23</systemitem></entry>
+      <entry><systemitem class='domainname'>zone5.lan-213.stri</systemitem></entry>
+      </row>
+      <row>
+      <entry>Naboo</entry>
+      <entry><systemitem class='ipaddress'>172.19.114.130/26</systemitem></entry>
+      <entry>Tatooine</entry>
+      <entry><systemitem class='ipaddress'>172.19.114.129/26</systemitem></entry>
+      <entry><systemitem class='domainname'>zone6.lan-213.stri</systemitem></entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+
+  <qandaset>
+  <qandaentry>
+  <question>
+    <para><phrase>Quelle est la représentation graphique de l'arborescence
+    <acronym>DNS</acronym> corresopondant aux affectations données ci-dessus
+    ?</phrase></para>
+
+    <para>À partir des information du document &url.infra.tp;, compléter la
+    chaîne des serveurs <acronym>DNS</acronym> permettant la résolution des
+    noms de domaines jusqu'à la racine.</para>
+  </question>
+  <answer>
+  <mediaobject>
+    <imageobject role='html'>
+    <imagedata fileref='images/dns-lab-tree.png' format='PNG' width='480px'/>
+    </imageobject>
+    <imageobject role='fo-fop'>
+    <imagedata fileref='images/dns-lab-tree.png' format='PNG' width='9cm'/>
+    </imageobject>
+    <textobject>
+    <phrase>Exemple d'arborescence <acronym>DNS</acronym></phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Dans la suite de ce document, on utilise le nom de domaine <systemitem
+  class='domainname'>lab.lan-213.stri</systemitem> auquel correspond le réseau
+  <systemitem class='ipaddress'>198.51.100.0/24</systemitem>.</para>
+
+  <para>Les affectations d'adresses <acronym>IP</acronym> sont :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para><systemitem>primary-srvr.lab.lan-213.stri</systemitem> : <systemitem
+    class='ipaddress'>198.51.100.2</systemitem></para>
+    </listitem>
+    <listitem>
+    <para><systemitem>secondary-srvr.lab.lan-213.stri</systemitem> : <systemitem
+    class='ipaddress'>198.51.100.3</systemitem></para>
+    </listitem>
+  </itemizedlist>
+  </answer>
+  </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='sysadm-net.dns.qa.common'>
+  <title>Installation du service DNS cache-only</title>
+
+  <para>Avant d'aborder la configuration du service <acronym>DNS</acronym>, il
+  faut passer par l'étape rituelle de sélection et d'installation des paquets
+  contenant les outils logiciels de ce service.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para><phrase>Quels sont les paquets Debian correspondant au service DNS ?</phrase></para>
+
+      <para>Reprendre les différentes possibilités d'interrogation de la base
+      de données des paquets vues lors des travaux pratiques précédents. On ne
+      retient que les paquets relatifs à la version 9.x du logiciel
+      <application>BIND</application> (<citetitle>Berkeley Internet Name
+      Domain</citetitle>).</para>
+      </question>
+      <answer>
+      <para>On oriente la recherche dans la base de données des paquets de la
+      distribution vers la chaîne de caractères qui débute par
+      <literal>bind</literal>.</para>
+
+<screen><prompt>#</prompt> aptitude search ^bind
+p   bind9      - Serveur de noms de domaines internet
+p   bind9-doc  - documentation de BIND
+i   bind9-host - Version de « host » intégrée avec BIND 9.X
+p   bind9utils - Utilitaires pour BIND
+p   bindfs     - mirrors or overlays a local directory with altered permissions
+p   bindgraph  - DNS statistics RRDtool frontend for BIND9</screen>
+
+      <para>Les paquets à installer à partir de la liste ci-dessus sont :
+      <systemitem>bind9</systemitem> et <systemitem>bind9-doc</systemitem>. Une
+      fois l'opération <userinput><prompt>#</prompt> aptitude install bind9
+      bind9-doc</userinput> effectuée, on vérifie le résultat.</para>
+
+<screen><prompt>#</prompt> aptitude search ~ibind9
+i   bind9       - Serveur de noms de domaines internet
+i   bind9-doc   - documentation de BIND
+i   bind9-host  - Version de « host » intégrée avec BIND 9.X
+i A bind9utils  - Utilitaires pour BIND
+i A libbind9-80 - Bibliothèque partagée BIND9 utilisée par BIND</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelles sont les manipulations à effectuer pour valider le
+      fonctionnement du service <acronym>DNS</acronym> ?</phrase></para>
+
+      <para>Contrôler la liste des processus actifs sur le système, la liste
+      des ports réseau ouverts ainsi que les journaux système.</para>
+      </question>
+      <answer>
+      <para>La «singularité» du service <acronym>DNS</acronym> provient du nom
+      du processus exécuté : <systemitem
+      class='daemon'>named</systemitem>.</para>
+
+      <variablelist>
+      <varlistentry>
+        <term>Liste des processus actifs</term>
+        <listitem>
+<screen><prompt>#</prompt> ps aux | grep na[m]ed
+bind      2863  0.0  1.2 170168 13224 ?        Ssl  21:05   0:00 /usr/sbin/named -u bind</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Ports réseau ouverts</term>
+        <listitem>
+	<para>En utilisant la commande <command>lsof</command>, on obtient la
+	liste ports ouverts en fonction du processus.</para>
+<screen><prompt>#</prompt> lsof -i | grep na[m]ed
+named   2863        bind   20u  IPv6   6733      0t0  TCP *:domain (LISTEN)
+named   2863        bind   21u  IPv4   6738      0t0  TCP localhost:domain (LISTEN)
+named   2863        bind   22u  IPv4   6740      0t0  TCP 198.51.100.2:domain (LISTEN)
+named   2863        bind   23u  IPv4   6743      0t0  TCP localhost:953 (LISTEN)
+named   2863        bind   24u  IPv6   6744      0t0  TCP localhost:953 (LISTEN)
+named   2863        bind  512u  IPv6   6732      0t0  UDP *:domain 
+named   2863        bind  513u  IPv4   6737      0t0  UDP localhost:domain 
+named   2863        bind  514u  IPv4   6739      0t0  UDP 198.51.100.2:domain</screen>
+
+	<para>En utilisant la commande <command>netstat</command>, on obtient
+	les mêmes informations en partant des ports réseau ouverts.</para>
+<screen><prompt>#</prompt> netstat -autp | grep na[m]ed
+tcp   0      0 198.51.100.2:domain     *:*         LISTEN      2863/named      
+tcp   0      0 localhost:domain        *:*         LISTEN      2863/named      
+tcp   0      0 localhost:953           *:*         LISTEN      2863/named      
+tcp6  0      0 [::]:domain             [::]:*      LISTEN      2863/named      
+tcp6  0      0 localhost:953           [::]:*      LISTEN      2863/named      
+udp   0      0 198.51.100.2:domain     *:*                     2863/named      
+udp   0      0 localhost:domain        *:*                     2863/named      
+udp6  0      0 [::]:domain             [::]:*                  2863/named</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Journaux systèmes</term>
+        <listitem>
+<screen><prompt>#</prompt> grep na[m]ed /var/log/syslog
+named[2863]: starting BIND 9.8.1-P1 -u bind
+named[2863]: built with '--prefix=/usr' '--mandir=/usr/share/man'
+'--infodir=/usr/share/info' '--sysconfdir=/etc/bind' '--localstatedir=/var'
+'--enable-threads' '--enable-largefile' '--with-libtool' '--enable-shared'
+'--enable-static' '--with-openssl=/usr' '--with-gssapi=/usr' '--with-gnu-ld'
+'--with-geoip=/usr' '--enable-ipv6' 'CFLAGS=-fno-strict-aliasing -DDIG_SIGCHASE
+-O2'
+named[2863]: adjusted limit on open files from 4096 to 1048576
+named[2863]: found 2 CPUs, using 2 worker threads
+named[2863]: using up to 4096 sockets
+named[2863]: loading configuration from '/etc/bind/named.conf'
+named[2863]: reading built-in trusted keys from file '/etc/bind/bind.keys'
+named[2863]: using default UDP/IPv4 port range: [1024, 65535]
+named[2863]: using default UDP/IPv6 port range: [1024, 65535]
+named[2863]: listening on IPv6 interfaces, port 53
+named[2863]: listening on IPv4 interface lo, 127.0.0.1#53
+named[2863]: listening on IPv4 interface eth0, 198.51.100.2#53
+named[2863]: generating session key for dynamic DNS
+named[2863]: sizing zone task pool based on 5 zones
+named[2863]: using built-in root key for view _default
+named[2863]: set up managed keys zone for view _default, file 'managed-keys.bind'
+named[2863]: Warning: 'empty-zones-enable/disable-empty-zone' not set: disabling RFC 1918 empty zones
+named[2863]: automatic empty zone: 254.169.IN-ADDR.ARPA
+named[2863]: automatic empty zone: 2.0.192.IN-ADDR.ARPA
+named[2863]: automatic empty zone: 100.51.198.IN-ADDR.ARPA
+named[2863]: automatic empty zone: 113.0.203.IN-ADDR.ARPA
+named[2863]: automatic empty zone: 255.255.255.255.IN-ADDR.ARPA
+named[2863]: automatic empty zone: 0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
+named[2863]: automatic empty zone: 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
+named[2863]: automatic empty zone: D.F.IP6.ARPA
+named[2863]: automatic empty zone: 8.E.F.IP6.ARPA
+named[2863]: automatic empty zone: 9.E.F.IP6.ARPA
+named[2863]: automatic empty zone: A.E.F.IP6.ARPA
+named[2863]: automatic empty zone: B.E.F.IP6.ARPA
+named[2863]: automatic empty zone: 8.B.D.0.1.0.0.2.IP6.ARPA
+named[2863]: command channel listening on 127.0.0.1#953
+named[2863]: command channel listening on ::1#953
+named[2863]: zone 0.in-addr.arpa/IN: loaded serial 1
+named[2863]: zone 127.in-addr.arpa/IN: loaded serial 1
+named[2863]: zone 255.in-addr.arpa/IN: loaded serial 1
+named[2863]: zone localhost/IN: loaded serial 2
+named[2863]: managed-keys-zone ./IN: loading from master file managed-keys.bind failed: file not found
+named[2863]: managed-keys-zone ./IN: loaded serial 0
+named[2863]: running</screen>
+        </listitem>
+      </varlistentry>
+      </variablelist>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quels sont les répertoires contenant les fichiers de
+      configuration du service <acronym>DNS</acronym> ?</phrase></para>
+
+      <para>Identifier les répertoires à partir de la liste des fichiers du
+      paquet <application>bind9</application>.</para>
+      </question>
+      <answer>
+      <para>Comme pour tout service implanté sur un système GNU/Linux, les
+      fichiers de configuration sont placés dans le répertoire <filename
+      class='directory'>/etc/</filename>.</para>
+
+<screen><prompt>#</prompt> dpkg -L bind9 |grep etc
+/etc
+/etc/bind
+/etc/bind/named.conf.default-zones
+/etc/bind/named.conf
+/etc/bind/db.empty
+/etc/bind/db.255
+/etc/bind/db.127
+/etc/bind/db.local
+/etc/bind/db.root
+/etc/bind/db.0
+/etc/bind/named.conf.local
+/etc/bind/zones.rfc1918
+/etc/bind/bind.keys
+/etc/init.d
+/etc/init.d/bind9
+/etc/ppp
+/etc/ppp/ip-down.d
+/etc/ppp/ip-down.d/bind9
+/etc/ppp/ip-up.d
+/etc/ppp/ip-up.d/bind9
+/etc/apparmor.d
+/etc/apparmor.d/force-complain
+/etc/apparmor.d/usr.sbin.named
+/etc/apparmor.d/local
+/etc/apparmor.d/local/usr.sbin.named
+/etc/network
+/etc/network/if-down.d
+/etc/network/if-down.d/bind9
+/etc/network/if-up.d
+/etc/network/if-up.d/bind9
+/etc/ufw
+/etc/ufw/applications.d
+/etc/ufw/applications.d/bind9</screen>
+
+      <para>De la même façon, les données du service doivent être placées dans
+      le répertoire <filename class='directory'>/var/</filename>.</para>
+
+<screen><prompt>#</prompt> dpkg -L bind9 |grep var
+/var
+/var/cache
+/var/cache/bind
+/var/run</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Qu'est ce qui distingue le répertoire général de
+      configuration du répertoire de stockage des fichiers de zone
+      ?</phrase></para>
+
+      <para>Consulter la documentation &url.bv9arm;.</para>
+      </question>
+      <answer>
+      <para>C'est dans le répertoire <filename
+      class='directory'>/var/cache/bind/</filename> que l'on place les fichiers
+      contenant les enregistrements ou <wordasword>Resource
+      Records</wordasword> (<acronym>RRs</acronym>). Ces enregistrements
+      correspondent aux zones sur lesquelles le serveur a autorité. Ce choix de
+      répertoire fait partie des options du service. Voir l'option
+      <option>directory</option> dans le fichier
+      <filename>/etc/bind/named.conf.options</filename>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Pourquoi l'installation du paquet
+      <application>bind9</application> correspond à un service
+      <acronym>DNS</acronym> de type <wordasword>cache-only</wordasword>
+      ?</phrase></para>
+
+      <para>Identifier la ou les zones sur lesquelles le services a autorités à
+      partir des informations contenues dans les journaux système et les
+      fichiers de configuration <filename>named.conf.*</filename>.</para>
+
+      <para>Consulter la section relative au service de type
+      <wordasword>cache-only</wordasword> dans le document &url.bv9arm;.</para>
+      </question>
+      <answer>
+      <itemizedlist>
+        <listitem>
+	<para>La configuration livrée avec le paquet ne contient aucune
+	déclaration de zone spécifique. Le fichier
+	<filename>/etc/bind/named.conf.local</filename> ne contient que des
+	commentaires.</para>
+        </listitem>
+        <listitem>
+	<para>Le répertoire <filename
+	class='directory'>/var/cache/bind/</filename> est vide.</para>
+        </listitem>
+        <listitem>
+	<para>Le service peut contacter les serveurs racine. La liste de ces
+	serveurs est donnée dans le fichier
+	<filename>db.root</filename>.</para>
+        </listitem>
+        <listitem>
+	<para>Le service étant actif, il peut prendre en charge les requêtes et
+	mémoriser dans son cache les résultats.</para>
+        </listitem>
+      </itemizedlist>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Comment appelle-t-on le logiciel client chargé d'interroger
+      le service de noms de domaines ?</phrase></para>
+
+      <para>Rechercher le mot clé <wordasword>resolver</wordasword> dans les
+      pages de manuels.</para>
+      </question>
+      <answer>
+      <para>C'est le fichier <filename>/etc/resolv.conf</filename> qui sert à
+      configurer la partie cliente du service de résolution des noms de
+      domaines ; le <wordasword>resolver</wordasword>. Dans le cas des postes
+      de travaux pratiques, la configuration initiale du
+      <wordasword>resolver</wordasword> est prise en charge par le service
+      <acronym>DHCP</acronym>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est l'opération à effectuer pour le service
+      <acronym>DNS</acronym> installé plus tôt soit effectivement utilisé
+      ?</phrase></para>
+
+      <para>Rechercher la syntaxe à utiliser pour éditer le fichier
+      <filename>/etc/resolv.conf</filename>.</para>
+      </question>
+      <answer>
+      <para>Il est possible de créer un nouveau fichier simplement en désignant
+      l'interface de boucle locale.</para>
+
+<screen><prompt>#</prompt> echo nameserver 127.0.0.1 >/etc/resolv.conf</screen>
+  
+      <para>Vu du système sur lequel le service est exécuté, on optimise le
+      traitement des requêtes en alimentant puis en utilisant le cache mémoire.
+      Vu de l'Internet, on sollicite directement les serveurs racines à chaque
+      nouvelle requête.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>À quel paquet appartient la commande <command>dig</command>
+      ? Quelle est sa fonction ?</phrase></para>
+
+      <para>Utiliser le gestionnaire de paquets local
+      <command>dpkg</command>.</para>
+      </question>
+      <answer>
+      <para>La commande <command>dig</command> est le «couteau suisse» qui va
+      permettre d'effectuer tous les tests de requêtes <acronym>DNS</acronym>.
+      On obtient le nom du paquet auquel elle appartient à partir d'une
+      recherche du type :</para>
+
+<screen><prompt>#</prompt> dpkg -S `which dig`
+dnsutils: /usr/bin/dig</screen>
+
+      <para>Le paquet <systemitem>dsnutils</systemitem> fait partie de
+      l'installation de base. Il est donc présent sur tous les systèmes.</para>
+      </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='sysadm-net.dns.qa.dig'>
+  <title>Requêtes DNS sur les différents types d'enregistrements
+  (<wordasword>Resource Records</wordasword>)</title>
+
+  <para>Avant d'aborder la déclaration de nouvelles zones, il faut installer et
+  valider le fonctionnement du service. La phase de validation passe par une
+  batterie de tests d'interrogation des différents champs du service
+  <acronym>DNS</acronym>.</para>
+
+  <para>Cette section est basée sur la commande <command>dig</command>. Les
+  pages de manuels de cette commande doivent servir de base de réponse aux
+  questions suivantes.</para>
+
+  <note>
+    <title>Pourquoi abandonner nslookup ?</title>
+    <para>La commande <command>nslookup</command> est la commande historique
+    liée aux requêtes du service <acronym>DNS</acronym>. Le principal reproche
+    fait à cette commande vient de ses réponses inadéquates en cas d'erreurs.
+    Malheureusement, ce comportement non conforme a été utilisé dans de très
+    nombreux développements de <wordasword>shell scripts</wordasword>. Pour ne
+    pas entraîner des problèmes en cascade, les développeurs ont décidé
+    d'initier un nouveau développement avec les versions 8.x puis 9.x de
+    <application>BIND</application> : la commande <command>dig</command>.
+    Comme ces travaux pratiques utilisent une version 9.x de
+    <application>BIND</application>, il est logique de s'appuyer sur cette
+    nouvelle commande <command>dig</command>.</para>
+  </note>
+
+  <qandaset>
+    <qandaentry>
+      <question>
+      <para><phrase>Comment reconnaître le serveur <acronym>DNS</acronym>
+      utilisé lors d'une requête avec la commande <command>dig</command>
+      ? Comment peut on visualiser l'utilisation du cache du service
+      <acronym>DNS</acronym> ?</phrase></para>
+
+      <para>Lire attentivement les résultats d'une exécution de la commande
+      <command>dig</command> sur un nom de domaine quelconque.</para>
+      </question>
+      <answer>
+      <para>L'utilisation du cache du serveur <acronym>DNS</acronym> est
+      identifiable à partir du temps de traitement d'une requête. Ce temps de
+      traitement apparaît dans le champ <option>Query time</option> des
+      résultats affichés à la suite d'un appel à la commande
+      <command>dig</command>.</para>
+
+      <para>Dans les deux exemples ci-dessous, le serveur interrogé est bien le
+      service local avec l'adresse <acronym>IP</acronym> <systemitem
+      class='ipaddress'>127.0.0.1</systemitem>. La première requête a un temps
+      de traitement de 1301ms tandis que la seconde a un temps de traitement de
+      0ms. Cette seconde réponse est fournie par le cache du serveur
+      <acronym>DNS</acronym>.</para>
+
+<screen><prompt>#</prompt> dig www.iana.org
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> www.iana.org
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 61419
+;; flags: qr rd ra; QUERY: 1, ANSWER: 2, AUTHORITY: 2, ADDITIONAL: 4
+
+;; QUESTION SECTION:
+;www.iana.org.                  IN      A
+
+;; ANSWER SECTION:
+www.iana.org.           600     IN      CNAME   ianawww.vip.icann.org.
+ianawww.vip.icann.org.  30      IN      A       192.0.32.8
+
+;; AUTHORITY SECTION:
+vip.icann.org.          3600    IN      NS      gtm1.lax.icann.org.
+vip.icann.org.          3600    IN      NS      gtm1.dc.icann.org.
+
+;; ADDITIONAL SECTION:
+gtm1.dc.icann.org.      21600   IN      A       192.0.47.252
+gtm1.dc.icann.org.      21600   IN      AAAA    2620:0:2830:296::252
+gtm1.lax.icann.org.     21600   IN      A       192.0.32.252
+gtm1.lax.icann.org.     21600   IN      AAAA    2620:0:2d0:296::252
+
+<emphasis>;; Query time: 1301 msec</emphasis>
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Mon Oct  8 00:28:32 2012
+;; MSG SIZE  rcvd: 211</screen>
+
+<screen><prompt>#</prompt> dig www.iana.org
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> www.iana.org
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 61419
+;; flags: qr rd ra; QUERY: 1, ANSWER: 2, AUTHORITY: 2, ADDITIONAL: 4
+
+;; QUESTION SECTION:
+;www.iana.org.                  IN      A
+
+;; ANSWER SECTION:
+www.iana.org.           600     IN      CNAME   ianawww.vip.icann.org.
+ianawww.vip.icann.org.  30      IN      A       192.0.32.8
+
+;; AUTHORITY SECTION:
+vip.icann.org.          3600    IN      NS      gtm1.lax.icann.org.
+vip.icann.org.          3600    IN      NS      gtm1.dc.icann.org.
+
+;; ADDITIONAL SECTION:
+gtm1.dc.icann.org.      21600   IN      A       192.0.47.252
+gtm1.dc.icann.org.      21600   IN      AAAA    2620:0:2830:296::252
+gtm1.lax.icann.org.     21600   IN      A       192.0.32.252
+gtm1.lax.icann.org.     21600   IN      AAAA    2620:0:2d0:296::252
+
+<emphasis>;; Query time: 0 msec</emphasis>
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Mon Oct  8 00:28:40 2012
+;; MSG SIZE  rcvd: 211</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les options de la commande <command>dig</command> à
+      utiliser pour émettre des requêtes des types suivants :
+      <option>NS</option>, <option>A</option>, <option>PTR</option>, et
+      <option>MX</option> ? Donner un exemple de chaque type.</para>
+
+      <para>Les différents enregistrements ou <wordasword>Resource
+      Records</wordasword> d'une zone sont accessibles à partir de requêtes
+      individuelles. Les options de la commande <command>dig</command>,
+      documentées dans les pages de manuels (<userinput>man dig</userinput>),
+      permettent d'indiquer le type d'enregistrement demandé
+      (<acronym>RR</acronym>) après le nom de domaine. Les réponses aux
+      requêtes suivantes apparaissent après la  mention <literal>ANSWER
+      SECTION:</literal>.</para>
+
+      <variablelist>
+        <varlistentry xml:id='dig.ns'>
+        <term>Requête sur un serveur de noms</term>
+        <term>NS</term>
+        <listitem>
+<screen><prompt>$</prompt> dig ns iana.org
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> ns iana.org
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 25044
+;; flags: qr rd ra; QUERY: 1, ANSWER: 5, AUTHORITY: 0, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;iana.org.                      IN      NS
+
+;; ANSWER SECTION:
+iana.org.               86400   IN      NS      d.iana-servers.net.
+iana.org.               86400   IN      NS      ns.icann.org.
+iana.org.               86400   IN      NS      c.iana-servers.net.
+iana.org.               86400   IN      NS      a.iana-servers.net.
+iana.org.               86400   IN      NS      b.iana-servers.net.
+
+;; Query time: 313 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Sun Oct  7 22:41:52 2012
+;; MSG SIZE  rcvd: 129</screen>
+        </listitem>
+        </varlistentry>
+        <varlistentry xml:id='dig.a'>
+        <term>Requête sur un nom d'hôte</term>
+        <term>A</term>
+        <listitem>
+<screen><prompt>$</prompt> dig a iana.org
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> a iana.org
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 56033
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 5, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;iana.org.                      IN      A
+
+;; ANSWER SECTION:
+iana.org.               600     IN      A       192.0.43.8
+
+;; AUTHORITY SECTION:
+iana.org.               86293   IN      NS      a.iana-servers.net.
+iana.org.               86293   IN      NS      ns.icann.org.
+iana.org.               86293   IN      NS      c.iana-servers.net.
+iana.org.               86293   IN      NS      b.iana-servers.net.
+iana.org.               86293   IN      NS      d.iana-servers.net.
+
+;; Query time: 190 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Sun Oct  7 22:43:39 2012
+;; MSG SIZE  rcvd: 145</screen>
+        </listitem>
+        </varlistentry>
+        <varlistentry xml:id='dig.ptr'>
+        <term>Requête sur une adresse IP</term>
+        <term>PTR</term>
+        <listitem>
+<screen><prompt>$</prompt> dig -x 192.0.32.9
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> -x 192.0.32.9
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 16786
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 5, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;9.32.0.192.in-addr.arpa.       IN      PTR
+
+;; ANSWER SECTION:
+9.32.0.192.in-addr.arpa. 21600  IN      PTR     www.internic.net.
+
+;; AUTHORITY SECTION:
+32.0.192.in-addr.arpa.  86400   IN      NS      b.iana-servers.net.
+32.0.192.in-addr.arpa.  86400   IN      NS      a.iana-servers.net.
+32.0.192.in-addr.arpa.  86400   IN      NS      c.iana-servers.net.
+32.0.192.in-addr.arpa.  86400   IN      NS      ns.icann.org.
+32.0.192.in-addr.arpa.  86400   IN      NS      d.iana-servers.net.
+
+;; Query time: 426 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Sun Oct  7 22:46:44 2012
+;; MSG SIZE  rcvd: 174</screen>
+        </listitem>
+        </varlistentry>
+        <varlistentry xml:id='dig.mx'>
+        <term>Requête sur un agent de transfert de courrier électronique</term>
+        <term>MX</term>
+        <listitem>
+<screen><prompt>$</prompt> dig mx internic.net
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> mx internic.net
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 45729
+;; flags: qr rd ra; QUERY: 1, ANSWER: 2, AUTHORITY: 0, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;internic.net.                  IN      MX
+
+;; ANSWER SECTION:
+internic.net.           600     IN      MX      10 pechorax.dc.icann.org.
+internic.net.           600     IN      MX      10 pechorax.lax.icann.org.
+
+;; Query time: 112 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Sun Oct  7 22:48:27 2012
+;; MSG SIZE  rcvd: 96</screen>
+        </listitem>
+        </varlistentry>
+      </variablelist>
+      </question>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est l'option de la commande <command>dig</command> à
+      utiliser pour émettre des requêtes itératives ? Donner un
+      exemple</phrase></para>
+
+      <para>Consulter les pages de manuels de la commande
+      <command>dig</command> à la recherche du traçage des étapes d'une
+      requête.</para>
+      </question>
+      <answer>
+      <para>Pour émettre une requête itérative (ou non récursive), il faut
+      utiliser l'option <option>+trace</option>.</para>
+
+<screen xml:id='dig.trace'><prompt>$</prompt> dig +trace ns iana.org
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> +trace ns iana.org
+;; global options: +cmd
+.                       511837  IN      NS      i.root-servers.net.
+.                       511837  IN      NS      j.root-servers.net.
+.                       511837  IN      NS      c.root-servers.net.
+.                       511837  IN      NS      h.root-servers.net.
+.                       511837  IN      NS      a.root-servers.net.
+.                       511837  IN      NS      l.root-servers.net.
+.                       511837  IN      NS      d.root-servers.net.
+.                       511837  IN      NS      e.root-servers.net.
+.                       511837  IN      NS      g.root-servers.net.
+.                       511837  IN      NS      m.root-servers.net.
+.                       511837  IN      NS      f.root-servers.net.
+.                       511837  IN      NS      b.root-servers.net.
+.                       511837  IN      NS      k.root-servers.net.
+;; Received 512 bytes from 127.0.0.1#53(127.0.0.1) in 8 ms
+
+org.                    172800  IN      NS      a0.org.afilias-nst.info.
+org.                    172800  IN      NS      c0.org.afilias-nst.info.
+org.                    172800  IN      NS      d0.org.afilias-nst.org.
+org.                    172800  IN      NS      b2.org.afilias-nst.org.
+org.                    172800  IN      NS      b0.org.afilias-nst.org.
+org.                    172800  IN      NS      a2.org.afilias-nst.info.
+;; Received 428 bytes from 128.8.10.90#53(128.8.10.90) in 1705 ms
+
+iana.org.               86400   IN      NS      a.iana-servers.net.
+iana.org.               86400   IN      NS      b.iana-servers.net.
+iana.org.               86400   IN      NS      c.iana-servers.net.
+iana.org.               86400   IN      NS      d.iana-servers.net.
+iana.org.               86400   IN      NS      ns.icann.org.
+;; Received 173 bytes from 2001:500:48::1#53(2001:500:48::1) in 1101 ms
+
+iana.org.               86400   IN      NS      c.iana-servers.net.
+iana.org.               86400   IN      NS      a.iana-servers.net.
+iana.org.               86400   IN      NS      d.iana-servers.net.
+iana.org.               86400   IN      NS      b.iana-servers.net.
+iana.org.               86400   IN      NS      ns.icann.org.
+;; Received 129 bytes from 199.43.132.53#53(199.43.132.53) in 18 ms</screen>
+
+<note>
+  <para>Après tous ces exemples de requêtes, on voit clairement que le
+  fonctionnement par défaut du logiciel <application>BIND</application> est
+  récursif. Cette prise en charge «ouverte» des requêtes peut poser quelques
+  soucis de sécurité. Si il est légitime de prendre complètement en charge les
+  interrogations <acronym>DNS</acronym> émises par les hôtes du réseau
+  administré de façon à alimenter le cache et optimiser le fonctionnement du
+  service, il n'en va pas de même pour les hôtes du réseau public. Il est donc
+  important de configurer le service en conséquence. Les contrôles d'accès qui
+  permettent de ne satisfaire que les requêtes émises par les hôtes appartenant
+  aux «réseaux de confiance» sont présentées dans la <xref
+  linkend='sysadm-net.dns.qa.sec'/>.</para>
+</note>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est la syntaxe de la commande <command>dig</command>
+      à utiliser pour interroger la classe <emphasis>CHAOS</emphasis> ? Donner
+      deux exemples de requêtes sur les champs <option>version.bind</option> et
+      <option>authors.bind</option>.</phrase></para>
+
+      <para>Consulter les pages de manuels de la commande
+      <command>dig</command> à la recherche des définitions de classes.</para>
+      </question>
+      <answer>
+      <para>Tous les exemples de requêtes donnés ci-avant utilisent la classe
+      Internet (<acronym>IN</acronym>) de façon implicite. Pour interroger un
+      type de la classe CHAOS, il est nécessaire d'indiquer cette classe dans
+      la commande d'interrogation du service <acronym>DNS</acronym>. Voici deux
+      exemples de requêtes sur les deux types les plus souvent recherchés : la
+      version du logiciel et la liste de ses auteurs.</para>
+
+<screen><prompt>$</prompt> dig @localhost. version.bind txt chaos +novc
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> @localhost. version.bind txt chaos +novc
+; (2 servers found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 39711
+;; flags: qr aa rd; QUERY: 1, ANSWER: 1, AUTHORITY: 1, ADDITIONAL: 0
+;; WARNING: recursion requested but not available
+
+;; QUESTION SECTION:
+;version.bind.                  CH      TXT
+
+;; ANSWER SECTION:
+version.bind.           0       CH      TXT     "9.8.1-P1"
+
+;; AUTHORITY SECTION:
+version.bind.           0       CH      NS      version.bind.
+
+;; Query time: 0 msec
+;; SERVER: ::1#53(::1)
+;; WHEN: Sun Oct  7 23:01:44 2012
+;; MSG SIZE  rcvd: 65</screen>
+
+<screen><prompt>$</prompt> dig @localhost. authors.bind txt chaos +novc
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> @localhost. authors.bind txt chaos +novc
+; (2 servers found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 36899
+;; flags: qr aa rd; QUERY: 1, ANSWER: 15, AUTHORITY: 1, ADDITIONAL: 0
+;; WARNING: recursion requested but not available
+
+;; QUESTION SECTION:
+;authors.bind.                  CH      TXT
+
+;; ANSWER SECTION:
+authors.bind.           0       CH      TXT     "Matt Nelson"
+authors.bind.           0       CH      TXT     "Jeremy C. Reed"
+authors.bind.           0       CH      TXT     "Michael Sawyer"
+authors.bind.           0       CH      TXT     "Brian Wellington"
+authors.bind.           0       CH      TXT     "Mark Andrews"
+authors.bind.           0       CH      TXT     "James Brister"
+authors.bind.           0       CH      TXT     "Ben Cottrell"
+authors.bind.           0       CH      TXT     "Michael Graff"
+authors.bind.           0       CH      TXT     "Andreas Gustafsson"
+authors.bind.           0       CH      TXT     "Bob Halley"
+authors.bind.           0       CH      TXT     "Evan Hunt"
+authors.bind.           0       CH      TXT     "JINMEI Tatuya"
+authors.bind.           0       CH      TXT     "David Lawrence"
+authors.bind.           0       CH      TXT     "Danny Mayer"
+authors.bind.           0       CH      TXT     "Damien Neil"
+
+;; AUTHORITY SECTION:
+authors.bind.           0       CH      NS      authors.bind.
+
+;; Query time: 0 msec
+;; SERVER: ::1#53(::1)
+;; WHEN: Sun Oct  7 23:03:43 2012
+;; MSG SIZE  rcvd: 430</screen>
+      </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='sysadm-net.dns.qa.dig.troubleshoot'>
+  <title>Validation ou dépannage d'une configuration</title>
+
+  <para>Les sections précédentes sur les types de requêtes fournissent déjà
+  quelques éléments sur la validation ou le dépannage du service
+  <acronym>DNS</acronym>.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Le temps de réponse à une requête (<wordasword>Query
+    time:</wordasword>) renseigne sur l'utilisation ou non du cache
+    mémoire.</para>
+    </listitem>
+    <listitem>
+    <para>En cas de panne, une <link linkend='dig.trace'>requête
+    itérative</link> permet d'identifier le point de rupture dans la chaîne de
+    résolution des noms.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Il reste deux options particulièrement utiles à la mise au point d'une
+  configuration correcte.</para>
+
+  <para>Il est possible de désigner explicitement le serveur
+  <acronym>DNS</acronym> qui doit prendre en charge la requête à l'aide de son
+  adresse IP. Cette opération est très utile pour vérifier qu'un serveur
+  primaire répond correctement aux demandes sur les enregistrements qu'il
+  détient. Dans le contexte de la sécurisation du service, cette même opération
+  sert à contrôler qu'un serveur ne répond qu'au requêtes qu'il est sensé
+  traiter. Voici deux exemples utilisant respectivement la désignation du
+  serveur interrogé par son adresse IP et la requête directe de transfert de
+  zone.</para>
+
+  <para>Pour vérifier que le service <acronym>DNS</acronym> de la zone
+  <literal>nic.fr</literal> fournit l'adresse du serveur Web ayant le nom
+  <literal>www.nic.fr</literal>, on peut procéder comme suit.</para>
+
+  <itemizedlist>
+    <listitem>
+      <para>On identifie un serveur de nom pour la zone.</para>
+
+<screen><prompt>$</prompt> dig ns nic.fr
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> ns nic.fr
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 23937
+;; flags: qr rd ra; QUERY: 1, ANSWER: 6, AUTHORITY: 0, ADDITIONAL: 11
+
+;; QUESTION SECTION:
+;nic.fr.                                IN      NS
+
+;; ANSWER SECTION:
+nic.fr.                 176789  IN      NS      ns1.ext.nic.fr.
+nic.fr.                 176789  IN      NS      ns3.nic.fr.
+nic.fr.                 176789  IN      NS      ns1.nic.fr.
+nic.fr.                 176789  IN      NS      ns4.ext.nic.fr.
+nic.fr.                 176789  IN      NS      ns2.nic.fr.
+nic.fr.                 176789  IN      NS      ns6.ext.nic.fr.
+
+;; ADDITIONAL SECTION:
+ns1.ext.nic.fr.         176789  IN      A       193.51.208.13
+ns1.nic.fr.             176789  IN      A       192.134.4.1
+ns1.nic.fr.             176789  IN      AAAA    2001:660:3003:2::4:1
+ns2.nic.fr.             176789  IN      A       192.93.0.4
+ns2.nic.fr.             176789  IN      AAAA    2001:660:3005:1::1:2
+ns3.nic.fr.             176789  IN      A       192.134.0.49
+ns3.nic.fr.             176789  IN      AAAA    2001:660:3006:1::1:1
+ns4.ext.nic.fr.         176789  IN      A       193.0.9.4
+ns4.ext.nic.fr.         176789  IN      AAAA    2001:67c:e0::4
+ns6.ext.nic.fr.         176789  IN      A       130.59.138.49
+ns6.ext.nic.fr.         176789  IN      AAAA    2001:620:0:1b:5054:ff:fe74:8780
+
+;; Query time: 0 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Sun Oct  7 23:09:40 2012
+;; MSG SIZE  rcvd: 372</screen>
+    </listitem>
+    <listitem>
+      <para>On interroge directement le serveur primaire de la zone.</para>
+
+<screen><prompt>$</prompt> dig <emphasis>@ns1.nic.fr</emphasis> www.nic.fr
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> @ns1.nic.fr www.nic.fr
+; (2 servers found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: <emphasis>NOERROR</emphasis>, id: 33946
+;; flags: qr aa rd; QUERY: 1, ANSWER: 2, AUTHORITY: 6, ADDITIONAL: 11
+;; WARNING: recursion requested but not available
+
+;; QUESTION SECTION:
+;www.nic.fr.                    IN      A
+
+;; ANSWER SECTION:
+www.nic.fr.             172800  IN      CNAME   web.nic.fr.
+web.nic.fr.             172800  IN      A       192.134.4.20
+
+;; AUTHORITY SECTION:
+nic.fr.                 172800  IN      NS      ns3.nic.fr.
+nic.fr.                 172800  IN      NS      ns6.ext.nic.fr.
+nic.fr.                 172800  IN      NS      ns4.ext.nic.fr.
+nic.fr.                 172800  IN      NS      ns1.nic.fr.
+nic.fr.                 172800  IN      NS      ns1.ext.nic.fr.
+nic.fr.                 172800  IN      NS      ns2.nic.fr.
+
+;; ADDITIONAL SECTION:
+ns1.ext.nic.fr.         172800  IN      A       193.51.208.13
+ns1.nic.fr.             172800  IN      A       192.134.4.1
+ns1.nic.fr.             172800  IN      AAAA    2001:660:3003:2::4:1
+ns2.nic.fr.             172800  IN      A       192.93.0.4
+ns2.nic.fr.             172800  IN      AAAA    2001:660:3005:1::1:2
+ns3.nic.fr.             172800  IN      A       192.134.0.49
+ns3.nic.fr.             172800  IN      AAAA    2001:660:3006:1::1:1
+ns4.ext.nic.fr.         172800  IN      A       193.0.9.4
+ns4.ext.nic.fr.         172800  IN      AAAA    2001:67c:e0::4
+ns6.ext.nic.fr.         172800  IN      A       130.59.138.49
+ns6.ext.nic.fr.         172800  IN      AAAA    2001:620:0:1b:5054:ff:fe74:8780
+
+;; Query time: 40 msec
+;; SERVER: 2001:660:3003:2::4:1#53(2001:660:3003:2::4:1)
+;; WHEN: Sun Oct  7 23:11:33 2012
+;; MSG SIZE  rcvd: 410</screen>
+
+      <para>On voit apparaître une indication selon laquelle le serveur
+      interrogé ne prendra pas en charge les requêtes récursives pour le client
+      utilisé. C'est tout à fait normal dans la mesure où ces tests de requêtes
+      ne sont pas effectués depuis un poste client appartenant au domaine
+      <literal>nic.fr</literal>.</para>
+
+      <para>Pour autant, on obtient bien la réponse à la requête posée puisque
+      l'enregistrement demandé appartient bien à la zone sur laquelle le
+      serveur a autorité.</para>
+    </listitem>
+    <listitem>
+      <para>On interroge directement le même serveur avec une requête portant
+      sur une autre zone.</para>
+
+<screen><prompt>$</prompt> dig <emphasis>@ns1.nic.fr</emphasis> www.phrack.org
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> @ns1.nic.fr www.phrack.org
+; (2 servers found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: <emphasis>REFUSED</emphasis>, id: 16990
+;; flags: qr rd; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+;; WARNING: recursion requested but not available
+
+;; QUESTION SECTION:
+;www.phrack.org.                        IN      A
+
+;; Query time: 39 msec
+;; SERVER: 2001:660:3003:2::4:1#53(2001:660:3003:2::4:1)
+;; WHEN: Sun Oct  7 23:14:58 2012
+;; MSG SIZE  rcvd: 32</screen>
+
+      <para>Cette fois-ci la requête est refusée. Le serveur primaire ne veut
+      pas prendre en charge la requête posée. C'est encore tout à fait normal
+      dans la mesure le client n'appartient pas aux réseaux de la zone
+      <literal>nic.fr</literal>.</para>
+    </listitem>
+    <listitem>
+      <para>Certains services sont très «ouverts» et acceptent de prendre en
+      charge les requêtes de n'importe quel client. La même requête posée à un
+      de ces services est traitée normalement.</para>
+
+<screen><prompt>$</prompt> dig <emphasis>@dns1.gaoland.net</emphasis> www.phrack.org
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> @dns1.gaoland.net www.phrack.org
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: <emphasis>NOERROR</emphasis>, id: 19478
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 2, ADDITIONAL: 2
+
+;; QUESTION SECTION:
+;www.phrack.org.                        IN      A
+
+;; ANSWER SECTION:
+www.phrack.org.         86400   IN      A       120.138.19.103
+
+;; AUTHORITY SECTION:
+phrack.org.             86400   IN      NS      ns1.register-it.net.
+phrack.org.             86400   IN      NS      ns2.register-it.net.
+
+;; ADDITIONAL SECTION:
+ns1.register-it.net.    86395   IN      A       83.246.76.254
+ns2.register-it.net.    86395   IN      A       83.246.77.10
+
+;; Query time: 48 msec
+;; SERVER: 212.94.162.1#53(212.94.162.1)
+;; WHEN: Sun Oct  7 23:17:38 2012
+;; MSG SIZE  rcvd: 145</screen>
+      
+      <para>Sous toute réserve, il semble bien que le fait de répondre aux
+      requêtes de n'importe quel client ne corresponde pas aux bonnes pratiques
+      sur la configuration du service <acronym>DNS</acronym> de nos
+      jours.</para>
+
+      <para>Dans le cadre de ces travaux pratiques, on veillera donc à
+      n'autoriser les requêtes récursives qu'aux clients appartenant aux
+      réseaux définis dans le plan d'adressage IP de l'énoncé.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>La requête directe de transfert de zone permet de valider les
+  autorisations d'échanges entre le serveur primaire et les autres serveurs
+  ayant autorité sur la même zone.</para>
+
+  <para>Dans l'exemple de requête ci-dessous on interroge le serveur primaire à
+  partir du serveur secondaire.</para>
+
+<screen><prompt>$</prompt> dig @172.16.80.1 <emphasis>axfr</emphasis> lan-213.stri
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> @172.16.80.1 <emphasis>axfr</emphasis> lan-213.stri
+; (1 server found)
+;; global options: +cmd
+lan-213.stri.           86400   IN      SOA     casper.infra.stri. root.casper.infra.stri. 2012090701 28800 7200 604800 86400
+lan-213.stri.           86400   IN      MX      0 mail.stri.
+lan-213.stri.           86400   IN      NS      casper.infra.stri.
+lan-213.stri.           86400   IN      NS      cooper.lan-213.stri.
+alderaan.lan-213.stri.  86400   IN      A       172.16.80.10
+amethyste.lan-213.stri. 86400   IN      A       172.16.80.5
+anison.lan-213.stri.    86400   IN      A       172.16.80.23
+bespin.lan-213.stri.    86400   IN      A       172.16.80.11
+casper.lan-213.stri.    86400   IN      A       172.16.80.2
+centares.lan-213.stri.  86400   IN      A       172.16.80.12
+cooper.lan-213.stri.    86400   IN      A       172.16.80.1
+coruscant.lan-213.stri. 86400   IN      A       172.16.80.13
+dagobah.lan-213.stri.   86400   IN      A       172.16.80.14
+endor.lan-213.stri.     86400   IN      A       172.16.80.15
+felucia.lan-213.stri.   86400   IN      A       172.16.80.16
+geonosis.lan-213.stri.  86400   IN      A       172.16.80.17
+hoth.lan-213.stri.      86400   IN      A       172.16.80.18
+kamino.lan-213.stri.    86400   IN      A       172.16.80.19
+mustafar.lan-213.stri.  86400   IN      A       172.16.80.20
+naboo.lan-213.stri.     86400   IN      A       172.16.80.21
+perle.lan-213.stri.     86400   IN      A       172.16.80.6
+tatooine.lan-213.stri.  86400   IN      A       172.16.80.22
+topaze.lan-213.stri.    86400   IN      A       172.16.80.4
+lan-213.stri.           86400   IN      SOA     casper.infra.stri. root.casper.infra.stri. 2012090701 28800 7200 604800 86400
+;; Query time: 1 msec
+;; SERVER: 172.16.80.1#53(172.16.80.1)
+;; WHEN: Sun Oct  7 23:24:57 2012
+;; XFR size: 24 records (messages 1, bytes 619)</screen>
+
+   <para>Pour éviter une «recensement trop facile» de l'identité des hôtes
+   d'une zone, il est essentiel de n'autoriser ces requêtes de transfert
+   qu'entre serveurs <acronym>DNS</acronym>. Cette configuration du contrôle
+   d'accès est présentée dans la <xref
+   linkend='sysadm-net.dns.qa.sec'/>.</para>
+</sect1>
+
+<sect1 xml:id='sysadm-net.dns.qa.primary'>
+  <title>Configuration du serveur primaire de la zone stri.lab</title>
+
+  <para>Le fichier <filename>/etc/bind/named.conf.local</filename> du nouveau
+  serveur <acronym>DNS</acronym> doit être édité. Une fois l'opération
+  effectuée, le serveur a autorité sur la zone
+  <systemitem>stri.lab</systemitem>. Voici une copie de ce fichier.</para>
+
+<screen width='80'><prompt>#</prompt> cat /etc/bind/named.conf.local 
+//
+// Do any local configuration here
+//
+
+zone "stri.lab" {
+        type master;
+        file "stri.lab";
+        };
+
+zone "0.200.192.in-addr.arpa" {
+        type master;
+        file "198.51.100";
+        };
+
+// Consider adding the 1918 zones here, if they are not used in your
+// organization
+//include "/etc/bind/zones.rfc1918";</screen>
+
+  <para>En respectant les options de configuration du paquet Debian, on créé
+  les fichiers <filename>stri.lab</filename> et <filename>198.51.100</filename>
+  dans le répertoire <filename
+  class='directory'>/var/cache/bind/</filename>.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Enregistrements (<acronym>RRs</acronym>) utilisés pour la résolution
+    directe des noms.</para>
+
+<screen width='80'><prompt>#</prompt> cat /var/cache/bind/stri.lab 
+$TTL 60
+@       IN      SOA     stri.lab. root.stri.lab. (
+                        2010052401      ; serial, yearmonthdayserial#
+                        20              ; refresh, seconds
+                        5               ; retry, seconds
+                        420             ; expire, seconds
+                        60 )            ; minimum, seconds
+                        NS      srvr.stri.lab.
+                        NS      clnt.stri.lab.
+                        MX      10 smtp.stri.lab.  ; Primary Mail Exchanger
+                        TXT     "Training Lab"
+
+rtr             A       198.51.100.1
+srvr            A       198.51.100.3
+ns1             CNAME   srvr.stri.lab.
+clnt            A       198.51.100.4
+ns2             CNAME   clnt.stri.lab.
+smtp            A       198.51.100.10
+nfs             A       198.51.100.11
+ldap            A       198.51.100.12</screen>
+    </listitem>
+    <listitem>
+    <para>Enregistrements (<acronym>RRs</acronym>) utilisés pour la résolution
+    inverse des adresses IP.</para>
+
+<screen width='80'><prompt>#</prompt> cat /var/cache/bind/198.51.100 
+$TTL 60
+@       IN      SOA     stri.lab. root.stri.lab. (
+                        2010052401      ; serial, yearmonthdayserial#
+                        20              ; refresh, seconds
+                        5               ; retry, seconds
+                        420             ; expire, seconds
+                        60 )            ; minimum, seconds
+                        NS      srvr.stri.lab.
+                        NS      clnt.stri.lab.
+
+1               PTR     rtr.stri.lab.
+3               PTR     srvr.stri.lab.
+4               PTR     clnt.stri.lab.
+10              PTR     smtp.stri.lab.
+11              PTR     nfs.stri.lab.
+12              PTR     ldap.stri.lab.</screen>
+    </listitem>
+  </itemizedlist>
+
+<warning>
+  <para>Pour les besoins des travaux pratiques, les temps définis dans
+  l'enregistrement <acronym>SOA</acronym> ont été considérablement réduits pour
+  caractériser l'effet des notifications et des durées de maintien en cache
+  mémoire. Ces temps permettent aussi de propager les modifications sur les
+  enregistrements plus rapidement en incrémentant les numéros de
+  version.</para>
+</warning>
+
+  <para>Une fois que ces deux fichiers sont en place, on peut redémarrer le
+  service et vérifier qu'il n'y a pas de message d'erreur dans les journaux. Si
+  une ou plusieurs erreurs de syntaxe sont présentes dans la déclaration des
+  enregistrements, les journaux systèmes indiquent le nom du fichier et le
+  numéro de la ligne concernée ; comme le ferait le pré-processeur d'un
+  compilateur avec une langage de développement.</para>
+
+<screen width='80'><prompt>#</prompt> /etc/init.d/bind9 restart
+<prompt>#</prompt> tail -150 /var/log/syslog |grep named
+named[931]: exiting
+named[1307]: starting BIND 9.7.0-P1 -u bind
+named[1307]: built with '--prefix=/usr' &lt;snipped/>
+named[1307]: adjusted limit on open files from 1024 to 1048576
+named[1307]: found 1 CPU, using 1 worker thread
+named[1307]: using up to 4096 sockets
+named[1307]: loading configuration from '/etc/bind/named.conf'
+named[1307]: reading built-in trusted keys from file '/etc/bind/bind.keys'
+named[1307]: using default UDP/IPv4 port range: [1024, 65535]
+named[1307]: using default UDP/IPv6 port range: [1024, 65535]
+named[1307]: listening on IPv6 interfaces, port 53
+named[1307]: listening on IPv4 interface lo, 127.0.0.1#53
+named[1307]: listening on IPv4 interface eth0, 198.51.100.3#53
+named[1307]: generating session key for dynamic DNS
+named[1307]: automatic empty zone: 254.169.IN-ADDR.ARPA
+named[1307]: automatic empty zone: 2.0.192.IN-ADDR.ARPA
+named[1307]: automatic empty zone: 255.255.255.255.IN-ADDR.ARPA
+named[1307]: automatic empty zone: 0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
+named[1307]: automatic empty zone: 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
+named[1307]: automatic empty zone: D.F.IP6.ARPA
+named[1307]: automatic empty zone: 8.E.F.IP6.ARPA
+named[1307]: automatic empty zone: 9.E.F.IP6.ARPA
+named[1307]: automatic empty zone: A.E.F.IP6.ARPA
+named[1307]: automatic empty zone: B.E.F.IP6.ARPA
+named[1307]: command channel listening on 127.0.0.1#953
+named[1307]: command channel listening on ::1#953
+named[1307]: zone 0.in-addr.arpa/IN: loaded serial 1
+named[1307]: zone 127.in-addr.arpa/IN: loaded serial 1
+named[1307]: <emphasis>zone 0.200.192.in-addr.arpa/IN: loaded serial 2010052401</emphasis>
+named[1307]: zone 255.in-addr.arpa/IN: loaded serial 1
+named[1307]: <emphasis>zone stri.lab/IN: loaded serial 2010052401</emphasis>
+named[1307]: zone localhost/IN: loaded serial 2
+named[1307]: running
+named[1307]: zone 0.200.192.in-addr.arpa/IN: sending notifies (serial 2010052401)
+named[1307]: zone stri.lab/IN: sending notifies (serial 2010052401)</screen>
+
+  <para>Ce n'est qu'après avoir vérifié que la zone est bien prise en charge
+  avec le bon numéro de série que l'on peut effectuer les tests de
+  requêtes.</para>
+
+<screen width='80'><prompt>#</prompt> dig stri.lab ns
+
+; &lt;&lt;>> DiG 9.7.0-P1 &lt;&lt;>> stri.lab ns
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 59703
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; QUESTION SECTION:
+;stri.lab.                      IN      NS
+
+;; ANSWER SECTION:
+stri.lab.               60      IN      NS      clnt.stri.lab.
+stri.lab.               60      IN      NS      srvr.stri.lab.
+
+;; ADDITIONAL SECTION:
+clnt.stri.lab.          60      IN      A       198.51.100.4
+srvr.stri.lab.          60      IN      A       198.51.100.3
+
+;; Query time: 0 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Mon May 24 16:57:00 2010
+;; MSG SIZE  rcvd: 96</screen>
+
+  <para>Comme dans l'exemple ci-dessus, on peut valider les enregistrements ou
+  <wordasword>Resource Records</wordasword> un à un en reprenant les syntaxes
+  de requêtes présentées dans la <xref
+  linkend='sysadm-net.dns.qa.dig'/>.</para>
+</sect1>
+
+<sect1 xml:id='sysadm-net.dns.qa.secondary'>
+  <title>Configuration du serveur secondaire de la zone stri.lab</title>
+
+  <para>Pour distinguer un serveur primaire d'un serveur secondaire, il faut
+  savoir que le serveur primaire détient effectivement les fichiers de
+  déclaration des enregistrements. Un serveur secondaire obtient les copies des
+  déclarations des enregistrements par transfert réseau.</para>
+
+  <para>Dans cette section, on reprend les mêmes fichiers de configuration en
+  désignant le serveur primaire comme détenteur des enregistrements.</para>
+
+  <para>Le fichier <filename>/etc/bind/named.conf.local</filename> du nouveau
+  serveur <acronym>DNS</acronym> doit être édité. Une fois l'opération
+  effectuée, le serveur a autorité sur la zone
+  <systemitem>stri.lab</systemitem>. Voici une copie de ce fichier.</para>
+
+<screen width='80'><prompt>#</prompt> cat /etc/bind/named.conf.local 
+//
+// Do any local configuration here
+//
+
+zone "stri.lab" {
+        type slave;
+        masters {
+                198.51.100.3;
+                };
+        file "backup.stri.lab";
+        };
+
+zone "0.200.192.in-addr.arpa" {
+        type slave;
+        masters {
+                198.51.100.3;
+                };
+        file "backup.198.51.100";
+        };
+
+// Consider adding the 1918 zones here, if they are not used in your
+// organization
+//include "/etc/bind/zones.rfc1918";</screen>
+
+  <para>Une fois la déclaration de zone en place, il faut redémarrer le service
+  pour que le serveur secondaire obtienne une copie des enregistrements détenus
+  par le serveur primaire.</para>
+
+<screen width='80'><prompt>#</prompt> /etc/init.d/bind9 restart
+<prompt>#</prompt> tail -200 /var/log/syslog | grep named
+named[908]: exiting
+named[2813]: starting BIND 9.7.0-P1 -u bind
+named[2813]: built with '--prefix=/usr' &lt;snipped/>
+named[2813]: adjusted limit on open files from 1024 to 1048576
+named[2813]: found 1 CPU, using 1 worker thread
+named[2813]: using up to 4096 sockets
+named[2813]: loading configuration from '/etc/bind/named.conf'
+named[2813]: reading built-in trusted keys from file '/etc/bind/bind.keys'
+named[2813]: using default UDP/IPv4 port range: [1024, 65535]
+named[2813]: using default UDP/IPv6 port range: [1024, 65535]
+named[2813]: listening on IPv6 interfaces, port 53
+named[2813]: listening on IPv4 interface lo, 127.0.0.1#53
+named[2813]: listening on IPv4 interface eth0, 198.51.100.4#53
+named[2813]: generating session key for dynamic DNS
+named[2813]: automatic empty zone: 254.169.IN-ADDR.ARPA
+named[2813]: automatic empty zone: 2.0.192.IN-ADDR.ARPA
+named[2813]: automatic empty zone: 255.255.255.255.IN-ADDR.ARPA
+named[2813]: automatic empty zone: 0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
+named[2813]: automatic empty zone: 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
+named[2813]: automatic empty zone: D.F.IP6.ARPA
+named[2813]: automatic empty zone: 8.E.F.IP6.ARPA
+named[2813]: automatic empty zone: 9.E.F.IP6.ARPA
+named[2813]: automatic empty zone: A.E.F.IP6.ARPA
+named[2813]: automatic empty zone: B.E.F.IP6.ARPA
+named[2813]: command channel listening on 127.0.0.1#953
+named[2813]: command channel listening on ::1#953
+named[2813]: zone 0.in-addr.arpa/IN: loaded serial 1
+named[2813]: zone 127.in-addr.arpa/IN: loaded serial 1
+named[2813]: zone 255.in-addr.arpa/IN: loaded serial 1
+named[2813]: zone localhost/IN: loaded serial 2
+named[2813]: running
+named[2813]: <emphasis>zone 0.200.192.in-addr.arpa/IN: Transfer started.</emphasis>
+named[2813]: <emphasis>transfer of '0.200.192.in-addr.arpa/IN' from 198.51.100.3#53: connected using 198.51.100.4#43261</emphasis>
+named[2813]: <emphasis>zone 0.200.192.in-addr.arpa/IN: transferred serial 2010052401</emphasis>
+named[2813]: <emphasis>transfer of '0.200.192.in-addr.arpa/IN' from 198.51.100.3#53: \
+            Transfer completed: 1 messages, 10 records, 280 bytes, 0.085 secs (3294 bytes/sec)</emphasis>
+named[2813]: <emphasis>zone 0.200.192.in-addr.arpa/IN: sending notifies (serial 2010052401)</emphasis>
+named[2813]: <emphasis>zone stri.lab/IN: Transfer started.</emphasis>
+named[2813]: <emphasis>transfer of 'stri.lab/IN' from 198.51.100.3#53: connected using 198.51.100.4#42378</emphasis>
+named[2813]: <emphasis>zone stri.lab/IN: transferred serial 2010052401</emphasis>
+named[2813]: <emphasis>transfer of 'stri.lab/IN' from 198.51.100.3#53: \
+            Transfer completed: 1 messages, 14 records, 332 bytes, 0.085 secs (3905 bytes/sec)</emphasis>
+named[2813]: <emphasis>zone stri.lab/IN: sending notifies (serial 2010052401)</emphasis></screen>
+
+  <para>La lecture des journaux système confirme que le transfert de zone s'est
+  déroulé correctement. Le serveur secondaire est maintenant prêt à traiter les
+  requêtes issues des clients sur la base des copies transférées. On peut
+  consulter le résultat des transferts via les fichiers contenus dans le
+  répertoire <filename class='directory'>/var/cache/bind/</filename>.</para>
+
+<screen width='80'><prompt>#</prompt> cat /var/cache/bind/backup.stri.lab 
+$ORIGIN .
+$TTL 60 ; 1 minute
+stri.lab                IN SOA  stri.lab. root.stri.lab. (
+                                2010052402 ; serial
+                                20         ; refresh (20 seconds)
+                                5          ; retry (5 seconds)
+                                420        ; expire (7 minutes)
+                                60         ; minimum (1 minute)
+                                )
+                        NS      clnt.stri.lab.
+                        NS      srvr.stri.lab.
+                        MX      10 smtp.stri.lab.
+                        TXT     "Training Lab"
+$ORIGIN stri.lab.
+clnt                    A       198.51.100.4
+ldap                    A       198.51.100.12
+nfs                     A       198.51.100.11
+ns1                     CNAME   srvr
+ns2                     CNAME   clnt
+rtr                     A       198.51.100.1
+smtp                    A       198.51.100.10
+srvr                    A       198.51.100.3</screen>
+
+  <para>Comme dans la section précédente, on peut valider un à un les
+  enregistrements en interrogeant le service. Voici juste un exemple désignant
+  explicitement le serveur secondaire.</para>
+
+<screen width='80'><prompt>#</prompt> dig @198.51.100.4 stri.lab mx
+
+; &lt;&lt;>> DiG 9.7.0-P1 &lt;&lt;>> @198.51.100.4 stri.lab mx
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 29883
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 1, ADDITIONAL: 2
+
+;; QUESTION SECTION:
+;stri.lab.                      IN      MX
+
+;; ANSWER SECTION:
+stri.lab.               60      IN      MX      10 smtp.stri.lab.
+
+;; AUTHORITY SECTION:
+stri.lab.               60      IN      NS      srvr.stri.lab.
+stri.lab.               60      IN      NS      clnt.stri.lab.
+
+;; ADDITIONAL SECTION:
+smtp.stri.lab.          60      IN      A       198.51.100.10
+clnt.stri.lab.          60      IN      A       198.51.100.4
+srvr.stri.lab.          60      IN      A       198.51.100.3
+
+;; Query time: 0 msec
+;; SERVER: 198.51.100.4#53(198.51.100.4)
+;; WHEN: Mon May 24 16:24:53 2010
+;; MSG SIZE  rcvd: 133</screen>
+
+  <para>Lors d'une modification de la liste des enregistrements, il est
+  important d'incrémenter correctement le numéro de série de façon à notifier
+  l'ensemble des serveurs ayant autorité sur une zone. Dans l'extrait du
+  fichier <filename>/var/log/syslog/</filename> du serveur primaire donné
+  ci-dessous, on voit bien apparaître ces notifications.</para>
+
+<screen width='80'>named[1556]: running
+named[1556]: zone 0.200.192.in-addr.arpa/IN: sending notifies (serial 2010052402)
+named[1556]: zone stri.lab/IN: sending notifies (serial 2010052402)
+named[1556]: client 198.51.100.4#41748: transfer of '0.200.192.in-addr.arpa/IN': AXFR-style IXFR started
+named[1556]: client 198.51.100.4#41748: transfer of '0.200.192.in-addr.arpa/IN': AXFR-style IXFR ended
+named[1556]: client 198.51.100.4#19941: received notify for zone '0.200.192.in-addr.arpa'
+named[1556]: client 198.51.100.4#40869: transfer of 'stri.lab/IN': AXFR-style IXFR started
+named[1556]: client 198.51.100.4#40869: transfer of 'stri.lab/IN': AXFR-style IXFR ended
+named[1556]: client 198.51.100.4#2069: received notify for zone 'stri.lab'</screen>
+</sect1>
+
+<sect1 xml:id='sysadm-net.dns.qa.delegation'>
+  <title>Délégation de la zone stri.lab depuis le niveau lab</title>
+
+<warning>
+  <para>Cette partie est complétée par l'enseignant sur le serveur
+  <acronym>DNS</acronym> de travaux pratiques ayant autorité au niveau
+  supérieur ; ce niveau supérieur correspond à un <wordasword>Top Level
+  Domain</wordasword> (<acronym>TLD</acronym>) factice.</para>
+</warning>
+  
+  <para>Le serveur maître de la zone <literal>lab</literal> doit
+  <emphasis>déléguer</emphasis> le domaine <literal>stri.lab</literal> aux
+  postes de travaux pratiques qui détiennent les enregistrements
+  (<acronym>RRs</acronym>) du sous-domaine.</para>
+  
+  <para>Dans le contexte de la <link
+  linkend='sysadm-net.dns.qa.lab'>maquette utilisée pour ce
+  document</link>, le système hôte doit déléguer le sous-domaine aux deux
+  instances de machines virtuelles.</para>
+
+  <para>Les fichiers de configuration donnés dans cette section sont surtout
+  utiles pour les communications inter-zones lors des travaux pratiques. En
+  effet, pour que les services internet qui s'appuient sur la résolution des
+  noms puissent fonctionner normalement, il est essentiel que les branches de
+  cette arborescence <acronym>DNS</acronym> factice soient toutes reliées les
+  unes aux autres.</para>
+
+  <para>Le fichier de déclaration de zone du système hôte se présente comme
+  suit.</para>
+
+<screen width='80'><prompt>#</prompt> cat /etc/bind/named.conf.local 
+//
+// Do any local configuration here
+//
+
+zone "lab" {
+        type master;
+        file "lab";
+        notify no;
+        };
+
+zone "16/200.192.in-addr.arpa" {
+        type master;
+        file "192.200";
+	notify no;
+	};
+
+zone "stri.lab" {
+	type slave;
+	file "backup.stri.lab";
+	masters { 
+		198.51.100.3;
+		198.51.100.4;
+		};
+	};
+
+zone "0.200.192.in-addr.arpa" {
+	type slave;
+	file "backup.198.51.100";
+	masters { 
+		198.51.100.3;
+		198.51.100.4;
+		};
+	};
+
+// Consider adding the 1918 zones here, if they are not used in your
+// organization
+//include "/etc/bind/zones.rfc1918";</screen>
+
+  <para>Les deux fichiers désignés pour contenir les définitions des
+  enregistrements sont donnés ci-dessous.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Enregistrements pour la résolution des noms.</para>
+
+<screen width='80'><prompt>#</prompt> cat /var/cache/bind/lab 
+$TTL 60
+@       IN      SOA     lab. root.lab. (
+                        2010052401      ; serial, yearmonthdayserial#
+                        20              ; refresh, seconds
+                        5               ; retry, seconds
+                        420             ; expire, seconds
+                        60 )            ; minimum, seconds
+                        NS      host-srvr.lab.
+                        MX      10 smtp.lab.  ; Primary Mail Exchanger
+                        TXT     "Training Lab Host System"
+
+host-srvr       A       198.51.100.1
+smtp            A       198.51.100.2
+vm-srvr         A       198.51.100.3
+vm-clnt         A       198.51.100.4</screen>
+    </listitem>
+    <listitem>
+    <para>Enregistrements pour la résolution inverse des adresses IP.</para>
+
+<screen width='80'><prompt>#</prompt> cat /var/cache/bind/192.200 
+$TTL 60
+@       IN      SOA     lab. root.lab. (
+                        2010052401      ; serial, yearmonthdayserial#
+                        20              ; refresh, seconds
+                        5               ; retry, seconds
+                        420             ; expire, seconds
+                        60 )            ; minimum, seconds
+                        NS      host-srvr.lab.
+
+1                       PTR     host-srvr.lab.
+2                       PTR     smtp.lab.
+3                       PTR     vm-srvr.lab.
+4                       PTR     vm-clnt.lab.</screen>
+    <warning>
+      <para>La résolution inverse ne fonctionne pas correctement avec la
+      configuration présentée ici. La mise en place d'une délégation complète
+      de zone inverse nécessite une configuration plus complexe au niveau des
+      sous-domaines et une cohérence du découpage du plan d'adressage IP qui
+      n'est pas en place sur la maquette étudiée ici.</para>
+
+      <para>Ce dysfonctionnement n'est pas critique dans la mesure où les
+      réseaux IP choisis dans la section <citetitle>Adressage IP des postes de
+      travail</citetitle> du support &url.sysadm-net.dns; ne se recouvrent
+      jamais en notation <wordasword>classful</wordasword>.</para>
+    </warning>
+    </listitem>
+  </itemizedlist>
+
+  <para>Après redémarrage du service <acronym>DNS</acronym> sur le système
+  hôte, les journaux système montrent que les transferts de zone se sont
+  déroulés correctement.</para>
+  
+<screen width='80'><prompt>#</prompt> /etc/init.d/bind9 restart
+<prompt>#</prompt> named[13541]: exiting
+named[13597]: starting BIND 9.7.0-P1 -u bind
+named[13597]: built with '--prefix=/usr' &lt;snipped/>
+named[13597]: adjusted limit on open files from 1024 to 1048576
+named[13597]: found 2 CPUs, using 2 worker threads
+named[13597]: using up to 4096 sockets
+named[13597]: loading configuration from '/etc/bind/named.conf'
+named[13597]: reading built-in trusted keys from file '/etc/bind/bind.keys'
+named[13597]: using default UDP/IPv4 port range: [1024, 65535]
+named[13597]: using default UDP/IPv6 port range: [1024, 65535]
+named[13597]: listening on IPv6 interfaces, port 53
+named[13597]: listening on IPv4 interface lo, 127.0.0.1#53
+named[13597]: listening on IPv4 interface wlan0, 192.168.1.9#53
+named[13597]: listening on IPv4 interface tap0, 198.51.100.1#53
+named[13597]: generating session key for dynamic DNS
+named[13597]: automatic empty zone: 254.169.IN-ADDR.ARPA
+named[13597]: automatic empty zone: 2.0.192.IN-ADDR.ARPA
+named[13597]: automatic empty zone: 255.255.255.255.IN-ADDR.ARPA
+named[13597]: automatic empty zone: 0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
+named[13597]: automatic empty zone: 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
+named[13597]: automatic empty zone: D.F.IP6.ARPA
+named[13597]: automatic empty zone: 8.E.F.IP6.ARPA
+named[13597]: automatic empty zone: 9.E.F.IP6.ARPA
+named[13597]: automatic empty zone: A.E.F.IP6.ARPA
+named[13597]: automatic empty zone: B.E.F.IP6.ARPA
+named[13597]: command channel listening on 127.0.0.1#953
+named[13597]: command channel listening on ::1#953
+named[13597]: zone 0.in-addr.arpa/IN: loaded serial 1
+named[13597]: zone 127.in-addr.arpa/IN: loaded serial 1
+named[13597]: zone 16/200.192.in-addr.arpa/IN: loaded serial 2010052401
+named[13597]: zone 0.200.192.in-addr.arpa/IN: loaded serial 2010052402
+named[13597]: zone 255.in-addr.arpa/IN: loaded serial 1
+named[13597]: zone lab/IN: loaded serial 2010052401
+named[13597]: zone stri.lab/IN: loaded serial 2010052402
+named[13597]: zone localhost/IN: loaded serial 2
+named[13597]: zone 0.200.192.in-addr.arpa/IN: sending notifies (serial 2010052402)
+named[13597]: zone stri.lab/IN: sending notifies (serial 2010052402)
+named[13597]: running</screen>
+
+  <para>On peut vérifier que les numéros de série des notifications
+  correspondent bien aux enregistrements publiés au niveau inférieur.</para>
+
+  <para>Pour clore la validation de la délégation, il faut reprendre la série
+  de tests de requêtes présentées dans les deux sections précédentes.</para>
+</sect1>
+
+<sect1 xml:id='sysadm-net.dns.qa.sec'>
+  <title>Sécurisation de premier niveau</title>
+
+  <para>L'objectif de cette section est de présenter les mécanismes de contrôle
+  d'accès offerts par le service <citetitle>Berkeley Internet Name
+  Domain</citetitle> à un niveau très modeste. On se contente ici de définir
+  les adresses IP ou les réseaux qui sont autorisés à émettre des requêtes
+  récursives sur le service <acronym>DNS</acronym> ainsi que les adresses IP ou
+  les réseaux qui sont autorisés à émettre des requêtes de transfert de
+  zone.</para>
+
+  <para>Les éléments de configuration présentés ci-après sont à appliquer sur
+  tous les serveurs <acronym>DNS</acronym> quel que soit leur rôle.</para>
+
+  <para>On commence par la définition des listes de contrôle d'accès dans le
+  fichier <filename>/etc/bind/named.conf.options</filename>. Ces listes
+  permettent de définir des groupes d'adresses IP ou de réseaux. Ces groupes
+  peuvent ensuite être réutilisés autant de fois que nécessaire au niveau
+  global de la configuration du service ou bien dans les déclarations de
+  zones.</para>
+
+  <para>Ici, on se limite à la définition de deux groupes.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Le groupe <option>xfer</option> donne la liste des adresses IP à
+    partir desquelles les opérations de transfert de zone sont
+    possibles.</para>
+    </listitem>
+    <listitem>
+    <para>Le groupe <option>trusted</option> donne la liste des réseaux de
+    confiance qui sont habilités à utiliser le service.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Ces définitions se retrouvent au début du fichier de configuration
+  global du service <acronym>DNS</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> cat /etc/bind/named.conf.options 
+acl "xfer" {
+        localhost;
+        198.51.100.1;
+	198.51.100.3;
+	198.51.100.4;
+	};
+
+acl "trusted" {
+	localhost; 
+	198.51.100.0/27;
+	}; 
+
+options {
+	directory "/var/cache/bind";
+
+	// If there is a firewall between you and nameservers you want
+	// to talk to, you may need to fix the firewall to allow multiple
+	// ports to talk.  See http://www.kb.cert.org/vuls/id/800113
+
+	// If your ISP provided one or more IP addresses for stable 
+	// nameservers, you probably want to use them as forwarders.  
+	// Uncomment the following block, and insert the addresses replacing 
+	// the all-0's placeholder.
+
+	forwarders {
+		198.51.100.1;
+	};
+
+	auth-nxdomain no;    # conform to RFC1035
+	listen-on-v6 { any; };
+
+	allow-transfer {
+		none;
+		}; 
+
+	allow-query {
+		trusted;
+		};
+
+	allow-query-cache {
+		trusted;
+		}; 
+	};</screen>
+
+  <para>C'est dans la section <option>options</option> que l'on trouve la
+  première utilisation des listes de contrôle d'accès. Ce niveau est dit global
+  puisqu'il est examiné avant les déclarations de zone qui sont effectuées dans
+  le fichier <filename>/etc/bind/named.conf.local</filename>. Dans l'exemple
+  donné ci-dessus, les opérations de transfert sont interdites au niveau global
+  et les requêtes récursives pour des enregistrements sur lesquels le serveur
+  n'a pas autorité ne sont autorisées que pour les réseaux de confiance.</para>
+
+  <para>Il faut noter que la section <option>forwarders</option> a été
+  décomentée et configurée avec l'adresse IP du serveur de niveau supérieur
+  dans l'arborescence <acronym>DNS</acronym>. Cette configuration est
+  nécessaire pour garantir la «continuité» de l'arborescence factice de travaux
+  pratiques. Il faut que les communications inter zones soient effectives pour
+  mettre en œuvre les autres services internet qui s'appuient sur la résolution
+  des noms.</para>
+
+  <para>On retrouve les listes de contrôle d'accès dans le fichier de
+  déclaration de zone.</para>
+
+<screen width='80'><prompt>#</prompt> cat /etc/bind/named.conf.local 
+//
+// Do any local configuration here
+//
+
+zone "0.200.192.in-addr.arpa" {
+        type master;
+        file "198.51.100";
+
+	allow-query {
+		any;
+		};
+
+	allow-transfer {
+		xfer;
+		}; 
+	};
+
+zone "stri.lab" {
+	type master;
+	file "stri.lab";
+
+	allow-query {
+		any;
+		};
+
+	allow-transfer {
+		xfer;
+		}; 
+	};
+
+// Consider adding the 1918 zones here, if they are not used in your
+// organization
+//include "/etc/bind/zones.rfc1918";</screen>
+
+  <para>Les choix effectués ici reviennent à autoriser sans restriction les
+  requêtes directes et inverses sur les enregistrements de la zone
+  <literal>stri.lab</literal>. Les transferts sur les mêmes enregistrements ne
+  sont autorisés que pour les serveurs dont les adresses IP figurent dans la
+  liste <option>xfer</option>.</para>
+
+  <para>Comme dans les sections précédentes, ces options de configuration sont
+  à valider avec la suite des tests utilisant les différents types de requêtes
+  à l'aide de la commande <command>dig</command>. À titre d'exemple, voici ce
+  que l'on peut lire dans les journaux système lors d'une requête de transfert
+  de zone non autorisée.</para>
+
+<screen width='80'>named[1524]: client 198.51.100.4#58025: zone transfer 'stri.lab/AXFR/IN' denied</screen>
+
+  <para>Pour être plus complète, la sécurisation de la configuration devrait
+  utiliser la notion de vue interne et externe du service de résolution des
+  noms. Ce niveau de configuration dépasse «quelque peu» le cadre de ces
+  travaux pratiques d'introduction. Le contenu de cette section n'est qu'une
+  première prise de contact avec les fonctionnalités de sécurité d'un serveur
+  <acronym>DNS</acronym>.</para>
+</sect1>
+
+<sect1 xml:id='sysadm-net.dns.qa.refdocs'>
+  <title>Documents de référence</title>
+
+  <variablelist>
+    <varlistentry xml:id='sysadm-net.dns.qa.refdocs.Bv9ARM'>
+      <term><citetitle>BIND 9 Administrator Reference Manual</citetitle></term>
+      <listitem>
+      <para>&url.bv9arm; : documentation complète la plus récente sur la
+      syntaxe de configuration du service <acronym>DNS</acronym>. Si le paquet
+      <systemitem>bind9-doc</systemitem> est installé, ce manuel est placé dans
+      le répertoire <filename
+      class='directory'>/usr/share/doc/bind9-doc/arm/</filename>.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.dns.qa.refdocs.bind.template'>
+      <term><citetitle>Secure BIND Template</citetitle></term>
+      <listitem>
+      <para>&url.bind.template; : patrons de fichiers de configuration
+      d'un service <acronym>DNS</acronym>.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.dns.qa.archi'>
+      <term><citetitle>Administration système en réseau : architecture
+      réseau</citetitle></term>
+      <listitem>
+	<para>&url.infra.tp; : présentation de l'infrastructure des
+	travaux pratiques.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.dns.qa.config.interface.lan'>
+      <term><citetitle>Configuration d'une interface de réseau local</citetitle></term>
+      <listitem>
+        <para>&url.config.interface.lan; : tout sur la configuration des
+        interfaces réseau ; notamment les explications sur les opérations
+        «rituelles» de début de travaux pratiques.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+</article>
