@@ -12,9 +12,16 @@
   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://ftp.isc.org/isc/bind9/cur/9.8/doc/arm/Bv9ARM.html">
   <citetitle>BIND 9 Administrator Reference Manual</citetitle></link>'>
 
-<!ENTITY url.bind.template
+<!ENTITY url.dns-howto
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.tldp.org/HOWTO/DNS-HOWTO-7.html"><citetitle>DNS HOWTO : A real domain example</citetitle></link>'>
+
+<!ENTITY url.bind-template
   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.cymru.com/Documents/secure-bind-template.html">
   <citetitle>Secure BIND Template</citetitle></link>'>
+
+<!ENTITY url.root-servers
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://root-servers.org/">
+  <citetitle>root-servers.org</citetitle></link>'>
 ]>
 
 <article xml:id="sysadm-net.dns.qa" xml:lang="fr">
@@ -646,19 +653,22 @@ gtm1.lax.icann.org.     21600   IN      AAAA    2620:0:2d0:296::252
 
     <qandaentry>
       <question>
-      <para>Quelles sont les options de la commande <command>dig</command> à
-      utiliser pour émettre des requêtes des types suivants :
-      <option>NS</option>, <option>A</option>, <option>PTR</option>, et
-      <option>MX</option> ? Donner un exemple de chaque type.</para>
+      <para><phrase>Quelles sont les options de la commande
+      <command>dig</command> à utiliser pour émettre des requêtes des types
+      suivants : <option>NS</option>, <option>A</option>, <option>PTR</option>,
+      et <option>MX</option> ? Donner un exemple de chaque
+      type.</phrase></para>
 
       <para>Les différents enregistrements ou <wordasword>Resource
       Records</wordasword> d'une zone sont accessibles à partir de requêtes
       individuelles. Les options de la commande <command>dig</command>,
       documentées dans les pages de manuels (<userinput>man dig</userinput>),
       permettent d'indiquer le type d'enregistrement demandé
-      (<acronym>RR</acronym>) après le nom de domaine. Les réponses aux
-      requêtes suivantes apparaissent après la  mention <literal>ANSWER
-      SECTION:</literal>.</para>
+      (<acronym>RR</acronym>) après le nom de domaine.</para>
+      </question>
+      <answer>
+      <para>Les réponses aux requêtes suivantes apparaissent après la  mention
+      <literal>ANSWER SECTION:</literal>.</para>
 
       <variablelist>
         <varlistentry xml:id='dig.ns'>
@@ -777,10 +787,10 @@ internic.net.           600     IN      MX      10 pechorax.lax.icann.org.
         </listitem>
         </varlistentry>
       </variablelist>
-      </question>
+      </answer>
     </qandaentry>
 
-    <qandaentry>
+    <qandaentry xml:id='dig.trace'>
       <question>
       <para><phrase>Quelle est l'option de la commande <command>dig</command> à
       utiliser pour émettre des requêtes itératives ? Donner un
@@ -794,7 +804,7 @@ internic.net.           600     IN      MX      10 pechorax.lax.icann.org.
       <para>Pour émettre une requête itérative (ou non récursive), il faut
       utiliser l'option <option>+trace</option>.</para>
 
-<screen xml:id='dig.trace'><prompt>$</prompt> dig +trace ns iana.org
+<screen><prompt>$</prompt> dig +trace ns iana.org
 
 ; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> +trace ns iana.org
 ;; global options: +cmd
@@ -1189,87 +1199,178 @@ lan-213.stri.           86400   IN      SOA     casper.infra.stri. root.casper.i
 </sect1>
 
 <sect1 xml:id='sysadm-net.dns.qa.primary'>
-  <title>Configuration du serveur primaire de la zone stri.lab</title>
+  <title>Serveur primaire de la zone zone(i).lan-213.stri</title>
 
-  <para>Le fichier <filename>/etc/bind/named.conf.local</filename> du nouveau
-  serveur <acronym>DNS</acronym> doit être édité. Une fois l'opération
-  effectuée, le serveur a autorité sur la zone
-  <systemitem>stri.lab</systemitem>. Voici une copie de ce fichier.</para>
+  <para>Il s'agit ici de configurer un serveur maître pour une nouvelle branche
+  ou zone de l'arborescence <acronym>DNS</acronym> de travaux pratiques. On
+  part de l'installation du service <wordasword>cache-only</wordasword> et on
+  complète les fichiers de configuration.</para>
+
+  <para>La syntaxe des fichiers de zone n'est pas facile à maîtriser au premier
+  abord. Il est donc nécessaire de faire appel à des patrons de fichiers de
+  configuration. Un premier jeu de ces fichiers est disponible dans la
+  documentation &url.bv9arm;. Un second jeu, pour une configuration sécurisée,
+  est disponible à partir du site <xref
+  linkend='sysadm-net.dns.qa.refdocs.bind-template'/>.</para>
+
+  <para>Le fichier <filename>/usr/share/doc/bind9/README.Debian.gz</filename>
+  contient des informations importantes sur l'organisation des fichiers de
+  configuration du service. Il faut retenir les éléments suivants :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Les fichiers <filename>db.*</filename> qui contiennent les
+    enregistrements sur les serveurs racine et l'interface de boucle locale
+    sont fournis directement avec le paquet Debian. Ils sont donc susceptibles
+    d'être mis à jour à chaque nouvelle version du paquet.</para>
+    </listitem>
+    <listitem>
+    <para>Le fichier de configuration principal <filename>named.conf</filename>
+    a été éclaté en trois parties.</para>
+    <variablelist>
+      <varlistentry>
+        <term><filename>named.conf</filename></term>
+	<listitem>
+	<para>Déclarations d'autorité sur le <systemitem>localhost</systemitem>
+	et la diffusion en résolution directe et inverse. Liste des fichiers
+	<filename>db.*</filename>.</para>
+	<para>Ce fichier <emphasis>appartient</emphasis> au paquet
+	<application>bind9</application> et est susceptible d'être mis à jour.
+	Il ne faut donc pas éditer ce fichier ou y insérer des informations de
+	définitions de zones contrôlées par le	service
+	<acronym>DNS</acronym>.</para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>named.conf.local</filename></term>
+	<listitem>
+	<para>Déclarations d'autorité sur les zones administrées par le
+	serveur ; qu'il s'agisse d'un serveur primaire ou secondaire. Ce
+	fichier n'est pas modifié lors d'une mise à jour du paquet
+	Debian.</para>
+	<para>C'est donc le fichier qui doit être édité pour déclarer les zones
+	sous le contrôle du serveur <acronym>DNS</acronym>.</para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>named.conf.options</filename></term>
+	<listitem>
+	<para>Paramétrage des options du service  notamment du répertoire
+	contenant les fichiers de déclaration des zones administrées <filename
+	class='directory'>/var/cache/bind/</filename>. Voir le <xref
+	linkend='sysadm-net.dns.qa.refdocs.Bv9ARM'/> pour obtenir la liste de
+	ces options.</para>
+	<para>C'est le fichier qui doit être édité pour sécuriser les accès aux
+	enregistrements des zones sous le contrôle du serveur
+	<acronym>DNS</acronym>..</para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+    </listitem>
+  </itemizedlist>
+
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est le fichier de configuration à éditer pour que le
+      service <acronym>DNS</acronym> installé ait autorité sur la zone
+      <systemitem class='domainname'>zone(i).lan-213.stri</systemitem>
+      ?</phrase></para>
+
+      <para>Établir la correspondance entre l'organisation des fichiers de
+      configuration du paquet Debian et les indications des documents de
+      référence.</para>
+      </question>
+      <answer>
+      <para>Le fichier <filename>/etc/bind/named.conf.local</filename> du
+      nouveau serveur <acronym>DNS</acronym> doit être édité de façon à faire
+      apparaître les zones directes et inverses sur lesquelles il a autorité.
+      Une fois l'opération effectuée, on recharge la configuration du serveur
+      et on consulte les journaux système. Voici une copie du fichier
+      correspondant à la zone <systemitem
+      class='domainname'>lab.lan-213.stri</systemitem>.</para>
 
 <screen width='80'><prompt>#</prompt> cat /etc/bind/named.conf.local 
 //
 // Do any local configuration here
 //
 
-zone "stri.lab" {
+zone "lab.lan-213.stri" {
         type master;
-        file "stri.lab";
+        file "lab.lan-213.stri";
         };
 
-zone "0.200.192.in-addr.arpa" {
+zone "100.51.198.in-addr.arpa" {
         type master;
-        file "198.51.100";
+        file "100.51.198";
         };
 
 // Consider adding the 1918 zones here, if they are not used in your
 // organization
 //include "/etc/bind/zones.rfc1918";</screen>
+      </answer>
+    </qandaentry>
 
-  <para>En respectant les options de configuration du paquet Debian, on créé
-  les fichiers <filename>stri.lab</filename> et <filename>198.51.100</filename>
-  dans le répertoire <filename
-  class='directory'>/var/cache/bind/</filename>.</para>
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est le fichier de configuration qui désigne le
+      répertoire de stockage des fichiers de déclaration de zone ? Quel est ce
+      répertoire ? Quelle est la particularité de son masque de permissions
+      ?</phrase></para>
 
-  <itemizedlist>
-    <listitem>
-    <para>Enregistrements (<acronym>RRs</acronym>) utilisés pour la résolution
-    directe des noms.</para>
+      <para>Établir la correspondance entre l'organisation des fichiers de
+      configuration du paquet Debian et les indications de la documentation de
+      référence. Repérer le propriétaire du processus <systemitem
+      class='daemon'>named</systemitem> et relever ses caractéristiques :
+      <systemitem>uid</systemitem>, <systemitem>gid</systemitem>, répertoire
+      utilisateur, etc.</para>
+      </question>
+      <answer>
+      <itemizedlist>
+        <listitem>
+	<para>C'est le fichier <filename>named.conf.options</filename> qui
+	désigne le répertoire de travail du service de noms de domaines :
+	<filename class='directory'>/var/cache/bind/</filename>.</para>
+	</listitem>
+        <listitem>
+	<para>On retrouve la même information au niveau des paramètres du
+	compte utilisateur système dédié au service.</para>
 
-<screen width='80'><prompt>#</prompt> cat /var/cache/bind/stri.lab 
-$TTL 60
-@       IN      SOA     stri.lab. root.stri.lab. (
-                        2010052401      ; serial, yearmonthdayserial#
-                        20              ; refresh, seconds
-                        5               ; retry, seconds
-                        420             ; expire, seconds
-                        60 )            ; minimum, seconds
-                        NS      srvr.stri.lab.
-                        NS      clnt.stri.lab.
-                        MX      10 smtp.stri.lab.  ; Primary Mail Exchanger
-                        TXT     "Training Lab"
+<screen><prompt>$</prompt> grep bind /etc/passwd
+bind:x:105:107::/var/cache/bind:/bin/false</screen>
+	</listitem>
+	<listitem>
+	<para>Le masque de permissions donne les droits d'écriture aux membres
+	du groupe système <systemitem>bind</systemitem>.</para>
 
-rtr             A       198.51.100.1
-srvr            A       198.51.100.3
-ns1             CNAME   srvr.stri.lab.
-clnt            A       198.51.100.4
-ns2             CNAME   clnt.stri.lab.
-smtp            A       198.51.100.10
-nfs             A       198.51.100.11
-ldap            A       198.51.100.12</screen>
-    </listitem>
-    <listitem>
-    <para>Enregistrements (<acronym>RRs</acronym>) utilisés pour la résolution
-    inverse des adresses IP.</para>
+<screen><prompt>$</prompt> ll /var/cache/ | grep bind
+drwxrwxr-x  2 root bind 4,0K oct.   7 21:05 bind</screen>
+	</listitem>
+      </itemizedlist>
+      </answer>
+    </qandaentry>
 
-<screen width='80'><prompt>#</prompt> cat /var/cache/bind/198.51.100 
-$TTL 60
-@       IN      SOA     stri.lab. root.stri.lab. (
-                        2010052401      ; serial, yearmonthdayserial#
-                        20              ; refresh, seconds
-                        5               ; retry, seconds
-                        420             ; expire, seconds
-                        60 )            ; minimum, seconds
-                        NS      srvr.stri.lab.
-                        NS      clnt.stri.lab.
+    <qandaentry>
+      <question>
+      <para><phrase>À l'aide de l'exemple donné dans le document
+      &url.dns-howto;, créer un fichier de déclaration de la zone directe
+      <systemitem>zone(i).lan-213.stri</systemitem> dans le répertoire
+      adéquat.</phrase></para>
 
-1               PTR     rtr.stri.lab.
-3               PTR     srvr.stri.lab.
-4               PTR     clnt.stri.lab.
-10              PTR     smtp.stri.lab.
-11              PTR     nfs.stri.lab.
-12              PTR     ldap.stri.lab.</screen>
-    </listitem>
-  </itemizedlist>
+      <para>Le fichier de zone doit comprendre :</para>
+      <itemizedlist spacing='compact'>
+        <listitem>
+	<para>Deux serveurs de noms : un primaire et un secondaire.</para>
+	</listitem>
+	<listitem>
+	<para>Un <wordasword>Mail Exchanger</wordasword>.</para>
+	</listitem>
+	<listitem>
+	<para>Trois hôtes avec des adresses <acronym>IP</acronym> différentes
+	et quelques <wordasword>Canonical Names</wordasword>.</para>
+	</listitem>
+      </itemizedlist>
 
 <warning>
   <para>Pour les besoins des travaux pratiques, les temps définis dans
@@ -1279,239 +1380,410 @@ $TTL 60
   enregistrements plus rapidement en incrémentant les numéros de
   version.</para>
 </warning>
+      </question>
+      <answer>
+      <para>En respectant les options de configuration du paquet Debian, on
+      créé le fichier <filename>lab.lan-213.stri</filename> dans le répertoire
+      <filename class='directory'>/var/cache/bind/</filename>.</para>
 
-  <para>Une fois que ces deux fichiers sont en place, on peut redémarrer le
-  service et vérifier qu'il n'y a pas de message d'erreur dans les journaux. Si
-  une ou plusieurs erreurs de syntaxe sont présentes dans la déclaration des
-  enregistrements, les journaux systèmes indiquent le nom du fichier et le
-  numéro de la ligne concernée ; comme le ferait le pré-processeur d'un
-  compilateur avec une langage de développement.</para>
+<screen><prompt>#</prompt> cat /var/cache/bind/lab.lan-213.stri
+$TTL 60
+@       IN      SOA     lab.lan-213.stri. postmaster.lab.lan-213.stri. (
+                        2012100801      ; serial, yearmonthdayserial#
+                        20              ; refresh, seconds
+                        5               ; retry, seconds
+                        420             ; expire, seconds
+                        60 )            ; minimum, seconds 
+                        NS      primary-srvr.lab.lan-213.stri.
+                        NS      secondary-srvr.lab.lan-213.stri.
+                        MX      10 smtp.lab.lan-213.stri.  ; Primary Mail Exchanger
+                        TXT     "DNS training Lab"
 
-<screen width='80'><prompt>#</prompt> /etc/init.d/bind9 restart
-<prompt>#</prompt> tail -150 /var/log/syslog |grep named
-named[931]: exiting
-named[1307]: starting BIND 9.7.0-P1 -u bind
-named[1307]: built with '--prefix=/usr' &lt;snipped/>
-named[1307]: adjusted limit on open files from 1024 to 1048576
-named[1307]: found 1 CPU, using 1 worker thread
-named[1307]: using up to 4096 sockets
-named[1307]: loading configuration from '/etc/bind/named.conf'
-named[1307]: reading built-in trusted keys from file '/etc/bind/bind.keys'
-named[1307]: using default UDP/IPv4 port range: [1024, 65535]
-named[1307]: using default UDP/IPv6 port range: [1024, 65535]
-named[1307]: listening on IPv6 interfaces, port 53
-named[1307]: listening on IPv4 interface lo, 127.0.0.1#53
-named[1307]: listening on IPv4 interface eth0, 198.51.100.3#53
-named[1307]: generating session key for dynamic DNS
-named[1307]: automatic empty zone: 254.169.IN-ADDR.ARPA
-named[1307]: automatic empty zone: 2.0.192.IN-ADDR.ARPA
-named[1307]: automatic empty zone: 255.255.255.255.IN-ADDR.ARPA
-named[1307]: automatic empty zone: 0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
-named[1307]: automatic empty zone: 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
-named[1307]: automatic empty zone: D.F.IP6.ARPA
-named[1307]: automatic empty zone: 8.E.F.IP6.ARPA
-named[1307]: automatic empty zone: 9.E.F.IP6.ARPA
-named[1307]: automatic empty zone: A.E.F.IP6.ARPA
-named[1307]: automatic empty zone: B.E.F.IP6.ARPA
-named[1307]: command channel listening on 127.0.0.1#953
-named[1307]: command channel listening on ::1#953
-named[1307]: zone 0.in-addr.arpa/IN: loaded serial 1
-named[1307]: zone 127.in-addr.arpa/IN: loaded serial 1
-named[1307]: <emphasis>zone 0.200.192.in-addr.arpa/IN: loaded serial 2010052401</emphasis>
-named[1307]: zone 255.in-addr.arpa/IN: loaded serial 1
-named[1307]: <emphasis>zone stri.lab/IN: loaded serial 2010052401</emphasis>
-named[1307]: zone localhost/IN: loaded serial 2
-named[1307]: running
-named[1307]: zone 0.200.192.in-addr.arpa/IN: sending notifies (serial 2010052401)
-named[1307]: zone stri.lab/IN: sending notifies (serial 2010052401)</screen>
+rtr             A       198.51.100.1
+primary-srvr    A       198.51.100.2
+ns1             CNAME   primary-srvr.lab.lan-213.stri.
+secondary-srvr  A       198.51.100.3
+ns2             CNAME   secondary.lab.lan-213.stri.
+file-srvr       A       198.51.100.5
+nfs             CNAME   file-srvr.lab.lan-213.stri.
+ldap            CNAME   file-srvr.lab.lan-213.stri.
+smtp            A       198.51.100.10</screen>
+      </answer>
+    </qandaentry>
 
-  <para>Ce n'est qu'après avoir vérifié que la zone est bien prise en charge
-  avec le bon numéro de série que l'on peut effectuer les tests de
-  requêtes.</para>
+    <qandaentry>
+      <question>
+      <para><phrase>À l'aide de l'exemple donné dans le document
+      &url.dns-howto;, créer un fichier de déclaration de la zone inverse
+      <systemitem>100.51.198</systemitem> dans le répertoire
+      adéquat.</phrase></para>
+      </question>
+      <answer>
+      <para>Les enregistrements (<acronym>RRs</acronym>) utilisés pour la
+      résolution inverse des adresses IP doivent correspondre exactement aux
+      décarations de la zone directe.</para>
 
-<screen width='80'><prompt>#</prompt> dig stri.lab ns
+<screen><prompt>#</prompt> cat /var/cache/bind/100.51.198 
+$TTL 60
+@       IN      SOA     lab.lan-213.stri. postmaster.lab.lan-213.stri. (
+                        2012100801      ; serial, yearmonthdayserial#
+                        20              ; refresh, seconds
+                        5               ; retry, seconds
+                        420             ; expire, seconds
+                        60 )            ; minimum, seconds 
+                        NS      primary-srvr.lab.lan-213.stri.
+                        NS      secondary-srvr.lab.lan-213.stri.
 
-; &lt;&lt;>> DiG 9.7.0-P1 &lt;&lt;>> stri.lab ns
-;; global options: +cmd
-;; Got answer:
-;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 59703
-;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+1               PTR     rtr.lab.lan-213.stri.
+2               PTR     primary-srvr.lab.lan-213.stri.
+3               PTR     secondary-srvr.lab.lan-213.stri.
+;
+5               PTR     file-srvr.lab.lan-213.stri.
+10              PTR     smtp.lab.lan-213.stri.</screen>
+      </answer>
+    </qandaentry>
 
-;; QUESTION SECTION:
-;stri.lab.                      IN      NS
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est l'outil à utiliser pour valider la syntaxe des
+      déclarations d'enregistrement avant d'activer la nouvelle zone
+      ?</phrase></para>
 
-;; ANSWER SECTION:
-stri.lab.               60      IN      NS      clnt.stri.lab.
-stri.lab.               60      IN      NS      srvr.stri.lab.
+      <para>Consulter la liste des outils fournis avec les paquets relatifs au
+      logiciel <application>bind9</application>.</para>
+      </question>
+      <answer>
+      <para>Le paquet <systemitem>bind9utils</systemitem> fournit plusieurs
+      outils dont le programme <application>named-checkzone</application> qui
+      permet de valider la syntaxe des fichiers de déclaration de zone.</para>
 
-;; ADDITIONAL SECTION:
-clnt.stri.lab.          60      IN      A       198.51.100.4
-srvr.stri.lab.          60      IN      A       198.51.100.3
+      <para>Dans le cas des deux exemples ci-dessus, on obtient les résultats
+      suivants.</para>
 
-;; Query time: 0 msec
-;; SERVER: 127.0.0.1#53(127.0.0.1)
-;; WHEN: Mon May 24 16:57:00 2010
-;; MSG SIZE  rcvd: 96</screen>
+<screen><prompt>#</prompt> named-checkzone lab.lan-213.stri. lab.lan-213.stri
+zone lab.lan-213.stri/IN: loaded serial 2012100801
+OK</screen>
 
-  <para>Comme dans l'exemple ci-dessus, on peut valider les enregistrements ou
-  <wordasword>Resource Records</wordasword> un à un en reprenant les syntaxes
-  de requêtes présentées dans la <xref
-  linkend='sysadm-net.dns.qa.dig'/>.</para>
+<screen><prompt>#</prompt> named-checkzone  100.51.198.in-addr.arpa. 100.51.198 
+zone 100.51.198.in-addr.arpa/IN: loaded serial 2012100801
+OK</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Comment activer les nouveaux enregistrements de zone
+      ? Valider la prise en charge de ces enregistrements</phrase></para>
+
+      <para>Recharger la configuration du service <acronym>DNS</acronym> et
+      consulter les journaux système correspondant</para>
+      </question>
+      <answer>
+      <para>Le rechargement de la configuration du service ne se distingue pas
+      des autres services Internet.</para>
+
+<screen><prompt>#</prompt> service bind9 reload
+[ ok ] Reloading domain name service...: bind9.</screen>
+
+      <para>Voici un extrait de journal système.</para>
+
+<screen><prompt>#</prompt> tail -100 /var/log/syslog
+named[2863]: received control channel command 'reload'
+named[2863]: loading configuration from '/etc/bind/named.conf'
+named[2863]: reading built-in trusted keys from file '/etc/bind/bind.keys'
+named[2863]: using default UDP/IPv4 port range: [1024, 65535]
+named[2863]: using default UDP/IPv6 port range: [1024, 65535]
+named[2863]: sizing zone task pool based on 7 zones
+named[2863]: using built-in root key for view _default
+named[2863]: Warning: 'empty-zones-enable/disable-empty-zone' not set: disabling RFC 1918 empty zones
+named[2863]: reloading configuration succeeded
+named[2863]: reloading zones succeeded
+named[2863]: zone 100.51.198.in-addr.arpa/IN: zone serial (2012100801) unchanged. zone may fail to transfer to slaves.
+named[2863]: <emphasis>zone 100.51.198.in-addr.arpa/IN: loaded serial 2012100801</emphasis>
+named[2863]: zone 100.51.198.in-addr.arpa/IN: sending notifies (serial 2012100801)
+named[2863]: zone lab.lan-213.stri/IN: zone serial (2012100801) unchanged. zone may fail to transfer to slaves.
+named[2863]: <emphasis>zone lab.lan-213.stri/IN: loaded serial 2012100801</emphasis>
+named[2863]: zone lab.lan-213.stri/IN: sending notifies (serial 2012100801)</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Comment valide-t-on individuellement chacun des
+      enregistrements déclarés ?</phrase></para>
+
+      <para>Reprendre la séquence des tests donnés dans la <xref
+      linkend='sysadm-net.dns.qa.dig'/>.</para>
+      </question>
+    </qandaentry>
+  </qandaset>
 </sect1>
 
 <sect1 xml:id='sysadm-net.dns.qa.secondary'>
   <title>Configuration du serveur secondaire de la zone stri.lab</title>
 
+  <para>Il s'agit ici de configurer un serveur secondaire pour la zone de
+  l'arborescence <acronym>DNS</acronym> de travaux pratiques mise en place dans
+  la section précédente. Comme dans le cas du serveur primaire, on part de
+  l'installation du service <wordasword>cache-only</wordasword> fournie par le
+  paquet Debian et on complète les fichiers de configuration.</para>
+
   <para>Pour distinguer un serveur primaire d'un serveur secondaire, il faut
   savoir que le serveur primaire détient effectivement les fichiers de
-  déclaration des enregistrements. Un serveur secondaire obtient les copies des
-  déclarations des enregistrements par transfert réseau.</para>
+  déclaration des enregistrements. Un serveur secondaire, en revanche, obtient
+  les copies des déclarations des enregistrements par transfert réseau.</para>
 
-  <para>Dans cette section, on reprend les mêmes fichiers de configuration en
-  désignant le serveur primaire comme détenteur des enregistrements.</para>
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est le fichier de configuration à éditer pour que le
+      service <acronym>DNS</acronym> installé ait autorité sur la zone
+      <systemitem>zone(i).lan-213.stri</systemitem> ?</phrase></para>
 
-  <para>Le fichier <filename>/etc/bind/named.conf.local</filename> du nouveau
-  serveur <acronym>DNS</acronym> doit être édité. Une fois l'opération
-  effectuée, le serveur a autorité sur la zone
-  <systemitem>stri.lab</systemitem>. Voici une copie de ce fichier.</para>
+      <para>Établir la correspondance entre l'organisation des fichiers de
+      configuration du paquet Debian et les indications des documents de
+      référence.</para>
+      </question>
+      <answer>
+      <para>Le fichier <filename>/etc/bind/named.conf.local</filename> du
+      serveur <acronym>DNS</acronym> secondaire doit être édité. Bien sûr, les
+      noms de zone doivent correspondre à ceux du serveur primaire. Voici une
+      copie de la configuration globale du service.</para>
 
-<screen width='80'><prompt>#</prompt> cat /etc/bind/named.conf.local 
+<screen><prompt>#</prompt> cat named.conf.local 
 //
 // Do any local configuration here
 //
 
-zone "stri.lab" {
-        type slave;
-        masters {
-                198.51.100.3;
-                };
-        file "backup.stri.lab";
-        };
+zone "lab.lan-213.stri." { 
+	type slave;
+	masters {
+		198.51.100.2;
+	};
+        file "backup.lab.lan-213.stri";
+};
 
-zone "0.200.192.in-addr.arpa" {
-        type slave;
-        masters {
-                198.51.100.3;
-                };
-        file "backup.198.51.100";
-        };
+zone "100.51.198.in-addr.arpa" {
+	type slave;
+	masters {
+		198.51.100.2;
+	};
+	file "backup.100.51.198";
+};
 
 // Consider adding the 1918 zones here, if they are not used in your
 // organization
 //include "/etc/bind/zones.rfc1918";</screen>
+      </answer>
+    </qandaentry>
 
-  <para>Une fois la déclaration de zone en place, il faut redémarrer le service
-  pour que le serveur secondaire obtienne une copie des enregistrements détenus
-  par le serveur primaire.</para>
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est le fichier de configuration qui désigne le
+      répertoire de stockage des fichiers de déclaration de zone ? Quel est ce
+      répertoire ? Quelle est la particularité de son masque de permissions
+      ?</phrase></para>
 
-<screen width='80'><prompt>#</prompt> /etc/init.d/bind9 restart
-<prompt>#</prompt> tail -200 /var/log/syslog | grep named
-named[908]: exiting
-named[2813]: starting BIND 9.7.0-P1 -u bind
-named[2813]: built with '--prefix=/usr' &lt;snipped/>
-named[2813]: adjusted limit on open files from 1024 to 1048576
-named[2813]: found 1 CPU, using 1 worker thread
-named[2813]: using up to 4096 sockets
-named[2813]: loading configuration from '/etc/bind/named.conf'
-named[2813]: reading built-in trusted keys from file '/etc/bind/bind.keys'
-named[2813]: using default UDP/IPv4 port range: [1024, 65535]
-named[2813]: using default UDP/IPv6 port range: [1024, 65535]
-named[2813]: listening on IPv6 interfaces, port 53
-named[2813]: listening on IPv4 interface lo, 127.0.0.1#53
-named[2813]: listening on IPv4 interface eth0, 198.51.100.4#53
-named[2813]: generating session key for dynamic DNS
-named[2813]: automatic empty zone: 254.169.IN-ADDR.ARPA
-named[2813]: automatic empty zone: 2.0.192.IN-ADDR.ARPA
-named[2813]: automatic empty zone: 255.255.255.255.IN-ADDR.ARPA
-named[2813]: automatic empty zone: 0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
-named[2813]: automatic empty zone: 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
-named[2813]: automatic empty zone: D.F.IP6.ARPA
-named[2813]: automatic empty zone: 8.E.F.IP6.ARPA
-named[2813]: automatic empty zone: 9.E.F.IP6.ARPA
-named[2813]: automatic empty zone: A.E.F.IP6.ARPA
-named[2813]: automatic empty zone: B.E.F.IP6.ARPA
-named[2813]: command channel listening on 127.0.0.1#953
-named[2813]: command channel listening on ::1#953
-named[2813]: zone 0.in-addr.arpa/IN: loaded serial 1
-named[2813]: zone 127.in-addr.arpa/IN: loaded serial 1
-named[2813]: zone 255.in-addr.arpa/IN: loaded serial 1
-named[2813]: zone localhost/IN: loaded serial 2
-named[2813]: running
-named[2813]: <emphasis>zone 0.200.192.in-addr.arpa/IN: Transfer started.</emphasis>
-named[2813]: <emphasis>transfer of '0.200.192.in-addr.arpa/IN' from 198.51.100.3#53: connected using 198.51.100.4#43261</emphasis>
-named[2813]: <emphasis>zone 0.200.192.in-addr.arpa/IN: transferred serial 2010052401</emphasis>
-named[2813]: <emphasis>transfer of '0.200.192.in-addr.arpa/IN' from 198.51.100.3#53: \
-            Transfer completed: 1 messages, 10 records, 280 bytes, 0.085 secs (3294 bytes/sec)</emphasis>
-named[2813]: <emphasis>zone 0.200.192.in-addr.arpa/IN: sending notifies (serial 2010052401)</emphasis>
-named[2813]: <emphasis>zone stri.lab/IN: Transfer started.</emphasis>
-named[2813]: <emphasis>transfer of 'stri.lab/IN' from 198.51.100.3#53: connected using 198.51.100.4#42378</emphasis>
-named[2813]: <emphasis>zone stri.lab/IN: transferred serial 2010052401</emphasis>
-named[2813]: <emphasis>transfer of 'stri.lab/IN' from 198.51.100.3#53: \
-            Transfer completed: 1 messages, 14 records, 332 bytes, 0.085 secs (3905 bytes/sec)</emphasis>
-named[2813]: <emphasis>zone stri.lab/IN: sending notifies (serial 2010052401)</emphasis></screen>
+      <para>Établir la correspondance entre l'organisation des fichiers de
+      configuration du paquet Debian et les indications de la documentation de
+      référence. Repérer le propriétaire du processus <systemitem
+      class='daemon'>named</systemitem> et relever ses caractéristiques :
+      <systemitem>uid</systemitem>, <systemitem>gid</systemitem>, répertoire
+      utilisateur, etc.</para>
+      </question>
+      <answer>
+      <itemizedlist>
+        <listitem>
+	<para>C'est le fichier <filename>named.conf.options</filename> qui
+	désigne le répertoire de travail du service de noms de domaines :
+	<filename class='directory'>/var/cache/bind/</filename>.</para>
+	</listitem>
+        <listitem>
+	<para>On retrouve la même information au niveau des paramètres du
+	compte utilisateur système dédié au service.</para>
 
-  <para>La lecture des journaux système confirme que le transfert de zone s'est
-  déroulé correctement. Le serveur secondaire est maintenant prêt à traiter les
-  requêtes issues des clients sur la base des copies transférées. On peut
-  consulter le résultat des transferts via les fichiers contenus dans le
-  répertoire <filename class='directory'>/var/cache/bind/</filename>.</para>
+<screen><prompt>$</prompt> grep bind /etc/passwd
+bind:x:105:107::/var/cache/bind:/bin/false</screen>
+	</listitem>
+	<listitem>
+	<para>Le masque de permissions donne les droits d'écriture aux membres
+	du groupe système <systemitem>bind</systemitem>.</para>
 
-<screen width='80'><prompt>#</prompt> cat /var/cache/bind/backup.stri.lab 
-$ORIGIN .
-$TTL 60 ; 1 minute
-stri.lab                IN SOA  stri.lab. root.stri.lab. (
-                                2010052402 ; serial
-                                20         ; refresh (20 seconds)
-                                5          ; retry (5 seconds)
-                                420        ; expire (7 minutes)
-                                60         ; minimum (1 minute)
-                                )
-                        NS      clnt.stri.lab.
-                        NS      srvr.stri.lab.
-                        MX      10 smtp.stri.lab.
-                        TXT     "Training Lab"
-$ORIGIN stri.lab.
-clnt                    A       198.51.100.4
-ldap                    A       198.51.100.12
-nfs                     A       198.51.100.11
-ns1                     CNAME   srvr
-ns2                     CNAME   clnt
-rtr                     A       198.51.100.1
-smtp                    A       198.51.100.10
-srvr                    A       198.51.100.3</screen>
+<screen><prompt>$</prompt> ll /var/cache/ | grep bind
+drwxrwxr-x  2 root bind 4,0K oct.   7 21:05 bind</screen>
+	</listitem>
+      </itemizedlist>
+      </answer>
+    </qandaentry>
 
-  <para>Comme dans la section précédente, on peut valider un à un les
-  enregistrements en interrogeant le service. Voici juste un exemple désignant
-  explicitement le serveur secondaire.</para>
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est l'outil à utiliser pour valider la syntaxe des
+      déclarations d'enregistrement avant d'activer la nouvelle zone
+      ?</phrase></para>
 
-<screen width='80'><prompt>#</prompt> dig @198.51.100.4 stri.lab mx
+      <para>Consulter la liste des outils fournis avec les paquets relatifs au
+      logiciel <application>bind9</application>.</para>
+      </question>
+      <answer>
+      <para>Le paquet <systemitem>bind9utils</systemitem> fournit plusieurs
+      outils dont le programme <application>named-checkconf</application> qui
+      permet de valider la syntaxe des fichiers de configuration.</para>
 
-; &lt;&lt;>> DiG 9.7.0-P1 &lt;&lt;>> @198.51.100.4 stri.lab mx
+      <para>Dans le cas de notre exemple, on obtient les résultats
+      suivants.</para>
+
+<screen><prompt>#</prompt> named-checkconf -p named.conf
+options {
+        directory "/var/cache/bind";
+	listen-on-v6 {
+		"any";
+	};
+	auth-nxdomain no;
+	dnssec-validation auto;
+};
+zone "lab.lan-213.stri." {
+	type slave;
+	file "backup.lab.lan-213.stri";
+	masters {
+		198.51.100.2 ;
+	};
+};
+zone "100.51.198.in-addr.arpa" {
+	type slave;
+	file "backup.100.51.198";
+	masters {
+		198.51.100.2 ;
+	};
+};
+zone "." {
+	type hint;
+	file "/etc/bind/db.root";
+};
+zone "localhost" {
+	type master;
+	file "/etc/bind/db.local";
+};
+zone "127.in-addr.arpa" {
+	type master;
+	file "/etc/bind/db.127";
+};
+zone "0.in-addr.arpa" {
+	type master;
+	file "/etc/bind/db.0";
+};
+zone "255.in-addr.arpa" {
+	type master;
+	file "/etc/bind/db.255";
+};</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Comment les enregistrements (<wordasword>Resource
+      Records</wordasword>) d'un serveur <acronym>DNS</acronym> secondaire sont
+      ils obtenus ? Quel est le type de requête qui permet de valider la
+      disponibilité des nouveaux enregistrements ?</phrase></para>
+
+      <para>Rechercher dans la liste des requêtes utilisables avec la commande
+      <command>dig</command>.</para>
+      </question>
+      <answer>
+      <para>Les enregistrements d'un serveur secondaire sont obtenus par
+      <emphasis>transfert réseau</emphasis>.</para>
+
+      <para>Le type d'une requête de transfert de zone est :
+      <acronym>AXFR</acronym>. Voici deux exemples de résultats.</para>
+
+<screen><prompt>#</prompt> dig <emphasis>axfr</emphasis> @198.51.100.2 lab.lan-213.stri
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> axfr @198.51.100.2 lab.lan-213.stri
 ; (1 server found)
 ;; global options: +cmd
-;; Got answer:
-;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 29883
-;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 1, ADDITIONAL: 2
+lab.lan-213.stri.       60      IN      SOA     lab.lan-213.stri. postmaster.lab.lan-213.stri. 2012100801 20 5 420 60
+lab.lan-213.stri.       60      IN      NS      primary-srvr.lab.lan-213.stri.
+lab.lan-213.stri.       60      IN      NS      secondary-srvr.lab.lan-213.stri.
+lab.lan-213.stri.       60      IN      MX      10 smtp.lab.lan-213.stri.
+lab.lan-213.stri.       60      IN      TXT     "DNS training Lab"
+file-srvr.lab.lan-213.stri. 60  IN      A       198.51.100.5
+ldap.lab.lan-213.stri.  60      IN      CNAME   file-srvr.lab.lan-213.stri.
+nfs.lab.lan-213.stri.   60      IN      CNAME   file-srvr.lab.lan-213.stri.
+ns1.lab.lan-213.stri.   60      IN      CNAME   primary-srvr.lab.lan-213.stri.
+ns2.lab.lan-213.stri.   60      IN      CNAME   secondary.lab.lan-213.stri.
+primary-srvr.lab.lan-213.stri. 60 IN    A       198.51.100.2
+rtr.lab.lan-213.stri.   60      IN      A       198.51.100.1
+secondary-srvr.lab.lan-213.stri. 60 IN  A       198.51.100.3
+smtp.lab.lan-213.stri.  60      IN      A       198.51.100.10
+lab.lan-213.stri.       60      IN      SOA     lab.lan-213.stri. postmaster.lab.lan-213.stri. 2012100801 20 5 420 60
+;; Query time: 1 msec
+;; SERVER: 198.51.100.2#53(198.51.100.2)
+;; WHEN: Mon Oct  8 17:20:52 2012
+;; XFR size: 15 records (messages 1, bytes 400)</screen>
 
-;; QUESTION SECTION:
-;stri.lab.                      IN      MX
+<screen><prompt>#</prompt> dig <emphasis>axfr</emphasis> @198.51.100.2 100.51.198.in-addr.arpa.
 
-;; ANSWER SECTION:
-stri.lab.               60      IN      MX      10 smtp.stri.lab.
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> axfr @198.51.100.2 100.51.198.in-addr.arpa.
+; (1 server found)
+;; global options: +cmd
+100.51.198.in-addr.arpa. 60     IN      SOA     lab.lan-213.stri. postmaster.lab.lan-213.stri. 2012100801 20 5 420 60
+100.51.198.in-addr.arpa. 60     IN      NS      primary-srvr.lab.lan-213.stri.
+100.51.198.in-addr.arpa. 60     IN      NS      secondary-srvr.lab.lan-213.stri.
+1.100.51.198.in-addr.arpa. 60   IN      PTR     rtr.lab.lan-213.stri.
+10.100.51.198.in-addr.arpa. 60  IN      PTR     smtp.lab.lan-213.stri.
+2.100.51.198.in-addr.arpa. 60   IN      PTR     primary-srvr.lab.lan-213.stri.
+3.100.51.198.in-addr.arpa. 60   IN      PTR     secondary-srvr.lab.lan-213.stri.
+5.100.51.198.in-addr.arpa. 60   IN      PTR     file-srvr.lab.lan-213.stri.
+100.51.198.in-addr.arpa. 60     IN      SOA     lab.lan-213.stri. postmaster.lab.lan-213.stri. 2012100801 20 5 420 60
+;; Query time: 1 msec
+;; SERVER: 198.51.100.2#53(198.51.100.2)
+;; WHEN: Mon Oct  8 17:22:34 2012
+;; XFR size: 9 records (messages 1, bytes 296)</screen>
+      </answer>
+    </qandaentry>
 
-;; AUTHORITY SECTION:
-stri.lab.               60      IN      NS      srvr.stri.lab.
-stri.lab.               60      IN      NS      clnt.stri.lab.
+    <qandaentry>
+      <question>
+      <para><phrase>Comment activer les nouveaux enregistrements de zone
+      ? Valider la prise en charge de ces enregistrements</phrase></para>
 
-;; ADDITIONAL SECTION:
-smtp.stri.lab.          60      IN      A       198.51.100.10
-clnt.stri.lab.          60      IN      A       198.51.100.4
-srvr.stri.lab.          60      IN      A       198.51.100.3
+      <para>Recharger la configuration du service <acronym>DNS</acronym> et
+      consulter les journaux système correspondant</para>
+      </question>
+      <answer>
+      <para>Le rechargement de la configuration du service ne se distingue pas
+      des autres services Internet.</para>
 
-;; Query time: 0 msec
-;; SERVER: 198.51.100.4#53(198.51.100.4)
-;; WHEN: Mon May 24 16:24:53 2010
-;; MSG SIZE  rcvd: 133</screen>
+<screen><prompt>#</prompt> service bind9 reload
+[ ok ] Reloading domain name service...: bind9.</screen>
+
+      <para>Voici un extrait de journal système.</para>
+
+<screen><prompt>#</prompt> tail -100 /var/log/syslog
+named[3188]: received control channel command 'reload'
+named[3188]: loading configuration from '/etc/bind/named.conf'
+named[3188]: reading built-in trusted keys from file '/etc/bind/bind.keys'
+named[3188]: using default UDP/IPv4 port range: [1024, 65535]
+named[3188]: using default UDP/IPv6 port range: [1024, 65535]
+named[3188]: sizing zone task pool based on 7 zones
+named[3188]: using built-in root key for view _default
+named[3188]: Warning: 'empty-zones-enable/disable-empty-zone' not set: disabling RFC 1918 empty zones
+named[3188]: zone 100.51.198.IN-ADDR.ARPA/IN: (master) removed
+named[3188]: reloading configuration succeeded
+named[3188]: reloading zones succeeded
+named[3188]: zone 100.51.198.in-addr.arpa/IN: Transfer started.
+named[3188]: transfer of '100.51.198.in-addr.arpa/IN' from 198.51.100.2#53: connected using 198.51.100.3#54386
+named[3188]: zone 100.51.198.in-addr.arpa/IN: transferred serial 2012100801
+named[3188]: transfer of '100.51.198.in-addr.arpa/IN' from 198.51.100.2#53: Transfer completed: 1 messages, 9 records, 296 bytes, 0.001 secs (296000 bytes/sec)
+named[3188]: zone 100.51.198.in-addr.arpa/IN: sending notifies (serial 2012100801)
+named[3188]: zone lab.lan-213.stri/IN: Transfer started.
+named[3188]: transfer of 'lab.lan-213.stri/IN' from 198.51.100.2#53: connected using 198.51.100.3#45144
+named[3188]: zone lab.lan-213.stri/IN: transferred serial 2012100801
+named[3188]: transfer of 'lab.lan-213.stri/IN' from 198.51.100.2#53: Transfer completed: 1 messages, 15 records, 400 bytes, 0.001 secs (400000 bytes/sec)
+named[3188]: zone lab.lan-213.stri/IN: sending notifies (serial 2012100801)</screen>
+      </answer>
+    </qandaentry>
+  </qandaset>
 
   <para>Lors d'une modification de la liste des enregistrements, il est
   important d'incrémenter correctement le numéro de série de façon à notifier
@@ -1519,36 +1791,33 @@ srvr.stri.lab.          60      IN      A       198.51.100.3
   fichier <filename>/var/log/syslog/</filename> du serveur primaire donné
   ci-dessous, on voit bien apparaître ces notifications.</para>
 
-<screen width='80'>named[1556]: running
-named[1556]: zone 0.200.192.in-addr.arpa/IN: sending notifies (serial 2010052402)
-named[1556]: zone stri.lab/IN: sending notifies (serial 2010052402)
-named[1556]: client 198.51.100.4#41748: transfer of '0.200.192.in-addr.arpa/IN': AXFR-style IXFR started
-named[1556]: client 198.51.100.4#41748: transfer of '0.200.192.in-addr.arpa/IN': AXFR-style IXFR ended
-named[1556]: client 198.51.100.4#19941: received notify for zone '0.200.192.in-addr.arpa'
-named[1556]: client 198.51.100.4#40869: transfer of 'stri.lab/IN': AXFR-style IXFR started
-named[1556]: client 198.51.100.4#40869: transfer of 'stri.lab/IN': AXFR-style IXFR ended
-named[1556]: client 198.51.100.4#2069: received notify for zone 'stri.lab'</screen>
+<screen width='80'>named[2863]: client 198.51.100.3#54299: transfer of 'lab.lan-213.stri/IN': AXFR started
+named[2863]: client 198.51.100.3#54299: transfer of 'lab.lan-213.stri/IN': AXFR ended
+named[2863]: client 198.51.100.3#57978: transfer of '100.51.198.in-addr.arpa/IN': AXFR started
+named[2863]: client 198.51.100.3#57978: transfer of '100.51.198.in-addr.arpa/IN': AXFR ended</screen>
 </sect1>
 
 <sect1 xml:id='sysadm-net.dns.qa.delegation'>
-  <title>Délégation de la zone stri.lab depuis le niveau lab</title>
+  <title>Délégation de la zone lab depuis le niveau lan-213.stri</title>
+
+  <sect2 xml:id='sysadm-net.dns.qa.delegation-southbound'>
+    <title>Échange du niveau supérieur vers le niveau inférieur</title>
 
 <warning>
   <para>Cette partie est complétée par l'enseignant sur le serveur
   <acronym>DNS</acronym> de travaux pratiques ayant autorité au niveau
-  supérieur ; ce niveau supérieur correspond à un <wordasword>Top Level
+  supérieur. Ce niveau supérieur correspond à un <wordasword>Top Level
   Domain</wordasword> (<acronym>TLD</acronym>) factice.</para>
 </warning>
   
-  <para>Le serveur maître de la zone <literal>lab</literal> doit
-  <emphasis>déléguer</emphasis> le domaine <literal>stri.lab</literal> aux
-  postes de travaux pratiques qui détiennent les enregistrements
+  <para>Le serveur maître de la zone <literal>lan-213.stri</literal> doit
+  <emphasis>déléguer</emphasis> le domaine <literal>lab.lan-213.stri</literal>
+  aux postes de travaux pratiques qui détiennent les enregistrements
   (<acronym>RRs</acronym>) du sous-domaine.</para>
   
-  <para>Dans le contexte de la <link
-  linkend='sysadm-net.dns.qa.lab'>maquette utilisée pour ce
-  document</link>, le système hôte doit déléguer le sous-domaine aux deux
-  instances de machines virtuelles.</para>
+  <para>Dans le contexte de la maquette utilisée pour ce document, le système
+  hôte doit déléguer le sous-domaine aux deux instances de machines
+  virtuelles.</para>
 
   <para>Les fichiers de configuration donnés dans cette section sont surtout
   utiles pour les communications inter-zones lors des travaux pratiques. En
@@ -1557,153 +1826,145 @@ named[1556]: client 198.51.100.4#2069: received notify for zone 'stri.lab'</scre
   cette arborescence <acronym>DNS</acronym> factice soient toutes reliées les
   unes aux autres.</para>
 
-  <para>Le fichier de déclaration de zone du système hôte se présente comme
-  suit.</para>
+  <para>Le fichier de configuration du service sur le système hôte comprend les
+  éléments suiavnts.</para>
 
-<screen width='80'><prompt>#</prompt> cat /etc/bind/named.conf.local 
-//
-// Do any local configuration here
-//
-
-zone "lab" {
-        type master;
-        file "lab";
-        notify no;
-        };
-
-zone "16/200.192.in-addr.arpa" {
-        type master;
-        file "192.200";
-	notify no;
-	};
-
-zone "stri.lab" {
+<screen>zone "lab.lan-213.stri" {
 	type slave;
-	file "backup.stri.lab";
-	masters { 
-		198.51.100.3;
-		198.51.100.4;
-		};
-	};
+	file "lab.lan-213.stri.bak";
+	masters { 198.51.100.2; };
+};
 
-zone "0.200.192.in-addr.arpa" {
+zone "100.51.198.in-addr.arpa" {
 	type slave;
-	file "backup.198.51.100";
-	masters { 
-		198.51.100.3;
-		198.51.100.4;
-		};
-	};
+	file "100.51.198.bak";
+	masters { 198.51.100.2; };
+};</screen>
 
-// Consider adding the 1918 zones here, if they are not used in your
-// organization
-//include "/etc/bind/zones.rfc1918";</screen>
+<warning>
+  <para>Le fonctionnement de la résolution inverse s'avère délicat lorsque l'on
+  utilise des sous-réseaux. Dans le cas de ces travaux pratiques, il est
+  essentiel que les déclarations de zones inverses soient
+  <emphasis>identiques</emphasis> entre les différents niveaux.</para>
+</warning>
 
-  <para>Les deux fichiers désignés pour contenir les définitions des
-  enregistrements sont donnés ci-dessous.</para>
-
-  <itemizedlist>
-    <listitem>
-    <para>Enregistrements pour la résolution des noms.</para>
-
-<screen width='80'><prompt>#</prompt> cat /var/cache/bind/lab 
-$TTL 60
-@       IN      SOA     lab. root.lab. (
-                        2010052401      ; serial, yearmonthdayserial#
-                        20              ; refresh, seconds
-                        5               ; retry, seconds
-                        420             ; expire, seconds
-                        60 )            ; minimum, seconds
-                        NS      host-srvr.lab.
-                        MX      10 smtp.lab.  ; Primary Mail Exchanger
-                        TXT     "Training Lab Host System"
-
-host-srvr       A       198.51.100.1
-smtp            A       198.51.100.2
-vm-srvr         A       198.51.100.3
-vm-clnt         A       198.51.100.4</screen>
-    </listitem>
-    <listitem>
-    <para>Enregistrements pour la résolution inverse des adresses IP.</para>
-
-<screen width='80'><prompt>#</prompt> cat /var/cache/bind/192.200 
-$TTL 60
-@       IN      SOA     lab. root.lab. (
-                        2010052401      ; serial, yearmonthdayserial#
-                        20              ; refresh, seconds
-                        5               ; retry, seconds
-                        420             ; expire, seconds
-                        60 )            ; minimum, seconds
-                        NS      host-srvr.lab.
-
-1                       PTR     host-srvr.lab.
-2                       PTR     smtp.lab.
-3                       PTR     vm-srvr.lab.
-4                       PTR     vm-clnt.lab.</screen>
-    <warning>
-      <para>La résolution inverse ne fonctionne pas correctement avec la
-      configuration présentée ici. La mise en place d'une délégation complète
-      de zone inverse nécessite une configuration plus complexe au niveau des
-      sous-domaines et une cohérence du découpage du plan d'adressage IP qui
-      n'est pas en place sur la maquette étudiée ici.</para>
-
-      <para>Ce dysfonctionnement n'est pas critique dans la mesure où les
-      réseaux IP choisis dans la section <citetitle>Adressage IP des postes de
-      travail</citetitle> du support &url.sysadm-net.dns; ne se recouvrent
-      jamais en notation <wordasword>classful</wordasword>.</para>
-    </warning>
-    </listitem>
-  </itemizedlist>
-
-  <para>Après redémarrage du service <acronym>DNS</acronym> sur le système
-  hôte, les journaux système montrent que les transferts de zone se sont
-  déroulés correctement.</para>
+  <para>Après rechargement de la configuration du service <acronym>DNS</acronym>
+  sur le système hôte, les journaux système montrent que les transferts de zone
+  se sont déroulés correctement.</para>
   
-<screen width='80'><prompt>#</prompt> /etc/init.d/bind9 restart
-<prompt>#</prompt> named[13541]: exiting
-named[13597]: starting BIND 9.7.0-P1 -u bind
-named[13597]: built with '--prefix=/usr' &lt;snipped/>
-named[13597]: adjusted limit on open files from 1024 to 1048576
-named[13597]: found 2 CPUs, using 2 worker threads
-named[13597]: using up to 4096 sockets
-named[13597]: loading configuration from '/etc/bind/named.conf'
-named[13597]: reading built-in trusted keys from file '/etc/bind/bind.keys'
-named[13597]: using default UDP/IPv4 port range: [1024, 65535]
-named[13597]: using default UDP/IPv6 port range: [1024, 65535]
-named[13597]: listening on IPv6 interfaces, port 53
-named[13597]: listening on IPv4 interface lo, 127.0.0.1#53
-named[13597]: listening on IPv4 interface wlan0, 192.168.1.9#53
-named[13597]: listening on IPv4 interface tap0, 198.51.100.1#53
-named[13597]: generating session key for dynamic DNS
-named[13597]: automatic empty zone: 254.169.IN-ADDR.ARPA
-named[13597]: automatic empty zone: 2.0.192.IN-ADDR.ARPA
-named[13597]: automatic empty zone: 255.255.255.255.IN-ADDR.ARPA
-named[13597]: automatic empty zone: 0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
-named[13597]: automatic empty zone: 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.IP6.ARPA
-named[13597]: automatic empty zone: D.F.IP6.ARPA
-named[13597]: automatic empty zone: 8.E.F.IP6.ARPA
-named[13597]: automatic empty zone: 9.E.F.IP6.ARPA
-named[13597]: automatic empty zone: A.E.F.IP6.ARPA
-named[13597]: automatic empty zone: B.E.F.IP6.ARPA
-named[13597]: command channel listening on 127.0.0.1#953
-named[13597]: command channel listening on ::1#953
-named[13597]: zone 0.in-addr.arpa/IN: loaded serial 1
-named[13597]: zone 127.in-addr.arpa/IN: loaded serial 1
-named[13597]: zone 16/200.192.in-addr.arpa/IN: loaded serial 2010052401
-named[13597]: zone 0.200.192.in-addr.arpa/IN: loaded serial 2010052402
-named[13597]: zone 255.in-addr.arpa/IN: loaded serial 1
-named[13597]: zone lab/IN: loaded serial 2010052401
-named[13597]: zone stri.lab/IN: loaded serial 2010052402
-named[13597]: zone localhost/IN: loaded serial 2
-named[13597]: zone 0.200.192.in-addr.arpa/IN: sending notifies (serial 2010052402)
-named[13597]: zone stri.lab/IN: sending notifies (serial 2010052402)
-named[13597]: running</screen>
+<screen><prompt>#</prompt> grep 'lab.lan-213.stri' /var/log/named/named.log
+transfer of 'lab.lan-213.stri/IN/standard' from 198.51.100.2#53: \
+  connected using 198.51.100.1#35001
+createfetch: primary-srvr.lab.lan-213.stri A
+createfetch: primary-srvr.lab.lan-213.stri AAAA
+transfer of 'lab.lan-213.stri/IN/standard' from 198.51.100.2#53: \
+  Transfer completed: 1 messages, 15 records, 400 bytes, 0.001 secs (400000 bytes/sec)
+zone lab.lan-213.stri/IN/standard: sending notifies (serial 2012100801)
+
+<prompt>#</prompt> grep '100.51.198' /var/log/named/named.log
+transfer of '100.51.198.in-addr.arpa/IN/standard' from 198.51.100.2#53: \
+  connected using 198.51.100.1#44547
+transfer of '100.51.198.in-addr.arpa/IN/standard' from 198.51.100.2#53: \
+  Transfer completed: 1 messages, 9 records, 296 bytes, 0.001 secs (296000 bytes/sec)
+zone 100.51.198.in-addr.arpa/IN/standard: sending notifies (serial 2012100801)</screen>
 
   <para>On peut vérifier que les numéros de série des notifications
   correspondent bien aux enregistrements publiés au niveau inférieur.</para>
+  </sect2>
 
-  <para>Pour clore la validation de la délégation, il faut reprendre la série
-  de tests de requêtes présentées dans les deux sections précédentes.</para>
+  <sect2 xml:id='sysadm-net.dns.qa.delegation-northbound'>
+    <title>Échange du niveau inférieur vers le niveau supérieur</title>
+
+  <para>Pour que les enregistrements déclarés dans les différentes zones de
+  travaux pratiques soient visibles les uns des autres, il est nécessaire de
+  faire appel à la notion de <wordasword>forwarder</wordasword>.</para>
+
+  <qandaset>
+    <qandaentry>
+    <question>
+    <para><phrase>Est-ce que les enregistrements de l'arborescence factice sont
+    accessibles depuis les serveurs du niveau
+    <systemitem>zone(i).lan-213.stri</systemitem> ? Quelle requête faut-il
+    utiliser pour accéder à ces enregistrements ?</phrase></para>
+
+    <para>Rechercher l'adresse <acronym>IP</acronym> correspondant au nom
+    <systemitem>cooper.lan-213.stri</systemitem>.</para>
+    </question>
+    <answer>
+    <para>La requête directe n'aboutit pas puisque les serveurs racines n'ont
+    aucune connaissance de l'arborescence factice.</para>
+
+<screen><prompt>#</prompt> dig cooper.lan-213.stri
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> cooper.lan-213.stri
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NXDOMAIN, id: 61354
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;cooper.lan-213.stri.           IN      A
+
+;; AUTHORITY SECTION:
+.                       10800   IN      SOA     a.root-servers.net. nstld.verisign-grs.com. 2012100801 1800 900 604800 86400
+
+;; Query time: 184 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Mon Oct  8 23:02:29 2012
+;; MSG SIZE  rcvd: 112</screen>
+
+    <para>En interrogeant directement le niveau supérieur, on obtient
+    l'information demandée.</para>
+
+<screen><prompt>#</prompt> dig @198.51.100.1 cooper.lan-213.stri
+
+; &lt;&lt;>> DiG 9.8.1-P1 &lt;&lt;>> @198.51.100.1 cooper.lan-213.stri
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 2583
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 2, ADDITIONAL: 1
+
+;; QUESTION SECTION:
+;cooper.lan-213.stri.           IN      A
+
+;; ANSWER SECTION:
+cooper.lan-213.stri.    86400   IN      A       172.16.80.1
+
+;; AUTHORITY SECTION:
+lan-213.stri.           86400   IN      NS      cooper.lan-213.stri.
+lan-213.stri.           86400   IN      NS      casper.infra.stri.
+
+;; ADDITIONAL SECTION:
+casper.infra.stri.      86400   IN      A       172.16.0.2
+
+;; Query time: 1 msec
+;; SERVER: 198.51.100.1#53(198.51.100.1)
+;; WHEN: Mon Oct  8 23:08:06 2012
+;; MSG SIZE  rcvd: 110</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment diriger toutes les requêtes du niveau
+    <systemitem>zone(i).lan-213.stri</systemitem> vers le niveau
+    <systemitem>lan-213.stri</systemitem> ?</phrase></para>
+
+    <para>Rechercher l'option <option>forwarder</option> dans le document
+    &url.bv9arm;.</para>
+    </question>
+    <answer>
+    <para>On édite le fichier <filename>/etc/bind/named.conf.options</filename>
+    de façon à compléter la section <option>forwarders</option>.</para>
+
+<screen>	forwarders {
+		198.51.100.1;
+	};</screen>
+    </answer>
+    </qandaentry>
+  </qandaset>
+  </sect2>
 </sect1>
 
 <sect1 xml:id='sysadm-net.dns.qa.sec'>
@@ -1880,11 +2141,19 @@ zone "stri.lab" {
       </listitem>
     </varlistentry>
 
-    <varlistentry xml:id='sysadm-net.dns.qa.refdocs.bind.template'>
+    <varlistentry xml:id='sysadm-net.dns.qa.refdocs.bind-template'>
       <term><citetitle>Secure BIND Template</citetitle></term>
       <listitem>
-      <para>&url.bind.template; : patrons de fichiers de configuration
+      <para>&url.bind-template; : patrons de fichiers de configuration
       d'un service <acronym>DNS</acronym>.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.dns.qa.refdocs.root-servers'>
+      <term><citetitle>Secure BIND Template</citetitle></term>
+      <listitem>
+      <para>&url.root-servers; : informations sur les serveurs racines du
+      service de noms de domaines.</para>
       </listitem>
     </varlistentry>
 
