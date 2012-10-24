@@ -14,8 +14,8 @@ XML_FILES = \
 	devmgmt.xml \
         author.xml \
         legal.xml \
-	rfc.urls.xml
-
+	rfc.urls.xml \
+	files/active
 
 all: $(PROCESS)
 
