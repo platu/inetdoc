@@ -18,7 +18,8 @@ XML_FILES = \
         author.xml \
         legal.xml \
 	inetdoc.urls.xml \
-	rfc.urls.xml
+	rfc.urls.xml \
+	images/*.odg
 
 all: $(PROCESS)
 

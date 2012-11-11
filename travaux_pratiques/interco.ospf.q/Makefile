@@ -16,7 +16,8 @@ SYMLINKS = \
 XML_FILES = \
 	interco.ospf.q.xml \
 	inetdoc.urls.xml \
-	rfc.urls.xml
+	rfc.urls.xml \
+	images/*.png
 
 all: $(PROCESS)
 
