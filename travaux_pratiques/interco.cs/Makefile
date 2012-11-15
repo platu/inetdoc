@@ -14,7 +14,8 @@ XML_FILES = \
 	interco.cs.xml \
         author.xml \
         legal.xml \
-	inetdoc.urls.xml
+	inetdoc.urls.xml \
+	images/*.png
 
 all: $(PROCESS)
 
