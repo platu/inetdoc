@@ -1,0 +1,97 @@
+TITLE: Aire OSPF et passerelles multiples (2ème)
+AUTHOR: Philippe Latu
+DATE: jeudi 22 novembre 2012, 17:51:40 (UTC+0100)
+DESC: 
+FORMAT: raw
+-----
+BODY:
+<p>Suite à l'article <a
+href="http://www.inetdoc.net/articles/ospf-triangle-multiple-default/">Aire
+OSPF et passerelles multiples</a> et au cycle de travaux pratiques des M1 STRI
+sur l'interconnexion des réseaux locaux et étendus, voici une variante
+d'utilisation du marquage de paquets avec des tables de routage multiples.
+L'idée est toujours d'implanter un mécanisme de tolérance aux pannes entre les
+passerelles d'une aire OSPF et un routeur de niveau «supérieur».</p>
+
+<a href="http://www.inetdoc.net/travaux_pratiques/interco.cs/">
+<img src="http://www.inetdoc.net/travaux_pratiques/interco.cs/images/interco.cs.multiple-gw.png"
+width="630" alt="Interconnexion avec deux routeurs de bordure OSPF"/>
+</a>
+
+<p>Ici, les trois routeurs protagonistes ont chacun une interface dans le même
+domaine de diffusion et on utilise un octet d'adresse MAC pour identifier et
+distinguer les passerelles.</p>
+
+<p>Pour un nouveau flux <em>sortant de l'aire OSPF</em>, il y a ...</p>
+
+<ol>
+<li>Marquage du premier paquet en fonction de l'adresse MAC source dans la chaîne <tt>PREROUTING</tt> de la table <em>mangle</em>.</li>
+<li>Mémorisation du marquage de paquet dans le mécanisme de suivi d'état du système de filtrage (<em>connmark</em>)</li>
+<li>Entrée dans la table de routage dédiée au routeur de bordure à l'origine du flux.</li>
+</ol>
+
+<p>Pour un flux <em>retour dans l'aire OSPF</em>, il y a ...</p>
+
+<ol>
+<li>Restauration du marquage de paquet en fonction des enregistrements effectués via le mécanisme de suivi d'état</li>
+<li>Entrée dans la table de routage dédiée au routeur de bordure vers lequel le flux doit être dirigé.</li>
+</ol>
+
+<p>La configuration correspondante est alors obtenue avec ...</p>
+
+<ul>
+<li>Une table de routage par routeur de bordure :
+
+<pre># cat /etc/iproute2/rt_tables 
+#
+# reserved values
+#
+255     local
+254     main
+253     default
+0       unspec
+#
+# local
+#
+#1      inr.ruhep
+<em>72      centares
+79      naboo</em></pre>
+<br/>
+<pre># ip route add 10.0.16.0/20 via 172.16.1.1 table centares
+# ip route add 10.0.32.0/20 via 172.16.1.1 table centares
+# ip route add default dev bond0 table centares</pre>
+<br/>
+<pre># ip route add 10.0.16.0/20 via 172.16.4.1 table naboo
+# ip route add 10.0.32.0/20 via 172.16.4.1 table naboo
+# ip route add default dev bond0 table naboo</pre></li>
+
+<p>Le plan d'adressage est donné dans le support <a
+href="http://www.inetdoc.net/travaux_pratiques/interco.cs/">Étude de cas sur
+l'interconnexion LAN/WAN</a>.</p>
+
+<li>Des règles de marquages utilisant la table <em>mangle</em> :
+
+<pre># iptables -t mangle -A PREROUTING -i bond0.1 -m mac --mac-source 00:1f:c6:01:26:72 -j MARK --set-mark 72
+# iptables -t mangle -A PREROUTING -i bond0.1 -m mac --mac-source 00:1f:c6:01:26:79 -j MARK --set-mark 79
+# iptables -t mangle -A PREROUTING -i bond0.1 -j CONNMARK --save-mark
+# iptables -t mangle -A PREROUTING -i bond0 -j CONNMARK --restore-mark</pre></li>
+
+<p>Ici, l'interface <tt>bond0</tt> correspond au lien vers l'Internet et
+l'interface <tt>bond0.1</tt> appartient au même réseau local que les deux
+routeurs de bordure.</p>
+
+<li>Des règles d'entrée dans les tables de routage en fonction des marques :
+
+<pre># ip rule add fwmark 72 table centares
+# ip rule add fwmark 79 table naboo</pre></li>
+</ul>
+
+<p>Voilà ! Cette configuration n'est qu'un exemple supplémentaire d'utilisation
+des tables de routage multiples sur les systèmes GNU/linux. Cette technique est
+trop souvent considérée à tort comme «effrayante». Dès lors que l'on accepte de
+traiter le problème pas à pas, la «représentation intellectuelle» de la gestion
+des flux se met plus facilement en place ;).</p>
+
+<p>Une fois de plus, le «copié-collé de la mort» si cher aux étudiants ne rend
+pas service et ne permet pas de visualiser les mécanismes en jeu.</p>
+END-----
