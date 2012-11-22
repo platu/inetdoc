@@ -48,6 +48,9 @@
     <keyword>trunk</keyword>
     <keyword>vlan</keyword>
     <keyword>zebra</keyword>
+    <keyword>passerelles multiples</keyword>
+    <keyword>marquage des paquets</keyword>
+    <keyword>mangle</keyword>
   </keywordset>
 </info>
 
@@ -474,5 +477,167 @@
     </tbody>
     </tgroup>
   </table>
+</sect1>
+
+<sect1 xml:id='interco.cs.multiple-gw'>
+  <title>Interconnexion avec deux routeurs de bordure</title>
+
+  <para>Une fois que tous les routeurs sont actifs et que toutes les instances
+  de routage <acronym>OSPF</acronym> ont convergé, les
+  <citetitle>Spokes</citetitle> disposent de deux passerelles de sortie vers
+  l'Internet. Les deux routeurs de bordure qui assurent cette fonction de
+  passerelle sont <citetitle>Centares</citetitle> et
+  <citetitle>Naboo</citetitle>. Du point de vue de l'aire
+  <acronym>OSPF</acronym>, on dispose ainsi d'une <emphasis>tolérance aux
+  pannes</emphasis> puisque les instances de routage <acronym>OSPF</acronym>
+  effectuent automatiquement un recalcul de topologie dans le cas où l'une des
+  deux passerelles viendrait à «tomber».</para>
+
+  <para>Le routeur de niveau supérieur, <citetitle>Cooper</citetitle>, ne
+  dispose pas du même niveau d'information puisqu'il n'y a aucun échange de
+  protocole de routage entre lui et les deux routeurs de bordure de l'aire
+  <acronym>OSPF</acronym>. Pour associer ce routeur au mécanisme de tolérance
+  aux pannes, on utilise le marquage de paquets. L'idée est que pour tout flux
+  issu d'une passerelle, le flux retour soit renvoyé à cette même passerelle.
+  On identifie ainsi la source du trafic. Si une des deux passerelles «tombe»,
+  elle n'émet plus aucun flux et le routeur <citetitle>Cooper</citetitle> ne
+  verra plus de nouveau flux provenant de son interface.</para> 
+
+  <para>Comme les interfaces des trois routeurs appartiennent au même
+  <acronym>VLAN</acronym> ou domaine de diffusion, on utilise les adresses
+  <acronym>MAC</acronym> comme identifiant de marquage. Dans cet exemple,
+  l'octet le plus à droite de l'adresse <acronym>MAC</acronym> sert à
+  identifier la passerelle à l'origine du trafic.</para> 
+
+  <mediaobject>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/interco.cs.multiple-gw.png' width='17cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/interco.cs.multiple-gw.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Interconnexion topologie globale et Internet</phrase>
+    </textobject>
+  </mediaobject>
+
+<note>
+  <para>Les manipulations présentées ci-dessous sont réalisées par l'enseignant
+  sur le routeur <citetitle>Cooper</citetitle> en début de séance. Compte tenu
+  des «aléas de configuration» dans l'aire <acronym>OSPF</acronym>, le
+  mécanisme de tolérance aux pannes est très utile dans le contexte des travaux
+  pratiques.</para>
+</note>
+
+  <para>Le processus de traitement suit les étapes suivante pour un
+  <emphasis>flux sortant de l'aire <acronym>OSPF</acronym></emphasis>.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>Nouveau flux entrant sur l'interface de <citetitle>Cooper</citetitle>
+    en provenance de l'une des deux passerelles</para>
+    </listitem>
+    <listitem>
+    <para>Marquage du premier paquet en fonction de l'adresse
+    <acronym>MAC</acronym> source dans la chaîne <acronym>PREROUTING</acronym>
+    de la table <systemitem>mangle</systemitem>.</para>
+    </listitem>
+    <listitem>
+    <para>Mémorisation du marquage de paquet dans le mécanisme suivi d'état du
+    système de filtrage (<wordasword>connmark</wordasword>)</para>
+    </listitem>
+    <listitem>
+    <para>Entrée dans la table de routage dédiée au routeur de bordure à l'origine du flux.</para>
+    </listitem>
+  </orderedlist>
+
+  <para>Le processus de traitement suit les étapes suivante pour un
+  <emphasis>flux retour vers l'aire <acronym>OSPF</acronym></emphasis>.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>Restauration du marquage de paquet en fonction des enregistrements
+    effectués via le mécanisme suivi d'état du système de filtrage
+    (<wordasword>connmark</wordasword>)</para>
+    </listitem>
+    <listitem>
+    <para>Entrée dans la table de routage dédiée au routeur de bordure à l'origine du flux.</para>
+    </listitem>
+  </orderedlist>
+
+  <para>Les opérations de configuration correspondantes sont données ci-après.</para>
+
+  <variablelist>
+    <varlistentry>
+      <term><citetitle>Création des tables de routage dédiées à chaque passerelle</citetitle></term>
+      <listitem>
+      <itemizedlist>
+        <listitem>
+	<para>Édition du fichier <filename>/etc/iproute2/rt_tables</filename>.</para>
+
+<screen><prompt>#</prompt> cat /etc/iproute2/rt_tables 
+#
+# reserved values
+#
+255     local
+254     main
+253     default
+0       unspec
+#
+# local
+#
+#1      inr.ruhep
+<emphasis>72      centares
+79      naboo</emphasis></screen>
+	</listitem>
+	<listitem>
+	<para>Ajout des entrées dans les deux nouvelles tables de routage.</para>
+
+<screen><prompt>#</prompt> ip route add 10.0.16.0/20 via 172.16.1.1 table centares
+<prompt>#</prompt> ip route add 10.0.32.0/20 via 172.16.1.1 table centares
+<prompt>#</prompt> ip route add default dev bond0 table centares</screen>
+
+<screen><prompt>#</prompt> ip route add 10.0.16.0/20 via 172.16.4.1 table naboo
+<prompt>#</prompt> ip route add 10.0.32.0/20 via 172.16.4.1 table naboo
+<prompt>#</prompt> ip route add default dev bond0 table naboo</screen>
+
+	<para>Dans les deux copies d'écran ci-dessus on a agrégé tous les
+	réseaux de l'aire <acronym>OSPF</acronym> en deux entrées.</para>
+	</listitem>
+      </itemizedlist>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><citetitle>Création des règles de marquage des
+      flux</citetitle></term>
+      <listitem>
+      <para>La table <systemitem>mangle</systemitem> est dédiée à l'altération
+      des paquets. Ici, on s'intéresse uniquement à l'ajout d'une
+      <emphasis>marque</emphasis>.</para>
+
+<screen><prompt>#</prompt> iptables -t mangle -A PREROUTING -i bond0.1 -m mac --mac-source 00:1f:c6:01:26:<emphasis>72</emphasis> -j MARK --set-mark <emphasis>72</emphasis>
+<prompt>#</prompt> iptables -t mangle -A PREROUTING -i bond0.1 -m mac --mac-source 00:1f:c6:01:26:<emphasis>79</emphasis> -j MARK --set-mark <emphasis>79</emphasis>
+<prompt>#</prompt> iptables -t mangle -A PREROUTING -i bond0.1 -j CONNMARK --save-mark
+<prompt>#</prompt> iptables -t mangle -A PREROUTING -i bond0 -j CONNMARK --restore-mark</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><citetitle>Création des règles d'entrée dans les tables de
+      routage</citetitle></term>
+      <listitem>
+      <para>C'est la <emphasis>marque</emphasis> qui détermine le choix de la
+      table de routage à utiliser.</para>
+
+<screen><prompt>#</prompt> ip rule add fwmark <emphasis>72</emphasis> table centares
+<prompt>#</prompt> ip rule add fwmark <emphasis>79</emphasis> table naboo</screen>
+
+      </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Et voilà ! Il ne reste plus qu'à consulter les entrées
+  <systemitem>conntrack</systemitem> à l'aide de la commande
+  <userinput><prompt>#</prompt> conntrack -L</userinput> pour voir apparaître
+  les marquages.</para>
 </sect1>
 </article>
