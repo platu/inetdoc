@@ -1,0 +1,453 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author         SYSTEM "author.xml">
+<!ENTITY legal          SYSTEM "legal.xml">
+
+<!ENTITY isp-interfaces SYSTEM "files/isp-interfaces">
+<!ENTITY r1-interfaces  SYSTEM "files/r1-interfaces">
+<!ENTITY r2-interfaces  SYSTEM "files/r2-interfaces">
+<!ENTITY r3-interfaces  SYSTEM "files/r3-interfaces">
+
+<!ENTITY r1-zebra       SYSTEM "files/r1-zebra.conf">
+<!ENTITY r1-ospfd       SYSTEM "files/r1-ospfd.conf">
+<!ENTITY r2-zebra       SYSTEM "files/r2-zebra.conf">
+<!ENTITY r2-ospfd       SYSTEM "files/r2-ospfd.conf">
+<!ENTITY r3-zebra       SYSTEM "files/r3-zebra.conf">
+<!ENTITY r3-ospfd       SYSTEM "files/r3-ospfd.conf">
+
+<!ENTITY url.infosec
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://en.wikipedia.org/wiki/Information_security'>Information security</link>">
+
+<!ENTITY url.ike
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://en.wikipedia.org/wiki/Internet_Key_Exchange'>Internet Key Exchange</link>">
+
+<!ENTITY url.sa
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://en.wikipedia.org/wiki/Security_association'>Security association</link>">
+
+<!ENTITY url.multipath-host.pcap
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/multipath-host.pcap'>multipath-host.pcap</link>">
+
+<!ENTITY url.r1-keepalive.sh
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/r1-keepalive.sh'>r1-keepalive.sh</link>">
+
+<!ENTITY url.r3-keepalive.sh
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/r1-keepalive.sh'>r3-keepalive.sh</link>">
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
+]>
+
+<article xml:lang='fr' xml:id='site2site-ipsecvpn'>
+<info>
+  <title>Routage OSPF &amp; VPN IPsec site à site</title>
+
+  &author;
+  <abstract>
+  <para>
+  <informaltable frame='none' pgwide='1'>
+  <tgroup cols='2' align='left' colsep='0' rowsep='0'>
+  <colspec colwidth='5*'/>
+  <colspec colwidth='200px'/>
+  <tbody>
+    <row>
+    <entry valign='top'>
+      <para>L'utilisation d'un protocole de routage dynamique à travers un
+      réseau privé virtuel est assurément un problème «intéressant». Enfin,
+      pour qui veut bien s'y intéresser. Cet article est consacré à la mise en
+      œuvre d'un réseau privé virtuel <acronym>IPsec</acronym> entre deux
+      équipements hétérogènes : un routeur <trademark>Cisco</trademark> et un
+      routeur GNU/Linux.</para>
+
+      <para>Après avoir présenté le contexte et rappelé sommairement les
+      caractéristiques du jeu de protocoles <acronym>IPsec</acronym>, on décrit
+      étape par étape le processus de déploiement de la topologie type
+      d'intercconnexion réseau.</para>
+    </entry>
+    <entry>
+    <inlinemediaobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/thumb008.png' format='PNG' width='200px' scalefit='1'/>
+    </imageobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/thumb008.png' format='PNG' width='4cm' scalefit='1'/>
+    </imageobject>
+    </inlinemediaobject>
+    </entry>
+    </row>
+  </tbody>
+  </tgroup>
+  </informaltable>
+  </para>
+  </abstract>
+  <keywordset>
+    <keyword>ah</keyword>
+    <keyword>cisco</keyword>
+    <keyword>crypto map</keyword>
+    <keyword>esp</keyword>
+    <keyword>iproute</keyword>
+    <keyword>ipsec</keyword>
+    <keyword>ipsec-tools</keyword>
+    <keyword>iptables</keyword>
+    <keyword>mangle</keyword>
+    <keyword>ospf</keyword>
+    <keyword>quagga</keyword>
+    <keyword>racoon</keyword>
+    <keyword>wireshark</keyword>
+  </keywordset>
+</info>
+
+<section xml:id='site2site-ipsecvpn.legal.meta'>
+  &legal;
+  <section xml:id='site2site-ipsecvpn.meta'>
+    <title>Méta-information</title>
+
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </section>
+
+  <section xml:id='site2site-ipsecvpn.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super-utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </section>
+</section>
+
+<?custom-pagebreak?>
+<section xml:id='site2site-ipsecvpn.context'>
+  <title>Le contexte</title>
+
+  <para>Aborder la thématique des réseaux privés virtuels (<wordasword>Virtual
+  Private Networks</wordasword> ou <acronym>VPN</acronym>s) utilisant
+  <acronym>IPsec</acronym> sans préciser les conditions dans lesquelles ces
+  techniques sont utilisées est une gageure. Pire encore, justifier les choix
+  effectués sur l'architecture réseau sans une présentation succincte du jeu de
+  protocoles et d'algorithmes de cryptographie mis en œuvre rendrait la suite
+  du document inexploitable. C'est la raison pour laquelle on présente ci-après
+  un minimum d'éléments sur <acronym>IPsec</acronym> et les choix
+  effectués.</para>
+
+<section xml:id='site2site-ipsecvpn.context.ipsec-defs'>
+  <title>IPsec, les principes</title>
+
+  <bridgehead xml:id='ipsec.cia' renderas='sect3'>Le retour de la triade CIA
+  ... ou presque</bridgehead>
+
+    <para>Au niveau le plus général, en sécurité des systèmes d'information
+    (&url.infosec;), la lettre <keycap>C</keycap> correspond à
+    <wordasword>Confidentiality</wordasword>, la lettre <keycap>I</keycap>
+    correspond à <wordasword>Integrity</wordasword> et la lettre
+    <keycap>A</keycap> correspond à <wordasword>Availability</wordasword>. Dans
+    le contexte de ce document, seule l'interprétation de la lettre
+    <keycap>A</keycap> diffère ; le terme <wordasword>Availability</wordasword>
+    est remplacé par <wordasword>Authentication</wordasword>. La «triade CIA»
+    est donc aussi un moyen mnémotechnique pertinent dans le contexte
+    présent. Voir l'article &url.infosecconcepts;.</para>
+
+    <para><acronym>IPsec</acronym> n'est pas un protocole unique mais
+    <emphasis>un ensemble</emphasis> de protocoles définis par un organisme
+    très connu : &url.ietf;. Le but est de fournir un haut niveau de sécurité
+    dans l'échange des paquets <acronym>IP</acronym>. On se situe donc au
+    niveau de la couche réseau de la modélisation. Les services doivent
+    utiliser la cryptographie et être intéropérables. Les points clés sont
+    :</para>
+
+    <itemizedlist>
+    <listitem>
+      <para><emphasis>Confidentialité</emphasis> : l'émetteur chiffre les
+      paquets avant de les transmettre sur l'Internet.</para>
+    </listitem>
+    <listitem>
+      <para><emphasis>Intégrité</emphasis> : le récepteur vérifie que les
+      paquets reçus n'ont pas été altérés lors de la transmission.</para>
+    </listitem>
+    <listitem>
+      <para><emphasis>Authentification</emphasis> : le récepteur vérifie
+      l'identité de l'émetteur.</para>
+    </listitem>
+    <listitem>
+      <para><emphasis>Anti rejeu</emphasis> : le récepteur examine les paquets
+      et rejette les paquets périmés (reçus en dehors de la fenêtre de temps
+      prévue) et/ou répétés.</para>
+    </listitem>
+    </itemizedlist>
+
+    <para>Les conditions d'utilisation des points ci-dessus sont négociées à
+    l'aide du protocole <acronym>IKE</acronym> (&url.ike;) et de la mise en
+    place d'associations de sécurité <acronym>SA</acronym> (&url.sa;). Il est
+    aussi possible de configurer manuellement les politiques de chiffrement et
+    les algorithmes. Dans ce dernier cas, le protocole <acronym>IKE</acronym>
+    est inutile.</para>
+
+  <bridgehead xml:id='ipsec.ah-esp' renderas='sect3'>Les deux services de
+  sécurisation IPsec : AH &amp; ESP</bridgehead>
+
+    <para>Les fonctions de sécurisation sont assurées par deux protocoles qui
+    peuvent être utilisés seuls ou associés.</para>
+
+    <variablelist>
+      <varlistentry>
+      <term><citetitle>Authentication Header</citetitle></term>
+      <term><acronym>AH</acronym></term>
+      <term>protocole n°51</term>
+      <listitem>
+      <para>Le protocole <acronym>AH</acronym> authentifie l'émetteur des
+      données, contrôle l'intégrité du paquet <acronym>IP</acronym> et assure
+      le service anti rejeu.</para>
+
+      <para>L
+      </listitem>
+      </varlistentry>
+    </variablelist>
+
+  <bridgehead xml:id='ipsec-transport-tunnel' renderas='sect3'>Les modes de fonctionnement Transport &amp; Tunnel</bridgehead>
+
+    <variablelist>
+      <varlistentry>
+      <term><citetitle>host-to-host transport mode</citetitle></term>
+      <term>mode transport</term>
+      <listitem>
+      <para>Dans ce mode, seul la charge utile ou <wordasword>payload</wordasword> est chiffrée et/ou authentifiée. L'idée est de préserver l'acheminement des paquets <acronym>IP</acronym> en l'état fonctionnement du routage <acronym>IP</acronym></para>
+      </listitem>
+      </varlistentry>
+    </variablelist>
+
+  <mediaobject xml:id='site2site-ipsecvpn.presentation.topology'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/interco.ospf.multiple-gw.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/interco.ospf.multiple-gw.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Topologie logique avec deux routeurs OSPF de bordure.</phrase>
+    </textobject>
+  </mediaobject>
+
+  </section>
+</section>
+
+
+<section xml:id='site2site-ipsecvpn.conclusion'>
+  <title>Pour conclure</title>
+
+  <para>Cet article est une illustration de quelques notions de routage avancé
+  avec quatre instances de machines virtuelles. Il peut paraître un peu long ;
+  comme la plupart des documents publiés sur
+  <citetitle>inetdoc.net</citetitle>. Il se distingue cependant par le fait
+  qu'à chaque élément de configuration avancé, on précise la démarche suivie
+  pour caractériser la fonction implantée et on donne un extrait des résultats
+  obtenus.</para>
+
+  <para>Même s'il est question de routage «avancé», la section sur la
+  répartition de trafic illustre parfaitement le cours sur les modélisations.
+  On caractérise le fait que chaque paquet <acronym>IP</acronym> peut suivre un
+  chemin propre au niveau réseau tout en préservant une connexion de bout en
+  bout au niveau transport. On retrouve ainsi les notions de réseau à
+  commutation de paquets et de protocole orienté connexion.</para>
+
+  <para>Le marquage de paquets et l'enregistrement des communications sont
+  aussi très intéressants et montrent qu'il est possible d'utiliser ces
+  mécanismes sans nécessairement avoir recours à la traduction d'adresses.
+  Sujet au combien polémique.</para>
+
+  <para>Enfin, l'architecture étudiée n'est qu'un exemple de ce qu'il est
+  possible de faire avec des systèmes GNU/Linux. Il existe bien d'autres
+  solutions ou variations pour aboutir au même résultat !</para>
+</section>
+
+<?custom-pagebreak?>
+<appendix xml:id='site2site-ipsecvpn.vde'>
+  <title>Configuration de la commutation</title>
+
+  <para>Les interfaces réseau des instances de systèmes virtualisés sont un
+  brassées sur une instance de commutateur, virtuel lui aussi,
+  <citetitle>vde</citetitle>. Ce commutateur est fourni par le paquet
+  <systemitem>vde2</systemitem> et il est lancé lors de l'initialisation de
+  l'interface <option>tap0</option> sur le système hôte. Voici un extrait du
+  fichier <filename>/etc/network/interfaces</filename>.</para>
+
+<screen width='80'>auto tap0
+iface tap0 inet static
+        address 192.0.2.1
+        netmask 255.255.255.192
+        network 192.0.2.0
+        broadcast 192.0.2.63
+        vde2-switch -</screen>
+
+  <para>Le brassage correspondant à la vue <link
+  linkend='site2site-ipsecvpn.presentation.topology'>topologie
+  logique</link> est donné dans le tableau ci-dessous.</para> 
+
+  <table frame='all'>
+    <title>Brassage commutateur virtuel</title>
+  <tgroup cols='4' align='left' colsep='1' rowsep='1'>
+  <colspec colname='c1'/>
+  <colspec colname='c2'/>
+  <colspec colname='c3'/>
+  <colspec colname='c4'/>
+  <thead>
+    <row>
+      <entry align='center'>Port VDE</entry>
+      <entry align='center'>Hôte</entry>
+      <entry align='center'>Interface(s)</entry>
+      <entry align='center'>Liaison</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row>
+      <entry>1</entry>
+      <entry>Système hôte</entry>
+      <entry>tap0</entry>
+      <entry>commutateur vde</entry>
+    </row>
+    <row>
+      <entry>2</entry>
+      <entry>ISP</entry>
+      <entry>eth0</entry>
+      <entry>système hôte | Internet</entry>
+    </row>
+    <row>
+      <entry morerows='1'>3</entry>
+      <entry morerows='1'>ISP</entry>
+      <entry>eth1.101</entry>
+      <entry>link101</entry>
+    </row>
+    <row>
+      <entry>eth1.103</entry>
+      <entry>link103</entry>
+    </row>
+    <row>
+      <entry morerows='2'>4</entry>
+      <entry morerows='2'>R1</entry>
+      <entry>eth0.101</entry>
+      <entry>link101</entry>
+    </row>
+    <row>
+      <entry>eth0.13</entry>
+      <entry>trunk R1 + R3</entry>
+    </row>
+    <row>
+      <entry>eth0.12</entry>
+      <entry>trunk R1 + R2</entry>
+    </row>
+    <row>
+      <entry morerows='2'>5</entry>
+      <entry morerows='2'>R2</entry>
+      <entry>eth0</entry>
+      <entry>host</entry>
+    </row>
+    <row>
+      <entry>eth0.12</entry>
+      <entry>trunk R2 + R1</entry>
+    </row>
+    <row>
+      <entry>eth0.23</entry>
+      <entry>trunk R2 + R3</entry>
+    </row>
+    <row>
+      <entry morerows='2'>6</entry>
+      <entry morerows='2'>R3</entry>
+      <entry>eth0.103</entry>
+      <entry>link103</entry>
+    </row>
+    <row>
+      <entry>eth0.13</entry>
+      <entry>trunk R3 + R1</entry>
+    </row>
+    <row>
+      <entry>eth0.23</entry>
+      <entry>trunk R3 + R2</entry>
+    </row>
+    <row>
+      <entry>7</entry>
+      <entry>host</entry>
+      <entry>eth0</entry>
+      <entry>R2</entry>
+    </row>
+  </tbody>
+  </tgroup>
+  </table>
+
+  <para>Le fichier de configuration à charger au lancement du commutateur se
+  présente comme suit.</para>
+
+</appendix>
+
+<?custom-pagebreak?>
+<appendix xml:id='site2site-ipsecvpn.interfaces'>
+  <title>Configuration des interfaces</title>
+
+  <para>Les configurations des interfaces réseau des routeurs sont données
+  ci-dessous. Dans la liste des interfaces des différents routeurs, on retrouve
+  une sous-interface par <acronym>VLAN</acronym>. Ces sous-interfaces sont
+  configurées en utilisant la commande <command>ip</command> fournie avec le
+  paquet <application>iproute</application>. Comme cet article, s'appuie déjà
+  énormément sur <application>iproute</application>, on utilise aussi la
+  commande ip pour l'affectation des numéros de <acronym>VLAN</acronym>s. Par
+  défaut, les scripts spécifiques à la distribution Debian GNU/Linux utilisent
+  la commande <command>vconfig</command> fournie avec le paquet
+  <application>vlan</application>. Cette dernière commande est dorénavant
+  considérée comme obsolète.</para>
+
+  <variablelist>
+    <varlistentry xml:id='site2site-ipsecvpn.interfaces.isp'>
+      <term>Routeur <systemitem class='systemname'>ISP</systemitem></term>
+      <listitem>
+<screen width='80'>isp-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='site2site-ipsecvpn.interfaces.r1'>
+      <term>Routeur <systemitem class='systemname'>R1</systemitem></term>
+      <listitem>
+<screen width='80'>r1-interfaces</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='site2site-ipsecvpn.interfaces.r2'>
+      <term>Routeur <systemitem class='systemname'>R2</systemitem></term>
+      <listitem>
+<screen width='80'>r2-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='site2site-ipsecvpn.interfaces.r3'>
+      <term>Routeur <systemitem class='systemname'>R3</systemitem></term>
+      <listitem>
+<screen width='80'>r3-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+
+<!--
+<screen width='80'><xi:include href='files/r1-keepalive.sh' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+-->
+</appendix>
+</article>

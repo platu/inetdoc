@@ -20,7 +20,8 @@ SUBDIRS = \
 	ospf-migration \
 	ospf-triangle-multiple-default \
 	lan-segmentation \
-	inter-vlan-routing
+	inter-vlan-routing \
+	site2site-ipsecvpn
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
@@ -40,7 +41,8 @@ XML_FILES = \
 	ospf-migration/$(ABSTRACT_FILE) \
 	ospf-triangle-multiple-default/$(ABSTRACT_FILE) \
 	lan-segmentation/$(ABSTRACT_FILE) \
-	inter-vlan-routing/$(ABSTRACT_FILE)
+	inter-vlan-routing/$(ABSTRACT_FILE) \
+	site2site-ipsecvpn/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 

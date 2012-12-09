@@ -102,6 +102,24 @@
       <xsl:attribute name="space-before.maximum">0.7em</xsl:attribute>
     </xsl:attribute-set>
 
+    <!-- Abstracts properties -->
+    <xsl:attribute-set name="abstract.title.properties">
+      <xsl:attribute name="font-family"><xsl:value-of select="$title.fontset"></xsl:value-of></xsl:attribute>
+      <xsl:attribute name="font-weight">bold</xsl:attribute>
+      <xsl:attribute name="keep-with-next.within-column">always</xsl:attribute>
+      <xsl:attribute name="keep-with-next.within-column">always</xsl:attribute>
+      <xsl:attribute name="space-before.optimum"><xsl:value-of select="concat($body.font.master, 'pt')"></xsl:value-of></xsl:attribute>
+      <xsl:attribute name="space-before.minimum"><xsl:value-of select="concat($body.font.master, 'pt * 0.3')"></xsl:value-of></xsl:attribute>
+      <xsl:attribute name="space-before.maximum"><xsl:value-of select="concat($body.font.master, 'pt * 0.9')"></xsl:value-of></xsl:attribute>
+      <xsl:attribute name="hyphenate">false</xsl:attribute>
+      <xsl:attribute name="text-align">left</xsl:attribute>
+    </xsl:attribute-set>
+
+    <xsl:attribute-set name="abstract.properties">
+      <xsl:attribute name="start-indent">0.0in</xsl:attribute>
+      <xsl:attribute name="end-indent">0.0in</xsl:attribute>
+    </xsl:attribute-set>
+
 <!--###################################################
                    Custom Article Title Page
     ################################################### --> 
@@ -162,10 +180,8 @@
 
         <xsl:choose>
           <xsl:when test="*/d:abstract">
-            <fo:block color="#333" text-align="left"
-		      font-family="DejaVuSans" font-weight="bold" padding="3pt"
-                      margin-top="6pt">
-              <xsl:value-of select="d:info/d:abstract"/>
+            <fo:block color="#333">
+	      <xsl:apply-templates mode="article.titlepage.recto.auto.mode" select="d:info/d:abstract"/>
             </fo:block>
           </xsl:when>
         </xsl:choose>
