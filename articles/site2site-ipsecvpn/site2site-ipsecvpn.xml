@@ -29,6 +29,18 @@
   "<link xmlns='http://docbook.org/ns/docbook'
   xlink:href='http://en.wikipedia.org/wiki/Security_association'>Security association</link>">
 
+<!ENTITY url.ipsec-illustrated
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://www.unixwiz.net/techtips/iguide-ipsec.html'>An Illustrated Guide to IPsec</link>">
+
+<!ENTITY url.nist-800-77
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://csrc.nist.gov/publications/nistpubs/800-77/sp800-77.pdf'>Guide to IPsec VPNs</link>">
+
+<!ENTITY url.cisco-p2p-gre
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://www.cisco.com/en/US/docs/solutions/Enterprise/WAN_and_MAN/P2P_GRE_IPSec/P2P_GRE.html'>Point-to-Point GRE over IPsec Design Guide</link>">
+
 <!ENTITY url.multipath-host.pcap
   "<link xmlns='http://docbook.org/ns/docbook'
   xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/multipath-host.pcap'>multipath-host.pcap</link>">
@@ -142,8 +154,8 @@
 </section>
 
 <?custom-pagebreak?>
-<section xml:id='site2site-ipsecvpn.context'>
-  <title>Le contexte</title>
+<section xml:id='site2site-ipsecvpn.context.ipsec-defs'>
+  <title>IPsec, les principes</title>
 
   <para>Aborder la thématique des réseaux privés virtuels (<wordasword>Virtual
   Private Networks</wordasword> ou <acronym>VPN</acronym>s) utilisant
@@ -155,10 +167,7 @@
   un minimum d'éléments sur <acronym>IPsec</acronym> et les choix
   effectués.</para>
 
-<section xml:id='site2site-ipsecvpn.context.ipsec-defs'>
-  <title>IPsec, les principes</title>
-
-  <bridgehead xml:id='ipsec.cia' renderas='sect3'>Le retour de la triade CIA
+  <bridgehead xml:id='ipsec.cia' renderas='sect2'>Le retour de la triade CIA
   ... ou presque</bridgehead>
 
     <para>Au niveau le plus général, en sécurité des systèmes d'information
@@ -177,7 +186,7 @@
     très connu : &url.ietf;. Le but est de fournir un haut niveau de sécurité
     dans l'échange des paquets <acronym>IP</acronym>. On se situe donc au
     niveau de la couche réseau de la modélisation. Les services doivent
-    utiliser la cryptographie et être intéropérables. Les points clés sont
+    utiliser la cryptographie et être interopérables. Les points clés sont
     :</para>
 
     <itemizedlist>
@@ -191,7 +200,38 @@
     </listitem>
     <listitem>
       <para><emphasis>Authentification</emphasis> : le récepteur vérifie
-      l'identité de l'émetteur.</para>
+      l'identité de l'émetteur. Plusieurs méthodes d'authentification sont
+      disponibles.</para>
+
+      <itemizedlist>
+        <listitem>
+	<para>Clés partagées ou <wordasword>preshared keys</wordasword>. La
+	«clé secrète» est déposée à l'avance sur chaque extrémité. La même clé
+	est utilisée durant les phases d'établissement des associations de
+	sécurité.</para>
+	</listitem>
+	<listitem>
+	<para>Certificats numériques signés ou <wordasword>signed digital
+	certificates</wordasword>. Chaque extrémité détient un certificat
+	propre contenant un couple clé privée/clé publique. Une extrémité
+	utilise la clé privée pour signer les données à émettre tandis que
+	l'autre extrémité utilise la clé publique pour vérifier les données
+	reçues.</para>
+	</listitem>
+	<listitem>
+	<para>Authentification externe. On fait appel à un service externe tel
+	que <citetitle>Keberos</citetitle> ou <citetitle>Radius</citetitle> qui
+	permet d'accéder aux différentes formes de couple nom d'utilisateur/mot
+	de passe : <wordasword>One Time Password</wordasword>
+	(<acronym>OTP</acronym>), token, biométrie, etc.</para>
+	</listitem>
+      </itemizedlist>
+
+<note>
+  <para>Dans le contexte de ce document, la méthode d'authentification utilise
+  les clés partagées. Le trafic doit être sécurisé de façon permanente et
+  continue entre deux sites «fixes».</para>
+</note>
     </listitem>
     <listitem>
       <para><emphasis>Anti rejeu</emphasis> : le récepteur examine les paquets
@@ -207,11 +247,36 @@
     les algorithmes. Dans ce dernier cas, le protocole <acronym>IKE</acronym>
     est inutile.</para>
 
-  <bridgehead xml:id='ipsec.ah-esp' renderas='sect3'>Les deux services de
+  <bridgehead xml:id='ipsec.dh' renderas='sect2'>L'échange de clés
+  Diffie-Hellman</bridgehead>
+    
+    <para>Cette méthode est utilisée dans les échanges du protocole
+    <acronym>IKE</acronym> pour générer un secret partagé entre les deux
+    extrémités de façon sécurisée. Avec cette méthode, un «observateur» ayant
+    capturé les échanges <acronym>IKE</acronym> ne peut pas remonter au secret
+    partagé.</para>
+
+    <para>Le secret partagé est utilisé pour calculer une valeur qui sert
+    ensuite aux calculs des clés utilisées dans les phases 1 et 2 du protocole
+    <acronym>IKE</acronym>. Des groupes auxquels ont été associé une longueur
+    de clé et une fonction de chiffrement doivent être choisis pour mettre en
+    œuvre l'échange de clés. Plus la clé comprend un nombre de bits important,
+    plus le secret est «solide». En contre partie, le temps de calcul est lui
+    aussi plus important. Ce méthode est appelée à chaque établissement ou
+    renouvellement d'association de sécurité.</para>
+
+    <para>Il faut ajouter à ce mécanisme d'échange de clés la technique appelée
+    <wordasword>Perfect Forward Secrecy</wordasword> (<acronym>PFS</acronym>).
+    Avec cette technique, les calculs de clés sont plus sûrs dans la mesure où
+    les nouveaux calculs de renouvellement de <acronym>SA</acronym> ne se font
+    pas à partir des anciennes clés.</para>
+
+  <bridgehead xml:id='ipsec.ah-esp' renderas='sect2'>Les deux services de
   sécurisation IPsec : AH &amp; ESP</bridgehead>
 
-    <para>Les fonctions de sécurisation sont assurées par deux protocoles qui
-    peuvent être utilisés seuls ou associés.</para>
+    <para>En complément du protocole <acronym>IKE</acronym> qui établit un
+    tunnel, <acronym>IPsec</acronym> s'appuie sur deux services qui peuvent
+    être utilisés seuls ou associés.</para>
 
     <variablelist>
       <varlistentry>
@@ -223,22 +288,205 @@
       données, contrôle l'intégrité du paquet <acronym>IP</acronym> et assure
       le service anti rejeu.</para>
 
-      <para>L
+      <para>Les traitements associés utilisent des algorithmes de «hachage»
+      tels que <wordasword>Message Digest 5</wordasword>
+      (<acronym>MD5</acronym>) ou <wordasword>Secure Hash
+      Algorithm</wordasword> (<acronym>SHA-1</acronym>,
+      <acronym>SHA-256</acronym>, etc.). Un algorithme de hachage est assocé à
+      une clé issue de la méthode d'authentification choisie pour constituer un
+      <wordasword>Hash base Message Authentication Code</wordasword>
+      (<acronym>HMAC</acronym>).</para>
+
+      <para>L'en-tête <acronym>AH</acronym> est inséré à la suite de l'en-tête
+      <acronym>IP</acronym> pour garantir l'intégrité et l'authenticité des
+      données. On se protège ainsi contre toute altération du paquet lors de
+      son transit.</para>
+
+      <para>Des représentations graphiques détaillées de l'encapsulation du
+      protocole <acronym>AH</acronym> sont fournies dans le document
+      &url.ipsec-illustrated; pour les deux modes de fonctionnement transport
+      et tunnel présentés ci-après.</para>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
+      <term><citetitle>Encapsulating Security Payload</citetitle></term>
+      <term><acronym>ESP</acronym></term>
+      <term>protocole n°50</term>
+      <listitem>
+      <para>Le protocole <acronym>ESP</acronym> se distingue du précédent par
+      le chiffrement de la partie données avant encapsulation dans le paquet
+      <acronym>IP</acronym>. On intègre ainsi la partie
+      <emphasis>confidentialité</emphasis> aux fonctions de
+      sécurisation.</para>
+
+      <para>Les traitements associés, en plus des algorithmes de hachage cités
+      précédemment, font intervenir des algorithmes de chiffrement tels que
+      <wordasword>Triple Data Encryption Standard</wordasword>
+      (<acronym>3DES</acronym>) ou <wordasword>Advanced Encryption
+      Standard</wordasword> (<acronym>AES</acronym>).</para>
+
+      <para>Comme dans le cas du protocole <acronym>AH</acronym>, des
+      représentations graphiques détaillées de l'encapsulation sont fournies
+      dans le document &url.ipsec-illustrated; pour les deux modes de
+      fonctionnement transport et tunnel présentés ci-après.</para>
       </listitem>
       </varlistentry>
     </variablelist>
 
-  <bridgehead xml:id='ipsec-transport-tunnel' renderas='sect3'>Les modes de fonctionnement Transport &amp; Tunnel</bridgehead>
+  <bridgehead xml:id='ipsec-transport-tunnel' renderas='sect2'>Les deux modes
+  de fonctionnement IPsec : Transport &amp; Tunnel</bridgehead>
 
     <variablelist>
       <varlistentry>
       <term><citetitle>host-to-host transport mode</citetitle></term>
       <term>mode transport</term>
       <listitem>
-      <para>Dans ce mode, seul la charge utile ou <wordasword>payload</wordasword> est chiffrée et/ou authentifiée. L'idée est de préserver l'acheminement des paquets <acronym>IP</acronym> en l'état fonctionnement du routage <acronym>IP</acronym></para>
+      <para>Dans ce mode, les échanges de paquets <acronym>IP</acronym> sont
+      sécurisés entre deux extrémités. Seule la charge utile ou
+      <wordasword>payload</wordasword> est concernée par les traitements et
+      l'en-tête du paquet <acronym>IP</acronym> est préservé pour permettre au
+      routage de fonctionner de façon transparente.</para>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
+      <term><citetitle>network-to-network tunnel mode</citetitle></term>
+      <term>mode tunnel</term>
+      <listitem>
+      <para>Dans ce mode, les échanges de paquets <acronym>IP</acronym> sont
+      sécurisés de réseau à réseau. La totalité du paquet <acronym>IP</acronym>
+      (en-tête + charge utile) est encapsulée et un nouvel en-tête de paquet
+      <acronym>IP</acronym> est créé.</para>
       </listitem>
       </varlistentry>
     </variablelist>
+
+  <bridgehead xml:id='ipsec-ike' renderas='sect2'>L'établissement d'une
+  association de sécurité : IKE &amp; ISAKMP</bridgehead>
+
+    <para>L'objectif du mécanisme d'échange <acronym>IKE</acronym>, via le
+    protocole <acronym>ISAKMP</acronym>, est de permettre à deux extrémités en
+    communication d'établir une association de sécurité. Cette association
+    demande au moins deux étapes.</para> 
+
+    <variablelist>
+      <varlistentry>
+      <term><citetitle>IKE phase 1</citetitle></term>
+      <term><acronym>ISAKMP-SA</acronym></term>
+      <listitem>
+      <para>Durant cette première phase, il y a établissement d'une session
+      sécurisée <acronym>ISAKMP</acronym> entre les deux extrémités que l'on
+      appelle <acronym>ISAKMP SA</acronym>. C'est dans cette même phase que
+      sont configurés les jeux de traitements utilisables
+      (<wordasword>transform-set</wordasword>) : algorithmes de hachage,
+      algorithmes de chiffrement et méthode d'authentification.</para>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
+      <term><citetitle>IKE phase 1.5</citetitle></term>
+      <listitem>
+      <para>Cette «phase intermédiaire» ne peut se dérouler que sous la
+      protection du tunnel <acronym>ISAKMP</acronym> établi en phase 1. Elle
+      est aussi appelée <wordasword>Extended Authentication</wordasword>
+      (<acronym>XAUTH</acronym>). Ici, l'authentification utilisateur est
+      étendue pour fournir des éléments de configuration supplémentaires à un
+      client <acronym>VPN</acronym> : adresses <acronym>IPv4</acronym> ou
+      <acronym>IPv6</acronym>, masque réseau, serveur DNS, etc.</para>
+
+<note>
+  <para>Dans le contexte de ce document, cette phase est sans objet dans la
+  mesure où les deux extrémités du tunnel <acronym>ISAKMP</acronym> sont des
+  routeurs dont les paramètres de configuration sont déjà connus.</para>
+</note>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
+      <term><citetitle>IKE phase 2</citetitle></term>
+      <term><citetitle>IPsec-SA</citetitle></term>
+      <listitem>
+      <para>Comme dans le cas précédent, cette phase ne peut se dérouler que
+      sous la protection du tunnel <acronym>ISAKMP</acronym> établi en phase 1.
+      À la différence de la phase 1, on ne parle plus d'une association de
+      sécurité bidirectionnelle utilisant la même clé partagée entre les deux
+      extrémités. Ici, il faut établir deux associations unidirectionnelles
+      entre les mêmes extrémités. Une fois que ces deux <acronym>SA</acronym>
+      sont en place, le tunnel <acronym>IPsec</acronym> est actif. Les
+      paramètres négociés sont quasiment les mêmes que lors de la phase 1 :
+      algorithme de hachage, algorithme de chiffrement, groupe Diffie Hellman,
+      informations anti rejeu, durée de vie de l'association de
+      sécurité.</para>
+      </listitem>
+      </varlistentry>
+    </variablelist>
+
+  <bridgehead xml:id='ipsec-encap' renderas='sect2'>La synthèse sur
+  l'encapsulation</bridgehead>
+
+  <table frame='all'>
+    <title>Encapsulation : modes de fonctionnement &amp; protocoles de sécurisation</title>
+  <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+  <colspec colname='c1' colwidth='1*'/>
+  <colspec colname='c2' colwidth='4*'/>
+  <colspec colname='c3' colwidth='4*'/>
+  <thead>
+    <row>
+      <entry align='center'>Protocole</entry>
+      <entry align='center'>Mode Transport</entry>
+      <entry align='center'>Mode Tunnel</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row>
+      <entry><citetitle>AH</citetitle></entry>
+      <entry morerows='2' align='center'>
+      <inlinemediaobject>
+      <imageobject role='html'>
+        <imagedata fileref='images/ipsec-transport.png' format='PNG' depth='160px' scalefit='1'/>
+      </imageobject>
+      <imageobject role='fo'>
+        <imagedata fileref='images/ipsec-transport.png' format='PNG' depth='1.8cm' scalefit='1'/>
+      </imageobject>
+      </inlinemediaobject>
+      </entry>
+      <entry morerows='2' align='center'>
+      <inlinemediaobject>
+      <imageobject role='html'>
+        <imagedata fileref='images/ipsec-tunnel.png' format='PNG' depth='160px' scalefit='1'/>
+      </imageobject>
+      <imageobject role='fo'>
+        <imagedata fileref='images/ipsec-tunnel.png' format='PNG' depth='1.8cm' scalefit='1'/>
+      </imageobject>
+      </inlinemediaobject>
+      </entry>
+    </row>
+    <row>
+      <entry><citetitle>ESP</citetitle></entry>
+    </row>
+    <row>
+      <entry><citetitle>AH+ESP</citetitle></entry>
+    </row>
+  </tbody>
+  </tgroup>
+  </table>
+
+  <bridgehead xml:id='ipsec-unicast' renderas='sect2'>Le trafic unicast
+  exclusivement</bridgehead>
+
+    <para>Pour terminer cette partie et en guise de transition avec la suite,
+    il reste un dernier point très important à ajouter :
+    <emphasis><acronym>IPsec</acronym> ne peut véhiculer que le trafic
+    unicast</emphasis>. Sachant que tous les échanges entre instances de
+    protocoles de routage dynamique se font en multicast, nous sommes
+    apparemment face à un sérieux problème. Heureusement, il existe une
+    solution : le tunnel <acronym>GRE</acronym>. Nous allons justement
+    développer cette solution dans la partie suivante.</para>
+</section>
+
+<section xml:id='site2site-ipsecvpn.dynamic-routing'>
+  <title>IPsec &amp; routage dynamique</title>
 
   <mediaobject xml:id='site2site-ipsecvpn.presentation.topology'>
     <imageobject role='fo'>
@@ -252,9 +500,7 @@
     </textobject>
   </mediaobject>
 
-  </section>
 </section>
-
 
 <section xml:id='site2site-ipsecvpn.conclusion'>
   <title>Pour conclure</title>
@@ -283,6 +529,32 @@
   possible de faire avec des systèmes GNU/Linux. Il existe bien d'autres
   solutions ou variations pour aboutir au même résultat !</para>
 </section>
+
+<section xml:id='site2site-ipsecvpn.refdocs'>
+  <title>Quelques documents de référence</title>
+
+  <para>Voici une liste de liens vers les principaux documents utilisés pour
+  construire cet article. En vis-à-vis de chaque lien, on trouve le(s)
+  «point(s) essentiel(s)».</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>&url.ipsec-illustrated; : Représentations graphiques détaillées sur
+    les différentes encapsulation <acronym>IPsec</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>&url.nist-800-77; : Présentations des phases <acronym>IKE</acronym>
+    et analyse de l'encapsulation avec <citetitle>WireShark</citetitle>. Étude
+    de cas pratiques avec exemples de configurations ; utilisation de
+    <application>isakmpd</application> notamment.</para>
+    </listitem>
+    <listitem>
+    <para>&url.cisco-p2p-gre; : Argumentation sur le choix entre les modes
+    tunnel et transport.</para>
+    </listitem>
+  </itemizedlist>
+</section>
+
 
 <?custom-pagebreak?>
 <appendix xml:id='site2site-ipsecvpn.vde'>
