@@ -74,17 +74,23 @@
   <tbody>
     <row>
     <entry valign='top'>
-      <para>L'utilisation d'un protocole de routage dynamique à travers un
-      réseau privé virtuel est assurément un problème «intéressant». Enfin,
-      pour qui veut bien s'y intéresser. Cet article est consacré à la mise en
-      œuvre d'un réseau privé virtuel <acronym>IPsec</acronym> entre deux
-      équipements hétérogènes : un routeur <trademark>Cisco</trademark> et un
-      routeur GNU/Linux.</para>
+      <para>La mise en œuvre d'un réseau privé virtuel (<acronym>VPN</acronym>)
+      avec le jeu de protocoles <acronym>IPsec</acronym> est un exercice qui
+      peut rapidement tourner au calvaire compte tenu du nombre des
+      combinaisons possibles entre les différents algorithmes et autres
+      paramètres. C'est particulièrement vrai si on utilise des systèmes
+      d'interconnexion différents. Cet article est une synthèse rédigée après
+      avoir «survécu» à la configuration d'un <acronym>VPN</acronym>
+      <acronym>IPsec</acronym> avec routage <acronym>OSPF</acronym> entre deux
+      sites distants ; le premier utilisant un routeur
+      <trademark>Cisco</trademark> et le second utilisant un routeur
+      GNU/Linux.</para>
 
       <para>Après avoir présenté le contexte et rappelé sommairement les
-      caractéristiques du jeu de protocoles <acronym>IPsec</acronym>, on décrit
-      étape par étape le processus de déploiement de la topologie type
-      d'intercconnexion réseau.</para>
+      caractéristiques du jeu de protocoles <acronym>IPsec</acronym>, on
+      précise les choix de combinaisons de protocoles puis on décrit étape par
+      étape le processus de déploiement de la topologie type d'intercconnexion
+      réseau.</para>
     </entry>
     <entry>
     <inlinemediaobject>
@@ -154,7 +160,7 @@
 </section>
 
 <?custom-pagebreak?>
-<section xml:id='site2site-ipsecvpn.context.ipsec-defs'>
+<section xml:id='site2site-ipsecvpn.ipsec-defs'>
   <title>IPsec, les principes</title>
 
   <para>Aborder la thématique des réseaux privés virtuels (<wordasword>Virtual
@@ -164,8 +170,16 @@
   effectués sur l'architecture réseau sans une présentation succincte du jeu de
   protocoles et d'algorithmes de cryptographie mis en œuvre rendrait la suite
   du document inexploitable. C'est la raison pour laquelle on présente ci-après
-  un minimum d'éléments sur <acronym>IPsec</acronym> et les choix
-  effectués.</para>
+  un minimum d'éléments sur <acronym>IPsec</acronym>.</para>
+
+  <para>Il existe déjà un grand nombre de documentations en ligne d'excellente
+  qualité sur le sujet. Alors, pourquoi un énième rappel sur les protocoles
+  IPsec ? La raison d'être de cette section est de servir de référence sur les
+  choix effectués par la suite. Lors des recherches en ligne sur
+  <acronym>IPsec</acronym>, on trouve trop souvent des copies de fichiers de
+  configuration peu ou pas commentés qui répondent à un contexte singulier.
+  Ici, l'objectif est justifier les options retenues en fonction du contexte
+  défini.</para>
 
   <bridgehead xml:id='ipsec.cia' renderas='sect2'>Le retour de la triade CIA
   ... ou presque</bridgehead>
@@ -262,7 +276,7 @@
     de clé et une fonction de chiffrement doivent être choisis pour mettre en
     œuvre l'échange de clés. Plus la clé comprend un nombre de bits important,
     plus le secret est «solide». En contre partie, le temps de calcul est lui
-    aussi plus important. Ce méthode est appelée à chaque établissement ou
+    aussi plus important. Cette méthode est appelée à chaque établissement ou
     renouvellement d'association de sécurité.</para>
 
     <para>Il faut ajouter à ce mécanisme d'échange de clés la technique appelée
@@ -271,7 +285,7 @@
     les nouveaux calculs de renouvellement de <acronym>SA</acronym> ne se font
     pas à partir des anciennes clés.</para>
 
-  <bridgehead xml:id='ipsec.ah-esp' renderas='sect2'>Les deux services de
+  <bridgehead xml:id='ipsec.ah-esp' renderas='sect2'>Les deux protocoles de
   sécurisation IPsec : AH &amp; ESP</bridgehead>
 
     <para>En complément du protocole <acronym>IKE</acronym> qui établit un
@@ -285,8 +299,10 @@
       <term>protocole n°51</term>
       <listitem>
       <para>Le protocole <acronym>AH</acronym> authentifie l'émetteur des
-      données, contrôle l'intégrité du paquet <acronym>IP</acronym> et assure
-      le service anti rejeu.</para>
+      données, contrôle l'intégrité du paquet <acronym>IP</acronym> (en-tête
+      <emphasis>et</emphasis> charge utile) et assure le service anti rejeu. Il
+      couvre donc les lettres <keycap>I</keycap> et <keycap>A</keycap> de la
+      triade <acronym>CIA</acronym>.</para>
 
       <para>Les traitements associés utilisent des algorithmes de «hachage»
       tels que <wordasword>Message Digest 5</wordasword>
@@ -318,7 +334,8 @@
       le chiffrement de la partie données avant encapsulation dans le paquet
       <acronym>IP</acronym>. On intègre ainsi la partie
       <emphasis>confidentialité</emphasis> aux fonctions de
-      sécurisation.</para>
+      sécurisation. Ce protocole couvre donc les trois lettres de la triade
+      <acronym>CIA</acronym> sur la partie charge utile du paquet.</para>
 
       <para>Les traitements associés, en plus des algorithmes de hachage cités
       précédemment, font intervenir des algorithmes de chiffrement tels que
@@ -361,6 +378,13 @@
       </listitem>
       </varlistentry>
     </variablelist>
+
+    <para>Le choix entre ces deux modes de fonctionnement est un point
+    essentiel dans la mise en œuvre d'un <acronym>VPN</acronym>
+    <acronym>IPsec</acronym>. L'argumentation tourne souvent autour de
+    l'inclusion ou non de l'en-tête de paquet <acronym>IP</acronym> dans les
+    fonctions de sécurité de la triade <acronym>CIA</acronym> et du nombre de
+    réseaux à faire transiter via le <acronym>VPN</acronym>.</para>
 
   <bridgehead xml:id='ipsec-ike' renderas='sect2'>L'établissement d'une
   association de sécurité : IKE &amp; ISAKMP</bridgehead>
@@ -426,7 +450,7 @@
   l'encapsulation</bridgehead>
 
   <table frame='all'>
-    <title>Encapsulation : modes de fonctionnement &amp; protocoles de sécurisation</title>
+    <title>Encapsulation : modes de fonctionnement &amp; protocoles</title>
   <tgroup cols='3' align='left' colsep='1' rowsep='1'>
   <colspec colname='c1' colwidth='1*'/>
   <colspec colname='c2' colwidth='4*'/>
@@ -472,31 +496,118 @@
   </tgroup>
   </table>
 
-  <bridgehead xml:id='ipsec-unicast' renderas='sect2'>Le trafic unicast
-  exclusivement</bridgehead>
+  <bridgehead xml:id='ipsec-unicast' renderas='sect2'>Le trafic unicast ou le
+  tunnel GRE</bridgehead>
 
-    <para>Pour terminer cette partie et en guise de transition avec la suite,
-    il reste un dernier point très important à ajouter :
-    <emphasis><acronym>IPsec</acronym> ne peut véhiculer que le trafic
-    unicast</emphasis>. Sachant que tous les échanges entre instances de
-    protocoles de routage dynamique se font en multicast, nous sommes
-    apparemment face à un sérieux problème. Heureusement, il existe une
-    solution : le tunnel <acronym>GRE</acronym>. Nous allons justement
-    développer cette solution dans la partie suivante.</para>
+    <para>Pour achever cette partie sur les principes du jeu de protocoles
+    <acronym>IPsec</acronym>, il reste un dernier point très important à
+    ajouter : <emphasis><acronym>IPsec</acronym> seul ne peut véhiculer que le
+    trafic unicast</emphasis>. C'est un critère essentiel à prendre en compte
+    lors du choix de configuration d'une solution.</para>
+    
+    <para>Dans le cas du présent document, sachant que tous les échanges entre
+    instances de protocoles de routage dynamique se font en multicast, nous
+    sommes apparemment face à un sérieux problème. Heureusement, il existe une
+    solution : le tunnel <acronym>GRE</acronym>.</para>
+
+    <para>À priori, les tunnels <acronym>GRE</acronym> (<wordasword>Generic
+    Routing Encapsulation</wordasword>) n'ont aucun rapport avec le jeu de
+    protocoles <acronym>IPsec</acronym>. Ce protocole, initialement développé
+    par <trademark>Cisco</trademark>, a été conçu pour encapsuler n'importe
+    quel protocole dans un tunel <acronym>IP</acronym>. Il a ensuite été étendu
+    à l'encapsulation <acronym>IP</acronym> dans <acronym>IP</acronym>. Associé
+    à <acronym>IPsec</acronym>, il permet de dépasser la limitation de ce
+    dernier au trafic unicast.</para>
+
+    <para>Le couple <acronym>GRE</acronym> + <acronym>IPsec</acronym> peut être
+    assimilé à un mode tunnel sans restriction sur la nature du trafic
+    véhiculé.</para>
+
+    <mediaobject xml:id='site2site-ipsecvpn.gre-over-ipsec'>
+      <imageobject role='fo'>
+      <imagedata format='PNG' fileref='images/gre-over-ipsec.png' width='9cm' scalefit='1' />
+      </imageobject>
+      <imageobject role='html'>
+      <imagedata format='PNG' fileref='images/gre-over-ipsec.png' width='500px' scalefit='1' />
+      </imageobject>
+      <textobject>
+      <phrase>Association GRE + IPsec</phrase>
+      </textobject>
+    </mediaobject>
+
 </section>
 
 <section xml:id='site2site-ipsecvpn.dynamic-routing'>
-  <title>IPsec &amp; routage dynamique</title>
+  <title>IPsec, le routage dynamique</title>
 
-  <mediaobject xml:id='site2site-ipsecvpn.presentation.topology'>
+  <bridgehead xml:id='dynamic-routing-choice' renderas='sect2'>Le choix : mode
+  transport ou mode tunnel</bridgehead>
+
+    <para>Dans la section précédente, deux points importants ont déjà été
+    énoncés.</para>
+
+    <itemizedlist>
+      <listitem>
+      <para><acronym>IPsec</acronym> ne véhicule que le trafic unicast.</para>
+      </listitem>
+      <listitem>
+      <para>Le mode tunnel assure la communication d'un réseau à un autre.
+      Notez bien : réseau au singulier !</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>L'objectif du présent document étant bien l'utilisation d'un
+    protocole de routage dynamique avec <acronym>IPsec</acronym>, les points
+    ci-dessus sont en totale contradiction avec cet objectif. Fort
+    heureusement, nous disposons d'une solution : le tunnel
+    <acronym>GRE</acronym> ou <wordasword>Generic Routing
+    Encapsulation</wordasword>.</para>
+
+    <para>Cette autre technique de tunnel, permet de véhiculer le trafic
+    multicast entre deux extrémités. Elle permet donc l'utilisation d'un
+    protocole de routage dynamique et l'échange d'informations sur autant de
+    réseaux que le protocole le permet. L'utilisation du protocole
+    <acronym>GRE</acronym> en plus d'<acronym>IPsec</acronym> a un coût en
+    termes d'encapsulation : 24 octets supplémentaires d'en-tête.</para>
+
+    <para>Une fois le problème du trafic multicast réglé, on peut choisir le
+    <emphasis>mode transport</emphasis> pour <acronym>IPsec</acronym> dans la
+    mesure où les extrémités <acronym>GRE</acronym> et <acronym>IPsec</acronym>
+    coïncident.</para>
+
+<note>
+  <title>VTI : Virtual Tunnel Interface</title>
+  <para>Sur les équipements <trademark>Cisco</trademark>, la notion d'interface
+  virtuelle de tunnel a été introduite. Dans le contexte de ce document, ce
+  type d'interface permet «d'économiser» l'encapsulation
+  <acronym>GRE</acronym> sachant que le trafic multicast est directement
+  traité. On gagne ainsi 24 octets de charge utile par paquet transmis. Le
+  logiciel <application>iproute2</application> doit proposer un fonctionnement
+  équivalent sur les systèmes GNU/Linux. Malheureusement, le paquet Debian
+  correspondant ne dispose pas encore de cette fonction au moment de la
+  rédaction de ce document.</para>
+</note>
+
+  <bridgehead xml:id='dynamic-routing-topology' renderas='sect2'>La topologie
+  type étudiée</bridgehead>
+
+    <para>De façon très académique (et donc pas très originale), la topologie
+    de base utilisée dans ce document est le <emphasis>triangle</emphasis>.
+    Ainsi les deux extrémités des tunnels <acronym>GRE</acronym> et
+    <acronym>IPsec</acronym> appartiennent à des réseaux différents. Du point
+    de vue du routage dynamique, ces deux mêmes extrémités ne peuvent être
+    adjacentes. Seul l'établissement d'un tunnel permet de véhiculer les
+    échanges propres aux démons de routage dynamique.</para>
+
+  <mediaobject xml:id='site2site-ipsecvpn.topology'>
     <imageobject role='fo'>
-    <imagedata format='PNG' fileref='images/interco.ospf.multiple-gw.png' width='12cm' scalefit='1' />
+    <imagedata format='PNG' fileref='images/site2site-ipsecvpn.png' width='12cm' scalefit='1' />
     </imageobject>
     <imageobject role='html'>
-    <imagedata format='PNG' fileref='images/interco.ospf.multiple-gw.png' width='640px' scalefit='1' />
+    <imagedata format='PNG' fileref='images/site2site-ipsecvpn.png' width='640px' scalefit='1' />
     </imageobject>
     <textobject>
-    <phrase>Topologie logique avec deux routeurs OSPF de bordure.</phrase>
+    <phrase>Topologie type VPN site à site OSPF + IPsec</phrase>
     </textobject>
   </mediaobject>
 
@@ -574,10 +685,6 @@ iface tap0 inet static
         network 192.0.2.0
         broadcast 192.0.2.63
         vde2-switch -</screen>
-
-  <para>Le brassage correspondant à la vue <link
-  linkend='site2site-ipsecvpn.presentation.topology'>topologie
-  logique</link> est donné dans le tableau ci-dessous.</para> 
 
   <table frame='all'>
     <title>Brassage commutateur virtuel</title>
