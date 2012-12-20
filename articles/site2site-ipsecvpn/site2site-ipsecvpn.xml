@@ -9,13 +9,6 @@
 <!ENTITY gla-interfaces SYSTEM "files/gla-interfaces">
 <!ENTITY tls-interfaces SYSTEM "files/tls-interfaces">
 
-<!ENTITY r1-zebra       SYSTEM "files/r1-zebra.conf">
-<!ENTITY r1-ospfd       SYSTEM "files/r1-ospfd.conf">
-<!ENTITY r2-zebra       SYSTEM "files/r2-zebra.conf">
-<!ENTITY r2-ospfd       SYSTEM "files/r2-ospfd.conf">
-<!ENTITY r3-zebra       SYSTEM "files/r3-zebra.conf">
-<!ENTITY r3-ospfd       SYSTEM "files/r3-ospfd.conf">
-
 <!ENTITY url.infosec
   "<link xmlns='http://docbook.org/ns/docbook'
   xlink:href='http://en.wikipedia.org/wiki/Information_security'>Information security</link>">
@@ -40,20 +33,29 @@
   "<link xmlns='http://docbook.org/ns/docbook'
   xlink:href='http://www.cisco.com/en/US/docs/solutions/Enterprise/WAN_and_MAN/P2P_GRE_IPSec/P2P_GRE.html'>Point-to-Point GRE over IPsec Design Guide</link>">
 
-<!ENTITY url.multipath-host.pcap
+<!ENTITY url.gre-tcp-iperf.pcap
   "<link xmlns='http://docbook.org/ns/docbook'
-  xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/multipath-host.pcap'>multipath-host.pcap</link>">
+  xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/gre-tcp-iperf.pcap'><filename>gre-tcp-iperf.pcap</filename></link>">
 
-<!ENTITY url.r1-keepalive.sh
+<!ENTITY url.gla-zebra.conf
   "<link xmlns='http://docbook.org/ns/docbook'
-  xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/r1-keepalive.sh'>r1-keepalive.sh</link>">
+  xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/gla-zebra.conf'><filename>zebra.conf</filename></link>">
 
-<!ENTITY url.r3-keepalive.sh
+<!ENTITY url.gla-ospfd.conf
   "<link xmlns='http://docbook.org/ns/docbook'
-  xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/r1-keepalive.sh'>r3-keepalive.sh</link>">
+  xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/gla-ospfd.conf'><filename>ospfd.conf</filename></link>">
+
+<!ENTITY url.TLS-confg
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='http://www.inetdoc.net/articles/site2site-ipsecvpn/files/TLS-confg'><filename>TLS-confg</filename></link>">
 
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
+
+<!ENTITY url.ospf-lab
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='&url.interco.ospf.answers;'><citetitle>Routage dynamique avec
+  OSPF</citetitle></link>">
 
 <!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
 %rfc_urls;
@@ -180,7 +182,7 @@
   Ici, l'objectif est justifier les options retenues en fonction du contexte
   défini.</para>
 
-  <bridgehead xml:id='ipsec.cia' renderas='sect2'>Le retour de la triade CIA
+  <bridgehead xml:id='ipsec-cia' renderas='sect2'>Le retour de la triade CIA
   ... ou presque</bridgehead>
 
     <para>Au niveau le plus général, en sécurité des systèmes d'information
@@ -571,7 +573,8 @@
     pour <keycap>n</keycap> réseaux à interconnecter, il faut créer
     <keycap>n.(n - 1)/2</keycap> tunnels. Face au surcoût de configuration et
     d'administration d'un réseau maillé, il est nettement préférable d'utiliser
-    une topologie de type <citetitle>Hub &amp; Spoke</citetitle>.</para>
+    une topologie de type <citetitle>Hub &amp; Spoke</citetitle> pour laquelle
+    le nombre de tunnels à créer est <keycap>n - 1</keycap>.</para>
 
     <para>Il est aussi possible d'utiliser un protocole de routage dynamique
     entre les extrémités <acronym>IPsec</acronym> de façon a échanger plus
@@ -707,16 +710,18 @@
       <acronym>GRE</acronym></link> entre les deux routeurs d'extrémité.</para>
       </listitem>
       <listitem>
-      <para>Configuration du protocole de routage dynamique
-      <acronym>OSPF</acronym> entre les deux mêmes routeurs d'extrémité.
+      <para>Configuration du protocole de <link
+      linkend='site2site-ipsecvpn.ospf-routing'>routage dynamique
+      <acronym>OSPF</acronym></link> entre les deux mêmes routeurs d'extrémité.
       Validation des communications entre les réseaux échangés via
       <acronym>OSPF</acronym>.</para>
       </listitem>
       <listitem>
-      <para>Configuration <acronym>IPsec</acronym> en mode transport avec le
-      protocole <acronym>ESP</acronym> ; à nouveau entre les deux mêmes
-      routeurs d'extrémité. Validation des phases d'échanges de clé
-      <acronym>IKE</acronym> et des associations de sécurité
+      <para>Configuration <link
+      linkend='site2site-ipsecvpn.ipsec-confg'><acronym>IPsec</acronym> en mode
+      transport avec le protocole <acronym>ESP</acronym></link> ; à nouveau
+      entre les deux mêmes routeurs d'extrémité. Validation des phases
+      d'échanges de clé <acronym>IKE</acronym> et des associations de sécurité
       (<acronym>SA</acronym>).</para>
       </listitem>
     </itemizedlist>
@@ -1106,6 +1111,8 @@ iface tunnel0 inet static
         pre-up ip tunnel add tunnel0 mode gre local 192.0.2.66 remote 192.0.2.34 ttl 255 pmtudisc<co xml:id='mtu'/>
         pre-up ip link set mtu 1440<coref linkend='mtu'/> dev tunnel0
         pre-up ip link set multicast on dev tunnel0
+	post-up iptables -t mangle -A POSTROUTING -o tunnel0 -p tcp -m tcp --syn -j TCPMSS --set-mss 1400<co xml:id='mss'/>
+	post-down iptables -t mangle -D POSTROUTING -o tunnel0 -p tcp -m tcp --syn -j TCPMSS --set-mss 1400
         post-down ip link set dev tunnel0 down
         post-down ip tunnel del tunnel0</screen>
 
@@ -1122,7 +1129,7 @@ iface tunnel0 inet static
  no ip proxy-arp
  ip mtu 1440<coref linkend='mtu'/>
  ip virtual-reassembly in
- ip tcp adjust-mss 1400
+ ip tcp adjust-mss 1400<coref linkend='mss'/>
  tunnel source GigabitEthernet0/0
  tunnel destination 192.0.2.66
  tunnel path-mtu-discovery<coref linkend='mtu'/></screen>
@@ -1131,6 +1138,8 @@ iface tunnel0 inet static
 
   <calloutlist>
     <callout arearefs='network'>
+    <bridgehead xml:id='gre-param-network' renderas='sect3'>Le routage</bridgehead>
+
     <para>Le réseau <systemitem class='ipaddress'>198.51.100.0/30</systemitem>
     est dédié au tunnel <acronym>GRE</acronym>. Une fois le tunnel en place les
     deux routeurs sont adjacents via ce réseau. Tous les paquets
@@ -1156,6 +1165,8 @@ traceroute to 10.21.0.2 (10.21.0.2), 30 hops max, 60 byte packets
     <citetitle>AMS</citetitle>.</para>
     </callout>
     <callout arearefs='mtu'>
+    <bridgehead xml:id='gre-param-mtu' renderas='sect3'>La taille maximum de paquet</bridgehead>
+
     <para>La détection et/ou le réglage de la taille maximu de paquet ou
     <wordasword>Maximum Transmit Unit</wordasword> (<acronym>MTU</acronym>) est
     un point sensible dans la mise en œuvre d'un tunnel. L'utilisation du
@@ -1180,9 +1191,425 @@ traceroute to 10.21.0.2 (10.21.0.2), 30 hops max, 60 byte packets
  2:  198.51.100.1                                         14.643ms 
  3:  10.11.0.2                                            15.260ms reached
      Resume: <emphasis>pmtu 1440</emphasis> hops 3 back 62</screen>
+
+     <para>En plus du paramétrage manuel, il est utile d'ajouter la fonction de
+     découverte de la taille maximum de paquet le long du chemin entre les deux
+     extrémités du tunnel. Il est possible qu'un réglage effectué par un
+     opérateur tiers viennent «perturber» le schéma d'encapsulation
+     initialement prévu. La commande <command>tracepath</command> fournie avec
+     le paquet <application>iputils-tracepath</application> permet de contrôler
+     la valeur <acronym>MTU</acronym>. La copie d'écran ci-dessus montre juste
+     que les paramétrages implantés sur les deux interfaces de tunnel des
+     routeurs d'extrémité sont effectifs.</para>
+    </callout>
+    <callout arearefs='mss'>
+    <bridgehead xml:id='gre-param-mss' renderas='sect3'>L'optimisation des connexions TCP</bridgehead>
+
+    <para>Compte tenu des multiples niveaux d'encapsulation, il est souvent
+    nécessaire d'ajuster la taille maximum de segment lors du passage de la
+    couche transport à la couche réseau avec le protocole
+    <acronym>TCP</acronym>. Cette taille maximum de segment ou
+    <wordasword>Maximum Segment Size</wordasword> (<acronym>MSS</acronym>) est
+    un paramètre négocié lors de l'établissement de la connexion
+    <acronym>TCP</acronym> avant l'échange de données.</para>
+
+    <para><emphasis>Cette adaptation doit être appliquée à toute nouvelle
+    connexion <acronym>TCP</acronym> engagée à travers le
+    tunnel</emphasis>.</para>
+
+    <para>Coté routeur <trademark>Cisco</trademark>, cet ajustement se fait au
+    niveau de l'interface de tunnel avec la directive <emphasis><parameter>ip
+    tcp adjust-mss 1400</parameter></emphasis>. La valeur <option>1400</option>
+    tient compte d'une taille maximum d'en-tête <acronym>TCP</acronym> de 40
+    octets.</para>
+    
+    <para>Côté GNU/Linux, il est nécessaire de faire appel aux outils de
+    filtrage <application>netfilter/iptables</application> pour obtenir le même
+    traitement. Dans l'exemple donné ci-dessus, on utilise la chaîne
+    <option>POSTROUTING</option> de la table <option>mangle</option> dans
+    laquelle on trouve tout ce qui concerne «l'altération» de paquet. Comme sur
+    l'autre routeur, on applique la valeur <option>1400</option> au champ
+    <acronym>MSS</acronym> pour toute nouvelle connexion <acronym>TCP</acronym>
+    sortant par l'interface <option>tunnel0</option>.</para>
     </callout>
   </calloutlist>
 
+  <para>Pour conclure cette section, le fichier &url.gre-tcp-iperf.pcap;
+  contient une capture de trafic traversant le tunnel <acronym>GRE</acronym>.
+  Elle permet de visualiser les différentes encapsulations.</para>
+</section>
+
+<section xml:id='site2site-ipsecvpn.ospf-routing'>
+  <title>Le routage dynamique avec OSPF</title>
+
+  <para>Dans cette section on configure les démons du protocole de routage
+  <acronym>OSPF</acronym> de façon à ce que les routeurs
+  <citetitle>TLS</citetitle> et <citetitle>GLA</citetitle> échangent leurs
+  informations de routage à travers le tunnel <acronym>GRE</acronym> configuré
+  lors de l'étape précédente. Là encore les deux routeurs fonctionnent avec
+  deux systèmes d'exploitation différents mais les caractéristiques du
+  protocole <acronym>OSPF</acronym> restent les mêmes. C'est justement le
+  propre d'un protocole !</para>
+
+  <mediaobject xml:id='site2site-ipsecvpn.ospf'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/site2site-ipsecvpn-ospf.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/site2site-ipsecvpn-ospf.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Topologie de base + tunnel GRE + routage OSPF</phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Suite aux tests des deux sections précédentes, on sait que les deux
+  routeurs d'extrémité sont adjacents via le réseau <acronym>IP</acronym> du
+  tunnel <acronym>GRE</acronym>.</para>
+
+  <bridgehead xml:id='ospf-gla' renderas='sect2'>Le routeur GLA</bridgehead>
+
+  <para>Sur le système Debian GNU/Linux, on utilise le démon
+  <acronym>OSPF</acronym> fourni avec la suite logicielle
+  <application>quagga</application>. On ne reprend pas ici les étapes
+  d'installation et de configuration des démons. Les informations
+  correspondantes sont données dans les documents &url.zebra.ospf; et
+  &url.ospf-lab;.</para> 
+
+  <para>Les points de configuration essentiels sont les suivants.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>On commence par le paramétrage des bandes passantes pour chacun des
+    liens dans <application>zebra</application>. Ces éléments sur les bandes
+    passantes sont utilisés pour les calculs de métriques dans
+    <acronym>OSPF</acronym>. Voici l'extrait du fichier
+    &url.gla-zebra.conf;.</para>
+
+<screen>!
+interface dummy0
+ bandwidth 8000000
+ ipv6 nd suppress-ra
+!
+interface dummy1
+ bandwidth 8000000
+ ipv6 nd suppress-ra
+!
+interface dummy2
+ bandwidth 8000000
+ ipv6 nd suppress-ra
+!
+interface dummy3
+ bandwidth 8000000
+ ipv6 nd suppress-ra
+!
+interface eth0
+ bandwidth 1000000
+ ipv6 nd suppress-ra
+!
+interface eth1
+ bandwidth 1000000
+ ipv6 nd suppress-ra
+!
+interface tunnel0
+ bandwidth 45000
+ ipv6 nd suppress-ra</screen>
+    </listitem>
+    <listitem>
+    <para>On configure ensuite le démon <acronym>OSPF</acronym>. Voici
+    l'extrait du fichier &url.gla-ospfd.conf;.</para>
+
+<screen>!
+interface tunnel0
+ ip ospf network point-to-point
+!
+router ospf
+ ospf router-id 0.0.0.20
+ log-adjacency-changes
+! Important: ensure reference bandwidth is consistent across all routers
+ auto-cost reference-bandwidth 1000
+ passive-interface default
+ no passive-interface tunnel0
+ network 10.20.0.0/16 area 0.0.0.0
+ network 10.21.0.0/24 area 0.0.0.0
+ network 198.51.100.0/30 area 0.0.0.0</screen>
+    </listitem>
+  </itemizedlist>
+
+  <bridgehead xml:id='ospf-tls' renderas='sect2'>Le routeur TLS</bridgehead>
+
+  <para>Sur un routeur <trademark>Cisco</trademark>, les interfaces et les
+  démons de routage se configurent dans le même fichier de configuration. Les
+  calculs de métriques héritent directement des paramètres fournis par les
+  composants de pilotage des interfaces réseau. Voici l'extrait du fichier
+  &url.TLS-confg;</para>
+
+<screen>!
+router ospf 1
+ router-id 0.0.0.10
+ auto-cost reference-bandwidth 1000
+ passive-interface default
+ no passive-interface Tunnel0
+ network 10.10.0.0 0.0.255.255 area 0
+ network 10.11.0.0 0.0.0.255 area 0
+ network 198.51.100.0 0.0.0.3 area 0</screen>
+
+  <bridgehead xml:id='ospf-tests' renderas='sect2'>Les tests de
+  validation</bridgehead>
+
+  <para>Les étapes classiques de validation des échanges entre démons
+  <acronym>OSPF</acronym> sont les suivantes.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Les adjacences ; les routeurs doivent se reconnaître commen
+    voisins.</para>
+
+<screen><prompt>GLA(ospfd)#</prompt> sh ip ospf neighbor 
+
+    Neighbor ID Pri State           Dead Time Address         Interface            RXmtL RqstL DBsmL
+0.0.0.10          1 <emphasis>Full/DROther</emphasis>      33.434s 198.51.100.1    <emphasis>tunnel0:198.51.100.2</emphasis>     0     0     0</screen>
+
+<screen><prompt>TLS#</prompt>sh ip ospf neighbor 
+
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+0.0.0.20          0   <emphasis>FULL/</emphasis>  -        00:00:35    198.51.100.2    <emphasis>Tunnel0</emphasis></screen>
+    </listitem>
+    <listitem>
+    <para>Le tunnel <acronym>GRE</acronym> est vu par les deux routeurs comme
+    un lien point à point.</para>
+
+<screen><prompt>GLA(ospfd)#</prompt> sh ip ospf interface tunnel0
+tunnel0 is up
+  ifindex 11, MTU 1440 bytes, BW 45000 Kbit &lt;UP,<emphasis>POINTOPOINT</emphasis>,RUNNING,NOARP,MULTICAST>
+  Internet Address 198.51.100.2/32, Peer 198.51.100.1, Area 0.0.0.0
+  MTU mismatch detection:enabled
+  Router ID 0.0.0.20, <emphasis>Network Type POINTOPOINT</emphasis>, Cost: 22
+  Transmit Delay is 1 sec, State Point-To-Point, Priority 1
+  No designated router on this network
+  No backup designated router on this network
+  Multicast group memberships: <emphasis>OSPFAllRouters</emphasis>
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 6.951s
+  Neighbor Count is 1, Adjacent neighbor count is 1</screen>
+
+<screen><prompt>TLS#sh</prompt> ip ospf interface tunnel 0
+Tunnel0 is up, line protocol is up 
+  Internet Address 198.51.100.1/30, Area 0, Attached via Network Statement
+  Process ID 1, Router ID 0.0.0.10, <emphasis>Network Type POINT_TO_POINT</emphasis>, Cost: 22
+  Topology-MTID    Cost    Disabled    Shutdown      Topology Name
+        0           22        no          no            Base
+  Transmit Delay is 1 sec, State <emphasis>POINT_TO_POINT</emphasis>
+  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5
+    oob-resync timeout 40
+    Hello due in 00:00:08
+  Supports Link-local Signaling (LLS)
+  Cisco NSF helper support enabled
+  IETF NSF helper support enabled
+  Index 6/6, flood queue length 0
+  Next 0x0(0)/0x0(0)
+  Last flood scan length is 1, maximum is 1
+  Last flood scan time is 0 msec, maximum is 4 msec
+  Neighbor Count is 1, Adjacent neighbor count is 1 
+    Adjacent with neighbor 0.0.0.20
+  Suppress hello for 0 neighbor(s)</screen>
+    </listitem>
+    <listitem>
+    <para>Les routes annoncées sont bien échangées.</para>
+
+<screen><prompt>GLA(ospfd)#</prompt> sh ip ospf route 
+============ OSPF network routing table ============
+N    10.10.0.1/32          [23] area: 0.0.0.0
+                           <emphasis>via 198.51.100.1, tunnel0</emphasis>
+N    10.10.1.1/32          [23] area: 0.0.0.0
+                           <emphasis>via 198.51.100.1, tunnel0</emphasis>
+N    10.10.2.1/32          [23] area: 0.0.0.0
+                           <emphasis>via 198.51.100.1, tunnel0</emphasis>
+N    10.10.3.1/32          [23] area: 0.0.0.0
+                           <emphasis>via 198.51.100.1, tunnel0</emphasis>
+N    10.11.0.0/24          [23] area: 0.0.0.0
+                           <emphasis>via 198.51.100.1, tunnel0</emphasis>
+N    10.20.0.0/24          [1] area: 0.0.0.0
+                           directly attached to dummy0
+N    10.20.1.0/24          [1] area: 0.0.0.0
+                           directly attached to dummy1
+N    10.20.2.0/24          [1] area: 0.0.0.0
+                           directly attached to dummy2
+N    10.20.3.0/24          [1] area: 0.0.0.0
+                           directly attached to dummy3
+N    10.21.0.0/24          [1] area: 0.0.0.0
+                           directly attached to eth1
+N    198.51.100.0/30       [44] area: 0.0.0.0
+                           <emphasis>via 198.51.100.1, tunnel0</emphasis>
+N    198.51.100.1/32       [22] area: 0.0.0.0
+                           directly attached to tunnel0</screen>
+
+<screen><prompt>TLS#</prompt>sh ip ospf ro
+
+            OSPF Router with ID (0.0.0.10) (Process ID 1)
+
+
+                Base Topology (MTID 0)
+
+
+    Area BACKBONE(0)
+
+    Intra-area Route List
+*   10.11.0.0/24, Intra, cost 1, area 0, Connected
+      via 10.11.0.1, GigabitEthernet1/0
+*>  10.20.0.0/24, Intra, cost 23, area 0
+      <emphasis>via 198.51.100.2, Tunnel0</emphasis>
+*>  10.20.1.0/24, Intra, cost 23, area 0
+      <emphasis>via 198.51.100.2, Tunnel0</emphasis>
+*>  10.20.2.0/24, Intra, cost 23, area 0
+      <emphasis>via 198.51.100.2, Tunnel0</emphasis>
+*>  10.20.3.0/24, Intra, cost 23, area 0
+      <emphasis>via 198.51.100.2, Tunnel0</emphasis>
+*>  10.21.0.0/24, Intra, cost 23, area 0
+      <emphasis>via 198.51.100.2, Tunnel0</emphasis>
+*   198.51.100.0/30, Intra, cost 22, area 0, Connected
+      via 198.51.100.1, Tunnel0
+*   10.10.0.1/32, Intra, cost 1, area 0, Connected
+      via 10.10.0.1, Loopback0
+*   10.10.1.1/32, Intra, cost 1, area 0, Connected
+      via 10.10.1.1, Loopback1
+*   10.10.2.1/32, Intra, cost 1, area 0, Connected
+      via 10.10.2.1, Loopback2
+*   10.10.3.1/32, Intra, cost 1, area 0, Connected
+      via 10.10.3.1, Loopback3
+*   198.51.100.1/32, Intra, cost 44, area 0
+      via 198.51.100.2, Tunnel0</screen>
+
+<note>
+  <para>La commande <command>sh ip ospf ro</command> fait partie des fameuses
+  commandes cachées et non documentées de l'<acronym>IOS</acronym>.</para>
+</note>
+    </listitem>
+  </itemizedlist>
+</section>
+
+<section xml:id='site2site-ipsecvpn.ipsec-confg'>
+  <title>La configuration IPsec</title>
+
+  <para>Avec cette section, on touche enfin au but ! Tous les autres éléments
+  de la <link linkend='site2site-ipsecvpn.dynamic-routing'>topologie
+  type</link> présentée en début de document sont en place et leur bon
+  fonctionnement à été validé. Il ne reste plus qu'à appliquer la configuration
+  <acronym>IPsec</acronym> choisie elle aussi en début de document.</para>
+
+  <para><emphasis>On configure <acronym>IPsec</acronym> en mode transport avec
+  le protocole <acronym>ESP</acronym> entre les deux extrémités du tunnel
+  <acronym>GRE</acronym>.</emphasis></para>
+
+  <para>Comme avec le tunnel <acronym>GRE</acronym> et le protocole
+  <acronym>OSPF</acronym>, il est possible de faire correspondre au plus près
+  les paramètres de configuration <acronym>IPsec</acronym> entre les deux
+  routeurs utilisant des systèmes d'exploitation différents.</para>
+
+  <para>Côté <trademark>Cisco</trademark>, on fait le choix de la configuration
+  appelée <option>crypto map</option> et côté Debian GNU/Linux on utilise le
+  couple de paquets <application>ipsec-tools</application> /
+  <application>racoon</application>. L'intérêt de ce choix réside dans le fait
+  que les associations de sécurité entre les deux routeurs sont négociées entre
+  interfaces «physiques» tandis que le trafic protégé est acheminé via les
+  interfaces «virtuelles» de tunnel.</para>
+
+  <bridgehead xml:id='gla-ipsec' renderas='sect2'>La configuration IPsec du
+  routeur GLA</bridgehead>
+
+  <para>Le paquet <application>ipsec-tools</application> fournit l'outil
+  <command>setkey</command> qui sert à configurer les politiques de sécurité.
+  Le fichier de configuration système correspondant est
+  <filename>/etc/ipsec-tools.conf</filename>. En voici une copie.</para>
+
+<screen>#!/usr/sbin/setkey -f
+## Flush the SAD and SPD
+#
+flush;
+spdflush;
+
+spdadd 192.0.2.34 192.0.2.66 any -P in ipsec
+  esp/transport//require;
+
+spdadd 192.0.2.66 192.0.2.34 any -P out ipsec
+  esp/transport//require;</screen>
+
+  <para>Avec les options retenues ci-dessus, on reprend les choix effectués en
+  amont.</para>
+  
+  <itemizedlist>
+    <listitem>
+    <para>On choisit adresses <acronym>IP</acronym> entre lesquelles les
+    associations de sécurité sont établies pour chaque sens de trafic : entrant
+    (<option>in</option>) ou sortant (<option>out</option>). Ces adresses
+    <acronym>IP</acronym> correspondent aux interfaces physiques des deux
+    routeurs. Voir le schéma de la <link
+    linkend='site2site-ipsecvpn.topology'>topologie type</link>.</para>
+    </listitem>
+    <listitem>
+    <para>Le protocole <acronym>ESP</acronym> a été retenu après étude de
+    l'encapsulation. Voir le graphique sur <link
+    linkend='site2site-ipsecvpn.gre-over-ipsec'>L'encapsulation
+    <acronym>GRE</acronym> + <acronym>IPsec</acronym></link>. Cette
+    représentation montre que le protocole <acronym>AH</acronym> ne présente
+    aucun intérêt dans ce contexte puisque la totalité du paquet (en-tête +
+    charge utile) est «traité» par <acronym>ESP</acronym> lorsqu'il est
+    encapsulé dans un tunnel <acronym>GRE</acronym>. Le protocole
+    <acronym>ESP</acronym> assure à lui seul les trois fonctions de la <link
+    linkend='ipsec-cia'>triade <acronym>CIA</acronym></link>.</para>
+    </listitem>
+    <listitem>
+    <para>Le mode transport a aussi été choisi après étude de l'encapsulation.
+    Le mode tunnel a été éliminé parce qu'il ne peut acheminer que du trafic
+    unicast alors que l'on utilise un protocole de routage dynamique et que
+    tous les échanges entre instances de routage se font à l'aide de trafic
+    multicast. De plus, dans notre contexte, les extrémités de tunnel
+    <acronym>GRE</acronym> coïncident avec les extrémités d'association de
+    sécurité <acronym>IPsec</acronym>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Le paquet <application>racoon</application> fournit un démon qui gère
+  toutes les <link linkend='ipsec-ike'>phases d'échanges de clé
+  <acronym>IKE</acronym></link>. Le paramètrage des phases
+  <acronym>IKEv1</acronym> est défini dans le fichier système
+  <filename>/etc/racoon/racoon.conf</filename> dont voici une copie.</para>
+
+<screen>log info;
+path pre_shared_key "/etc/racoon/psk.txt";
+
+padding {
+  strict_check on;
+}
+
+listen {
+  isakmp 192.0.2.66;
+}
+
+remote 192.0.2.34 {
+  my_identifier address 192.0.2.66;
+  exchange_mode main;
+  proposal_check obey;
+
+  proposal {
+    lifetime time 86400 secs;
+    encryption_algorithm aes 256;
+    hash_algorithm md5;
+    authentication_method pre_shared_key;
+    dh_group 14;
+  }
+
+  generate_policy on;
+  initial_contact on;
+}
+
+sainfo anonymous {
+  lifetime time 3600 secs;
+  pfs_group 14;
+  encryption_algorithm aes 256;
+  authentication_algorithm hmac_md5;
+  compression_algorithm deflate;
+}</screen>
 </section>
 
 <section xml:id='site2site-ipsecvpn.conclusion'>
@@ -1214,7 +1641,7 @@ traceroute to 10.21.0.2 (10.21.0.2), 30 hops max, 60 byte packets
 </section>
 
 <section xml:id='site2site-ipsecvpn.refdocs'>
-  <title>Quelques documents de référence</title>
+  <title>Les documents de référence</title>
 
   <para>Voici une liste de liens vers les principaux documents utilisés pour
   construire cet article. En vis-à-vis de chaque lien, on trouve le(s)
@@ -1267,17 +1694,17 @@ traceroute to 10.21.0.2 (10.21.0.2), 30 hops max, 60 byte packets
       </listitem>
     </varlistentry>
   </variablelist>
-
-<!--
-<screen width='80'><xi:include href='files/r1-keepalive.sh' parse='text'
-xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
--->
 </appendix>
 
 <?custom-pagebreak?>
 <appendix xml:id='site2site-ipsecvpn.vde'>
   <title>Configuration de la commutation</title>
 
+
+<!--
+<screen width='80'><xi:include href='files/r1-keepalive.sh' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+-->
   <para>Les interfaces réseau des instances de systèmes virtualisés sont un
   brassées sur une instance de commutateur, virtuel lui aussi,
   <citetitle>vde</citetitle>. Ce commutateur est fourni par le paquet
