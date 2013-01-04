@@ -1522,17 +1522,8 @@ N    198.51.100.1/32       [22] area: 0.0.0.0
   Le fichier de configuration système correspondant est
   <filename>/etc/ipsec-tools.conf</filename>. En voici une copie.</para>
 
-<screen>#!/usr/sbin/setkey -f
-## Flush the SAD and SPD
-#
-flush;
-spdflush;
-
-spdadd 192.0.2.34 192.0.2.66 any -P in ipsec
-  esp/transport//require;
-
-spdadd 192.0.2.66 192.0.2.34 any -P out ipsec
-  esp/transport//require;</screen>
+<screen><xi:include href='files/gla-ipsec-tools.conf' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
   <para>Avec les options retenues ci-dessus, on reprend les choix effectués en
   amont.</para>
@@ -1575,41 +1566,133 @@ spdadd 192.0.2.66 192.0.2.34 any -P out ipsec
   <acronym>IKEv1</acronym> est défini dans le fichier système
   <filename>/etc/racoon/racoon.conf</filename> dont voici une copie.</para>
 
-<screen>log info;
-path pre_shared_key "/etc/racoon/psk.txt";
 
-padding {
-  strict_check on;
-}
+<screen><xi:include href='files/gla-racoon.conf' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
-listen {
-  isakmp 192.0.2.66;
-}
+  <para>Le choix des différents algorithmes est certainement le point le plus
+  délicat de la configuration entre systèmes hétérogènes. Il faut rechercher
+  «l'intersection» entre les critères de bonnes pratiques en matière de
+  sécurité et les contraintes d'interopérabilité entre systèmes hétérogènes. La
+  copie de fichier ci-dessus reflète bien le compromis adopté avec des points
+  positifs et des point négatifs.</para>
+  
+  <bridgehead xml:id='gla-ipsec-ike-phase1' renderas='sect3'>La phase 1
+  IKE</bridgehead>
 
-remote 192.0.2.34 {
-  my_identifier address 192.0.2.66;
-  exchange_mode main;
-  proposal_check obey;
+  <itemizedlist>
+    <listitem>
+    <para>
+    <inlinemediaobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/minus-button-32.png' format='PNG' width='32px' scalefit='1'/>
+    </imageobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/minus-button-32.png' format='PNG' width='.33cm' scalefit='1'/>
+    </imageobject>
+    </inlinemediaobject>
+    <literal>proposal_check obey;</literal></para>
+    
+    <para>Il aurait été préférable de pouvoir faire une correspondance exacte
+    dans la négociation de la phase 1 <acronym>IKE</acronym>. Or, la version
+    utilisée du paquet <application>ipsec-tools</application> ne supporte pas
+    le paramètre <option>lifebyte</option>. Le compromis consiste donc à
+    admettre les paramètres proposés par le routeur
+    <trademark>Cisco</trademark>.</para>
+    </listitem>
+    <listitem>
+    <para>
+    <inlinemediaobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/plus-button-32.png' format='PNG' width='32px' scalefit='1'/>
+    </imageobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/plus-button-32.png' format='PNG' width='.33cm' scalefit='1'/>
+    </imageobject>
+    </inlinemediaobject>
+    <literal>encryption_algorithm aes 256;</literal></para>
 
-  proposal {
-    lifetime time 86400 secs;
-    encryption_algorithm aes 256;
-    hash_algorithm md5;
-    authentication_method pre_shared_key;
-    dh_group 14;
-  }
+    <para>Les deux systèmes permettent de suivre les recommandations sur
+    l'utilisation de l'agorithme de chiffrement <acronym>AES</acronym>. Le
+    volet confidentialité est donc correctement traité (lettre
+    <keycap>C</keycap> de la <link linkend='ipsec-cia'>triade
+    <acronym>CIA</acronym></link>). Voir le document RFC 4722.</para> 
+    </listitem>
+    <listitem>
+    <para>
+    <inlinemediaobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/minus-button-32.png' format='PNG' width='32px' scalefit='1'/>
+    </imageobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/minus-button-32.png' format='PNG' width='.33cm' scalefit='1'/>
+    </imageobject>
+    </inlinemediaobject>
+    <literal>hash_algorithm md5;</literal></para>
 
-  generate_policy on;
-  initial_contact on;
-}
+    <para>Avec ce choix d'algorithme de hachage et authentification, on
+    privilégie la charge <acronym>CPU</acronym> au détriment de la sécurité. En
+    effet, l'algorithme <acronym>SHA-256</acronym> fait partie des
+    recommandations actuelles alors que <acronym>MD5</acronym> n'est plus
+    considéré comme totalement sûr. Ce dernier algorithme consomme cependant
+    nettement moins de cycles processeur.</para>
 
-sainfo anonymous {
-  lifetime time 3600 secs;
-  pfs_group 14;
-  encryption_algorithm aes 256;
-  authentication_algorithm hmac_md5;
-  compression_algorithm deflate;
-}</screen>
+    <para>Du point de vue interopérabilité, <emphasis>tous les tests effectués
+    avec les algorithmes <acronym>SHA</acronym> en phase 1
+    <acronym>IKE</acronym> ont échoué lors de la préparation de ce
+    document</emphasis>. Avec la version de  <application>racoon</application>
+    utilisée, le premier tunnel de protection des échanges de clés ne s'établit
+    pas et toute association de sécurité devient impossible à mettre en
+    œuvre.</para>
+    </listitem>
+    <listitem>
+    <para>
+    <inlinemediaobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/minus-button-32.png' format='PNG' width='32px' scalefit='1'/>
+    </imageobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/minus-button-32.png' format='PNG' width='.33cm' scalefit='1'/>
+    </imageobject>
+    </inlinemediaobject>
+    <literal>authentication_method pre_shared_key;</literal></para>
+
+    <para>Ce choix de méthode d'authentification suppose que la <emphasis>clé
+    secrète doit rester secrète</emphasis>. En effet, le niveau de sécurité ne
+    dépend pas des algorithmes mais du secret qui sert à initier leurs
+    traitements. Dans le contexte de ce document, le même secret est déposé
+    manuellement sur les deux routeurs d'extrémité. Si un de ces équipement
+    venait à être volé ou compromis, le secret le serait aussi.</para>
+
+    <para>Il serait donc préférable d'utiliser un couple clé publique / clé
+    privée propre à chaque extrémité. Une autorité de certification
+    (<acronym>CA</acronym>) jouerait le rôle de tiers de confiance et
+    permettrait de s'assurer de l'identité des équipements en communication.
+    Dans notre cas, le <acronym>VPN</acronym> est établi entre les routeurs de
+    deux sites distants. La sécurité repose donc sur la solidité des systèmes
+    d'exploitation et sur la sécurisation des accès aux locaux
+    techniques.</para>
+    </listitem>
+    <listitem>
+    <para>
+    <inlinemediaobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/plus-button-32.png' format='PNG' width='32px' scalefit='1'/>
+    </imageobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/plus-button-32.png' format='PNG' width='.33cm' scalefit='1'/>
+    </imageobject>
+    </inlinemediaobject>
+    <literal>dh_group 14;</literal></para>
+
+    <para><link linkend='ipsec.dh'>L'échange de clé Diffie-Hellman</link>
+    utilise des groupes de 2048 bits pour protéger les échanges entre les deux
+    extrémité. Cette configuration suit les recommandations en vigueur.</para>
+    </listitem>
+  </itemizedlist>
+  
+  <bridgehead xml:id='gla-ipsec-ike-phase2' renderas='sect3'>La phase 2
+  IKE</bridgehead>
 </section>
 
 <section xml:id='site2site-ipsecvpn.conclusion'>
@@ -1702,8 +1785,6 @@ sainfo anonymous {
 
 
 <!--
-<screen width='80'><xi:include href='files/r1-keepalive.sh' parse='text'
-xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 -->
   <para>Les interfaces réseau des instances de systèmes virtualisés sont un
   brassées sur une instance de commutateur, virtuel lui aussi,

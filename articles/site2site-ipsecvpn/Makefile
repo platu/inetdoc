@@ -21,7 +21,8 @@ XML_FILES = \
         legal.xml \
 	inetdoc.urls.xml \
 	rfc.urls.xml \
-	$(wildcard images/*.png)
+	$(wildcard images/*.png) \
+	$(wildcard files/*)
 
 all: $(PROCESS)
 
