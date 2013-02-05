@@ -26,23 +26,22 @@
 
 <article xml:lang='fr' xml:id='config.interface.lan'>
 <info>
-  <title>Configuration d'une interface réseau</title>
+  <title>Configuration d'une interface réseau Ethernet</title>
   &phl;
   <abstract>
     <para>Ce support de travaux pratiques est destiné aux débutants. Il traite
-    la configuration d'une interface réseau sur un système GNU/Linux. Les
-    manipulations présentées décrivent les couches de la modélisation réseau en
-    partant du niveau physique. Les questions cherchent à illustrer les
-    relations entre les différents formats d'adressage utilisés à chaque
-    niveau.</para>
+    de la configuration d'une interface réseau sur un système GNU/Linux. Les
+    manipulations présentées décrivent la modélisation contemporaine en partant
+    du niveau physique pour aller jusqu'à la validation des services de la
+    couche application. Les questions cherchent à illustrer les relations entre
+    les différents formats d'adressage utilisés à chaque niveau.</para>
   </abstract>
 
   <keywordset>
     <keyword>arp</keyword>
+    <keyword>ip</keyword>
     <keyword>host</keyword>
     <keyword>dig</keyword>
-    <keyword>eth0</keyword>
-    <keyword>ifconfig</keyword>
     <keyword>interface</keyword>
     <keyword>ping</keyword>
     <keyword>route</keyword>
@@ -71,38 +70,34 @@
   commandes :</para>
   <itemizedlist>
     <listitem>
-    <para><application>procps</application> - The /proc file system
-    utilities</para>
+    <para><application>procps</application> - The /proc file system utilities</para>
     </listitem>
     <listitem>
     <para><application>pciutils</application> - Linux PCI Utilities</para>
     </listitem>
     <listitem>
-    <para><application>net-tools</application> - The NET-3 networking
-    toolkit</para>
+    <para><application>ethtool</application> - display or change Ethernet device settings</para>
     </listitem>
     <listitem>
-    <para><application>ifupdown</application> - High level tools to configure
-    network interfaces</para>
+    <para><application>iproute</application> - networking and traffic control tools</para>
     </listitem>
     <listitem>
-    <para><application>iputils-ping</application> - Tools to test the
-    reachability of network hosts</para>
+    <para><application>ifupdown</application> - High level tools to configure network interfaces</para>
     </listitem>
     <listitem>
-    <para><application>bind9-host</application> - Version of 'host' bundled
-    with BIND 9.X</para>
+    <para><application>iputils-ping</application> - Tools to test the reachability of network hosts</para>
+    </listitem>
+    <listitem>
+    <para><application>bind9-host</application> - Version of 'host' bundled with BIND 9.X</para>
     </listitem>
     <listitem>
     <para><application>dnsutils</application> - Clients provided with BIND</para>
     </listitem>
     <listitem>
-    <para><application>traceroute</application> - Traces the route taken by
-    packets over a TCP/IP network</para>
+    <para><application>traceroute</application> - Traces the route taken by packets over a TCP/IP network</para>
     </listitem>
     <listitem>
-    <para><application>hping2</application> - Active Network Smashing
-    Tool</para>
+    <para><application>hping2</application> - Active Network Smashing Tool</para>
     </listitem>
   </itemizedlist>
   </sect2>
@@ -131,34 +126,24 @@
     <title>Méthodologie et modélisation</title>
 
   <para>Ce support a pour but de fournir une méthodologie de dépannage simple
-  d'une connexion réseau pour chaque couche de la modélisation
-  contemporaine.</para>
+  d'une connexion en identifiant les mécanismes d'adressage utilisés au niveau
+  de chaque couche de la modélisation contemporaine.</para>
 
   <itemizedlist>
     <listitem>
-      <para>Couche Physique (1) : identification de l'interface dans
-      les messages systèmes.</para>
+      <para>Couche Physique (1) : présence de l'interface dans les messages
+      systèmes</para>
     </listitem>
     <listitem>
-      <para>Couche Liaison (2) : manipulation des adresses MAC avec
-      la commande <command>arp</command>.</para>
+      <para>Couche Liaison (2) : adresses <acronym>MAC</acronym> des hôtes
+      appartenant au même réseau local</para>
     </listitem>
     <listitem>
-      <para>Couche Réseau (3) : manipulation des adresses
-      <acronym>IP</acronym> avec la commande <command>ifconfig</command>, de
-      l'adresse de la passerelle par défaut avec la commande
-      <command>route</command> et tests de communication
-      <acronym>ICMP</acronym> avec la commande <command>ping</command>.</para>
+      <para>Couche Réseau (3) : adresses <acronym>IP</acronym> des hôtes, de la
+      passerelle par défaut, des autres réseaux</para>
     </listitem>
     <listitem>
-      <para>Couche Transport (4) : configuration de la résolution des
-      noms et tests avec les commandes <command>host</command> et
-      <command>dig</command>.</para>
-    </listitem>
-    <listitem>
-      <para>Synthèse : validation des communications en utilisant la
-      commande <command>traceroute</command> avec et sans résolution des noms
-      d'hôtes.</para>
+      <para>Couche Application (5) : résolution des noms de domaines</para>
     </listitem>
   </itemizedlist>
   </sect2>
@@ -197,7 +182,7 @@
     correspondant au contrôleur <systemitem>BCM5704</systemitem> est baptisé
     <systemitem>tg3</systemitem>.</para>
 
-<screen width='80'># lspci -v
+<screen><prompt>#</prompt> lspci -v
 &lt;snip/&gt;
 15:02.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5704 Gigabit Ethernet
         Subsystem: Dell Unknown device 0170
@@ -230,7 +215,7 @@
     correspondant au contrôleur <systemitem>82572EI</systemitem> :
     <systemitem>e1000</systemitem>.</para>
 
-<screen width='80'># lspci -v
+<screen># lspci -v
 &lt;snip/&gt;
 0c:00.0 Ethernet controller: Intel Corporation 82572EI Gigabit Ethernet Controller (Copper)
         Subsystem: Intel Corporation PRO/1000 PT Server Adapter
@@ -264,14 +249,14 @@
     <para>Exemple de recherche basée sur le nom du module logiciel de pilotage
     de l'interface :</para>
 
-<screen width='80'># dmesg |grep e1000
+<screen><prompt>#</prompt> dmesg |grep e1000
 e1000: 0000:0c:00.0: e1000_probe: (PCI Express:2.5Gb/s:Width x1) 00:15:17:19:9b:a9
 e1000: eth1: e1000_probe: Intel(R) PRO/1000 Network Connection</screen>
 
     <para>Exemple de recherche basée sur la marque du composant contrôleur
     réseau :</para>
 
-<screen width='80'># dmesg |grep -i broadcom
+<screen><prompt>#</prompt> dmesg |grep -i broadcom
 Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v1.6.9 (December 8, 2007)
 eth0: Broadcom NetXtreme II BCM5708 1000Base-T (B2) PCI-X 64-bit 133MHz found at \
       mem f4000000, IRQ 16, node addr 00:1a:a0:01:f0:32
@@ -309,7 +294,7 @@ eth2: Broadcom NetXtreme II BCM5708 1000Base-T (B2) PCI-X 64-bit 133MHz found at
     
     <para>Le chargement manuel d'un module s'effectue avec la commande
     <command>modprobe</command> et la validation du résultat avec les commandes
-    <command>dmesg</command> et <command>ifconfig</command>. De plus, on peut
+    <command>dmesg</command> et <command>ip</command>. De plus, on peut
     vérifier la présence du pilote dans la liste des modules chargé avec la
     commande <command>lsmod</command>.</para>
 
@@ -319,22 +304,22 @@ eth2: Broadcom NetXtreme II BCM5708 1000Base-T (B2) PCI-X 64-bit 133MHz found at
       <itemizedlist>
         <listitem>
 	<para>désactiver la configuration de l'interface :
-	<userinput>/etc/init.d/networking stop</userinput>,</para>
+	<userinput><prompt>#</prompt> ifdown eth0</userinput></para>
 	</listitem>
 	<listitem>
 	<para>retrouver le pilote de l'interface dans la liste des
-	modules : <userinput>lsmod</userinput>,</para>
+	modules : <userinput><prompt>#</prompt> lsmod</userinput></para>
 	</listitem>
 	<listitem>
 	<para>décharger le module pilote de cette même interface :
-	<userinput>rmmod &lt;module_carte&gt;</userinput>,</para>
+	<userinput><prompt>#</prompt> modprobe -r &lt;module_carte&gt;</userinput></para>
 	</listitem>
 	<listitem>
 	<para>Attention ! Lors du (re)chargement du module pilote de
 	l'interface, les scripts de configuration de l'interface sont
 	automatiquement relancés. Le système effectue une opération identique à
-	la commande : <userinput>/etc/init.d/networking
-	start</userinput>.</para>
+	la commande : <userinput><prompt>#</prompt> ifup
+	eth0</userinput></para>
 	</listitem>
       </itemizedlist>
       Enfin, si le pilote de carte est chargé dans la partie monolithique du
@@ -349,35 +334,37 @@ eth2: Broadcom NetXtreme II BCM5708 1000Base-T (B2) PCI-X 64-bit 133MHz found at
       <listitem>
 	<para>Identification du module et relevé du nom de l'interface :
 	eth1</para>
-<screen width='80'># dmesg |grep e1000
+
+<screen><prompt>#</prompt> dmesg |grep e1000
 e1000: 0000:0c:00.0: e1000_probe: (PCI Express:2.5Gb/s:Width x1) 00:15:17:19:9b:a9
-e1000: eth2: e1000_probe: Intel(R) PRO/1000 Network Connection</screen>
+e1000: eth1: e1000_probe: Intel(R) PRO/1000 Network Connection</screen>
       </listitem>
       <listitem>
-	<para>Interface non configurée : sans indicateur
-	<acronym>UP</acronym> et sans adresse <acronym>IP</acronym>.</para>
-<screen width='80'># ifconfig eth1
-eth2      Link encap:Ethernet  HWaddr 00:15:17:19:9b:a9
-          BROADCAST MULTICAST  MTU:1500  Metric:1
-&lt;snip/&gt;</screen>
+	<para>Interface non configurée : indicateur
+	<acronym>DOWN</acronym> et sans adresse <acronym>IP</acronym>.</para>
+
+<screen><prompt>#</prompt> ip addr ls eth1
+2: eth1: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
+    link/ether 00:15:17:19:9b:a9 brd ff:ff:ff:ff:ff:ff
+</screen>
       </listitem>
       <listitem>
 	<para>Déchargement du module de pilotage de l'interface.</para>
-<screen width='80'># modprobe -rv e1000
+<screen><prompt>#</prompt> modprobe -rv e1000
 rmmod /lib/modules/2.6.24.3/kernel/drivers/net/e1000/e1000.ko</screen>
       </listitem>
       <listitem>
 	<para>Chargement du module de pilotage de l'interface.</para>
-<screen width='80'># modprobe -v e1000
+<screen><prompt>#</prompt> modprobe -v e1000
 insmod /lib/modules/2.6.24.3/kernel/drivers/net/e1000/e1000.ko</screen>
       </listitem>
       <listitem>
 	<para>Consultation des messages systèmes avec la commande
 	<command>dmesg</command>.</para>
-<screen width='80'>ACPI: PCI Interrupt 0000:0c:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+<screen>ACPI: PCI Interrupt 0000:0c:00.0[A] -> GSI 16 (level, low) -> IRQ 16
 PCI: Setting latency timer of device 0000:0c:00.0 to 64
 e1000: 0000:0c:00.0: e1000_probe: (PCI Express:2.5Gb/s:Width x1) 00:15:17:19:9b:a9
-e1000: eth2: e1000_probe: Intel(R) PRO/1000 Network Connection</screen>
+e1000: eth1: e1000_probe: Intel(R) PRO/1000 Network Connection</screen>
       </listitem>
     </itemizedlist>
   </sect2>
@@ -389,31 +376,45 @@ e1000: eth2: e1000_probe: Intel(R) PRO/1000 Network Connection</screen>
     que les communications soient bloquées si le lien physique entre l'hôte et
     l'équipement réseau n'est pas actif. Sur les liaisons utilisant des câbles
     en paires torsadées cuivre, on peut visualiser l'état du lien à l'aide de
-    la commande <command>mii-tool</command>.</para>
+    la commande <command>ethtool</command> fournie avec le paquet du même
+    nom.</para>
 
-<screen width='80'># mii-tool -v
-eth0: negotiated 1000baseT-FD flow-control, link ok<co xml:id='mii.link'/>
-  product info: vendor 00:08:18, model 54 rev 6
-  basic mode:   autonegotiation enabled
-  basic status: autonegotiation complete, link ok
-  capabilities: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD<co xml:id='mii.cap'/>
-  advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-control
-  link partner: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD<co xml:id='mii.partner'/></screen>
+<screen><prompt>#</prompt> ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP ]
+        Supported link modes:   10baseT/Half 10baseT/Full 
+                                100baseT/Half 100baseT/Full 
+                                1000baseT/Full <co xml:id='mii.cap'/>
+        Supported pause frame use: No
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full 
+                                100baseT/Half 100baseT/Full 
+                                1000baseT/Full 
+        Advertised pause frame use: No
+        Advertised auto-negotiation: Yes
+        Speed: 1000Mb/s <co xml:id='mii.link'/>
+        Duplex: Full
+        Port: Twisted Pair
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        MDI-X: Unknown
+        Supports Wake-on: d
+        Wake-on: d
+        Current message level: 0x00000003 (3)
+                               drv probe
+        Link detected: yes</screen>
 
   <calloutlist>
     <callout arearefs='mii.link'>
     <para>Le lien entre l'interface <systemitem>eth0</systemitem> et
     l'équipement réseau est actif et le débit négocié est de 1000Mbps en mode
-    Full-Duplex avec contrôle de flux.</para>
+    Full-Duplex.</para>
     </callout>
     <callout arearefs='mii.cap'>
     <para>Les débits possibles sur cette interface sont : 1000Mbps en mode
     Full-Duplex, 100Mbps en mode Full-Duplex, 100Mbps en mode Half-Duplex,
     10Mbps en mode Full-Duplex et 10Mbps en mode Half-Duplex.</para>
-    </callout>
-    <callout arearefs='mii.partner'>
-    <para>Les débits offerts par l'équipement réseau sont identiques à ceux
-    disponibles sur l'interface de l'hôte.</para>
     </callout>
   </calloutlist>
 
@@ -434,7 +435,7 @@ eth0: negotiated 1000baseT-FD flow-control, link ok<co xml:id='mii.link'/>
   <command>dig</command>.</para>
 
   <sect2 xml:id='configuration.ifconfig'>
-    <title>Commande <command>ifconfig</command></title>
+    <title>Commande ifconfig</title>
     
     <para>Pour toute information sur le format des adresses
     <acronym>IP</acronym> utilisées ci-après, se référer à l'article
@@ -446,7 +447,7 @@ eth0: negotiated 1000baseT-FD flow-control, link ok<co xml:id='mii.link'/>
     <sect3 xml:id='configuration.ifconfig.etat'>
       <title>Etat de l'interface</title>
 
-<screen width='80'>$ /sbin/ifconfig -a
+<screen>$ /sbin/ifconfig -a
 eth0      Lien encap:Ethernet  HWaddr 00:50:04:4C:28:27 <co xml:id='macaddr'/>
           inet adr:192.168.1.1  Bcast:192.168.1.255  Masque:255.255.255.0 <co xml:id='ipaddr'/>
           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1 <co xml:id='inetstat'/>
@@ -579,7 +580,7 @@ lo        Lien encap:Boucle locale
     <para>Voici l'exemple d'une interface ethernet configurée à l'aide du
     protocole <acronym>DHCP</acronym> :</para>
 
-<screen width='80'># /etc/network/interfaces -- configuration file for ifup(8), ifdown(8)
+<screen># /etc/network/interfaces -- configuration file for ifup(8), ifdown(8)
 
 # The loopback interface
 auto lo
@@ -594,7 +595,7 @@ iface eth0 inet dhcp</screen>
   pages de manuels : <userinput>man interfaces</userinput>. Voici un
   exemple :</para>
 
-<screen width='80'>&lt;snip/&gt;
+<screen>&lt;snip/&gt;
 auto eth0
 iface eth0 inet static
         address 192.168.1.1
@@ -675,7 +676,7 @@ iface eth0 inet static
   réseau <acronym>IP</acronym> pour les processus appartenant au même système.
   On parle alors de validation <emphasis>inter-processus</emphasis>.</para>
 
-<screen width='80'>$ ping -c 2 127.0.0.1
+<screen>$ ping -c 2 127.0.0.1
 PING 127.0.0.1 (127.0.0.1): 56 data bytes
 64 bytes from 127.0.0.1: icmp_seq=0 ttl=255 time=0.1 ms
 64 bytes from 127.0.0.1: icmp_seq=1 ttl=255 time=0.1 ms
@@ -689,7 +690,7 @@ round-trip min/avg/max = 0.1/0.1/0.1 ms</screen>
 
   <para>On teste ensuite le fonctionnement de l'interface seule :</para>
 
-<screen width='80'>$ ping -c 2 192.168.1.1
+<screen>$ ping -c 2 192.168.1.1
 PING 192.168.1.1 (192.168.1.1): 56 data bytes
 64 bytes from 192.168.1.1: icmp_seq=0 ttl=255 time=0.1 ms
 64 bytes from 192.168.1.1: icmp_seq=1 ttl=255 time=0.1 ms
@@ -710,7 +711,7 @@ round-trip min/avg/max = 0.1/0.1/0.1 ms</screen>
     
   <para>Exemple d'échec :</para>
 
-<screen width='80'>$ ping -c 5 192.168.1.14
+<screen>$ ping -c 5 192.168.1.14
 PING 192.168.1.14 (192.168.1.14): 56 data bytes
 
 --- 192.168.1.14 ping statistics ---
@@ -718,7 +719,7 @@ PING 192.168.1.14 (192.168.1.14): 56 data bytes
 
   <para>Exemple de succès :</para>
 
-<screen width='80'>$ ping -c 2 192.168.1.13
+<screen>$ ping -c 2 192.168.1.13
 PING 192.168.1.13 (192.168.1.13): 56 data bytes
 64 bytes from 192.168.1.13:<co xml:id='icmpfrom'/> icmp_seq=0<co xml:id='icmpseq'/> ttl=255<co xml:id='icmpttl'/> time=1.1 ms
 64 bytes from 192.168.1.13: icmp_seq=1 ttl=255 time=0.8 ms
@@ -765,7 +766,7 @@ round-trip min/avg/max = 0.8/0.9/1.1 ms</screen>
   (<acronym>DNS</acronym>). Cet appel au service <acronym>DNS</acronym>
   nécessite un minimum de configuration.</para>
 	
-<screen width='80'>$ ping -c 5 www.nic.fr <co xml:id='icmpname'/>
+<screen>$ ping -c 5 www.nic.fr <co xml:id='icmpname'/>
 PING rigolo.nic.fr (192.134.4.20)<co xml:id='icmpres'/>: 56 data bytes
 64 bytes from 192.134.4.20: icmp_seq=0 ttl=54 time=57.6 ms
 64 bytes from 192.134.4.20: icmp_seq=1 ttl=54 time=51.0 ms
@@ -792,7 +793,7 @@ round-trip min/avg/max = 51.0/88.1/165.3 ms</screen>
   <itemizedlist>
   <listitem>
     <para><filename>/etc/resolv.conf</filename>
-<screen width='80'>search &lt;domaine-fai>.fr<co xml:id='dnsname'/>
+<screen>search &lt;domaine-fai>.fr<co xml:id='dnsname'/>
 nameserver &lt;addr dns-fai><co xml:id='dnsaddr'/></screen>
     <calloutlist>
     <callout arearefs="dnsname">
@@ -806,7 +807,7 @@ nameserver &lt;addr dns-fai><co xml:id='dnsaddr'/></screen>
   </listitem>
   <listitem>
     <para><filename>/etc/host.conf</filename>
-<screen width='80'>order hosts, bind<co xml:id="hostorder"/>
+<screen>order hosts, bind<co xml:id="hostorder"/>
 multi on</screen>
     <calloutlist>
     <callout arearefs="hostorder">
@@ -909,13 +910,13 @@ server        ether      00:60:97:91:60:0A   C              eth0</screen>
     <itemizedlist>
       <listitem>
         <para>Résolution d'un nom d'hôte.</para>
-<screen width='80'>$ host www.nic.fr
+<screen>$ host www.nic.fr
 www.nic.fr is an alias for rigolo.nic.fr.
 rigolo.nic.fr has address 192.134.4.20</screen>
       </listitem>
       <listitem>
         <para>Résolution d'une adresse <acronym>IP</acronym>.</para>
-<screen width='80'>$ host 192.134.4.20
+<screen>$ host 192.134.4.20
 20.4.134.192.in-addr.arpa domain name pointer rigolo.nic.fr.</screen>
       </listitem>
     </itemizedlist>
@@ -934,7 +935,7 @@ rigolo.nic.fr has address 192.134.4.20</screen>
     <acronym>A</acronym> qui renvoie l'adresse <acronym>IP</acronym>
     correspondant à un nom d'hôte.</para>
 
-<screen width='80'>$ dig www.nic.fr
+<screen>$ dig www.nic.fr
 
 ; &lt;&lt;>> DiG 9.4.2 &lt;&lt;>> www.nic.fr
 ;; global options:  printcmd
@@ -978,7 +979,7 @@ ns-sec.ripe.net.        169587  IN      A       193.0.0.196
     <acronym>PTR</acronym> qui renvoie le nom d'hôte correspondant à une
     adresse <acronym>IP</acronym>.</para>
 
-<screen width='80'>$ dig -x 192.134.4.20
+<screen>$ dig -x 192.134.4.20
 
 ; &lt;&lt;>> DiG 9.4.2 &lt;&lt;>> -x 192.134.4.20
 ;; global options:  printcmd
@@ -1076,7 +1077,7 @@ ns2.nic.fr.             153261  IN      AAAA    2001:660:3005:1::1:2
   par exemple.</para>
   
   <!-- topologie du réseau TP : observation -->
-  <screen width='80'>&topologie.observation;</screen>
+  <screen>&topologie.observation;</screen>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
@@ -1218,13 +1219,13 @@ ns2.nic.fr.             153261  IN      AAAA    2001:660:3005:1::1:2
   inter VLAN.</para>
   
   <!-- topologie du réseau TP : multi-réseaux -->
-  <screen width='80'>&topologie.multi;</screen>
+  <screen>&topologie.multi;</screen>
 
   <para>Voici un exemple de plan d'adressage pour 4 groupes de
   postes :</para>
   
   <!-- plan d'adressage multi-réseaux -->
-  <screen width='80'>&topologie.multi.addr;</screen>
+  <screen>&topologie.multi.addr;</screen>
   
   <para>Les adresses <acronym>IP</acronym> des sous-interfaces du routeur
   <literal>fa0/0.2</literal> à <literal>fa0/0.5</literal> sont données à titre
@@ -1288,7 +1289,7 @@ ns2.nic.fr.             153261  IN      AAAA    2001:660:3005:1::1:2
     fonctionne sur un routeur. Elle ne sert qu'à poser des routes statiques
     entre interfaces.</para>
     
-<screen width='80'># route -n
+<screen># route -n
 Kernel IP routing table
 Destination     Gateway         Genmask         Flags<co xml:id='routeflag'/> Metric Ref    Use Iface<co xml:id='routeif'/>
 192.168.1.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0
@@ -1417,7 +1418,7 @@ traceroute to rigolo.nic.fr (192.134.4.20), 30 hops max, 38 byte packets
       <listitem>
       <para>Utilisation classique du protocole <acronym>UDP</acronym> :</para>
 
-<screen width='80'># traceroute www.neuf.fr
+<screen># traceroute www.neuf.fr
 traceroute to www.neuf.fr (212.30.118.74), 30 hops max, 60 byte packets
 &lt;snipped&gt;
 
@@ -1453,7 +1454,7 @@ traceroute to www.neuf.fr (212.30.118.74), 30 hops max, 60 byte packets
       <listitem>
       <para>Utilisation du protocole <acronym>TCP</acronym> :</para>
 
-<screen width='80'># # traceroute -T www.neuf.fr
+<screen># # traceroute -T www.neuf.fr
 traceroute to www.neuf.fr (212.30.118.74), 30 hops max, 60 byte packets
 &lt;snipped&gt;
 
@@ -1545,7 +1546,7 @@ traceroute to www.neuf.fr (212.30.118.74), 30 hops max, 60 byte packets
       <para>Identifier la station, la passerelle par défaut et les éventuels
       routeurs en notant les équipements d'interconnexion traversés. Compléter
       un schéma sous la forme indiquée ci-dessous :</para>
-<screen width='80'>  |.....  ---[TTL=1]-->|@IP:           |@IP:           |@IP:           |@IP:
+<screen>  |.....  ---[TTL=1]-->|@IP:           |@IP:           |@IP:           |@IP:
 .------,~ ---[TTL=2]   | ---[TTL= ]    |               |               |
 | PC   |' ---[TTL=3]   | ---[TTL= ]    | ---[TTL= ]    |               |
 |Client|| ---[TTL= ]   | ---[TTL= ]    | ---[TTL= ]    | ---[TTL= ]    |
@@ -1599,7 +1600,7 @@ traceroute to www.neuf.fr (212.30.118.74), 30 hops max, 60 byte packets
   permet de visualiser les paramètres par protocole ou catégorie et leurs
   valeurs :</para>
 
-<screen width='80'>#!/bin/bash
+<screen>#!/bin/bash
 
 for param in `find /proc/sys -type f -name "*$1*"`; do
  echo $param = `cat $param`
@@ -1608,7 +1609,7 @@ for param in `find /proc/sys -type f -name "*$1*"`; do
   <para>Dans le cas des réglages <acronym>ICMP</acronym> on obtient le résultat
   suivant avec un noyau de distribution standard :</para>
 
-<screen width='80'># ./bin/show_proc.sh icmp
+<screen># ./bin/show_proc.sh icmp
 /proc/sys/net/ipv4/netfilter/ip_conntrack_icmp_timeout = 30
 /proc/sys/net/ipv4/icmp_ratemask = 6168
 /proc/sys/net/ipv4/icmp_ratelimit = 1000
@@ -1629,7 +1630,7 @@ for param in `find /proc/sys -type f -name "*$1*"`; do
     individuellement. Prenons l'exemple célèbre de la fonction de routage des
     paquets <acronym>IP</acronym> du noyau :</para>
 
-<screen width='80'>echo 1 > /proc/sys/net/ipv4/ip_forward</screen>
+<screen>echo 1 > /proc/sys/net/ipv4/ip_forward</screen>
     </listitem>
     <listitem>
     <para>La seconde solution utilise le fichier de configuration
@@ -1640,14 +1641,14 @@ for param in `find /proc/sys -type f -name "*$1*"`; do
     la commande <userinput>sysctl -A</userinput>. Voici un exemple très simple
     de fichier <filename>/etc/sysctl.conf</filename> :</para>
 
-<screen width='80'># Activation de protection contre les mauvais messages d'erreurs ICMP
+<screen># Activation de protection contre les mauvais messages d'erreurs ICMP
 net.ipv4.icmp_ignore_bogus_error_responses=1</screen>
 
     <para>La commande <userinput>sysctl -p</userinput> active l'ensemble des
     valeurs indiquées dans le fichier ce configuration. On obtient
     alors :</para>
 
-<screen width='80'># ./bin/show_proc.sh icmp_ignore_bogus_error_responses
+<screen># ./bin/show_proc.sh icmp_ignore_bogus_error_responses
 /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses = 1</screen>
 
     <para>Comme le fichier <filename>/etc/sysctl.conf</filename> est lu à
@@ -1667,7 +1668,7 @@ net.ipv4.icmp_ignore_bogus_error_responses=1</screen>
     
     <para>Voici un exemple de fichier de configuration
     <filename>/etc/sysctl.conf</filename> type :</para>
-<screen width='80'># Refuser la prise en charge des requêtes ARP pour d'autres hôtes
+<screen># Refuser la prise en charge des requêtes ARP pour d'autres hôtes
 net.ipv4.conf.all.proxy_arp = 0
 
 # Ignorer les mauvais messages d'erreurs ICMP
@@ -1718,7 +1719,7 @@ net.ipv4.conf.all.accept_source_route = 0</screen>
     <para>Syntaxe équivalente à celle de la commande
     <command>ping</command> :</para>
 
-<screen width='80'># hping2 -n -c 4 -1 192.168.1.1
+<screen># hping2 -n -c 4 -1 192.168.1.1
 HPING 192.168.1.1 (eth1 192.168.1.1): icmp mode set, 28 headers + 0 data bytes
 len=46 ip=192.168.1.1 ttl=64 xml:id=60429 icmp_seq=0 rtt=1.5 ms
 len=46 ip=192.168.1.1 ttl=64 xml:id=60430 icmp_seq=1 rtt=1.4 ms
@@ -1733,7 +1734,7 @@ round-trip min/avg/max = 1.4/1.5/1.5 ms</screen>
     <para>Syntaxe utilisant l'adresse source falsifiée
     <literal>192.168.2.2</literal> :</para>
 
-<screen width='80'># hping2 -n -c 4 -1 -a 192.168.2.2 192.168.1.1
+<screen># hping2 -n -c 4 -1 -a 192.168.2.2 192.168.1.1
 HPING 192.168.1.1 (eth1 192.168.1.1): icmp mode set, 28 headers + 0 data bytes
 
 --- 192.168.1.1 hping statistic ---
@@ -1743,7 +1744,7 @@ round-trip min/avg/max = 0.0/0.0/0.0 ms</screen>
     <para>Résultat produit dans le journal système de l'hôte
     <literal>192.168.1.1</literal> :</para>
 
-<screen width='80'>kernel: martian source 192.168.1.1 from 192.168.2.2, on dev eth0
+<screen>kernel: martian source 192.168.1.1 from 192.168.2.2, on dev eth0
 kernel: ll header: 00:04:75:fd:13:cd:00:0d:bc:ef:a6:8e:08:00
 kernel: martian source 192.168.1.1 from 192.168.2.2, on dev eth0
 kernel: ll header: 00:04:75:fd:13:cd:00:0d:bc:ef:a6:8e:08:00
