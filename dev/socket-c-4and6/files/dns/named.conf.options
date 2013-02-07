@@ -1,0 +1,95 @@
+acl "xfer" {
+  localhost;
+  ::1;
+};  // Allow no other transfers.
+
+acl "internal" {
+  192.0.2.0/27;
+  2a01:240:feb2::/48;
+  localhost;
+  ::1;
+}; // Local networks
+
+include "/etc/bind/rndc.key";
+
+controls {
+        inet 127.0.0.1 allow { any; } keys { "rndc-key"; };
+};
+
+options {
+        directory "/var/cache/bind";
+        statistics-file "/var/log/named/named.stats";
+        dump-file "/var/log/named/named.dump";
+        zone-statistics yes;
+
+        // If there is a firewall between you and nameservers you want
+        // to talk to, you may need to fix the firewall to allow multiple
+        // ports to talk.  See http://www.kb.cert.org/vuls/id/800113
+
+        // Generate more efficient zone transfers.  This will place
+        // multiple DNS records in a DNS message, instead of one per
+        // DNS message.
+        transfer-format many-answers;
+
+        // Set the maximum zone transfer time to something more
+        // reasonable.  In this case, we state that any zone transfer
+        // that takes longer than 60 minutes is unlikely to ever
+        // complete.  WARNING:  If you have very large zone files,
+        // adjust this to fit your requirements.
+        max-transfer-time-in 60;
+
+        // We have no dynamic interfaces, so BIND shouldn't need to
+        // poll for interface state {UP|DOWN}.
+        interface-interval 0;
+
+        // If your ISP provided one or more IP addresses for stable 
+        // nameservers, you probably want to use them as forwarders.  
+        // Uncomment the following block, and insert the addresses replacing 
+        // the all-0's placeholder.
+
+        auth-nxdomain no;    # conform to RFC1035
+        listen-on-v6 { any; };
+
+        allow-query { internal; };
+        allow-recursion { internal; };
+        allow-transfer { xfer; };
+
+        dnssec-validation auto;
+        dnssec-lookaside auto;
+};
+
+logging { 
+        channel "default_syslog" {
+                // Send most of the named messages to syslog.
+                syslog local2;
+                severity error;
+                };
+
+        channel audit_log {
+                // Send the security related messages to a separate file.
+                file "/var/log/named/named.log";
+                severity debug;
+                print-time yes;
+                };
+        
+        channel query_logging {
+                file "/var/log/named/query.log";
+                print-category yes;
+                print-severity yes;
+                print-time yes;
+                };
+
+        category default { default_syslog; };
+        category general { default_syslog; };
+        category security { audit_log; default_syslog; };
+        category config { default_syslog; };
+        category resolver { audit_log; };
+        category xfer-in { audit_log; };
+        category xfer-out { audit_log; };
+        category notify { audit_log; };
+        category client { audit_log; };
+        category network { audit_log; };
+        category update { audit_log; };
+        category queries { query_logging; };
+        category lame-servers { audit_log; };
+};
