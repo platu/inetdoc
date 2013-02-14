@@ -16,6 +16,10 @@
 #define str(x) # x
 #define xstr(x) str(x)
 
+enum IP {
+ v4, v6
+};
+
 // extraction adresse IPv4 ou IPv6:
 void *get_in_addr(struct sockaddr *sa) {
     if (sa->sa_family == AF_INET) {
@@ -36,12 +40,17 @@ unsigned short int get_in_port(struct sockaddr *sa) {
 
 int main() {
 
-  int listenSocket, status, recv, i;
-  unsigned short int msgLength, sockv4 = 0, sockv6 = 0;
+  int listenSocket[2], status, recv, i;
+  unsigned short int msgLength;
   struct addrinfo hints, *servinfo, *p;
   socklen_t clientAddressLength;
   struct sockaddr_storage clientAddress;
   char msg[MSG_ARRAY_SIZE], listenPort[PORT_ARRAY_SIZE], ipstr[INET6_ADDRSTRLEN];
+  struct timeval timeVal;
+  fd_set readSet[2];
+
+  listenSocket[v4] = 0;
+  listenSocket[v6] = 0;
 
   memset(listenPort, 0, sizeof listenPort);  // Mise à zéro du tampon
   puts("Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : ");
@@ -58,7 +67,7 @@ int main() {
   }
 
   // Scrutation des résultats et création de socket
-  // Sortie après création de la première «prise»
+  // Sortie après création d'une «prise» IPv4 et d'une «prise» IPv6
   for (p = servinfo; p != NULL; p = p->ai_next) {
     void *addr;
     char ipver[5];
@@ -73,37 +82,43 @@ int main() {
       struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
       addr = &(ipv4->sin_addr);
       strncpy(ipver, "IPv4", 4);
+
+      if ((listenSocket[v4] = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+        perror("udp-listener: socket");
+        continue;
+      }
+
+      if (bind(listenSocket[v4], p->ai_addr, p->ai_addrlen) == -1) {
+        close(listenSocket[v4]);
+        perror("udp-listener: bind");
+        continue;
+      }
     }
     else { // IPv6
       struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
       addr = &(ipv6->sin6_addr);
       strncpy(ipver, "IPv6", 4);
+
+      if ((listenSocket[v6] = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+        perror("udp-listener: socket");
+        continue;
+      }
+
+      if (setsockopt(listenSocket[v6], IPPROTO_IPV6, IPV6_V6ONLY, &optval, sizeof optval) == -1)
+        perror("udp-listener: setsockopt");
+
+      if (bind(listenSocket[v6], p->ai_addr, p->ai_addrlen) == -1) {
+        close(listenSocket[v6]);
+        perror("udp-listener: bind");
+        continue;
+      }
     }
 
     // conversion de l'adresse IP en une chaîne de caractères
     inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
     printf(" %s: %s\n", ipver, ipstr);
 
-    if ((listenSocket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-      perror("udp-server: socket");
-      continue;
-    }
-
-    if (setsockopt(listenSocket, IPPROTO_IPV6, IPV6_V6ONLY, &optval, sizeof optval) == -1)
-      perror("udp-server: setsockopt");
-
-    if (bind(listenSocket, p->ai_addr, p->ai_addrlen) == -1) {
-      close(listenSocket);
-      perror("udp-server: bind");
-      continue;
-    }
-
-    if (p->ai_family == AF_INET) // IPv4
-      sockv4++;
-    else // IPv6
-      sockv6++;
-
-    if ((sockv4 == 1) && (sockv6 == 1))
+    if ((listenSocket[v4] > 0) && (listenSocket[v6] > 0))
       break;
   }
 
@@ -114,13 +129,11 @@ int main() {
 
   freeaddrinfo(servinfo);
 
-  // Attente des requêtes des clients.
-  // C'est un appel non bloquant ; c'est-à-dire qu'il enregistre ce programme
-  // auprès du système comme devant attendre des connexions sur ce socket avec
-  // cette tâche. Ensuite, l'exécution se poursuit.
-  listen(listenSocket, 5);
-
   printf("Attente de requête sur le port %s\n", listenPort);
+
+  // Utilisation de select en mode scrutation
+  timeVal.tv_sec = 0;
+  timeVal.tv_usec = 0;
 
   while (1) {
 
@@ -129,12 +142,26 @@ int main() {
     // Mise à zéro du tampon de façon à connaître le délimiteur
     // de fin de chaîne.
     memset(msg, 0, sizeof msg);
-    if ((recv = recvfrom(listenSocket, msg, sizeof msg, 0,
-                         (struct sockaddr *) &clientAddress,
-                         &clientAddressLength)) < 0) {
-      perror("udp-server: recvfrom");
-      exit(EXIT_FAILURE);
-    }
+
+    FD_ZERO(&readSet[v4]);
+    FD_SET(listenSocket[v4], &readSet[v4]);
+    FD_ZERO(&readSet[v6]);
+    FD_SET(listenSocket[v6], &readSet[v6]);
+
+    if (select(listenSocket[v4]+1, &readSet[v4], NULL, NULL, &timeVal)) // IPv4
+      if ((recv = recvfrom(listenSocket[v4], msg, sizeof msg, 0,
+                           (struct sockaddr *) &clientAddress,
+                           &clientAddressLength)) < 0) {
+        perror("udp-listener: recvfrom");
+        exit(EXIT_FAILURE);
+      }
+    if (select(listenSocket[v6]+1, &readSet[v6], NULL, NULL, &timeVal)) // IPv6
+      if ((recv = recvfrom(listenSocket[v6], msg, sizeof msg, 0,
+                           (struct sockaddr *) &clientAddress,
+                           &clientAddressLength)) < 0) {
+        perror("udp-listener: recvfrom");
+        exit(EXIT_FAILURE);
+      }
 
     msgLength = strlen(msg);
     if (msgLength > 0) {
@@ -154,12 +181,25 @@ int main() {
         msg[i] = toupper(msg[i]);
 
       // Renvoi de la ligne convertie au client.
-      if (sendto(listenSocket, msg, msgLength, 0,
-                 (struct sockaddr *) &clientAddress,
-                 sizeof clientAddress) < 0) {
-        perror("udp-server: sendto");
-        exit(EXIT_FAILURE);
+      if (clientAddress.ss_family == AF_INET) { // IPv4
+        if (sendto(listenSocket[v4], msg, msgLength, 0,
+                   (struct sockaddr *) &clientAddress,
+                   sizeof clientAddress) < 0) {
+          perror("udp-listener: sendto");
+          exit(EXIT_FAILURE);
+        }
+      }
+      else { // IPv6
+        if (sendto(listenSocket[v6], msg, msgLength, 0,
+                   (struct sockaddr *) &clientAddress,
+                   sizeof clientAddress) < 0) {
+          perror("udp-listener: sendto");
+          exit(EXIT_FAILURE);
+        }
       }
     }
   }
+
+  // jamais atteint
+  return 0;
 }
