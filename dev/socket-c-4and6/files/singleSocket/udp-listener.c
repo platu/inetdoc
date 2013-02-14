@@ -43,7 +43,7 @@ int main() {
   struct sockaddr_storage clientAddress;
   char msg[MSG_ARRAY_SIZE], listenPort[PORT_ARRAY_SIZE], ipstr[INET6_ADDRSTRLEN];
 
-  memset(listenPort, 0, sizeof listenport);  // Mise à zéro du tampon
+  memset(listenPort, 0, sizeof listenPort);  // Mise à zéro du tampon
   puts("Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : ");
   scanf("%"xstr(MAX_PORT)"s", listenPort);
 
@@ -123,8 +123,7 @@ int main() {
     // Mise à zéro du tampon de façon à connaître le délimiteur
     // de fin de chaîne.
     memset(msg, 0, sizeof msg);
-
-    if ((recv = recvfrom(listenSocket, msg, MSG_ARRAY_SIZE, 0,
+    if ((recv = recvfrom(listenSocket, msg, sizeof msg, 0,
                          (struct sockaddr *) &clientAddress,
                          &clientAddressLength)) < 0) {
       perror("udp-server: recvfrom");
@@ -136,10 +135,10 @@ int main() {
       // Affichage de l'adresse IP du client.
       inet_ntop(clientAddress.ss_family, get_in_addr((struct sockaddr *)&clientAddress),
                 ipstr, sizeof ipstr);
-      printf(">>  Depuis %s", ipstr);
+      printf(">>  Depuis [%s]:", ipstr);
 
       // Affichage du numéro de port du client.
-      printf("[%hu]\n", ntohs(get_in_port((struct sockaddr *)&clientAddress)));
+      printf("%hu\n", ntohs(get_in_port((struct sockaddr *)&clientAddress)));
 
       // Affichage de la ligne reçue
       printf(">>  Message reçu : %s\n", msg);
@@ -149,7 +148,7 @@ int main() {
         msg[i] = toupper(msg[i]);
 
       // Renvoi de la ligne convertie au client.
-      if (sendto(listenSocket, msg, sizeof msg, 0,
+      if (sendto(listenSocket, msg, msgLength, 0,
                  (struct sockaddr *) &clientAddress,
                  sizeof clientAddress) < 0) {
         perror("udp-server: sendto");
