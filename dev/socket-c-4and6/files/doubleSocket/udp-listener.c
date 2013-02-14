@@ -37,7 +37,7 @@ unsigned short int get_in_port(struct sockaddr *sa) {
 int main() {
 
   int listenSocket, status, recv, i;
-  unsigned short int msgLength;
+  unsigned short int msgLength, sockv4 = 0, sockv6 = 0;
   struct addrinfo hints, *servinfo, *p;
   socklen_t clientAddressLength;
   struct sockaddr_storage clientAddress;
@@ -48,7 +48,7 @@ int main() {
   scanf("%"xstr(MAX_PORT)"s", listenPort);
 
   memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_INET6; // IPv6 et IPv4
+  hints.ai_family = AF_UNSPEC; // IPv6 et IPv4
   hints.ai_socktype = SOCK_DGRAM;
   hints.ai_flags = AI_PASSIVE; // use my IP
 
@@ -64,7 +64,7 @@ int main() {
     char ipver[5];
     // socket unique et IPV6_V6ONLY à 0
     // adresses IPv4 mappées
-    int optval = 0;
+    int optval = 1;
 
     memset(ipver, 0, sizeof ipver);
     // pointeur vers l'adresse courante
@@ -98,7 +98,13 @@ int main() {
       continue;
     }
 
-    break;
+    if (p->ai_family == AF_INET) // IPv4
+      sockv4++;
+    else // IPv6
+      sockv6++;
+
+    if ((sockv4 == 1) && (sockv6 == 1))
+      break;
   }
 
   if (p == NULL) {

@@ -42,7 +42,8 @@ int main()
     return 1;
   }
 
-  // scrutation des résultats et création de socket
+  // Scrutation des résultats et création de socket
+  // Sortie de la boucle dès qu'une «prise» est créée avec succès
   for (p = servinfo; p != NULL; p = p->ai_next) {
     if (p->ai_family == AF_INET)
       puts("Ouverture socket IPv4");
