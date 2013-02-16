@@ -51,7 +51,7 @@ int main()
       puts("Ouverture socket IPv6");
 
     if ((socketDescriptor = socket (p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-      perror("client: socket");
+      perror("talker: socket");
       continue;
     }
 
@@ -80,10 +80,10 @@ int main()
     if ((msgLength = strlen(msg)) > 0) {
       // Envoi de la ligne au serveur
       if (sendto(socketDescriptor, msg, msgLength, 0,
-                 p->ai_addr, p->ai_addrlen) < 0) {
-        fputs("Émission du message impossible", stderr);
+                 p->ai_addr, p->ai_addrlen) == -1) {
+        perror("sendto");
         close(socketDescriptor);
-        exit(1);
+        exit(EXIT_FAILURE);
       }
 
       // Attente de la réponse pendant une seconde.
@@ -98,7 +98,7 @@ int main()
         if (recv(socketDescriptor, msg, sizeof msg, 0) < 0) {
           fputs("Aucune réponse du serveur ?", stderr);
           close(socketDescriptor);
-          exit(1);
+          exit(EXIT_FAILURE);
         }
 
         printf("Message traité : %s\n", msg);

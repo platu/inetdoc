@@ -4,15 +4,15 @@ endif
 
 target = $(addsuffix .o,$(basename $(wildcard *.c)))
 
-all: $(target) tcp-client.c.patch tcp-server.c.patch
+all: $(target) tcp-talker.c.patch tcp-listener.c.patch
 
 %.o: %.c
-	gcc -Wall -o $@ $<
+	gcc -Wall -Wextra -o $@ $<
 
-tcp-client.c.patch: udp-client.c tcp-client.c
-	-diff -uBb $^ > $@
+tcp-talker.c.patch: udp-talker.c tcp-talker.c
+	@diff -uBb $^ > $@ ; if [ $$? -eq 0 ]; then echo "no differences" ; fi
 
-tcp-server.c.patch: udp-server.c tcp-server.c
-	-diff -uBb $^ > $@
+tcp-listener.c.patch: udp-listener.c tcp-listener.c
+	@diff -uBb $^ > $@ ; if [ $$? -eq 0 ]; then echo "no differences" ; fi
 
 include $(MAIN_DIR)/common/Makefile.Rules

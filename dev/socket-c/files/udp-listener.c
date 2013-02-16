@@ -1,15 +1,14 @@
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <netinet/in.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-#define MAX_MSG 100
-// 2 caractères pour les codes ASCII '\n' et '\0'
-#define MSG_ARRAY_SIZE (MAX_MSG+2)
+#define MAX_MSG 80
+#define MSG_ARRAY_SIZE (MAX_MSG+1)
 
 int main()
 {
@@ -23,9 +22,8 @@ int main()
   scanf("%hu", &listenPort);
 
   // Création de socket en écoute et attente des requêtes des clients
-  listenSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  if (listenSocket < 0) {
-    fputs("Impossible de créer le socket en écoute", stderr);
+  if ((listenSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+    perror("socket:");
     exit(EXIT_FAILURE);
   }
   
@@ -39,10 +37,9 @@ int main()
   serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
   serverAddress.sin_port = htons(listenPort);
   
-  if (bind(listenSocket,
-           (struct sockaddr *) &serverAddress,
-           sizeof(serverAddress)) < 0) {
-    fputs("Impossible de lier le socket en écoute", stderr);
+  if (bind(listenSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) == -1) {
+    perror("bind:");
+    close(listenSocket);
     exit(EXIT_FAILURE);
   }
 
@@ -54,11 +51,12 @@ int main()
 
     // Mise à zéro du tampon de façon à connaître le délimiteur
     // de fin de chaîne.
-    memset(msg, 0x0, MSG_ARRAY_SIZE);
-    if (recvfrom(listenSocket, msg, MSG_ARRAY_SIZE, 0,
+    memset(msg, 0, sizeof msg);
+    if (recvfrom(listenSocket, msg, sizeof msg, 0,
                  (struct sockaddr *) &clientAddress,
-                 &clientAddressLength) < 0) {
-      fputs("Problème de réception du messsage", stderr);
+                 &clientAddressLength) == -1) {
+      perror("recvfrom:");
+      close(listenSocket);
       exit(EXIT_FAILURE);
     }
 
@@ -78,10 +76,13 @@ int main()
         msg[i] = toupper(msg[i]);
 
       // Renvoi de la ligne convertie au client.
-      if (sendto(listenSocket, msg, msgLength + 1, 0,
+      if (sendto(listenSocket, msg, msgLength, 0,
                  (struct sockaddr *) &clientAddress,
-                 sizeof(clientAddress)) < 0)
-        fputs("Émission du message modifié impossible", stderr);
+                 sizeof(clientAddress)) == -1) {
+        perror("sendto:");
+        close(listenSocket);
+        exit(EXIT_FAILURE);
+      }
     }
   }
 }

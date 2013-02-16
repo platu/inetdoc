@@ -1,15 +1,14 @@
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <netinet/in.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-#define MAX_MSG 100
-// 2 caractères pour les codes ASCII '\n' et '\0'
-#define MSG_ARRAY_SIZE (MAX_MSG+2)
+#define MAX_MSG 80
+#define MSG_ARRAY_SIZE (MAX_MSG+1)
 
 int main()
 {
@@ -23,9 +22,8 @@ int main()
   scanf("%hu", &listenPort);
 
   // Création de socket en écoute et attente des requêtes des clients
-  listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (listenSocket < 0) {
-    fputs("Impossible de créer le socket en écoute", stderr);
+  if ((listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+    perror("socket:");
     exit(EXIT_FAILURE);
   }
   
@@ -39,10 +37,9 @@ int main()
   serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
   serverAddress.sin_port = htons(listenPort);
   
-  if (bind(listenSocket,
-           (struct sockaddr *) &serverAddress,
-           sizeof(serverAddress)) < 0) {
-    fputs("Impossible de lier le socket en écoute", stderr);
+  if (bind(listenSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) == -1) {
+    perror("bind:");
+    close(listenSocket);
     exit(EXIT_FAILURE);
   }
 
@@ -65,12 +62,10 @@ int main()
     // façon.
     clientAddressLength = sizeof(clientAddress);
 
-    connectSocket = accept(listenSocket,
-                           (struct sockaddr *) &clientAddress,
-	                   &clientAddressLength);
-
-    if (connectSocket < 0) {
-      fputs("Impossible d'accepter une connexion", stderr);
+    if ((connectSocket = accept(listenSocket, 
+                                (struct sockaddr *) &clientAddress,
+				&clientAddressLength)) == -1) {
+      perror("accept:");
       close(listenSocket);
       exit(EXIT_FAILURE);
     }
@@ -91,8 +86,8 @@ int main()
     // attente.
     // On remplit le tableau avec des zéros de façon à connaître la fin de
     // chaîne de caractères
-    memset(msg, 0x0, MSG_ARRAY_SIZE);
-    while (recv(connectSocket, msg, MAX_MSG, 0) > 0) {
+    memset(msg, 0, sizeof msg);
+    while (recv(connectSocket, msg, sizeof msg, 0) > 0) {
       msgLength = strlen(msg);
       if (msgLength > 0) {
         printf("  --  %s\n", msg);
@@ -102,10 +97,13 @@ int main()
           msg[i] = toupper(msg[i]);
 
         // Renvoi de la ligne convertie au client.
-        if (send(connectSocket, msg, msgLength + 1, 0) < 0)
-          fputs("Émission du message modifié impossible", stderr);
+        if (send(connectSocket, msg, msgLength + 1, 0) == -1) {
+          perror("send:");
+          close(listenSocket);
+          exit(EXIT_FAILURE);
+        }
 
-        memset(msg, 0x0, MSG_ARRAY_SIZE);  // Mise à zéro du tampon
+        memset(msg, 0, sizeof msg);  // Mise à zéro du tampon
       }
     }
   }

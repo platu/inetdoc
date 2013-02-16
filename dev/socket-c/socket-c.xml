@@ -25,9 +25,10 @@
   &author;
   <abstract>
     <para>L'objet de ce support est d'initier au développement réseau sur les
-    sockets à partir du code le plus minimaliste et le plus portable. Dans ce
-    but, on utilise les fonctions réseau des bibliothèques standard du Langage
-    C et on se limite à l'utilisation d'adresses IPv4 en couche réseau.</para>
+    <wordasword>sockets</wordasword> à partir du code le plus minimaliste et le
+    plus portable. Dans ce but, on utilise les fonctions réseau des
+    bibliothèques standard du Langage C et on se limite à l'utilisation
+    d'adresses <acronym>IPv4</acronym> en couche réseau.</para>
   </abstract>
   <keywordset>
     <keyword>GNU</keyword>
@@ -61,12 +62,13 @@
   <title>Contexte de développement</title>
 
   <para>L'objectif de développement étant l'initiation, on se limite à un code
-  minimaliste utilisant deux programmes distincts : un serveur et un
-  client. Ces deux programmes échangent des chaînes caractères. Le
-  <emphasis>client</emphasis> émet un message que le
+  minimaliste utilisant deux programmes distincts : un serveur ou
+  <wordasword>listener</wordasword> et un client ou
+  <wordasword>talker</wordasword>. Ces deux programmes échangent des chaînes
+  caractères. Le <emphasis>client</emphasis> émet un message que le
   <emphasis>serveur</emphasis> traite et retransmet vers le
   <emphasis>client</emphasis>. Le traitement est tout aussi minimaliste ; il
-  convertit la chaîne de caractères en majuscules.</para>
+  convertit la chaîne de caractères reçue en majuscules.</para>
 
   <sect2 xml:id='socket-c.context.archi'>
     <title>Système d'exploitation</title>
@@ -95,10 +97,11 @@
   <para>Le programme utilisateur est lancé à partir de la couche
   <wordasword>Shell</wordasword> et est exécuté au niveau application.</para>
 
-  <para>L'utilisation de sockets revient à ouvrir un canal de communication
-  entre la couche application et la couche transport. La programmation des
-  sockets se fait à l'aide de bibliothèques standard présentées ci-après :
-  <xref linkend='socket-c.context.library'/>.</para>
+  <para>L'utilisation de <wordasword>sockets</wordasword> revient à ouvrir un
+  canal de communication entre la couche application et la couche transport. La
+  programmation des <wordasword>sockets</wordasword> se fait à l'aide de
+  bibliothèques standard présentées ci-après : <xref
+  linkend='socket-c.context.library'/>.</para>
   </sect2>
 
   <sect2 xml:id='socket-c.context.gcc'>
@@ -110,10 +113,10 @@
   chaîne de développement <acronym>GNU</acronym> en désignant le nom du
   programme exécutable avec l'option <option>-o</option>.</para>
 
-<screen><prompt>$</prompt> gcc -Wall -o udp-client.o udp-client.c
-<prompt>$</prompt> gcc -Wall -o udp-server.o udp-server.c
+<screen><prompt>$</prompt> gcc -Wall -Wextra -o udp-talker.o udp-talker.c
+<prompt>$</prompt> gcc -Wall -Wextra -o udp-listener.o udp-listener.c
 <prompt>$</prompt> ls udp*
-udp-client.c  udp-client.o  udp-server.c  udp-server.o</screen>
+udp-listener.c  udp-listener.o udp-talker.c  udp-talker.o</screen>
   </sect2>
 
   <sect2 xml:id='socket-c.context.run'>
@@ -127,9 +130,9 @@ udp-client.c  udp-client.o  udp-server.c  udp-server.o</screen>
   <variablelist>
     <varlistentry xml:id='socket-c.context.run-server'>
       <term>Le programme serveur</term>
-      <term>udp-server.o</term>
+      <term>udp-listener.o</term>
       <listitem>
-<screen><prompt>$</prompt> ./udp-server.o
+<screen><prompt>$</prompt> ./udp-listener.o
 Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) :
 4500
 Attente de requête sur le port 4500
@@ -140,9 +143,9 @@ Attente de requête sur le port 4500
 
     <varlistentry xml:id='socket-c.context.run-client'>
       <term>Le programme client</term>
-      <term>udp-client.o</term>
+      <term>udp-talker.o</term>
       <listitem>
-<screen><prompt>$</prompt> ./udp-client.o
+<screen><prompt>$</prompt> ./udp-talker.o
 Entrez le nom du serveur ou son adresse IP :
 127.0.0.1
 Entrez le numéro de port du serveur :
@@ -168,16 +171,16 @@ Saisie du message :
   processus en cours d'exécution et le numéro de port en écoute à l'aide de la
   commande <command>netstat</command>.</para>
 
-<screen><prompt>$</prompt> netstat -aup | grep -e Proto -e udp-server
+<screen><prompt>$</prompt> netstat -aup | grep -e Proto -e udp-listener
 (Tous les processus ne peuvent être identifiés, les infos sur les processus
 non possédés ne seront pas affichées, vous devez être root pour les voir toutes.)
 Proto Recv-Q Send-Q Adresse locale    Adresse distante  Etat  PID/Program name
-udp        0      0 *:4500            *:*                     3157/udp-server.o</screen>
+udp        0      0 *:4500            *:*                     3157/udp-listener.o</screen>
 
   <para>Dans l'exemple ci-dessus, le numéro de port <literal>4500</literal>
   apparaît dans la colonne <option>Adresse locale</option> et processus numéro
   <literal>3157</literal> correspond bien au programme
-  <literal>udp-server.o</literal> dans la colonne <option>PID/Program
+  <literal>udp-listener.o</literal> dans la colonne <option>PID/Program
   name</option>.</para>
   </sect2>
 
@@ -192,14 +195,17 @@ udp        0      0 *:4500            *:*                     3157/udp-server.o<
       <term><systemitem class='library'>libc6-dev</systemitem></term>
       <term><systemitem>netdb.h</systemitem></term>
       <listitem>
-      <para>Opérations sur les bases de données réseau. Ici, c'est la fonction
-      <function>gethostbyname()</function> qui est utilisée. Elle renvoie une
-      structure de type <parameter>hostent</parameter> pour l'hôte
+      <para>Opérations sur les bases de données réseau. Ici, ce sont les
+      fonctions <function>gethostbyname()</function> et
+      <function>herror()</function> qui sont utilisées. La première fonction
+      renvoie une structure de type <parameter>hostent</parameter> pour l'hôte
       <parameter>name</parameter>. La chaîne <parameter>name</parameter> est
-      soit un nom d'hôte, soit une adresse <acronym>IPv4</acronym>, soit une
-      adresse <acronym>IPv6</acronym>. Pour obtenir plus d'informations, il
-      faut consulter les pages de manuels : <userinput>man
-      gethostbyname</userinput>.</para>
+      soit un nom d'hôte, soit une adresse <acronym>IPv4</acronym>. En cas
+      d'échec, <function>gethostbyname()</function> renvoie un pointeur
+      <parameter>NULL</parameter> et la seconde fonction affiche le message
+      correspondant au code de l'erreur rencontrée. Pour obtenir plus
+      d'informations, il faut consulter les pages de manuels des fonctions :
+      <userinput>man gethostbyname</userinput> par exemple.</para>
       </listitem>
     </varlistentry>
     <varlistentry xml:id='socket-c.context.library.libc6.in'>
@@ -207,14 +213,14 @@ udp        0      0 *:4500            *:*                     3157/udp-server.o<
       <term><systemitem>netinet/in.h</systemitem></term>
       <listitem>
       <para>Famille du protocole Internet. Ici, plusieurs fonctions sont
-      utilisées à partir du paramètre de description de socket
-      <parameter>sockaddr_in</parameter>. Les quatre fonctions importantes
-      traitent de la conversion des nombres représentés suivant le format hôte
-      (octet le moins significatif en premier sur processeur Intel x86) ou
-      suivant le format défini dans les en-têtes réseau (octet le plus
-      significatif en premier). Ici le format hôte fait référence à
-      l'architecture du processeur utilisé. Cette architecture est dite
-      «petit-boutiste» pour les processeurs de marque
+      utilisées à partir du paramètre de description de
+      <wordasword>socket</wordasword> <parameter>sockaddr_in</parameter>. Les
+      quatre fonctions importantes traitent de la conversion des nombres
+      représentés suivant le format hôte (octet le moins significatif en
+      premier sur processeur Intel) ou suivant le format défini dans les
+      en-têtes réseau (octet le plus significatif en premier). Ici le format
+      hôte fait référence à l'architecture du processeur utilisé. Cette
+      architecture est dite «petit-boutiste» pour les processeurs de marque
       <trademark>Intel</trademark> majoritairement utilisés dans les
       ordinateurs de type <acronym>PC</acronym>. À l'inverse, le format défini
       dans les en-têtes réseau est dit «gros-boutiste». Cette définition
@@ -340,13 +346,15 @@ udp        0      0 *:4500            *:*                     3157/udp-server.o<
   mécanismes de transport.</para>
 
   <para>L'objectif du présent document étant d'initier à l'utilisation des
-  sockets, on s'appuie dans un premier temps sur le protocole de transport le
-  plus simple : <acronym>UDP</acronym>. Les programmes «client» et
-  «serveur» sont repris dans un second temps en utilisant le protocole
-  <acronym>TCP</acronym>. En termes de développement, les différences de mise
-  en œuvre des sockets sont minimes. C'est à l'analyse réseau que la différence
-  se fait sachant que les mécanismes de fonctionnement des deux protocoles sont
-  très différents.</para>
+  <wordasword>sockets</wordasword>, on s'appuie dans un premier temps sur le
+  protocole de transport le plus simple : <acronym>UDP</acronym>. Les
+  programmes <emphasis>client</emphasis> ou <wordasword>talker</wordasword> et
+  <emphasis>serveur</emphasis> ou <wordasword>listener</wordasword> sont repris
+  dans un second temps en utilisant le protocole <acronym>TCP</acronym>. En
+  termes de développement, les différences de mise en œuvre des
+  <wordasword>sockets</wordasword> sont minimes. C'est à l'analyse réseau que
+  la différence se fait sachant que les mécanismes de fonctionnement des deux
+  protocoles sont très différents.</para>
 
   <para>Pour plus d'informations, consulter le support <xref
   linkend='socket-c.refdocs.modelisation'/>.</para>
@@ -356,8 +364,9 @@ udp        0      0 *:4500            *:*                     3157/udp-server.o<
     <title>Sockets &amp; protocole de transport UDP</title>
 
   <para>Le schéma ci-dessous présente les sous-programmes sélectionnés côté
-  client et côté serveur pour la mise en œuvre des sockets avec le protocole de
-  transport <acronym>UDP</acronym>.</para>
+  <emphasis>client</emphasis> et côté <emphasis>serveur</emphasis> pour la mise
+  en œuvre des <wordasword>sockets</wordasword> avec le protocole de transport
+  <acronym>UDP</acronym>.</para>
 
   <para>Les appels de sous-programmes avec les passages de paramètres sont
   détaillés dans les sections suivantes.</para>
@@ -388,8 +397,9 @@ udp        0      0 *:4500            *:*                     3157/udp-server.o<
     <title>Sockets &amp; protocole de transport TCP</title>
 
   <para>Le schéma ci-dessous présente les sous-programmes sélectionnés côté
-  client et côté serveur pour la mise en œuvre des sockets avec le protocole de
-  transport <acronym>TCP</acronym>.</para>
+  <emphasis>client</emphasis> et côté <emphasis>serveur</emphasis> pour la mise
+  en œuvre des <wordasword>sockets</wordasword> avec le protocole de transport
+  <acronym>TCP</acronym>.</para>
 
   <para>Les appels de sous-programmes avec les passages de paramètres sont
   détaillés dans les sections suivantes.</para>
@@ -418,24 +428,24 @@ udp        0      0 *:4500            *:*                     3157/udp-server.o<
 </sect1>
 
 <sect1 xml:id='socket-c.udp.client'>
- <title>Programme client UDP</title>
+ <title>Programme client UDP : <wordasword>talker</wordasword></title>
 
   <sect2 xml:id='socket-c.udp.client.socket'>
     <title>Utilisation des sockets avec le client UDP</title>
 
-  <para>Au niveau du client, l'objectif est <emphasis>d'ouvrir</emphasis> un
-  nouveau socket ; ce qui revient à ouvrir un canal de communication
-  réseau avec la fonction <function>socket</function>.</para>
+  <para>Au niveau du <emphasis>client</emphasis> ou
+  <wordasword>talker</wordasword>, l'objectif est <emphasis>d'ouvrir</emphasis>
+  un nouveau <wordasword>socket</wordasword> ; ce qui revient à ouvrir un canal
+  de communication réseau avec la fonction <function>socket</function>.</para>
 
 <programlisting>
   int socketDescriptor;
 
 &lt;snipped/>
-  socketDescriptor = socket(PF_INET<co xml:id='socket_family'/>, SOCK_DGRAM<co xml:id='socket_type'/>, IPPROTO_UDP<co xml:id='socket_protocol'/>);
-  if (socketDescriptor &lt; 0) {
-    fputs("Impossible de créer le socket", stderr);
+  if ((socketDescriptor = socket(PF_INET<co xml:id='socket_family'/>, SOCK_DGRAM<co xml:id='socket_type'/>, IPPROTO_UDP<co xml:id='socket_protocol'/>)) == -1) {
+    perror("socket:");
     exit(EXIT_FAILURE);
-    }</programlisting>
+  }</programlisting>
 
   <calloutlist>
     <callout arearefs='socket_family'>
@@ -462,12 +472,12 @@ udp        0      0 *:4500            *:*                     3157/udp-server.o<
   struct sockaddr_in serverAddress;
 
 &lt;snipped/>
-if (sendto(socketDescriptor<co xml:id='sendto_Descriptor'/>, msg, msgLength<co xml:id='sendto_msg'/>, 0,
-           (struct sockaddr *) &amp;serverAddress,
-           sizeof(serverAddress)<co xml:id='sendto_Address'/>) &lt; 0) {
-  fputs("Émission du message impossible", stderr);
-  close(socketDescriptor);
-  exit(EXIT_FAILURE);
+  if (sendto(socketDescriptor<co xml:id='sendto_Descriptor'/>, msg, msgLength<co xml:id='sendto_msg'/>, 0,
+             (struct sockaddr *) &amp;serverAddress<co xml:id='sendto_Address'/>,
+             sizeof(serverAddress)) == -1) {
+    perror("sendto:");
+    close(socketDescriptor);
+    exit(EXIT_FAILURE);
   }</programlisting>
 
   <calloutlist>
@@ -494,10 +504,10 @@ if (sendto(socketDescriptor<co xml:id='sendto_Descriptor'/>, msg, msgLength<co x
 
 <programlisting>
 &lt;snipped/>
-if (recv(socketDescriptor<co xml:id='recv_Descriptor'/>, msg, MAX_MSG<co xml:id='recv_msg'/>, 0) &lt; 0) {
-  fputs("Aucune réponse du serveur ?", stderr);
-  close(socketDescriptor);
-  exit(EXIT_FAILURE);
+  if (recv(socketDescriptor<co xml:id='recv_Descriptor'/>, msg, sizeof msg<co xml:id='recv_msg'/>, 0) == -1) {
+    perror("recv:");
+    close(socketDescriptor);
+    exit(EXIT_FAILURE);
   }</programlisting>
 
   <calloutlist>
@@ -507,9 +517,9 @@ if (recv(socketDescriptor<co xml:id='recv_Descriptor'/>, msg, MAX_MSG<co xml:id=
     communication entre le programme et la pile des protocoles réseau.</para>
     </callout>
     <callout arearefs='recv_msg'>
-    <para><option>msg</option> et <option>MAX_MSG</option> correspondent au
-    datagramme reçu et à sa longueur. Ici, on reçoit des chaînes de caractères
-    venant directement du correspondant réseau.</para>
+    <para><option>msg</option> et <option>sizeof msg</option> correspondent à
+    la chaîne de caractères dans laquelle le datagramme reçu doit être stocké
+    et au nombre maximum de caractères que l'on peut recevoir.</para>
     </callout>
   </calloutlist>
 
@@ -523,52 +533,51 @@ if (recv(socketDescriptor<co xml:id='recv_Descriptor'/>, msg, MAX_MSG<co xml:id=
   <sect2 xml:id='socket-c.udp.client.source'>
     <title>Code source complet</title>
 
-  <para>Code du programme <systemitem>udp-client.c</systemitem> :</para>
+  <para>Code du programme <systemitem>udp-talker.c</systemitem> :</para>
 
-<programlisting><xi:include href='files/udp-client.c'
+<programlisting><xi:include href='files/udp-talker.c'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
-
   </sect2>
 </sect1>
 
 <sect1 xml:id='socket-c.udp.server'>
-  <title>Programme serveur UDP</title>
+  <title>Programme serveur UDP : <wordasword>listener</wordasword></title>
 
   <sect2 xml:id='socket-c.udp.server.socket'>
     <title>Utilisation des sockets avec le serveur UDP</title>
 
-  <para>Au niveau du serveur, l'objectif est aussi
-  <emphasis>d'ouvrir</emphasis> un nouveau socket ; ce qui revient aussi à
-  ouvrir un canal de communication réseau avec la fonction
+  <para>Au niveau du <emphasis>serveur</emphasis> ou
+  <wordasword>listener</wordasword>, l'objectif est aussi
+  <emphasis>d'ouvrir</emphasis> un nouveau <wordasword>socket</wordasword> ; ce
+  qui revient aussi à ouvrir un canal de communication réseau avec la fonction
   <function>socket</function>.</para>
 
 <programlisting>
   int listenSocket;
 
 &lt;snipped/>
-listenSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-if (listenSocket &lt; 0) {
-  fputs("Impossible de créer le socket en écoute", stderr);
-  exit(EXIT_FAILURE);
+  if ((listenSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+    perror("socket:");
+    exit(EXIT_FAILURE);
   }</programlisting>
 
-  <para>Cette étape ne présentant aucune différence avec le niveau client, on
-  relie le numéro de socket avec le numéro de port choisi.</para>
+  <para>Cette étape ne présente aucune différence avec le niveau client. On
+  relie le numéro de <wordasword>socket</wordasword> avec le numéro de port
+  choisi.</para>
 
 <programlisting>
   int listenSocket;
   struct sockaddr_in serverAddress;
 
 &lt;snipped/>
-serverAddress.sin_family = PF_INET;
-serverAddress.sin_addr.s_addr = htonl(INADDR_ANY)<co xml:id='inaddr_any'/>;
-serverAddress.sin_port = htons(listenPort);
+  serverAddress.sin_family = PF_INET;
+  serverAddress.sin_addr.s_addr = htonl(INADDR_ANY)<co xml:id='inaddr_any'/>;
+  serverAddress.sin_port = htons(listenPort);
 
-if (bind(listenSocket<co xml:id='bind_listenSocket'/>,
-         (struct sockaddr *) &amp;serverAddress,
-         sizeof(serverAddress)<co xml:id='bind_Address'/>) &lt; 0) {
-  fputs("Impossible de lier le socket en écoute", stderr);
-  exit(EXIT_FAILURE);
+  if (bind(listenSocket<co xml:id='bind_listenSocket'/>, (struct sockaddr *) &amp;serverAddress<co xml:id='bind_Address'/>, sizeof(serverAddress)) == -1) {
+    perror("bind:");
+    close(listenSocket);
+    exit(EXIT_FAILURE);
   }</programlisting>
 
   <calloutlist>
@@ -597,47 +606,51 @@ if (bind(listenSocket<co xml:id='bind_listenSocket'/>,
   char line[(MAX_MSG+1)];
 
 &lt;snipped/>
-if (recvfrom(listenSocket, msg, MAX_MSG<co xml:id='recvfrom_line'/>, 0,
-             (struct sockaddr *) &amp;clientAddress,
-             &amp;clientAddressLength) &lt; 0) {
-  fputs("Problème de réception du messsage", stderr);
-  exit(EXIT_FAILURE);
+  if (recvfrom(listenSocket, msg<co xml:id='recvfrom_line'/>, sizeof msg, 0,
+               (struct sockaddr *) &amp;clientAddress,
+               &amp;clientAddressLength) == -1) {
+    perror("recvfrom:");
+    close(listenSocket);
+    exit(EXIT_FAILURE);
   }</programlisting>
 
   <calloutlist>
     <callout arearefs='recvfrom_line'>
-    <para>Les paramètres <option>msg</option> et <option>MAX_MSG</option>
-    correspondent au datagramme et à sa longueur.</para>
+    <para>Les paramètres <option>msg</option> et <option>sizeof msg</option>
+    correspondent à la chaîne de caractères dans laquelle le datagramme reçu
+    est stocké et à la capacité maximale de stockage.</para>
     </callout>
   </calloutlist>
 
-  <para>Enfin, les émissions de datagramme du serveur vers le client utilisent
-  exactement les mêmes appels à la fonction <function>sendto</function> que les
-  émissions du client vers le serveur.</para>
+  <para>Enfin, les émissions de datagramme du <emphasis>serveur</emphasis> vers
+  le <emphasis>client</emphasis> utilisent exactement les mêmes appels à la
+  fonction <function>sendto</function> que les émissions du
+  <emphasis>client</emphasis> vers le <emphasis>serveur</emphasis>.</para>
   </sect2>
 
   <sect2 xml:id='socket-c.udp.server.source'>
     <title>Code source complet</title>
 
-  <para>Code du programme <systemitem>udp-server.c</systemitem> :</para>
+  <para>Code du programme <systemitem>udp-listener.c</systemitem> :</para>
 
-<programlisting><xi:include href='files/udp-server.c'
+<programlisting><xi:include href='files/udp-listener.c'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
   </sect2>
 </sect1>
 
 <sect1 xml:id='socket-c.tcp.client'>
-  <title>Programme client TCP</title>
+  <title>Programme client TCP : <wordasword>talker</wordasword></title>
 
   <sect2 xml:id='socket-c.tcp.client.socket'>
     <title>Utilisation des sockets avec le client TCP</title>
 
   <para>Le fait que le protocole <acronym>TCP</acronym> soit un
   <emphasis>service orienté connexion</emphasis> entraîne un changement
-  important dans le code source du programme client précédent. Le contrôle
-  d'erreur est directement intégré dans la couche transport et n'est plus à la
-  charge de la couche application. Il n'est donc plus nécessaire de mettre en
-  œuvre un mécanisme de gestion de temporisation.</para>
+  important dans le code source du programme <emphasis>client</emphasis> étudié
+  précédemment. Le contrôle d'erreur est directement intégré dans la couche
+  transport et n'est plus à la charge de la couche application. Il n'est donc
+  plus nécessaire de mettre en œuvre un mécanisme de gestion de
+  temporisation.</para>
 
   <para>Autre changement, il est maintenant nécessaire d'établir la connexion
   avant d'échanger la moindre information. Cette opération ce fait à l'aide de
@@ -647,12 +660,12 @@ parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
   struct sockaddr_in serverAddress;
 
 &lt;snipped/>
-if (connect(socketDescriptor,
-            (struct sockaddr *) &amp;serverAddress,
-            sizeof(serverAddress)) &lt; 0) {
-  fputs("Connexion impossible", stderr);
-  close(socketDescriptor);
-  exit(EXIT_FAILURE);
+  if (connect(socketDescriptor,
+             (struct sockaddr *) &amp;serverAddress,
+             sizeof(serverAddress)) == -1) {
+    perror("connect");
+    close(socketDescriptor);
+    exit(EXIT_FAILURE);
   }</programlisting>
 
   <para>En cas d'échec de cette demande d'établissement de connexion, on
@@ -662,21 +675,21 @@ if (connect(socketDescriptor,
   <sect2 xml:id='socket-c.tcp.client.source'>
     <title>Patch code source</title>
 
-  <para>Patch du programme <systemitem>tcp-client.c</systemitem> :</para>
+  <para>Patch du programme <systemitem>tcp-talker.c</systemitem> :</para>
 
-<programlisting><xi:include href='files/tcp-client.c.patch'
+<programlisting><xi:include href='files/tcp-talker.c.patch'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
   </sect2>
 </sect1>
 
 <sect1 xml:id='socket-c.tcp.server'>
-  <title>Programme serveur TCP</title>
+  <title>Programme serveur TCP : <wordasword>listener</wordasword></title>
 
   <sect2 xml:id='socket-c.tcp.server.socket'>
     <title>Utilisation des sockets avec le serveur TCP</title>
 
-  <para>Comme dans le cas du programme client, le fait que le protocole
-  <acronym>TCP</acronym> soit un  <emphasis>service orienté
+  <para>Comme dans le cas du programme <emphasis>client</emphasis>, le fait que
+  le protocole <acronym>TCP</acronym> soit un  <emphasis>service orienté
   connexion</emphasis> entraîne un changement important dans le code source du
   programme serveur précédent. Le contrôle d'erreur est directement intégré
   dans la couche transport.</para>
@@ -689,7 +702,7 @@ parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
 <programlisting>  int listenSocket, connectSocket, i;
 
 &lt;snipped/>
-<emphasis>listen(listenSocket, 5);</emphasis>
+listen(listenSocket, 5);
 
 while (1) {
   printf("Attente de connexion TCP sur le port %hu\n", listenPort);
@@ -704,14 +717,12 @@ while (1) {
   struct sockaddr_in serverAddress;
 
 &lt;snipped/>
-<emphasis>connectSocket = accept(listenSocket,</emphasis>
-                       (struct sockaddr *) &amp;clientAddress,
-		       &amp;clientAddressLength);
-
-if (connectSocket &lt; 0) {
-  fputs("Impossible d'accepter une connexion", stderr);
-  close(listenSocket);
-  exit(EXIT_FAILURE);
+  if ((connectSocket = accept(listenSocket, 
+                              (struct sockaddr *) &amp;clientAddress,
+                              &amp;clientAddressLength)) == -1) {
+    perror("accept:");
+    close(listenSocket);
+    exit(EXIT_FAILURE);
   }</programlisting>
 
   <para>En cas d'échec de l'ouverture du socket de réception des demandes
@@ -721,9 +732,9 @@ if (connectSocket &lt; 0) {
   <sect2 xml:id='socket-c.tcp.server.source'>
     <title>Patch code source</title>
 
-  <para>Patch du programme <systemitem>tcp-server.c</systemitem> :</para>
+  <para>Patch du programme <systemitem>tcp-listener.c</systemitem> :</para>
 
-<programlisting><xi:include href='files/tcp-server.c.patch'
+<programlisting><xi:include href='files/tcp-listener.c.patch'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
   </sect2>
 </sect1>
