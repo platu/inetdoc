@@ -4,7 +4,8 @@ endif
 
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
-	files
+	files \
+	images
 
 # Type(s) de traitement
 PROCESS = subdirs symlink xml2xhtml xml2pdf
