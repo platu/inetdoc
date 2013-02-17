@@ -1,6 +1,6 @@
 #-------------------------------------------------
 #
-# Project created by QtCreator 2012-02-26T17:43:37
+# Project created by QtCreator 2013-02-17T19:15:57
 #
 #-------------------------------------------------
 
@@ -9,7 +9,7 @@ QT       += network
 
 QT       -= gui
 
-TARGET = nogui-udp-receiver
+TARGET = nogui-udp-listener
 CONFIG   += console
 CONFIG   -= app_bundle
 

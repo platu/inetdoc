@@ -2,7 +2,7 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
-project = gui-udp-receiver nogui-udp-receiver
+project = gui-udp-listener nogui-udp-listener
 
 target = $(addsuffix .tar.gz, $(project))
 
