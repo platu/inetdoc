@@ -7,7 +7,8 @@ PROCESS = symlink
 
 SYMLINKS = \
         $(MAIN_DIR)/images/thumbs/thumb004.png \
-        $(MAIN_DIR)/images/thumbs/thumb006.png
+        $(MAIN_DIR)/images/thumbs/thumb006.png \
+        $(MAIN_DIR)/images/thumbs/thumb009.png
 
 all: $(PROCESS)
 
