@@ -12,6 +12,7 @@
 #define PORT_ARRAY_SIZE (MAX_PORT+1)
 #define MAX_MSG 80
 #define MSG_ARRAY_SIZE (MAX_MSG+1)
+#define BACKLOG 5
 // Utilisation d'une constante x dans la définition
 // du format de saisie
 #define str(x) # x
@@ -37,7 +38,7 @@ unsigned short int get_in_port(struct sockaddr *sa) {
 
 int main() {
 
-  int listenSocket, status, recv, i;
+  int listenSocket, connectSocket, status, i;
   unsigned short int msgLength;
   struct addrinfo hints, *servinfo, *p;
   socklen_t clientAddressLength;
@@ -52,9 +53,9 @@ int main() {
   scanf("%"xstr(MAX_PORT)"s", listenPort);
 
   memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_INET6; // IPv6 et IPv4 mappées
-  hints.ai_socktype = SOCK_DGRAM;
-  hints.ai_flags = AI_PASSIVE; // = Wildcard : toutes les adresses définies
+  hints.ai_family = AF_INET6;      // IPv6 et IPv4 mappées
+  hints.ai_socktype = SOCK_STREAM; // TCP
+  hints.ai_flags = AI_PASSIVE;     // Toutes les adresses disponibles
 
   if ((status = getaddrinfo(NULL, listenPort, &hints, &servinfo)) != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
@@ -115,45 +116,54 @@ int main() {
   // Libération de la mémoire occupée par les enregistrements
   freeaddrinfo(servinfo);
 
-  printf("Attente de requête sur le port %s\n", listenPort);
+  // Attente des requêtes des clients.
+  // Appel non bloquant et passage en mode passif
+  // Demandes d'ouverture de connexion traitées par accept
+  listen(listenSocket, BACKLOG);
 
   while (1) {
+    printf("Attente de connexion sur le port %s\n", listenPort);
 
     clientAddressLength = sizeof clientAddress;
+
+    // Appel bloquant en attente d'une nouvelle connexion
+    // connectSocket est la nouvelle prise utilisée pour la connexion active
+    if ((connectSocket = accept(listenSocket, 
+                                (struct sockaddr *) &clientAddress,
+				&clientAddressLength)) == -1) {
+      perror("accept:");
+      close(listenSocket);
+      exit(EXIT_FAILURE);
+    }
+
+    // Affichage de l'adresse IP du client.
+    inet_ntop(clientAddress.ss_family, get_in_addr((struct sockaddr *)&clientAddress),
+              ipstr, sizeof ipstr);
+    printf(">>  connecté à [%s]:", ipstr);
+
+    // Affichage du numéro de port du client.
+    printf("%hu\n", ntohs(get_in_port((struct sockaddr *)&clientAddress)));
 
     // Mise à zéro du tampon de façon à connaître le délimiteur
     // de fin de chaîne.
     memset(msg, 0, sizeof msg);
-    if ((recv = recvfrom(listenSocket, msg, sizeof msg, 0,
-                         (struct sockaddr *) &clientAddress,
-                         &clientAddressLength)) < 0) {
-      perror("recvfrom:");
-      exit(EXIT_FAILURE);
-    }
+    while (recv(connectSocket, msg, sizeof msg, 0) > 0) 
+      if ((msgLength = strlen(msg)) > 0) {
+        printf("  --  %s\n", msg);
 
-    if ((msgLength = strlen(msg)) > 0) {
-      // Affichage de l'adresse IP du client.
-      inet_ntop(clientAddress.ss_family, get_in_addr((struct sockaddr *)&clientAddress),
-                ipstr, sizeof ipstr);
-      printf(">>  Depuis [%s]:", ipstr);
+        // Conversion de cette ligne en majuscules.
+        for (i = 0; i < msgLength; i++)
+          msg[i] = toupper(msg[i]);
 
-      // Affichage du numéro de port du client.
-      printf("%hu\n", ntohs(get_in_port((struct sockaddr *)&clientAddress)));
+        // Renvoi de la ligne convertie au client.
+        if (send(connectSocket, msg, msgLength, 0) == -1) {
+          perror("send:");
+          close(listenSocket);
+          exit(EXIT_FAILURE);
+        }
 
-      // Affichage de la ligne reçue
-      printf(">>  Message reçu : %s\n", msg);
-
-      // Conversion de cette ligne en majuscules.
-      for (i = 0; i < msgLength; i++)
-        msg[i] = toupper(msg[i]);
-
-      // Renvoi de la ligne convertie au client.
-      if (sendto(listenSocket, msg, msgLength, 0, (struct sockaddr *) &clientAddress,
-                 sizeof clientAddress) < 0) {
-        perror("sendto:");
-        exit(EXIT_FAILURE);
+        memset(msg, 0, sizeof msg);  // Mise à zéro du tampon
       }
-    }
   }
 
   // Jamais atteint

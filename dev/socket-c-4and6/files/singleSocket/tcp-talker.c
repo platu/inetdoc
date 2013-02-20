@@ -22,8 +22,6 @@ int main()
   int socketDescriptor, status;
   unsigned int msgLength;
   struct addrinfo hints, *servinfo, *p;
-  struct timeval timeVal;
-  fd_set readSet;
   char msg[MSG_ARRAY_SIZE], serverPort[PORT_ARRAY_SIZE];
   bool sockSuccess;
 
@@ -37,7 +35,7 @@ int main()
 
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_DGRAM;
+  hints.ai_socktype = SOCK_STREAM;
 
   if ((status = getaddrinfo(msg, serverPort, &hints, &servinfo)) != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
@@ -69,6 +67,12 @@ int main()
     return 2;
   }
 
+  if (connect(socketDescriptor, p->ai_addr, p->ai_addrlen) == -1) {
+    perror("connect");
+    close(socketDescriptor);
+    exit(EXIT_FAILURE);
+  }
+
   puts("\nEntrez quelques caractères au clavier.");
   puts("Le serveur les modifiera et les renverra.");
   puts("Pour sortir, entrez une ligne avec le caractère '.' uniquement.");
@@ -92,27 +96,17 @@ int main()
         exit(EXIT_FAILURE);
       }
 
-      // Attente de la réponse pendant une seconde.
-      FD_ZERO(&readSet);
-      FD_SET(socketDescriptor, &readSet);
-      timeVal.tv_sec = 1;
-      timeVal.tv_usec = 0;
-
-      if (select(socketDescriptor+1, &readSet, NULL, NULL, &timeVal)) {
-        // Lecture de la ligne modifiée par le serveur.
-        memset(msg, 0, sizeof msg);  // Mise à zéro du tampon
-        if (recv(socketDescriptor, msg, sizeof msg, 0) == -1) {
-          perror("recv:");
-          close(socketDescriptor);
-          exit(EXIT_FAILURE);
-        }
-
-        printf("Message traité : %s\n", msg);
-      }
-      else {
-        puts("** Le serveur n'a répondu dans la seconde.");
+      // Lecture de la ligne modifiée par le serveur.
+      memset(msg, 0, sizeof msg);  // Mise à zéro du tampon
+      if (recv(socketDescriptor, msg, sizeof msg, 0) == -1) {
+        perror("recv:");
+        close(socketDescriptor);
+        exit(EXIT_FAILURE);
       }
     }
+
+    printf("Message traité : %s\n", msg);
+
     // Invite de commande pour l'utilisateur et lecture des caractères jusqu'à la
     // limite MAX_MSG. Puis suppression du saut de ligne en mémoire tampon.
     // Comme ci-dessus.
