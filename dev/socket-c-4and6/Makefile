@@ -4,7 +4,8 @@ endif
 
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
-	files
+	images \
+	files/showip
 
 # Type(s) de traitement
 PROCESS = subdirs symlink xml2xhtml xml2pdf
@@ -19,7 +20,8 @@ XML_FILES = \
         author.xml \
         legal.xml \
 	inetdoc.urls.xml \
-	$(wildcard files/*.c) \
+	$(wildcard files/dns/*) \
+	$(wildcard files/showip/*) \
 	$(wildcard images/*.odg)
 
 all: $(PROCESS)

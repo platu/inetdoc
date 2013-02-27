@@ -74,6 +74,8 @@
 
     <!-- These extensions are required for table printing and other stuff -->
     <xsl:param name="use.extensions" select="1" />
+    <xsl:param name="callouts.extension" select="1" />
+    <xsl:param name="textinsert.extension" select="1" />
     <xsl:param name="tablecolumns.extension" select="0" />
     <xsl:param name="callout.extensions" select ="1" />
     <xsl:param name="graphicsize.extension" select="0" />
