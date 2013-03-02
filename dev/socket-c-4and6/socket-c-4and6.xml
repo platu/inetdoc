@@ -8,13 +8,25 @@
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
 
-<!ENTITY url.tutorial.archive
-   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://web.archive.org/web/20080703122104/http://sage.mc.yu.edu/kbeen/teaching/networking/resources/sockets.html">
-   <citetitle>brief socket tutorial</citetitle></link>'>
-
 <!ENTITY url.guide
    '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://beej.us/guide/bgnet/">
    <citetitle>Beej&#39;s Guide to Network Programming</citetitle></link>'>
+
+<!ENTITY url.tutorial-archive
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://web.archive.org/web/20080703122104/http://sage.mc.yu.edu/kbeen/teaching/networking/resources/sockets.html">
+   <citetitle>brief socket tutorial</citetitle></link>'>
+
+<!ENTITY url.bortzmeyer-bindv6only
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.bortzmeyer.org/bindv6only.html">
+   <citetitle>Lier une prise à IPv6 seulement ou bien aux deux familles, v4 et v6 ?</citetitle></link>'>
+
+<!ENTITY url.livre-g6-bindv6only
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://livre.g6.asso.fr/index.php/Programmation_d&#39;applications_bis#L.27option_IPV6_V6ONLY">
+   <citetitle>L&#39;option IPV6_V6ONLY</citetitle></link>'>
+
+<!ENTITY url.v6address
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.v6address.com/node/16">
+   <citetitle>Sample Code for Dual Stack Applications Using Non-Blocking Sockets</citetitle></link>'>
 ]>
 
 <article xml:id='socket-c-4and6' xml:lang='fr'>
@@ -305,57 +317,276 @@
   définir les conditions d'ouverture des «prises» réseau ou
   <wordasword>sockets</wordasword>.</para>
 
-  <bridgehead renderas='sect2'>Code source complet du programme showip.c</bridgehead>
+  <bridgehead renderas='sect2'>Exemple d'utilisation du programme showip</bridgehead>
+
+  <para>L'exemple donné ci-dessous montre que deux adresses
+  <acronym>IP</acronym> sont assoicées au nom d'hôte
+  <systemitem>vm1.fake.domain</systemitem>.</para>
+
+<screen><prompt>$</prompt> ./showip.o vm1.fake.domain
+IP addresses for vm1.fake.domain:
+
+ IPv6: 2001:db8:feb2:10::11
+ IPv4: 192.0.2.11</screen>
+
+  <bridgehead renderas='sect2' xml:id='socket-c-4and6.showip'>Code source
+  complet du programme showip.c</bridgehead>
 
   <programlisting><xi:include href='files/showip/showip.c'
   parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
 </sect1>
 
+<sect1 xml:id='socket-c-4and6.dual-what'>
+  <title>Choisir entre socket simple ou double</title>
+
+  <para>Avant d'aborder le codage des applications supportant les deux
+  protocoles de couche réseau, il convient de poser les termes du débat. Deux
+  lignes de conduite s'affrontent depuis des années sans que l'une ait réussi à
+  prendre l'ascendant sur l'autre. L'objectif du présent document n'est pas
+  d'affirmer une position mais d'exposer les arguments des uns et des autres.
+  Ensuite, on étudiera dans les sections suivantes le même programme écrit
+  suivant les deux modes de fonctionnement possibles.</para>
+
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.dual-what.singlesocket'>Codage basé sur un socket
+  simple</bridgehead>
+
+  <para>On pourrait qualifier cette ligne de conduite comme étant la plus
+  <emphasis>académique</emphasis>. En effet, en reprenant les principes énoncés
+  dans le cours sur la modélisation (voir &url.modelisations;), on postule que
+  les traitements réalisés au niveau de chaque couche doivent être indépendants
+  les uns des autres. Dans notre contexte, un programme de la couche
+  application ne doit pas dépendre des protocoles de la couche réseau. Le
+  principal argument en faveur de cette position est la pérennité du modèle. Si
+  les traitements entre couches introduisent des relations de dépendance
+  multiples, nous allons très vite être confronté à un écheveau
+  inextricable. Plus il y aura de dépendances, moins le modèle sera évolutif et
+  pérenne dans le temps.</para>
+
+  <para>On peut représenter cette solution comme suit.</para>
+
+  <mediaobject xml:id='socket-c-4and6-dual-stack-single-socket'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/dual-stack-single-socket.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/dual-stack-single-socket.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>dual stack single socket</phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Pour satisfaire le critère sur l'unicité du canal de communication
+  entre la couche réseau et la couche transport, il est nécessaire d'établir
+  une correspondance automatique entre les adresses <acronym>IPv4</acronym> et
+  les adresses <acronym>IPv6</acronym>. On parle de <wordasword>IPv4-mapped
+  IPv6 addresses</wordasword>. Par exemple, l'adresse <acronym>IPv4</acronym>
+  <systemitem class='ipaddress'>192.0.2.10</systemitem> devient <systemitem
+  class='ipaddress'>::ffff:192.0.2.10</systemitem> après correspondance.</para>
+
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.dual-what.doublesocket'>Codage basé sur deux sockets
+  non bloquants</bridgehead>
+
+  <para>La seconde ligne de conduite s'appuie sur le fait que le support de
+  l'option <option>bindv6only</option> n'est pas uniforme entre les différents
+  systèmes d'exploitation. On observe des comportements différents entre les
+  distributions <citetitle>BSD</citetitle>, <citetitle>Linux</citetitle> et les
+  systèmes propriétaires. Cette option, que l'on applique à l'échelle du
+  système ou dans une application, sert à définir si une prise réseau
+  (<wordasword>socket</wordasword>) doit exclusivement être associée au seul
+  protocole réseau <acronym>IPv6</acronym> ou non.</para>
+
+  <para>Les partisans de cette position souhaitent que tous les programmes de
+  la couche application gèrent deux <wordasword>sockets</wordasword>
+  distincts. Cette solution a un impact important sur le codage des
+  applications en langage C dans les domaines voisins de l'espace mémoire noyau
+  comme les systèmes embarqués. Pour les langages «bien encrés» dans l'espace
+  utilisateur, le recours à des bibliothèques de haut niveau permet de rendre
+  l'opération transparente.</para>
+
+  <para>On peut représenter cette solution comme suit.</para>
+
+  <mediaobject xml:id='socket-c-4and6-dual-stack-double-socket'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/dual-stack-double-socket.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/dual-stack-double-socket.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>dual stack double socket</phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Pour qu'un unique processus puisse exploiter deux canaux de
+  communication entre les couches application et transport, il est nécessaire
+  d'utiliser des appels système non bloquant et de scruter les deux canaux en
+  attente d'évènements. On a lors recours à la fonction
+  <function>select()</function> qui permet de mettre en place une boucle de
+  scrutation (<wordasword>polling</wordasword>).</para>
+
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.dual-what.lab'>Programmes et infrastructure de
+  test</bridgehead>
+
+  <para>Voici un tableau de synthèse des tests effectués avec les différents
+  codes proposés dans ce document.</para>
+
+
+  <table xml:id='socket-c-4and6-lab-testing' frame='all' pgwide='1'>
+    <title>Protocole de couche réseau utilisé suivant les conditions de tests</title>
+    <tgroup cols='3'>
+    <colspec colnum='1' colwidth='1*'/>
+    <colspec colnum='2' colwidth='1*'/>
+    <colspec colnum='3' colwidth='1*'/>
+    <thead>
+      <row>
+        <entry>
+	<para>client ou <wordasword>talker</wordasword></para>
+	</entry>
+	<entry>
+	<para>Serveur ou <wordasword>listener</wordasword></para>
+	<para><wordasword>socket</wordasword> unique</para>
+	<para><option>bindv6only = 0</option></para>
+	<para><systemitem>vm1.fake.domain</systemitem></para>
+	</entry>
+	<entry>
+	<para>Serveur ou <wordasword>listener</wordasword></para>
+	<para><wordasword>socket</wordasword> double</para>
+	<para><option>bindv6only = 1</option> ->
+	<wordasword>socket</wordasword> <acronym>IPv6</acronym></para>
+	<para><systemitem>vm1.fake.domain</systemitem></para>
+	</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+        <entry>
+	<para>Client <wordasword>dual stack</wordasword></para>
+	<para><option>disable_ipv6 = 0</option></para>
+	<para><systemitem>vm2.fake.domain</systemitem></para>
+	</entry>
+	<entry>
+	<para><acronym>IPv6</acronym></para>
+	</entry>
+	<entry>
+	<para><acronym>IPv6</acronym></para>
+	</entry>
+      </row>
+      <row>
+        <entry>
+	<para>Client <wordasword>single stack</wordasword></para>
+	<para><option>disable_ipv6 = 1</option></para>
+	<para><systemitem>vm3.fake.domain</systemitem></para>
+	</entry>
+	<entry>
+	<para><acronym>IPv6</acronym></para>
+	<para><wordasword>IPv4-mapped IPv6 addresses</wordasword></para>
+	</entry>
+	<entry>
+	<para><acronym>IPv4</acronym></para>
+	</entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+
+</sect1>
+
 <sect1 xml:id='socket-c-4and6.refdocs'>
   <title>Documents de référence</title>
 
-  <variablelist>
-    <varlistentry xml:id='socket-c-4and6.refdocs.tutorial'>
-      <term><citetitle>A Brief Socket Tutorial</citetitle></term>
-      <listitem>
-	<para>&url.tutorial.archive; : support proposant des exemples de
-	programmes de communication réseau basés sur les sockets. Le présent
-	document est <emphasis>très fortement inspiré</emphasis> des exemples
-	utilisant le protocole de transport<acronym>UDP</acronym>.</para>
-      </listitem>
-    </varlistentry>
+  <para>Voici une liste de liens vers les différents supports qui ont été
+  utilisés pour rédiger ce document. Parmi ces liens, ont peut distinguer ceux
+  qui ont servi à argumenter sur les choix entre les deux grandes solutions de
+  codage <wordasword>dual stack</wordasword> et ceux dont le code a été repris
+  (ou «odieusement copié») pour fournir les exemples de programmes.</para>
 
+  <variablelist>
     <varlistentry xml:id='socket-c-4and6.refdocs.guide'>
       <term><citetitle>Beej's Guide to Network Programming</citetitle></term>
       <listitem>
-	<para>&url.guide; : support très complet sur les sockets proposant
-	de nombreux exemples de	programmes.</para>
+	<para>Le guide (ou le livre) &url.guide; est un support très complet
+	sur les <wordasword>sockets</wordasword>. Il propose de nombreux
+	exemples de programmes et des indications essentielles sur
+	l'utilisation des bibliothèques standard. Le programme <link
+	linkend='socket-c-4and6.showip'><application>showip</application></link>
+	de la <xref linkend='socket-c-4and6.getaddrinfo'/> est directement
+	extrait du guide.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='socket-c-4and6.refdocs.tutorial'>
+      <term><citetitle>A Brief Socket Tutorial</citetitle></term>
+      <listitem>
+	<para>La page d'archive &url.tutorial-archive; a été le premier support
+	utilisé pour bâtir les documents du site <citetitle>inetdoc</citetitle>
+	sur le thème du développement d'applications réseau. C'est de là que
+	vient l'idée du programme de <wordasword>chat</wordasword> minimaliste
+	avec échange de chaînes de caractères.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='socket-c-4and6.refdocs.bortzmeyer-bindv6only'>
+      <term><citetitle>Lier une ou deux prises ?</citetitle></term>
+      <listitem>
+	<para>Le billet &url.bortzmeyer-bindv6only; développe l'argumentation
+	en faveur de la «solution académique» respectant la modélisation. Cette
+	solution est présentée en <xref
+	linkend='socket-c-4and6.dual-what.singlesocket'/>.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='socket-c-4and6.refdocs.livre-g6-bindv6only'>
+      <term><citetitle>Livre IPv6 Théorie et Pratique</citetitle></term>
+      <listitem>
+	<para>La section &url.livre-g6-bindv6only; résume très bien
+	l'implication de l'utilisation de l'option <option>bindv6only</option>
+	à l'échelle système ou lors de l'ouverture d'une prise
+	(<wordasword>socket</wordasword>) ainsi que les codes d'erreur
+	associés.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='socket-c-4and6.refdocs.v6address'>
+      <term><citetitle>What are my IP addresses?</citetitle></term>
+      <listitem>
+	<para>Sur la page &url.v6address;, la section intitulée <citetitle>Dual
+	Stack Server Issues</citetitle> argumente en faveur de l'utilisation de
+	deux prises ou <wordasword>sockets</wordasword> distinctes.</para>
       </listitem>
     </varlistentry>
 
     <varlistentry xml:id='socket-c-4and6.refdocs.modelisation'>
       <term><citetitle>Modélisations réseau</citetitle></term>
       <listitem>
-	<para>&url.modelisations; : présentation et comparaison des
-	modélisations <acronym>OSI</acronym> et Internet.</para>
+	<para>Le support de cours &url.modelisations; présente les grandes
+	caractéristiques des deux modélisations réseau historiques
+	<acronym>OSI</acronym> et Internet. Il introduit aussi le modèle
+	«contemporain» qui fait la synthèse. Ce modèle contemporain en 5
+	couches est ensuite utilisé dans tous les autres documents du
+	site.</para>
       </listitem>
     </varlistentry>
 
     <varlistentry xml:id='socket-c-4and6.refdocs.adressage.ipv4'>
       <term><citetitle>Adressage IPv4</citetitle></term>
       <listitem>
-	<para>&url.adressage.ipv4; : support complet sur l'adressage du
-	protocole de couche réseau de l'Internet
-	(<acronym>IP</acronym>).</para>
+	<para>Le support &url.adressage.ipv4; présente les différentes
+	évolution du plan d'adressage du protocole
+	<acronym>IPv4</acronym>.</para>
       </listitem>
     </varlistentry>
 
     <varlistentry xml:id='socket-c-4and6.refdocs.config.interface.lan'>
       <term><citetitle>Configuration d'une interface réseau</citetitle></term>
       <listitem>
-        <para>&url.config.interface.lan; : support sur la configuration des
-	interfaces réseau. Il permet notamment de relever les adresses
-	<acronym>IP</acronym> des hôtes en communication.</para>
+	<para>Le support &url.config.interface.lan; présente les outils de
+	configuration des interfaces réseau. Il permet notamment de relever les
+	adresses <acronym>IP</acronym> et <acronym>MAC</acronym> des hôtes en
+	communication.</para>
       </listitem>
     </varlistentry>
   </variablelist>
