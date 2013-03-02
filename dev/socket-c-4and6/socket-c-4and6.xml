@@ -278,7 +278,8 @@
     </callout>
   </calloutlist>
 
-  <bridgehead renderas='sect2'>Boucle de parcours des enregistrements</bridgehead>
+  <bridgehead renderas='sect2'>Boucle de parcours des enregistrements
+  addrinfo</bridgehead>
 
 <programlisting>
 &lt;snipped/>
@@ -336,6 +337,7 @@ IP addresses for vm1.fake.domain:
   parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='socket-c-4and6.dual-what'>
   <title>Choisir entre socket simple ou double</title>
 
@@ -492,7 +494,126 @@ IP addresses for vm1.fake.domain:
     </tbody>
     </tgroup>
   </table>
+</sect1>
 
+<sect1 xml:id='socket-c-4and6.client'>
+  <title>Client ou talker</title>
+
+  <para>Relativement aux conditions énoncées dans la section précédente (<xref
+  linkend='socket-c-4and6-lab-testing'/>), l'objectif ici est de présenter un
+  programme unique qui fonctionne indifféremment dans les deux modes :
+  <wordasword>dual stack</wordasword> avec <acronym>IPv4</acronym> +
+  <acronym>IPv6</acronym> et <wordasword>single stack</wordasword> avec
+  <acronym>IPv4</acronym> uniquement.</para>
+
+  <para>Dans ce but, on reprend le code donné dans la <xref
+  linkend='socket-c-4and6.getaddrinfo'/>. Suivant le contenu des
+  enregistrements de type <parameter>addrinfo</parameter> renseignés par
+  l'appel à <function>getaddrinfo()</function>, le choix du protocole de couche
+  réseau se fait automatiquement à partir de la configuration système. Sur un
+  système <wordasword>dual stack</wordasword> l'enregistrement
+  <acronym>IPv6</acronym> est en première position alors que sur un système
+  <wordasword>single stack</wordasword>, seul l'enregistrement
+  <acronym>IPv4</acronym> est disponible. Par conséquent, la boucle de
+  scrutation des enregistrements s'arrête à l'ouverture de la première prise
+  réseau (<wordasword>socket</wordasword>) valide.</para>
+  
+  <para>Sur un système GNU/Linux, on consulte l'indicateur d'état
+  <option>disable_ipv6</option> à l'aide de l'instruction suivante.</para>
+
+<screen><prompt>$</prompt> cat /proc/sys/net/ipv6/conf/all/disable_ipv6
+0</screen>
+
+  <para>Dans l'infrastructure de test utilisée pour ce document, on a créé le
+  fichier <filename>/etc/sysctl.d/disableipv6.conf</filename> sur le système
+  <systemitem>vm3.fake.domain</systemitem> pour désactiver l'utilisation du
+  protocole <acronym>IPv6</acronym>. Le contenu de ce fichier est le
+  suivant.</para>
+
+<screen><prompt>$</prompt> cat /etc/sysctl.d/disableipv6.conf 
+net.ipv6.conf.all.disable_ipv6=1
+net.ipv6.conf.default.disable_ipv6=1</screen>
+
+  <bridgehead renderas='sect2' xml:id='socket-c-4and6.talker-addrinfo'>Boucle
+  de parcours des enregistrements addrinfo</bridgehead>
+
+<programlisting>
+&lt;snipped/>
+
+  p = servinfo;
+  while((p != NULL)<co xml:id='udp-talker-last'/> &amp;&amp; !sockSuccess)<co xml:id='sockSuccess'/> {
+
+    // Identification de la famille d'adresse
+    if (p->ai_family == AF_INET)
+      puts("Open IPv4 socket");
+    else
+      puts("Open IPv6 socket");
+
+    if ((socketDescriptor = socket (p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+      perror("socket:");
+      sockSuccess = false; // Echec ouverture socket
+      p = p->ai_next;      // Enregistrement d'adresse suivant
+    }
+    else // La prise réseau est valide
+      sockSuccess = true;
+  }
+
+  if (p == NULL) {<co xml:id='sockSuccessFail'/>
+    fputs("Création de socket impossible", stderr);
+    return 2;
+  }</programlisting>
+
+  <calloutlist>
+    <callout arearefs='udp-talker-last'>
+    <para>Dès que l'adresse du pointeur <option>p</option> vaut
+    <option>NULL</option>, il n'y a plus d'enregistrement à examiner.</para>
+    </callout>
+    <callout arearefs='sockSuccess'>
+    <para>La variable booléenne <option>sockSuccess</option> est initialisée à
+    la valeur <option>false</option>. Dès qu'une prise réseau a été ouverte
+    avec succès, on arrête la scrutation des enregistrements.</para>
+    </callout>
+    <callout arearefs='sockSuccessFail'>
+    <para>Si, en sortie de la boucle de scrutation des enregsitrements de type
+    <option>addrinfo</option> l'adresse du pointeur <option>p</option> vaut
+    <option>NULL</option>, aucune prise réseau n'a été ouverte. L'exécution du
+    programme s'arrête là.</para>
+    </callout>
+  </calloutlist>
+
+  <para>Les autres particularités du programme client <acronym>UDP</acronym> ou
+  <wordasword>udp-talker</wordasword> sont décrites dans le support
+  &url.socket-c;. Il faut simplement noter que la fonction
+  <function>select()</function> est utilisée ici pour gérer une temporisation
+  d'attente de la réponse du serveur. Le protocole de couche transport
+  <acronym>UDP</acronym> n'est pas orienté connexion et n'offre aucun service
+  de fiabilisation. Il incombe donc à la couche application d'assurer une forme
+  de détection d'erreur. Dans notre cas, le client attend la réponse du
+  traitement effectué par le serveur pendant une seconde. Si aucune réponse n'a
+  été reçue dans le temps imparti, il faut considérer que le message émis a été
+  perdu.</para>
+
+  <bridgehead renderas='sect2' xml:id='socket-c-4and6.udp-talker'>Code source
+  complet du programme udp-talker.c</bridgehead>
+
+  <programlisting><xi:include href='files/talker/udp-talker.c'
+  parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+
+  <bridgehead renderas='sect2' xml:id='socket-c-4and6.tcp-talker'>Code source
+  du correctif tcp-talker.c.patch</bridgehead>
+
+  <para>Le passage du protocole de couche transport <acronym>UDP</acronym> au
+  protocole <acronym>TCP</acronym> ne présente aucune singularité relativement
+  au document initial : &url.socket-c;. Le protocole <acronym>TCP</acronym> est
+  orienté connexion et assure la fiabilisation des échanges de bout en bout. Le
+  correctif suivant fait apparaître l'appel à la fonction
+  <function>connect()</function> qui correspond à la phase d'établissement de
+  la connexion. De plus, le recours à la temporisation d'attente de réponse
+  devient inutile. Les variables de gestion du temps et l'appel à
+  <function>select()</function> est donc supprimé.</para>
+
+  <programlisting><xi:include href='files/talker/tcp-talker.c.patch'
+  parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
 </sect1>
 
 <sect1 xml:id='socket-c-4and6.refdocs'>
