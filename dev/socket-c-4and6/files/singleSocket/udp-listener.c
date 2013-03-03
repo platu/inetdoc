@@ -52,9 +52,9 @@ int main() {
   scanf("%"xstr(MAX_PORT)"s", listenPort);
 
   memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_INET6; // IPv6 et IPv4 mappées
-  hints.ai_socktype = SOCK_DGRAM;
-  hints.ai_flags = AI_PASSIVE; // = Wildcard : toutes les adresses définies
+  hints.ai_family = AF_INET6;      // IPv6 et IPv4 mappées
+  hints.ai_socktype = SOCK_DGRAM;  // UDP
+  hints.ai_flags = AI_PASSIVE;     // Toutes les adresses disponibles
 
   if ((status = getaddrinfo(NULL, listenPort, &hints, &servinfo)) != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
@@ -149,7 +149,7 @@ int main() {
 
       // Renvoi de la ligne convertie au client.
       if (sendto(listenSocket, msg, msgLength, 0, (struct sockaddr *) &clientAddress,
-                 sizeof clientAddress) < 0) {
+                 sizeof clientAddress) == -1) {
         perror("sendto:");
         exit(EXIT_FAILURE);
       }

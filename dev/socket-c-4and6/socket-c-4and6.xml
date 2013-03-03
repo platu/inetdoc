@@ -501,10 +501,10 @@ IP addresses for vm1.fake.domain:
 
   <para>Relativement aux conditions énoncées dans la section précédente (<xref
   linkend='socket-c-4and6-lab-testing'/>), l'objectif ici est de présenter un
-  programme unique qui fonctionne indifféremment dans les deux modes :
-  <wordasword>dual stack</wordasword> avec <acronym>IPv4</acronym> +
-  <acronym>IPv6</acronym> et <wordasword>single stack</wordasword> avec
-  <acronym>IPv4</acronym> uniquement.</para>
+  programme pour chaque protocole de la couche transport qui fonctionne
+  indifféremment dans les deux modes : <wordasword>dual stack</wordasword> avec
+  <acronym>IPv4</acronym> + <acronym>IPv6</acronym> et <wordasword>single
+  stack</wordasword> avec <acronym>IPv4</acronym> uniquement.</para>
 
   <para>Dans ce but, on reprend le code donné dans la <xref
   linkend='socket-c-4and6.getaddrinfo'/>. Suivant le contenu des
@@ -616,6 +616,233 @@ net.ipv6.conf.default.disable_ipv6=1</screen>
   parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
 </sect1>
 
+<sect1 xml:id='socket-c-4and6.singleSocket-listener'>
+  <title>Serveur ou listener socket unique</title>
+
+  <para>Comme dans le cas du programme client, l'utilisation des programmes
+  présentés dans cette section est définie dans le <xref
+  linkend='socket-c-4and6-lab-testing'/>. On propose un programme pour chaque
+  protocole de la couche transport qui utilise une prise réseau
+  (<wordasword>socket</wordasword>) unique indépendante du protocole de couche
+  réseau utilisé.</para>
+
+  <para>Dans ce but, on reprend à nouveau la boucle de parcours des
+  enregistrements de type <parameter>addrinfo</parameter> à la suite de l'appel
+  à la fonction <function>getaddrinfo()</function>. La boucle de parcours
+  s'interrompt dès qu'une prise réseau (<wordasword>socket</wordasword>) est
+  ouverte avec succès. Ce principe est donc identique à celui adopté pour le
+  programme client ou <wordasword>talker</wordasword> (voir <xref
+  linkend='socket-c-4and6.client'/>). Le code <link
+  linkend='socket-c-4and6.singleSocket-udp-listener'>présenté ci-dessous</link>
+  se distingue du précédent par le nombre d'étapes à franchir avec succès pour
+  confirmer l'ouverture de la prise réseau
+  (<wordasword>socket</wordasword>).</para>
+
+  <orderedlist numeration='arabic'>
+    <listitem>
+    <para>Appel à la fonction <function>socket()</function>.</para>
+    </listitem>
+    <listitem>
+    <para>Appel à la fonction <function>setsockopt()</function> si la famille
+    de <wordasword>socket</wordasword> utilisée correspond au protocole
+    <acronym>IPv6</acronym>. C'est grâce à cet appel que l'on applique l'option
+    <option>bindv6only=0</option> qui assure la prise en charge transparente
+    des deux protocoles de couche réseau.</para>
+    </listitem>
+    <listitem>
+    <para>Appel à la fonction <function>bind()</function>.</para>
+    </listitem>
+  </orderedlist>
+
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.singleSocket-udp-run'>Exemple d'exécution des programmes
+  udp-listener et udp-talker</bridgehead>
+
+  <itemizedlist>
+    <listitem>
+    <para>Copie d'écran côté serveur ou <wordasword>listener</wordasword>.</para>
+
+<screen><prompt>$</prompt> ./udp-listener.o 
+Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : 
+5000
+ IPv6: ::
+Attente de requête sur le port 5000
+>>  Depuis <emphasis>[2001:db8:feb2:10::12]:54272</emphasis>
+>>  Message reçu : Message émis depuis vm2.fake.domain
+>>  Depuis <emphasis>[::ffff:192.0.2.13]:51254</emphasis>
+>>  Message reçu : message émis depuis vm3.fake.domain</screen>
+
+    <para>Comme indiqué dans le <xref linkend='socket-c-4and6-lab-testing'/>,
+    le client <systemitem>vm2.fake.domain</systemitem> apparaît avec son
+    adresse <acronym>IPv6</acronym> tandis que le client
+    <systemitem>vm4.fake.domain</systemitem> apparaît avec une adresse
+    <acronym>IPv6</acronym> établie par correspondance avec son adresse
+    <acronym>IPv4</acronym> (<wordasword>IPv4-mapped IPv6
+    address</wordasword>).</para>
+    </listitem>
+    <listitem>
+    <para>Copie d'écran côté client ou <wordasword>talker</wordasword>
+    <wordasword>dual stack</wordasword> ; hôte
+    <systemitem>vm2.fake.domain</systemitem>.</para>
+
+<screen><prompt>$</prompt> ./udp-talker.o 
+Entrez le nom du serveur ou son adresse IP : 
+vm1.fake.domain
+Entrez le numéro de port du serveur : 
+5000
+<emphasis>Open IPv6 socket</emphasis>
+
+Entrez quelques caractères au clavier.
+Le serveur les modifiera et les renverra.
+Pour sortir, entrez une ligne avec le caractère '.' uniquement.
+Si une ligne dépasse 80 caractères,
+seuls les 80 premiers caractères seront utilisés.
+
+Saisie du message : 
+Message émis depuis vm2.fake.domain
+Message traité : MESSAGE éMIS DEPUIS VM2.FAKE.DOMAIN
+Saisie du message : 
+.</screen>
+    </listitem>
+    <listitem>
+    <para>Copie d'écran côté client ou <wordasword>talker</wordasword>
+    <wordasword>single stack</wordasword> <acronym>IPv4</acronym> ; hôte
+    <systemitem>vm3.fake.domain</systemitem>.</para>
+
+<screen><prompt>$</prompt> ./udp-talker.o 
+Entrez le nom du serveur ou son adresse IP : 
+vm1.fake.domain
+Entrez le numéro de port du serveur : 
+5000
+<emphasis>Open IPv4 socket</emphasis>
+
+Entrez quelques caractères au clavier.
+Le serveur les modifiera et les renverra.
+Pour sortir, entrez une ligne avec le caractère '.' uniquement.
+Si une ligne dépasse 80 caractères,
+seuls les 80 premiers caractères seront utilisés.
+
+Saisie du message : 
+message émis depuis vm3.fake.domain
+Message traité : MESSAGE éMIS DEPUIS VM3.FAKE.DOMAIN
+Saisie du message : 
+.</screen>
+    </listitem>
+  </itemizedlist>
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.singleSocket-udp-listener'>Code source complet du
+  programme udp-listener.c</bridgehead>
+
+  <programlisting><xi:include href='files/singleSocket/udp-listener.c'
+  parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.singleSocket-tcp-listener'>Code source du correctif
+  tcp-listener.c.patch</bridgehead>
+
+  <para>Toujours comme dans le cas du programme client ou
+  <wordasword>talker</wordasword>, le passage du protocole de couche transport
+  <acronym>UDP</acronym> au protocole <acronym>TCP</acronym> ne présente aucune
+  modification de fond dans la gestion de prise réseau
+  (<wordasword>socket</wordasword>). En revanche, le protocole
+  <acronym>TCP</acronym> est orienté connexion et l'échange d'information est
+  toujours précédé de l'établissement de la connexion. Côté client, on fait
+  appel à la fonction <function>connect()</function> et côté serveur on fait
+  appel à la fonction <function>accept()</function>.</para> 
+
+  <programlisting><xi:include href='files/singleSocket/tcp-listener.c.patch'
+  parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.singleSocket-tcp-run'>Exemple d'exécution des programmes
+  tcp-listener et tcp-talker</bridgehead>
+
+  <para>En faisant abstraction des modes de fonctionnement des deux protocoles
+  de couche transport, on constate que le comportement des programmes est
+  identique.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Copie d'écran côté serveur ou <wordasword>listener</wordasword>.</para>
+
+<screen><prompt>$</prompt> ./tcp-listener.o 
+Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : 
+5000
+ IPv6: ::
+Attente de connexion sur le port 5000
+>>  connecté à <emphasis>[2a01:240:feb2:10::12]:32892</emphasis>
+  --  Message émis depuis vm2.fake.domain
+Attente de connexion sur le port 5000
+>>  connecté à <emphasis>[::ffff:192.0.2.13]:40622</emphasis>
+  --  message émis depuis vm3.fake.domain
+Attente de connexion sur le port 5000</screen>
+    </listitem>
+    <listitem>
+    <para>Copie d'écran côté client ou <wordasword>talker</wordasword>
+    <wordasword>dual stack</wordasword> ; hôte
+    <systemitem>vm2.fake.domain</systemitem>.</para>
+
+<screen><prompt>$</prompt> ./tcp-talker.o 
+Entrez le nom du serveur ou son adresse IP : 
+vm1.fake.domain
+Entrez le numéro de port du serveur : 
+5000
+<emphasis>Open IPv6 socket</emphasis>
+
+Entrez quelques caractères au clavier.
+Le serveur les modifiera et les renverra.
+Pour sortir, entrez une ligne avec le caractère '.' uniquement.
+Si une ligne dépasse 80 caractères,
+seuls les 80 premiers caractères seront utilisés.
+
+Saisie du message : 
+Message émis depuis vm2.fake.domain
+Message traité : MESSAGE éMIS DEPUIS VM2.FAKE.DOMAIN
+Saisie du message : 
+.</screen>
+    </listitem>
+    <listitem>
+    <para>Copie d'écran côté client ou <wordasword>talker</wordasword>
+    <wordasword>single stack</wordasword> <acronym>IPv4</acronym> ; hôte
+    <systemitem>vm3.fake.domain</systemitem>.</para>
+
+<screen><prompt>$</prompt> ./tcp-talker.o 
+Entrez le nom du serveur ou son adresse IP : 
+vm1.fake.domain
+Entrez le numéro de port du serveur : 
+5000
+<emphasis>Open IPv4 socket</emphasis>
+
+Entrez quelques caractères au clavier.
+Le serveur les modifiera et les renverra.
+Pour sortir, entrez une ligne avec le caractère '.' uniquement.
+Si une ligne dépasse 80 caractères,
+seuls les 80 premiers caractères seront utilisés.
+
+Saisie du message : 
+message émis depuis vm3.fake.domain
+Message traité : MESSAGE éMIS DEPUIS VM3.FAKE.DOMAIN
+Saisie du message : 
+.</screen>
+    </listitem>
+  </itemizedlist>
+</sect1>
+
+<sect1 xml:id='socket-c-4and6.doubleSocket-listener'>
+  <title>Serveur ou listener socket double</title>
+
+  <para>Comme dans les deux sections précédentes, l'utilisation des programmes
+  présentés dans cette section est définie dans le <xref
+  linkend='socket-c-4and6-lab-testing'/>. On propose un programme pour chaque
+  protocole de la couche transport qui utilise deux prises réseau
+  (<wordasword>socket</wordasword>) ; une par protocole de couche
+  réseau.</para>
+
+  <para>La boucle de parcours des enregistrements de type
+  <parameter>addrinfo</parameter> est modifié de façon à ce qu'une prise réseau
+  soit ouverte par famille de protocole de couche réseau.</para>
+</sect1>
+
 <sect1 xml:id='socket-c-4and6.refdocs'>
   <title>Documents de référence</title>
 
@@ -713,6 +940,7 @@ net.ipv6.conf.default.disable_ipv6=1</screen>
   </variablelist>
 </sect1>
 
+<?custom-pagebreak?>
 <appendix xml:id='socket-c-4and6.appendix'>
   <title>Annexes</title>
 
