@@ -14,8 +14,8 @@ int main()
 {
   int listenSocket, connectSocket, i;
   unsigned short int listenPort, msgLength;
-  socklen_t clientAddressLength;
   struct sockaddr_in clientAddress, serverAddress;
+  socklen_t clientAddressLength = sizeof clientAddress;
   char msg[MSG_ARRAY_SIZE];
 
   puts("Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : ");
@@ -60,8 +60,6 @@ int main()
     // connexions supplémentaires reçues par listenSocket avant que
     // connectSocket soit clos ; mais ce programme ne fonctionne pas de cette
     // façon.
-    clientAddressLength = sizeof(clientAddress);
-
     if ((connectSocket = accept(listenSocket, 
                                 (struct sockaddr *) &clientAddress,
 				&clientAddressLength)) == -1) {
