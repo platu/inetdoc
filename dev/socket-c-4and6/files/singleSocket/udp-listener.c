@@ -40,12 +40,12 @@ int main() {
   int listenSocket, status, recv, i;
   unsigned short int msgLength;
   struct addrinfo hints, *servinfo, *p;
-  socklen_t clientAddressLength;
   struct sockaddr_storage clientAddress;
+  socklen_t clientAddressLength = sizeof clientAddress;
   void *addr;
   char msg[MSG_ARRAY_SIZE], listenPort[PORT_ARRAY_SIZE], ipstr[INET6_ADDRSTRLEN], ipver;
   int optval = 0; // socket unique et IPV6_V6ONLY à 0
-  bool sockSuccess;
+  bool sockSuccess = false;
 
   memset(listenPort, 0, sizeof listenPort);  // Mise à zéro du tampon
   puts("Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : ");
@@ -119,8 +119,6 @@ int main() {
 
   while (1) {
 
-    clientAddressLength = sizeof clientAddress;
-
     // Mise à zéro du tampon de façon à connaître le délimiteur
     // de fin de chaîne.
     memset(msg, 0, sizeof msg);
@@ -149,7 +147,7 @@ int main() {
 
       // Renvoi de la ligne convertie au client.
       if (sendto(listenSocket, msg, msgLength, 0, (struct sockaddr *) &clientAddress,
-                 sizeof clientAddress) == -1) {
+                 clientAddressLength) == -1) {
         perror("sendto:");
         exit(EXIT_FAILURE);
       }

@@ -41,12 +41,12 @@ int main() {
   int listenSocket, connectSocket, status, i;
   unsigned short int msgLength;
   struct addrinfo hints, *servinfo, *p;
-  socklen_t clientAddressLength;
   struct sockaddr_storage clientAddress;
+  socklen_t clientAddressLength = sizeof clientAddress;
   void *addr;
   char msg[MSG_ARRAY_SIZE], listenPort[PORT_ARRAY_SIZE], ipstr[INET6_ADDRSTRLEN], ipver;
   int optval = 0; // socket unique et IPV6_V6ONLY à 0
-  bool sockSuccess;
+  bool sockSuccess = false;
 
   memset(listenPort, 0, sizeof listenPort);  // Mise à zéro du tampon
   puts("Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : ");
@@ -123,8 +123,6 @@ int main() {
 
   while (1) {
     printf("Attente de connexion sur le port %s\n", listenPort);
-
-    clientAddressLength = sizeof clientAddress;
 
     // Appel bloquant en attente d'une nouvelle connexion
     // connectSocket est la nouvelle prise utilisée pour la connexion active

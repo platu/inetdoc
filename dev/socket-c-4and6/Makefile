@@ -7,7 +7,8 @@ SUBDIRS = \
 	images \
 	files/showip \
 	files/talker \
-	files/singleSocket
+	files/singleSocket \
+	files/doubleSocket
 
 # Type(s) de traitement
 PROCESS = subdirs symlink xml2xhtml xml2pdf
@@ -26,6 +27,7 @@ XML_FILES = \
 	$(wildcard files/showip/*) \
 	$(wildcard files/talker/*) \
 	$(wildcard files/singleSocket/*) \
+	$(wildcard files/doubleSocket/*) \
 	$(wildcard images/*.odg)
 
 all: $(PROCESS)
