@@ -729,6 +729,7 @@ Saisie du message :
 .</screen>
     </listitem>
   </itemizedlist>
+
   <bridgehead renderas='sect2'
   xml:id='socket-c-4and6.singleSocket-udp-listener'>Code source complet du
   programme udp-listener.c</bridgehead>
@@ -839,8 +840,217 @@ Saisie du message :
   réseau.</para>
 
   <para>La boucle de parcours des enregistrements de type
-  <parameter>addrinfo</parameter> est modifié de façon à ce qu'une prise réseau
-  soit ouverte par famille de protocole de couche réseau.</para>
+  <parameter>addrinfo</parameter> est modifiée de façon à ce qu'une prise
+  réseau soit ouverte par famille de protocole de couche réseau. Il est donc
+  nécessaire de franchir les étapes suivantes avec succès pour les deux
+  protocoles <acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Pour le protocole <acronym>IPv4</acronym></para>
+    <orderedlist numeration='arabic'>
+      <listitem>
+      <para>Appel à la fonction <function>socket()</function>.</para>
+      </listitem>
+      <listitem>
+      <para>Appel à la fonction <function>bind()</function>.</para>
+      </listitem>
+    </orderedlist>
+    </listitem>
+    <listitem>
+    <para>Pour le protocole <acronym>IPv6</acronym></para>
+    <orderedlist numeration='arabic'>
+      <listitem>
+      <para>Appel à la fonction <function>socket()</function>.</para>
+      </listitem>
+      <listitem>
+      <para>Appel à la fonction <function>setsockopt()</function> pour
+      appliquer l'option <option>bindv6only=1</option> qui rend la prise réseau
+      (<wordasword>socket</wordasword>) dédiée au protocole de couche réseau
+      <acronym>IPv6</acronym>.</para>
+      </listitem>
+      <listitem>
+      <para>Appel à la fonction <function>bind()</function>.</para>
+      </listitem>
+    </orderedlist>
+    </listitem>
+  </itemizedlist>
+
+  <para>Par souci de cohérence avec le code du <link
+  linkend='socket-c-4and6.singleSocket-listener'>programme précédent</link>, on
+  utilise le même indicateur booléen <parameter>sockSuccess</parameter> comme
+  condition de sortie de la boucle de parcours des enregistrements
+  <parameter>addrinfo</parameter>.</para>
+
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.doubleSocket-udp-run'>Exemple d'exécution des programmes
+  udp-listener et udp-talker</bridgehead>
+
+  <itemizedlist>
+    <listitem>
+    <para>Copie d'écran côté serveur ou <wordasword>listener</wordasword>.</para>
+
+<screen><prompt>$</prompt> ./udp-listener.o 
+Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : 
+5000
+ IPv4: 0.0.0.0
+ IPv6: ::
+Attente de requête sur le port 5000
+>>  Depuis <emphasis>[2a01:240:feb2:10::12]:51708</emphasis>
+>>  Message reçu : Message UDP émis depuis le système vm2.fake.domain
+>>  Depuis <emphasis>[192.0.2.13]:55801</emphasis>
+>>  Message reçu : Message UDP émis depuis le système vm3.fake.domain</screen>
+
+    <para>Les deux clients apparaissent avec leurs adresses
+    <acronym>IP</acronym> respectives. Le système
+    <systemitem>vm2.fake.domain</systemitem> a utilisé la prise réseau dédiée
+    au protocole <acronym>IPv6</acronym> tandis que le système
+    <systemitem>vm3.fake.domain</systemitem> a utilisé l'autre prise réseau
+    dédiée au protocole <acronym>IPv4</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Copie d'écran côté client ou <wordasword>talker</wordasword>
+    <wordasword>dual stack</wordasword> ; hôte
+    <systemitem>vm2.fake.domain</systemitem>.</para>
+
+<screen><prompt>$</prompt> ./udp-talker.o 
+Entrez le nom du serveur ou son adresse IP : 
+vm1.fake.domain
+Entrez le numéro de port du serveur : 
+5000
+<emphasis>Open IPv6 socket</emphasis>
+
+Entrez quelques caractères au clavier.
+Le serveur les modifiera et les renverra.
+Pour sortir, entrez une ligne avec le caractère '.' uniquement.
+Si une ligne dépasse 80 caractères,
+seuls les 80 premiers caractères seront utilisés.
+
+Saisie du message : 
+Message UDP émis depuis le système vm2.fake.domain
+Message traité : MESSAGE UDP éMIS DEPUIS LE SYSTèME VM2.FAKE.DOMAIN
+Saisie du message : 
+.</screen>
+    </listitem>
+    <listitem>
+    <para>Copie d'écran côté client ou <wordasword>talker</wordasword>
+    <wordasword>single stack</wordasword> <acronym>IPv4</acronym> ; hôte
+    <systemitem>vm3.fake.domain</systemitem>.</para>
+
+<screen><prompt>$</prompt> ./udp-talker.o 
+Entrez le nom du serveur ou son adresse IP : 
+vm1.fake.domain
+Entrez le numéro de port du serveur : 
+5000
+<emphasis>Open IPv4 socket</emphasis>
+
+Entrez quelques caractères au clavier.
+Le serveur les modifiera et les renverra.
+Pour sortir, entrez une ligne avec le caractère '.' uniquement.
+Si une ligne dépasse 80 caractères,
+seuls les 80 premiers caractères seront utilisés.
+
+Saisie du message : 
+Message UDP émis depuis le système vm3.fake.domain
+Message traité : MESSAGE UDP éMIS DEPUIS LE SYSTèME VM3.FAKE.DOMAIN
+Saisie du message : 
+.</screen>
+    </listitem>
+  </itemizedlist>
+
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.doubleSocket-udp-listener'>Code source complet du
+  programme udp-listener.c</bridgehead>
+
+  <programlisting><xi:include href='files/doubleSocket/udp-listener.c'
+  parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.doubleSocket-tcp-listener'>Code source du correctif
+  tcp-listener.c.patch</bridgehead>
+
+  <para>Relativement aux correctifs des sections précédentes, celui-ci est plus
+  important. En effet, si le principe de détection d'évènement sur les deux
+  prises réseau (<wordasword>sockets</wordasword>) est identique au programme
+  <acronym>UDP</acronym> ci-dessus, l'appel à la fonction
+  <function>accept()</function> est bloquant. Le code de traitement de
+  réception et d'émission de chaîne de caractères a été dupliqué pour chaque
+  prise réseau.</para>
+
+  <programlisting><xi:include href='files/doubleSocket/tcp-listener.c.patch'
+  parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+
+  <bridgehead renderas='sect2'
+  xml:id='socket-c-4and6.doubleSocket-tcp-run'>Exemple d'exécution des programmes
+  tcp-listener et tcp-talker</bridgehead>
+
+  <para>Excepté le mode connecté, le comportement des programmes est à nouveau
+  identique.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Copie d'écran côté serveur ou <wordasword>listener</wordasword>.</para>
+
+<screen><prompt>$</prompt> ./tcp-listener.o 
+Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : 
+5000
+ IPv4: 0.0.0.0
+ IPv6: ::
+Attente de requête sur le port 5000
+>>  connecté à <emphasis>[2a01:240:feb2:10::12]:32906</emphasis>
+  --  Message TCP émis depuis le système vm2.fake.domain
+>>  connecté à i<emphasis>[192.0.2.13]:40625</emphasis>
+  --  Message TCP émis depuis le système vm3.fake.domain</screen>
+    </listitem>
+    <listitem>
+    <para>Copie d'écran côté client ou <wordasword>talker</wordasword>
+    <wordasword>dual stack</wordasword> ; hôte
+    <systemitem>vm2.fake.domain</systemitem>.</para>
+
+<screen><prompt>$</prompt> ./tcp-talker.o 
+Entrez le nom du serveur ou son adresse IP : 
+vm1.fake.domain
+Entrez le numéro de port du serveur : 
+5000
+<emphasis>Open IPv6 socket</emphasis>
+
+Entrez quelques caractères au clavier.
+Le serveur les modifiera et les renverra.
+Pour sortir, entrez une ligne avec le caractère '.' uniquement.
+Si une ligne dépasse 80 caractères,
+seuls les 80 premiers caractères seront utilisés.
+
+Saisie du message : 
+Message TCP émis depuis le système vm2.fake.domain
+Message traité : MESSAGE TCP éMIS DEPUIS LE SYSTèME VM2.FAKE.DOMAIN
+Saisie du message :
+.</screen>
+    </listitem>
+    <listitem>
+    <para>Copie d'écran côté client ou <wordasword>talker</wordasword>
+    <wordasword>single stack</wordasword> <acronym>IPv4</acronym> ; hôte
+    <systemitem>vm3.fake.domain</systemitem>.</para>
+
+<screen><prompt>$</prompt> ./tcp-talker.o 
+Entrez le nom du serveur ou son adresse IP : 
+vm1.fake.domain
+Entrez le numéro de port du serveur : 
+5000
+<emphasis>Open IPv4 socket</emphasis>
+
+Entrez quelques caractères au clavier.
+Le serveur les modifiera et les renverra.
+Pour sortir, entrez une ligne avec le caractère '.' uniquement.
+Si une ligne dépasse 80 caractères,
+seuls les 80 premiers caractères seront utilisés.
+
+Saisie du message : 
+Message TCP émis depuis le système vm3.fake.domain
+Message traité : MESSAGE TCP éMIS DEPUIS LE SYSTèME VM3.FAKE.DOMAIN
+Saisie du message :
+.</screen>
+    </listitem>
+  </itemizedlist>
 </sect1>
 
 <sect1 xml:id='socket-c-4and6.refdocs'>

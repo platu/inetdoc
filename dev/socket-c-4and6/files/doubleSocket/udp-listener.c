@@ -17,7 +17,7 @@
 #define str(x) # x
 #define xstr(x) str(x)
 
-enum IP {
+enum IPVERSION {
  v4, v6
 };
 
@@ -142,12 +142,12 @@ int main() {
     FD_ZERO(&readSet[v6]);
     FD_SET(listenSocket[v6], &readSet[v6]);
 
-    if (select(listenSocket[v4]+1, &readSet[v4], NULL, NULL, &timeVal) == -1) {
+    if (select(listenSocket[v4]+1, &readSet[v4], NULL, NULL, &timeVal) == -1) { // IPv4
       perror("select:");
       exit(EXIT_FAILURE);
     }
 
-    if (select(listenSocket[v6]+1, &readSet[v6], NULL, NULL, &timeVal) == -1) {
+    if (select(listenSocket[v6]+1, &readSet[v6], NULL, NULL, &timeVal) == -1) { // IPv6
       perror("select:");
       exit(EXIT_FAILURE);
     }
