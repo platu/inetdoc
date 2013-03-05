@@ -8,6 +8,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 SUBDIRS = \
 	images \
 	socket-c \
+	socket-c-4and6 \
 	socket-qt
 
 # Type(s) de traitement
@@ -16,6 +17,7 @@ PROCESS = subdirs xml2xhtml xml2pdf
 XML_FILES = \
 	biblio-dev.xml \
 	socket-c/$(ABSTRACT_FILE) \
+	socket-c-4and6/$(ABSTRACT_FILE) \
 	socket-qt/$(ABSTRACT_FILE)
 
 all: $(PROCESS)

@@ -6,7 +6,8 @@ endif
 PROCESS = symlink
 
 SYMLINKS = \
-        $(MAIN_DIR)/presentations/os-arch-hints/images/kernel-network-subsystem.png
+        $(MAIN_DIR)/presentations/os-arch-hints/images/kernel-network-subsystem.png \
+	$(MAIN_DIR)/images/thumbs/thumb010.png
 
 all: $(PROCESS)
 

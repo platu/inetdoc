@@ -9,6 +9,7 @@
 
 #define MAX_MSG 80
 #define MSG_ARRAY_SIZE (MAX_MSG+1)
+#define BACKLOG 5
 
 int main()
 {
@@ -47,7 +48,10 @@ int main()
   // C'est un appel non bloquant ; c'est-à-dire qu'il enregistre ce programme
   // auprès du système comme devant attendre des connexions sur ce socket avec
   // cette tâche. Ensuite, l'exécution se poursuit.
-  listen(listenSocket, 5);
+  if (listen(listenSocket, BACKLOG) == -1) {
+    perror("listen");
+    exit(EXIT_FAILURE);
+  }
   
   while (1) {
     printf("Attente de connexion TCP sur le port %hu\n", listenPort);
