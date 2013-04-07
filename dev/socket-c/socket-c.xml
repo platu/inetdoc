@@ -56,15 +56,17 @@
   </abstract>
   <keywordset>
     <keyword>langage C</keyword>
-    <keyword>GNU</keyword>
     <keyword>Linux</keyword>
     <keyword>inetdoc</keyword>
     <keyword>ipv4</keyword>
     <keyword>socket</keyword>
+    <keyword>getaddrinfo</keyword>
     <keyword>udp</keyword>
     <keyword>tcp</keyword>
     <keyword>client</keyword>
     <keyword>serveur</keyword>
+    <keyword>talker</keyword>
+    <keyword>listener</keyword>
   </keywordset>
 </info>
 
@@ -222,16 +224,17 @@ udp        0      0 *:4500            *:*                     3157/udp-listener.
       <term><systemitem>netdb.h</systemitem></term>
       <listitem>
       <para>Opérations sur les bases de données réseau. Ici, ce sont les
-      fonctions <function>gethostbyname()</function> et
-      <function>herror()</function> qui sont utilisées. La première fonction
-      renvoie une structure de type <parameter>hostent</parameter> pour l'hôte
-      <parameter>name</parameter>. La chaîne <parameter>name</parameter> est
-      soit un nom d'hôte, soit une adresse <acronym>IPv4</acronym>. En cas
-      d'échec, <function>gethostbyname()</function> renvoie un pointeur
-      <parameter>NULL</parameter> et la seconde fonction affiche le message
-      correspondant au code de l'erreur rencontrée. Pour obtenir plus
-      d'informations, il faut consulter les pages de manuels des fonctions :
-      <userinput>man gethostbyname</userinput> par exemple.</para>
+      fonctions <function>getaddrinfo()</function> et
+      <function>gai_strerror()</function> qui sont utilisées. La première
+      fonction manipule des enregistrements de type
+      <parameter>addrinfo</parameter> qui contiennent tous les attributs de
+      description d'un hôte réseau et de la prise réseau à ouvrir. Parmi ces
+      attributs, on trouve la famille d'adresse réseau <acronym>IPv4</acronym>
+      ou <acronym>IPv6</acronym>, le type de service qui désigne le protocole
+      de couche transport <acronym>TCP</acronym> ou <acronym>UDP</acronym> et
+      l'adresse de l'hôte à contacter. Pour obtenir plus d'informations, il
+      faut consulter les pages de manuels des fonctions : <userinput>man
+      getaddrinfo</userinput> par exemple.</para>
       </listitem>
     </varlistentry>
     <varlistentry xml:id='socket-c.context.library.libc6.in'>
@@ -281,14 +284,14 @@ udp        0      0 *:4500            *:*                     3157/udp-listener.
       d'adresse <acronym>IP</acronym>, de numéro de port ou de texte sont
       gérées à l'aide des fonctions usuelles du langage C.</para>
 
-      <para>Les fonctions d'affichage sans formatage <function>puts</function>
-      et <function>fputs</function> ainsi que la fonction d'affichage avec
-      formatage <function>printf</function> sont utilisées de façon
-      classique.</para>
+      <para>Les fonctions d'affichage sans formatage
+      <function>puts()</function> et <function>fputs()</function> ainsi que la
+      fonction d'affichage avec formatage <function>printf()</function> sont
+      utilisées de façon classique.</para>
 
       <para>En revanche, la saisie des chaînes de caractères à l'aide de la
-      fonction <function>scanf</function> est plus singulière. Comme le but des
-      communications réseau évaluées ici est d'échanger des chaînes de
+      fonction <function>scanf()</function> est plus singulière. Comme le but
+      des communications réseau évaluées ici est d'échanger des chaînes de
       caractères, il est nécessaire de transmettre ou recevoir des suites de
       caractères comprenant aussi bien des espaces que des tabulations.</para>
 
@@ -461,93 +464,150 @@ udp        0      0 *:4500            *:*                     3157/udp-listener.
 
   <para>Au niveau du <emphasis>client</emphasis> ou
   <wordasword>talker</wordasword>, l'objectif est <emphasis>d'ouvrir</emphasis>
-  un nouveau <wordasword>socket</wordasword> ; ce qui revient à ouvrir un canal
-  de communication réseau avec la fonction <function>socket</function>.</para>
+  une nouvelle prise réseau ou <wordasword>socket</wordasword> ; ce qui revient
+  à ouvrir un canal de communication réseau avec la fonction
+  <function>socket()</function> après avoir défini les paramètres de l'hôte à
+  contacter avec la fonction <function>getaddrinfo()</function>.</para>
+
+  <para>Les bibliothèques standard associées au Langage C fournissent à la fois
+  des sous-programmes et des définitions d'enregistrements (ou structures) de
+  données. On rejoint ici le mode opératoire des langages orientés objet dont
+  les bibliothèques fournissent des classes comprenant respectivement les
+  définitions des méthodes et les attributs des données à manipuler.</para>
+
+  <para>Ainsi, la fonction <function>getaddrinfo()</function> manipule des
+  enregistrements de type <parameter>addrinfo</parameter>. Pour utiliser cette
+  fonction, on commence par orienter le choix du type de prise réseau à ouvrir
+  avant de l'appeler en affectant certains champs de l'enregistrement
+  <parameter>hints</parameter> puis on exploite les résultats contenus dans
+  l'enregistrement <parameter>servinfo</parameter> après l'avoir
+  appelée.</para>
 
 <programlisting>
-  int socketDescriptor;
+hints.ai_family = AF_INET<co xml:id='socket_family'/>;
+hints.ai_socktype = SOCK_DGRAM<co xml:id='socket_type'/>;
 
-&lt;snipped/>
-  if ((socketDescriptor = socket(PF_INET<co xml:id='socket_family'/>, SOCK_DGRAM<co xml:id='socket_type'/>, IPPROTO_UDP<co xml:id='socket_protocol'/>)) == -1) {
-    perror("socket:");
-    exit(EXIT_FAILURE);
-  }</programlisting>
+if ((status = getaddrinfo(msg<co xml:id='hostname'/>, serverPort, &amp;hints, &amp;servinfo)) != 0) {
+  fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+  exit(EXIT_FAILURE);
+}</programlisting>
 
   <calloutlist>
     <callout arearefs='socket_family'>
-    <para><option>PF_INET</option> désigne la famille de protocole de couche
+    <para><option>AF_INET</option> désigne la famille de protocole de couche
     réseau <acronym>IPv4</acronym>.</para>
     </callout>
     <callout arearefs='socket_type'>
     <para><option>SOCK_DGRAM</option> désigne un service de transmission de
-    datagrammes non orienté connexion.</para>
+    datagrammes non orienté connexion. Autrement dit, le protocole de couche
+    transport <acronym>UDP</acronym>.</para>
     </callout>
-    <callout arearefs='socket_protocol'>
-    <para><option>IPPROTO_UDP</option> désigne l'utilisation du protocole
-    <acronym>UDP</acronym> au niveau de la couche transport.</para>
+    <callout arearefs='hostname'>
+    <para>La chaîne de caractères <parameter>msg</parameter> contient le nom de
+    l'hôte à contacter. Cet hôte peut être désigné directement par une adresse
+    <acronym>IP</acronym> ou par son nom. Dans ce dernier cas, le
+    <wordasword>resolver</wordasword> du service de noms de domaine
+    (<acronym>DNS</acronym>) est sollicité automatiquement.</para>
     </callout>
   </calloutlist>
+
+  <para>L'appel à la fonction <function>socket()</function> se fait sur la base
+  des champs renseignés par la fonction
+  <function>getaddrinfo()</function>. Le premier enregistrement de la chaîne
+  pointée par <parameter>servinfo</parameter> contient tous les paramètres
+  nécessaires.</para>
+
+<programlisting>
+if ((socketDescriptor = socket(servinfo->ai_family, servinfo->ai_socktype,
+                               servinfo->ai_protocol)) == -1) {
+    perror("socket:");
+    exit(EXIT_FAILURE);
+  }</programlisting>
 
   <para>Une fois le canal de communication réseau correctement ouvert, on peut
   passer à l'émission des datagrammes avec la fonction
   <function>sendto</function>.</para>
 
 <programlisting>
-  int socketDescriptor;
-  char msg[MSG_ARRAY_SIZE];
-  struct sockaddr_in serverAddress;
-
-&lt;snipped/>
-  if (sendto(socketDescriptor<co xml:id='sendto_Descriptor'/>, msg, msgLength<co xml:id='sendto_msg'/>, 0,
-             (struct sockaddr *) &amp;serverAddress<co xml:id='sendto_Address'/>,
-             sizeof(serverAddress)) == -1) {
-    perror("sendto:");
-    close(socketDescriptor);
-    exit(EXIT_FAILURE);
-  }</programlisting>
+while (strcmp(msg, ".")) {
+  if ((msgLength = strlen(msg)) > 0) {
+    // Envoi de la ligne au serveur
+    if (sendto(socketDescriptor<co xml:id='sendto_Descriptor'/>, msg, msgLength<co xml:id='sendto_msg'/>, 0,
+               servinfo->ai_addr<co xml:id='sendto_Address'/>, servinfo->ai_addrlen) == -1) {
+      perror("sendto:");
+      close(socketDescriptor);
+      exit(EXIT_FAILURE);
+    }</programlisting>
 
   <calloutlist>
     <callout arearefs='sendto_Descriptor'>
-    <para><option>socketDescriptor</option> contient le résultat de l'appel de
-    la fonction <function>socket</function> ; le numéro du canal de
-    communication entre le programme et la pile des protocoles réseau.</para>
+    <para><parameter>socketDescriptor</parameter> désigne la prise réseau ou
+    encore le canal de communication entre le programme de l'espace utilisateur
+    et le sous-système réseau de l'espace noyau.</para>
     </callout>
     <callout arearefs='sendto_msg'>
-    <para><option>msg</option> et <option>msgLength</option> correspondent au
-    datagramme et à sa longueur. Ici, on émet des chaînes de caractères
-    directement vers le correspondant réseau.</para>
+    <para><parameter>msg</parameter> et <parameter>msgLength</parameter>
+    correspondent au datagramme et à sa longueur. Ici, on émet des chaînes de
+    caractères directement vers le correspondant réseau.</para>
     </callout>
     <callout arearefs='sendto_Address'>
-    <para><option>(struct sockaddr *) &amp;serverAddress</option> et
-    <option>sizeof(serverAddress)</option> correspondent à la structure de
-    désignation de l'adresse <acronym>IP</acronym> et du numéro de port du
-    serveur puis à la taille de cette structure.</para>
+    <para>On utilise à nouveau les champs de l'enregistrement pointé par
+    <parameter>servinfo</parameter> pour désigner l'hôte vers lequel les
+    datagrammes sont émis.</para>
     </callout>
   </calloutlist>
 
-  <para>Ensuite, il ne manque plus que la description de la réception des
-  datagrammes renvoyés par le serveur.</para>
+  <para>Comme le service d'échange de datagrammes entre deux hôtes, n'est pas
+  orienté connexion, le protocole <acronym>UDP</acronym> de la couche transport
+  n'offre aucune garantie sur la délivrance de ces datagrammes. En conséquence,
+  il incombe au programme utilisateur de fournir une forme de contrôle
+  d'erreur. La solution généralement adoptée consiste à utiliser une
+  temporisation d'attente de réponse. Dans notre cas, si aucune réponse du
+  serveur ou <wordasword>listener</wordasword> n'a été reçue au bout d'une
+  seconde, on peut considérer que le datagramme émis a été perdu.</para>
+
+  <para>C'est la fonction <function>select()</function> qui permet de
+  superviser des descripteurs de flux tels que les prises réseau
+  (<wordasword>socket</wordasword>).</para>
 
 <programlisting>
-&lt;snipped/>
-  if (recv(socketDescriptor<co xml:id='recv_Descriptor'/>, msg, sizeof msg<co xml:id='recv_msg'/>, 0) == -1) {
+// Attente de la réponse pendant une seconde.
+FD_ZERO(&amp;readSet<co xml:id='fd_set'/>);
+FD_SET(socketDescriptor, &amp;readSet);
+timeVal.tv_sec = 1<co xml:id='tv_sec'/>;
+timeVal.tv_usec = 0;
+
+if (select(socketDescriptor+1, &amp;readSet, NULL, NULL, &amp;timeVal)<co xml:id='select'/>) {
+  // Lecture de la ligne modifiée par le serveur.
+  memset(msg, 0, sizeof msg);  // Mise à zéro du tampon
+  if (recv(socketDescriptor, msg, sizeof msg, 0) == -1) {
     perror("recv:");
     close(socketDescriptor);
     exit(EXIT_FAILURE);
-  }</programlisting>
+    }</programlisting>
 
   <calloutlist>
-    <callout arearefs='recv_Descriptor'>
-    <para><option>socketDescriptor</option> contient le résultat de l'appel de
-    la fonction <function>socket</function> ; le numéro du canal de
-    communication entre le programme et la pile des protocoles réseau.</para>
+    <callout arearefs='fd_set'>
+      <para><parameter>readSet</parameter> est réinitialisé à chaque itération.
+      C'est cette variable qui sert à associer la prise réseau
+      <parameter>socketDescriptor</parameter> à la fonction de supervision
+      <function>select()</function>.</para>
     </callout>
-    <callout arearefs='recv_msg'>
-    <para><option>msg</option> et <option>sizeof msg</option> correspondent à
-    la chaîne de caractères dans laquelle le datagramme reçu doit être stocké
-    et au nombre maximum de caractères que l'on peut recevoir.</para>
+    <callout arearefs='tv_sec'>
+      <para><parameter>timeVal</parameter> est un enregistrement dont le champ
+      <parameter>tv_sec</parameter> définit le temps d'attente de la réponse de
+      l'hôte réseau vers lequel un datagramme a été précédemment émis.</para>
+    </callout>
+    <callout arearefs='select'>
+      <para><function>select()</function> renvoie une valeur supérieure à 0 en
+      cas de succès : un datagramme de réponse est en attente moins d'une
+      seconde après l'émission précédente.</para>
     </callout>
   </calloutlist>
+
+  <para>Enfin, il ne reste plus que la réception du ou des
+  datagrammes renvoyés par le serveur à l'aide de la fonction
+  <function>recv()</function>.</para>
 
   <para>Pour toute information complémentaire sur les fonctions utilisées,
   consulter les pages de manuels correspondantes. Pour la fonction
@@ -574,79 +634,54 @@ parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
 
   <para>Au niveau du <emphasis>serveur</emphasis> ou
   <wordasword>listener</wordasword>, l'objectif est aussi
-  <emphasis>d'ouvrir</emphasis> un nouveau <wordasword>socket</wordasword> ; ce
-  qui revient aussi à ouvrir un canal de communication réseau avec la fonction
-  <function>socket</function>.</para>
+  <emphasis>d'ouvrir</emphasis> une nouvelle prise réseau ou
+  <wordasword>socket</wordasword> ; ce qui revient à nouveau à ouvrir un canal
+  de communication réseau avec la fonction
+  <function>socket()</function>. On retrouve la même séquence que dans le
+  programme client précédent avec l'utilisation de la fonction
+  <function>getaddrinfo()</function>. À la différence du programme précédent,
+  on oriente l'ouverture de la prise réseau sur les interfaces réseau locales
+  au système.</para>
 
 <programlisting>
-  int listenSocket;
+hints.ai_family = AF_INET;       // IPv4
+hints.ai_socktype = SOCK_DGRAM;  // UDP
+hints.ai_flags = AI_PASSIVE;     // Toutes les adresses disponibles
 
-&lt;snipped/>
-  if ((listenSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-    perror("socket:");
-    exit(EXIT_FAILURE);
+if ((status = getaddrinfo(NULL, listenPort, &amp;hints, &amp;servinfo)) != 0) {
+  fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+  return 1;
   }</programlisting>
 
-  <para>Cette étape ne présente aucune différence avec le niveau client. On
-  relie le numéro de <wordasword>socket</wordasword> avec le numéro de port
-  choisi.</para>
+  <para>L'appel à la fonction <function>socket()</function> ne présente aucune
+  différence avec le programme client puisque tout le paramétrage à déjà été
+  effectué. Les informations utiles sont contenues dans les champs de
+  l'enregistrement pointé par <parameter>servinfo</parameter>.</para>
 
 <programlisting>
-  int listenSocket;
-  struct sockaddr_in serverAddress;
-
-&lt;snipped/>
-  serverAddress.sin_family = PF_INET;
-  serverAddress.sin_addr.s_addr = htonl(INADDR_ANY)<co xml:id='inaddr_any'/>;
-  serverAddress.sin_port = htons(listenPort);
-
-  if (bind(listenSocket<co xml:id='bind_listenSocket'/>, (struct sockaddr *) &amp;serverAddress<co xml:id='bind_Address'/>, sizeof(serverAddress)) == -1) {
-    perror("bind:");
-    close(listenSocket);
-    exit(EXIT_FAILURE);
+if ((listenSocket = socket(servinfo->ai_family, servinfo->ai_socktype,
+                           servinfo->ai_protocol)) == -1) {
+  perror("socket:");
+  exit(EXIT_FAILURE);
   }</programlisting>
 
-  <calloutlist>
-    <callout arearefs='inaddr_any'>
-    <para><option>INADDR_ANY</option> spécifie que le programme est en écoute
-    sur toutes les adresses <acronym>IP</acronym> sources.</para>
-    </callout>
-    <callout arearefs='bind_listenSocket'>
-    <para><option>listenSocket</option> contient le résultat de l'appel de
-    la fonction <function>socket</function> ; le numéro du canal de
-    communication entre le programme et la pile des protocoles réseau.</para>
-    </callout>
-    <callout arearefs='bind_Address'>
-    <para><option>(struct sockaddr *) &amp;serverAddress</option> et
-    <option>sizeof(serverAddress)</option> correspondent à la structure de
-    désignation de l'adresse <acronym>IP</acronym> et du numéro de port du
-    serveur puis à la taille de cette structure.</para>
-    </callout>
-  </calloutlist>
+  <para>Une fois la prise réseau en place et en état d'écoute, le programme
+  attend les datagrammes provenant des clients.</para>
 
-  <para>Une fois la liaison en place, le programme attend les datagrammes
-  provenant du client.</para>
-
-<programlisting>  int listenSocket;
-  struct sockaddr_in clientAddress;
-  char line[(MAX_MSG+1)];
-
-&lt;snipped/>
-  if (recvfrom(listenSocket, msg<co xml:id='recvfrom_line'/>, sizeof msg, 0,
-               (struct sockaddr *) &amp;clientAddress,
-               &amp;clientAddressLength) == -1) {
-    perror("recvfrom:");
-    close(listenSocket);
-    exit(EXIT_FAILURE);
+<programlisting>
+memset(msg, 0, sizeof msg);
+if (recvfrom(listenSocket, msg, sizeof msg, 0,
+             (struct sockaddr *) &amp;clientAddress,
+             &amp;clientAddressLength) == -1) {
+  perror("recvfrom:");
+  close(listenSocket);
+  exit(EXIT_FAILURE);
   }</programlisting>
 
-  <calloutlist>
-    <callout arearefs='recvfrom_line'>
-    <para>Les paramètres <option>msg</option> et <option>sizeof msg</option>
-    correspondent à la chaîne de caractères dans laquelle le datagramme reçu
-    est stocké et à la capacité maximale de stockage.</para>
-    </callout>
-  </calloutlist>
+  <para>Les paramètres <parameter>msg</parameter> et <parameter>sizeof
+  msg</parameter> définissent la chaîne de caractères dans laquelle le
+  datagramme reçu est stocké ainsi que le nombre maximum de caractères qui
+  peuvent être stockés.</para>
 
   <para>Enfin, les émissions de datagramme du <emphasis>serveur</emphasis> vers
   le <emphasis>client</emphasis> utilisent exactement les mêmes appels à la
@@ -682,17 +717,12 @@ parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
   avant d'échanger la moindre information. Cette opération ce fait à l'aide de
   la fonction <function>connect</function>.</para>
 
-<programlisting>  int socketDescriptor;
-  struct sockaddr_in serverAddress;
-
-&lt;snipped/>
-  if (connect(socketDescriptor,
-             (struct sockaddr *) &amp;serverAddress,
-             sizeof(serverAddress)) == -1) {
-    perror("connect");
-    close(socketDescriptor);
-    exit(EXIT_FAILURE);
-  }</programlisting>
+<programlisting>
+if (connect(socketDescriptor, servinfo->ai_addr, servinfo->ai_addrlen) == -1) {
+  close(socketDescriptor);
+  perror("connect");
+  exit(EXIT_FAILURE);
+}</programlisting>
 
   <para>En cas d'échec de cette demande d'établissement de connexion, on
   abandonne le traitement.</para>
@@ -720,40 +750,34 @@ parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
   programme serveur précédent. Le contrôle d'erreur est directement intégré
   dans la couche transport.</para>
 
-  <para>La fonction <function>listen</function> active l'utilisation du canal
-  de communication initié avec la fonction <function>socket</function>. Le
-  second paramètre <option>5</option> définit le nombre maximal de demandes de
-  connexions en attente.</para>
+  <para>La fonction <function>listen()</function> active l'utilisation du canal
+  de communication initié avec la fonction <function>socket()</function>. Le
+  second paramètre <parameter>BACKLOG</parameter> définit le nombre maximal de
+  demandes de connexions en attente.</para>
 
-<programlisting>  int listenSocket, connectSocket, i;
-
-&lt;snipped/>
-listen(listenSocket, 5);
-
-while (1) {
-  printf("Attente de connexion TCP sur le port %hu\n", listenPort);
-&lt;snipped/></programlisting>
-
-  <para>Si le client fait appel à la fonction <function>connect</function> pour
-  demander l'établissement d'une connexion, le serveur fait appel à la fonction
-  <function>accept</function> pour recevoir les nouvelles demandes de
-  connexion.</para>
-
-<programlisting>  int socketDescriptor;
-  struct sockaddr_in serverAddress;
-
-&lt;snipped/>
-  if ((connectSocket = accept(listenSocket, 
-                              (struct sockaddr *) &amp;clientAddress,
-                              &amp;clientAddressLength)) == -1) {
-    perror("accept:");
-    close(listenSocket);
-    exit(EXIT_FAILURE);
+<programlisting>
+if (listen(listenSocket, BACKLOG) == -1) {
+  perror("listen");
+  exit(EXIT_FAILURE);
   }</programlisting>
 
-  <para>En cas d'échec de l'ouverture du <wordasword>socket</wordasword> de
-  réception des demandes d'établissement de connexion, on abandonne le
-  traitement.</para>
+  <para>Si le client fait appel à la fonction <function>connect()</function>
+  pour demander l'établissement d'une connexion, le serveur fait appel à la
+  fonction <function>accept()</function> pour recevoir les nouvelles demandes
+  de connexion.</para>
+
+<programlisting>
+if ((connectSocket = accept(listenSocket, 
+                            (struct sockaddr *) &amp;clientAddress,
+                            &amp;clientAddressLength)) == -1) {
+  perror("accept:");
+  close(listenSocket);
+  exit(EXIT_FAILURE);
+  }</programlisting>
+
+  <para>En cas d'échec de l'ouverture de la prise réseau ou
+  <wordasword>socket</wordasword> lors de la réception d'une demande de
+  connexion, on abandonne le traitement.</para>
   </sect2>
 
   <sect2 xml:id='socket-c.tcp.server.source'>

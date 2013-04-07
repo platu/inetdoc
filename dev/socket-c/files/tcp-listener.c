@@ -1,69 +1,73 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
+#include <string.h>
 #include <netdb.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
+#define MAX_PORT 5
+#define PORT_ARRAY_SIZE (MAX_PORT+1)
 #define MAX_MSG 80
 #define MSG_ARRAY_SIZE (MAX_MSG+1)
 #define BACKLOG 5
+// Utilisation d'une constante x dans la définition
+// du format de saisie
+#define str(x) # x
+#define xstr(x) str(x)
 
 int main()
 {
-  int listenSocket, connectSocket, i;
-  unsigned short int listenPort, msgLength;
-  struct sockaddr_in clientAddress, serverAddress;
+  int listenSocket, connectSocket, status, i;
+  unsigned short int msgLength;
+  struct addrinfo hints, *servinfo;
+  struct sockaddr_in clientAddress;
   socklen_t clientAddressLength = sizeof clientAddress;
-  char msg[MSG_ARRAY_SIZE];
+  char msg[MSG_ARRAY_SIZE], listenPort[PORT_ARRAY_SIZE];
 
+  memset(listenPort, 0, sizeof listenPort);  // Mise à zéro du tampon
   puts("Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : ");
-  scanf("%hu", &listenPort);
+  scanf("%"xstr(MAX_PORT)"s", listenPort);
 
-  // Création de socket en écoute et attente des requêtes des clients
-  if ((listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_INET;       // IPv4
+  hints.ai_socktype = SOCK_STREAM; // TCP
+  hints.ai_flags = AI_PASSIVE;     // Toutes les adresses disponibles
+
+  if ((status = getaddrinfo(NULL, listenPort, &hints, &servinfo)) != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+    exit(EXIT_FAILURE);
+  }
+
+  if ((listenSocket = socket(servinfo->ai_family, servinfo->ai_socktype,
+                             servinfo->ai_protocol)) == -1) {
     perror("socket:");
     exit(EXIT_FAILURE);
   }
-  
-  // On relie le socket au port en écoute.
-  // On commence par initialiser les champs de la structure serverAddress puis
-  // on appelle bind(). Les fonctions htonl() et htons() convertissent
-  // respectivement les entiers longs et les entiers courts du rangement hôte
-  // (sur x86 on trouve l'octet de poids faible en premier) vers le rangement
-  // réseau (octet de poids fort en premier).
-  serverAddress.sin_family = PF_INET;
-  serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-  serverAddress.sin_port = htons(listenPort);
-  
-  if (bind(listenSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) == -1) {
-    perror("bind:");
+
+  if (bind(listenSocket, servinfo->ai_addr, servinfo->ai_addrlen) == -1) {
     close(listenSocket);
+    perror("bind:");
     exit(EXIT_FAILURE);
   }
 
+  // Libération de la mémoire occupée par les enregistrements
+  freeaddrinfo(servinfo);
+  
   // Attente des requêtes des clients.
-  // C'est un appel non bloquant ; c'est-à-dire qu'il enregistre ce programme
-  // auprès du système comme devant attendre des connexions sur ce socket avec
-  // cette tâche. Ensuite, l'exécution se poursuit.
+  // Appel non bloquant et passage en mode passif
+  // Demandes d'ouverture de connexion traitées par accept
   if (listen(listenSocket, BACKLOG) == -1) {
     perror("listen");
     exit(EXIT_FAILURE);
   }
   
   while (1) {
-    printf("Attente de connexion TCP sur le port %hu\n", listenPort);
+    printf("Attente de connexion TCP sur le port %s\n", listenPort);
 
-    // On accepte une connexion avec un client qui en demande une. L'appel à la
-    // fonction accept() est bloquant ; c'est-à-dire que le processus est
-    // arrêté jusqu'à l'arrivée d'une demande de connexion. 
-    // connectSocket est un nouveau socket que le système fournit séparément du
-    // socket d'écoute listenSocket. Il serait possible d'accepter des
-    // connexions supplémentaires reçues par listenSocket avant que
-    // connectSocket soit clos ; mais ce programme ne fonctionne pas de cette
-    // façon.
+    // Appel accept() bloquant
+    // connectSocket est une nouvelle prise indépendante
     if ((connectSocket = accept(listenSocket, 
                                 (struct sockaddr *) &clientAddress,
 				&clientAddressLength)) == -1) {

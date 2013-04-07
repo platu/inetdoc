@@ -158,14 +158,14 @@ int main() {
 
     if (FD_ISSET(listenSocket[v4], &readSet[v4])) // IPv4
       if ((recv = recvfrom(listenSocket[v4], msg, sizeof msg, 0, (struct sockaddr *) &clientAddress,
-                           &clientAddressLength)) < 0) {
+                           &clientAddressLength)) == -1) {
         perror("recvfrom:");
         exit(EXIT_FAILURE);
       }
 
     if (FD_ISSET(listenSocket[v6], &readSet[v6])) // IPv6
       if ((recv = recvfrom(listenSocket[v6], msg, sizeof msg, 0, (struct sockaddr *) &clientAddress,
-                           &clientAddressLength)) < 0) {
+                           &clientAddressLength)) == -1) {
         perror("recvfrom:");
         exit(EXIT_FAILURE);
       }

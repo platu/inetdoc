@@ -119,7 +119,10 @@ int main() {
   // Attente des requêtes des clients.
   // Appel non bloquant et passage en mode passif
   // Demandes d'ouverture de connexion traitées par accept
-  listen(listenSocket, BACKLOG);
+  if (listen(listenSocket, BACKLOG) == -1) {
+    perror("listen");
+    exit(EXIT_FAILURE);
+  }
 
   while (1) {
     printf("Attente de connexion sur le port %s\n", listenPort);

@@ -1,49 +1,60 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
+#include <string.h>
 #include <netdb.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
+#define MAX_PORT 5
+#define PORT_ARRAY_SIZE (MAX_PORT+1)
 #define MAX_MSG 80
 #define MSG_ARRAY_SIZE (MAX_MSG+1)
+// Utilisation d'une constante x dans la définition
+// du format de saisie
+#define str(x) # x
+#define xstr(x) str(x)
 
 int main()
 {
-  int listenSocket, i;
-  unsigned short int listenPort, msgLength;
-  struct sockaddr_in clientAddress, serverAddress;
+  int listenSocket, status, i;
+  unsigned short int msgLength;
+  struct addrinfo hints, *servinfo;
+  struct sockaddr_in clientAddress;
   socklen_t clientAddressLength = sizeof clientAddress;
-  char msg[MSG_ARRAY_SIZE];
+  char msg[MSG_ARRAY_SIZE], listenPort[PORT_ARRAY_SIZE];
 
+  memset(listenPort, 0, sizeof listenPort);  // Mise à zéro du tampon
   puts("Entrez le numéro de port utilisé en écoute (entre 1500 et 65000) : ");
-  scanf("%hu", &listenPort);
+  scanf("%"xstr(MAX_PORT)"s", listenPort);
 
-  // Création de socket en écoute et attente des requêtes des clients
-  if ((listenSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_INET;       // IPv4
+  hints.ai_socktype = SOCK_DGRAM;  // UDP
+  hints.ai_flags = AI_PASSIVE;     // Toutes les adresses disponibles
+
+  if ((status = getaddrinfo(NULL, listenPort, &hints, &servinfo)) != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+    exit(EXIT_FAILURE);
+  }
+
+  if ((listenSocket = socket(servinfo->ai_family, servinfo->ai_socktype,
+                             servinfo->ai_protocol)) == -1) {
     perror("socket:");
     exit(EXIT_FAILURE);
   }
-  
-  // On relie le socket au port en écoute.
-  // On commence par initialiser les champs de la structure serverAddress puis
-  // on appelle bind(). Les fonctions htonl() et htons() convertissent
-  // respectivement les entiers longs et les entiers courts du rangement hôte
-  // (sur x86 on trouve l'octet de poids faible en premier) vers le rangement
-  // réseau (octet de poids fort en premier).
-  serverAddress.sin_family = PF_INET;
-  serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-  serverAddress.sin_port = htons(listenPort);
-  
-  if (bind(listenSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) == -1) {
-    perror("bind:");
+
+  if (bind(listenSocket, servinfo->ai_addr, servinfo->ai_addrlen) == -1) {
     close(listenSocket);
+    perror("bind:");
     exit(EXIT_FAILURE);
   }
 
-  printf("Attente de requête sur le port %hu\n", listenPort);
+  // Libération de la mémoire occupée par les enregistrements
+  freeaddrinfo(servinfo);
+
+  printf("Attente de requête sur le port %s\n", listenPort);
 
   while (1) {
 

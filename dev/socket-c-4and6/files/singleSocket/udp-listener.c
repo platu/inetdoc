@@ -124,7 +124,7 @@ int main() {
     memset(msg, 0, sizeof msg);
     if ((recv = recvfrom(listenSocket, msg, sizeof msg, 0,
                          (struct sockaddr *) &clientAddress,
-                         &clientAddressLength)) < 0) {
+                         &clientAddressLength)) == -1) {
       perror("recvfrom:");
       exit(EXIT_FAILURE);
     }

@@ -53,7 +53,7 @@ int main()
     else
       puts("Open IPv6 socket");
 
-    if ((socketDescriptor = socket (p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+    if ((socketDescriptor = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
       perror("socket:");
       sockSuccess = false; // Echec ouverture socket
       p = p->ai_next;      // Enregistrement d'adresse suivant
