@@ -32,7 +32,8 @@ SUBDIRS = \
 	interco.inter-vlan.qa \
 	interco.ospf.qa \
 	interco.ospf.q \
-	interco.cs
+	interco.cs \
+	interco.set
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf

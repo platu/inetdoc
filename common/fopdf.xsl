@@ -242,16 +242,15 @@
         </fo:block>
 
 	<fo:block color="#fff" background-color="#af0228" text-align="left"
-                  font-size="9pt" font-weight="bold" font-style="italic" padding="3pt">
+                  font-size="9pt" font-weight="bold" font-style="italic" padding="3pt"
+		  margin-bottom="9pt">
           <xsl:text>http://www.inetdoc.net</xsl:text>
         </fo:block>
 
         <xsl:choose>
           <xsl:when test="*/d:abstract">
-            <fo:block color="#333" text-align="left"
-		      font-family="DejaVuSans" font-weight="bold" padding="3pt"
-                      margin-top="6pt">
-              <xsl:value-of select="d:info/d:abstract"/> 
+            <fo:block color="#333">
+	      <xsl:apply-templates mode="book.titlepage.recto.auto.mode" select="d:info/d:abstract"/>
             </fo:block>
           </xsl:when>
         </xsl:choose>
@@ -355,7 +354,6 @@
     <xsl:param name="use.extensions" select="1" />
     <xsl:param name="tablecolumns.extension" select="0" />
     <xsl:param name="callout.extensions" select="1" />
-    <!-- FOP provide only PDF Bookmarks at the moment -->
     <xsl:param name="fop1.extensions" select="1" />
 
 <!--###################################################
@@ -367,7 +365,7 @@
     /appendix toc,title
     article/appendix  nop
     article   toc,title
-    book      toc,title,figure,table,example,equation
+    book      toc,title
     /chapter  nop
     part      toc,title
     /preface  toc,title
@@ -462,28 +460,50 @@
 <!--###################################################
                          Titles
     ################################################### -->   
-    
-    <!-- Chapter title size -->
-    <xsl:attribute-set name="chapter.titlepage.recto.style">
-        <xsl:attribute name="text-align">left</xsl:attribute>
-        <xsl:attribute name="font-weight">bold</xsl:attribute>
-        <xsl:attribute name="font-size">
-            <xsl:value-of select="$body.font.master * 1.25"/>
-            <xsl:text>pt</xsl:text>
-        </xsl:attribute>        
-    </xsl:attribute-set>
 
-    <!-- Why is the font-size for chapters hardcoded in the XSL FO templates? 
-        Let's remove it, so this sucker can use our attribute-set only... -->
+    <!-- Chapter -->
     <xsl:template match="d:title" mode="chapter.titlepage.recto.auto.mode">
-        <fo:block xmlns:fo="http://www.w3.org/1999/XSL/Format"
-                  xsl:use-attribute-sets="chapter.titlepage.recto.style">
-            <xsl:call-template name="component.title">
-                <xsl:with-param name="node" select="ancestor-or-self::chapter[1]"/>
-            </xsl:call-template>
-            </fo:block>
+        <fo:block font-family="DejaVuSans-Bold" font-size="12pt">
+            <xsl:text>CHAPITRE </xsl:text>
+            <xsl:call-template name="chapnum"/>
+        </fo:block>
+	<fo:block background-color="#333" padding="3pt">
+           <fo:block color="#fff" text-align="right"
+                      font-family="DejaVuSans-Bold" font-size="15pt"
+                      margin-right="10mm" margin-bottom="5pt">
+               <xsl:value-of select="ancestor-or-self::d:title"/>
+           </fo:block>
+        </fo:block>
     </xsl:template>
-    
+
+<!--
+Return the chapter number or appendix letter. If the element contains
+a label attribute, use that. (Useful if you want to split a document
+up into multiple documents.
+-->
+<xsl:template name="chapnum">
+  <xsl:choose>
+    <xsl:when test="ancestor-or-self::d:chapter/@label">
+      <xsl:value-of select="ancestor-or-self::d:chapter/@label"/>
+    </xsl:when>
+    <xsl:when test="ancestor-or-self::d:appendix/@label">
+      <xsl:value-of select="ancestor-or-self::d:appendix/@label"/>
+    </xsl:when>
+    <xsl:when test="ancestor-or-self::d:chapter">
+      <xsl:number format="1" value="count(preceding::d:chapter)+1"/>
+    </xsl:when>
+    <xsl:when test="ancestor-or-self::d:appendix">
+      <xsl:number format="A" value="count(preceding::d:appendix)+1"/>
+    </xsl:when>
+    <xsl:when test="ancestor-or-self::d:preface">
+      <xsl:text>0</xsl:text>
+    </xsl:when>
+    <xsl:otherwise>
+      <xsl:text>?</xsl:text>
+    </xsl:otherwise>
+  </xsl:choose>
+</xsl:template>
+
     <!-- Unnumbered sections titles have a waste of space after -->    
     <xsl:attribute-set name="section.title.properties">
         <xsl:attribute name="space-after.minimum">0.1em</xsl:attribute>
