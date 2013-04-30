@@ -5,6 +5,8 @@ s/<\/p>/<\/div><div class=\"side\">/
 /<\/span>/d
 s/<b>//
 s/<\/b>//
+s/<strong>//
+s/<\/strong>//
 /<dl>/d
 /<\/dl>/d
 /<dd>/d

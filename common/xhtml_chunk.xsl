@@ -18,7 +18,7 @@
 
 <!DOCTYPE xsl:stylesheet [
   <!-- The below path is defined by the docbook-xsl-ns Debian package -->
-  <!ENTITY db_xsl_path        "/usr/share/xml/docbook/stylesheet/docbook-xsl-ns/">
+  <!ENTITY db_xsl_path        "/usr/local/share/xml/docbook/stylesheet/docbook-xsl-ns/">
   <!ENTITY callout_gfx_path   "/images/">
   <!ENTITY admon_gfx_path     "/images/">
 ]>
@@ -26,10 +26,9 @@
 <xsl:stylesheet version="1.0"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns="http://www.w3.org/TR/xhtml1/transitional"
-  exclude-result-prefixes="#default">
+  xmlns:d="http://docbook.org/ns/docbook" exclude-result-prefixes="d">
 
 <xsl:import href="&db_xsl_path;/xhtml-1_1/chunk.xsl"/>
-
 <!-- highlight templates -->
 <xsl:import href="&db_xsl_path;/xhtml-1_1/highlight.xsl"/>
 
@@ -57,6 +56,11 @@
     <xsl:param name="default.table.width" select="'100%'" />
 
     <xsl:param name="qanda.inherit.numeration" select="0" />
+    <xsl:param name="qanda.defaultlabel">number</xsl:param>
+    <xsl:template match="d:question" mode="label.markup">
+      <xsl:text>Q</xsl:text>
+      <xsl:number level="any" count="d:qandaentry" format="1"/>
+    </xsl:template>
 
     <xsl:template match="collabname">
       <xsl:apply-templates/>

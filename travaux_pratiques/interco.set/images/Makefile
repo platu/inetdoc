@@ -6,10 +6,14 @@ endif
 PROCESS = symlink
 
 SYMLINKS = \
-	$(MAIN_DIR)/travaux_pratiques/interco.kernel.qa/images/*.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.rawip.qa/images/*.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.ppp.qa/images/*.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.cs/images/*.png
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.kernel.qa/images/*.png) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.rawip.qa/images/*.png) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.ppp.qa/images/*.png) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.netfilter.qa/images/*.png) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.inter-vlan.qa/images/*.png) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.ospf.qa/images/*.png) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.cs/images/*.png) \
+	$(MAIN_DIR)/images/titleimage.png
 
 all: $(PROCESS)
 

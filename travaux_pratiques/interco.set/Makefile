@@ -10,6 +10,7 @@ PROCESS = subdirs symlink xml2xhtml xml2pdf
 SYMLINKS = \
         $(MAIN_DIR)/common/author.xml \
         $(MAIN_DIR)/common/legal.xml \
+        $(MAIN_DIR)/common/rfc.urls.xml \
         $(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
@@ -19,12 +20,20 @@ XML_FILES = \
 	inetdoc.urls.xml \
 	$(OUTPUT)/chapter-interco.kernel.qa.xml \
 	$(OUTPUT)/chapter-interco.rawip.qa.xml \
+	$(OUTPUT)/chapter-interco.ppp.qa.xml \
+	$(OUTPUT)/chapter-interco.netfilter.qa.xml \
+	$(OUTPUT)/chapter-interco.inter-vlan.qa.xml \
+	$(OUTPUT)/chapter-interco.ospf.qa.xml \
 	$(OUTPUT)/chapter-interco.cs.xml \
 	$(wildcard images/*.png)
 
 CHAPTER_FILES = \
 	../interco.kernel.qa/interco.kernel.qa.xml \
 	../interco.rawip.qa/interco.rawip.qa.xml \
+	../interco.ppp.qa/interco.ppp.qa.xml \
+	../interco.netfilter.qa/interco.netfilter.qa.xml \
+	../interco.inter-vlan.qa/interco.inter-vlan.qa.xml \
+	../interco.ospf.qa/interco.ospf.qa.xml \
 	../interco.cs/interco.cs.xml 
 
 all: $(PROCESS)

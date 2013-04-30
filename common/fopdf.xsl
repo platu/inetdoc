@@ -20,9 +20,10 @@
 
 <!DOCTYPE xsl:stylesheet [
   <!-- The below path is defined by the docbook-xsl-ns Debian package -->
-  <!ENTITY db_xsl_path        "/usr/share/xml/docbook/stylesheet/docbook-xsl-ns/">
+  <!ENTITY db_xsl_path        "/usr/local/share/xml/docbook/stylesheet/docbook-xsl-ns/">
   <!ENTITY callout_gfx_path   "&db_xsl_path;images/callouts/">
   <!ENTITY admon_gfx_path     "&db_xsl_path;images/">
+  <!ENTITY img_src_path       "/home/phil/inetdoc/images/">
 ]>
 
 <xsl:stylesheet version="1.0"
@@ -58,6 +59,11 @@
     </xsl:attribute-set>
 
     <xsl:param name="qanda.inherit.numeration" select="0" />
+    <xsl:param name="qanda.defaultlabel">number</xsl:param>
+    <xsl:template match="d:question" mode="label.markup">
+      <xsl:text>Q</xsl:text>
+      <xsl:number level="any" count="d:qandaentry" format="1"/>
+    </xsl:template>
 
     <!-- automated index generation -->
     <xsl:param name="generate.index" select="1"/>
@@ -254,6 +260,10 @@
             </fo:block>
           </xsl:when>
         </xsl:choose>
+        <fo:block>
+          <fo:external-graphic src="url(&img_src_path;titleimage.png)"
+            padding="2cm" width="12cm" content-width="scale-to-fit"/>
+        </fo:block>
       </fo:block>
     </xsl:template>
 
@@ -463,7 +473,7 @@
 
     <!-- Chapter -->
     <xsl:template match="d:title" mode="chapter.titlepage.recto.auto.mode">
-        <fo:block font-family="DejaVuSans-Bold" font-size="12pt">
+        <fo:block font-family="DejaVuSans-Bold" font-size="12pt" color="#af0228">
             <xsl:text>CHAPITRE </xsl:text>
             <xsl:call-template name="chapnum"/>
         </fo:block>
@@ -668,6 +678,7 @@ up into multiple documents.
     <xsl:param name="shade.verbatim" select="1" />
     <xsl:attribute-set name="shade.verbatim.style">
         <xsl:attribute name="background-color">#eee</xsl:attribute>
+	<xsl:attribute name="keep-together.within-column">always</xsl:attribute>
     </xsl:attribute-set>
 
 <!--###################################################
