@@ -1,0 +1,854 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.nfs.howto
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://nfs.sourceforge.net/nfs-howto/">
+  <citetitle>Linux NFS-HOWTO</citetitle></link>'>
+
+<!ENTITY url.nis.howto
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.linux-nis.org/nis-howto/HOWTO/">
+  <citetitle>The Linux NIS(YP)/NYS/NIS+ HOWTO</citetitle></link>'>
+
+<!ENTITY url.debian.nis.howto
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.linux-nis.org/doc/nis.debian.howto">
+  <citetitle>Debian NIS howto</citetitle></link>'>
+]>
+
+<article xml:id='sysadm-net.nis' xml:lang='fr'>
+
+<info>
+  <title>Introduction au service NIS</title>
+
+  &author;
+  <abstract>
+    <para>Avec un système de fichiers réseau (<acronym>NFS</acronym>) utilisé
+    seul, il n'est pas possible de faire correspondre de façon automatique les
+    propriétés des masques de permissions sur les objets de ce système de
+    fichiers entre client et serveur. Établir manuellement ces correspondances
+    sur un grand nombre de fichiers et de répertoires est pratiquement
+    impossible. Heureusement, il existe un service simple de partage de la base
+    de données utilisateur et des informations d'hôtes sur un réseau local
+    appelé <wordasword>Network Information Service</wordasword>. C'est la
+    configuration et l'utilisation de ce service qui constitue l'objet de ce
+    document.</para>
+  </abstract>
+  <keywordset>
+    <keyword>Debian</keyword>
+    <keyword>nis</keyword>
+    <keyword>nfs</keyword>
+    <keyword>ipv6</keyword>
+  </keywordset>
+</info>
+
+<sect1 xml:id='sysadm-net.nis.legal.meta'>
+  &legal;
+
+  <sect2 xml:id='sysadm-net.nis.meta'>
+    <title>Méta-information</title>
+    
+  <para>Ce document est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.nis.adressage'>
+  <title>Adressage IP des postes de travail</title>
+
+  <table frame='all' pgwide='1' xml:id='tp.nis'>
+    <title>Adressage IP des postes de travail</title>
+    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+    <thead>
+      <row>
+      <entry>Poste 1</entry>
+      <entry>Poste 2</entry>
+      <entry>Passerelle par défaut</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry>alderaan</entry>
+      <entry>bespin</entry>
+      <entry><systemitem class='ipaddress'>10.7.10.1/23</systemitem></entry>
+      </row>
+      <row>
+      <entry>centares</entry>
+      <entry>coruscant</entry>
+      <entry><systemitem class='ipaddress'>192.168.110.129/25</systemitem></entry>
+      </row>
+      <row>
+      <entry>dagobah</entry>
+      <entry>endor</entry>
+      <entry><systemitem class='ipaddress'>172.19.113.65/26</systemitem></entry>
+      </row>
+      <row>
+      <entry>felucia</entry>
+      <entry>geonosis</entry>
+      <entry><systemitem class='ipaddress'>10.3.2.1/23</systemitem></entry>
+      </row>
+      <row>
+      <entry>hoth</entry>
+      <entry>mustafar</entry>
+      <entry><systemitem class='ipaddress'>172.19.114.129/26</systemitem></entry>
+      </row>
+      <row>
+      <entry>naboo</entry>
+      <entry>tatooine</entry>
+      <entry><systemitem class='ipaddress'>192.168.111.1/25</systemitem></entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+
+  <para>Toutes les questions doivent être traitées avec le document de
+  référence : <xref linkend='sysadm-net.nis.howto'/>. Il faut cependant faire la
+  correspondance entre les services décrits dans ce document et les paquets
+  de la distribution <citetitle>Debian GNU/Linux</citetitle>.</para>
+
+  <para>Pour chaque paire de postes de travaux pratiques, il faut attribuer les
+  rôles de serveur et de client. Le serveur doit exporter sa base de données
+  utilisateur et ses fichiers de configuration et le client doit pouvoir y
+  accéder à l'aide des appels de procédures distants
+  (<acronym>RPC</acronym>).</para>
+
+  <para>Dans la suite de la section, on considère que tous les
+  <emphasis>postes 1</emphasis> sont clients et les <emphasis>postes
+  2</emphasis> sont serveurs.</para>
+
+  <note>
+    <title>Rôle 'client' attribué par défaut dans le paquet NIS</title>
+    <para>Ces travaux pratiques se limitent à l'utilisation du service
+    <acronym>NIS</acronym> «classique». On ne s'intéresse pas aux variantes
+    <acronym>NIS+</acronym> et <acronym>NYS</acronym>.</para>
+    <para>Le paquet <systemitem>nis</systemitem> de la distribution
+    <citetitle>Debian GNU/Linux</citetitle> est configuré par défaut pour un
+    mode de fonctionnement client. La recherche du serveur
+    <acronym>NIS</acronym> s'effectue avec des requêtes de diffusion. Il faut
+    donc attendre que ces requêtes aient échoué pour débuter les opérations de
+    configuration.</para>
+  </note>
+</sect1>
+
+<sect1 xml:id='sysadm-net.nis.definition'>
+  <title>Principes du service NIS</title>
+
+  <para>Le service d'information réseau ou <wordasword>Network Information
+  Service</wordasword> (<acronym>NIS</acronym>) est une méthode de distribution
+  d'éléments de configuration système sur les postes d'un réseau local. C'est
+  un service réseau «historique» développé par <trademark>Sun
+  Microsystems</trademark> au début des années 80. Il fonctionne sur le mode
+  Client/Serveur à partir d'une base de données «à plat» (<wordasword>flat
+  bindery base</wordasword>).</para>
+
+  <para>La base de données <acronym>NIS</acronym> est dite «à plat» parce
+  qu'elle ne possède qu'un niveau d'organisation par opposition aux annuaires
+  <citetitle>LDAP</citetitle> ou <citetitle>Active Directory</citetitle> qui
+  possèdent une arborescence <citetitle>d'unités organisationnelles</citetitle>
+  (<acronym>OU</acronym>). L'administration de cette base de données est donc
+  beaucoup plus simple qu'un annuaire mais elle est limitée en granularité.
+  Cette limitation devient critique lorsque la population des utilisateurs et
+  des postes de travail dépasse les seuils critiques habituels. L'emploi du
+  service <acronym>NIS</acronym>, tel qu'il est présenté ici, ne peut dépasser
+  la centaine d'utilisateurs.</para>
+
+  <para>Comme tous les services qui datent des années 80, le service
+  <acronym>NIS</acronym> possède de nombreuses limites en termes de sécurité.
+  Il est possible de collecter toutes les informations échangées entre client
+  et serveur à l'aide d'une capture réseau. On peut ainsi illustrer les
+  faiblesses de mots de passes mal composés et justifier l'emploi de
+  technologies plus sophistiquées et plus contemporaines telles que
+  <citetitle>Kerberos</citetitle>.</para>
+
+  <para>Bien que les limites et les failles du service <acronym>NIS</acronym>
+  soient connues depuis longtemps, on continue à l'exploiter dans certains
+  contextes tels que les réseaux locaux scientifiques non reliés à l'Internet.
+  La simplicité d'administration du service reste un argument pertinent dans
+  ces domaines d'exploitation.</para>
+
+  <variablelist>
+    <varlistentry xml:id='sysadm-net.nis.definition.server'>
+      <term>Serveur <acronym>NIS</acronym></term>
+      <listitem>
+      <para>Le serveur <acronym>NIS</acronym> est, à la base, un poste de
+      travail comme les autres. Ce sont ses paramètres ou fichiers de
+      configuration système qui servent de référence pour l'ensemble du domaine
+      <acronym>NIS</acronym>.</para>
+
+      <para>Ces paramètres système de référence sont intégrés dans une base de
+      données que l'on peut interroger à l'aide de requêtes
+      <acronym>RPC</acronym>.</para>
+
+      <para>La configuration du serveur <acronym>NIS</acronym> consiste donc à
+      créer la base de données en définissant les éléments à exploiter sur le
+      réseau local : comptes utilisateurs, noms d'hôtes, noms de réseau,
+      automontage <acronym>NFS</acronym>, etc.</para>
+
+      <para>Ensuite, il faut exécuter les processus de traitement des requêtes
+      reçues lors des appels <acronym>RPC</acronym>.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='sysadm-net.nis.definition.client'>
+      <term>Client <acronym>NIS</acronym></term>
+      <listitem>
+      <para>Le client <acronym>NIS</acronym> doit interroger le serveur dès
+      qu'un paramètre système n'est pas défini localement dans ses propres
+      fichiers de configuration.</para>
+      
+      <para>La configuration du client consiste à désigner le serveur
+      <acronym>NIS</acronym> et à exécuter les processus qui permettent
+      d'émettre les appels <acronym>RPC</acronym> pour interroger la base de
+      données.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Pour la petite histoire, <trademark>Sun Microsystems</trademark>
+  souhaitait appeler ce service <wordasword>Yellow Pages</wordasword> du même
+  nom que les annuaires téléphoniques professionnels. Comme ce nom était une
+  marque déposée, il a fallu rebaptiser le service en <wordasword>Network
+  Information Service</wordasword>. Les commandes utilisateurs ont cependant
+  conservé le préfixe <literal>yp</literal> : ypinit, ypcat, etc.</para>
+</sect1>
+
+<sect1 xml:id='sysadm-net.nis.client'>
+  <title>Configuration du client NIS</title>
+
+  <para>À la différence du protocole <acronym>NFS</acronym>, les outils du
+  client et du serveur <acronym>NIS</acronym> sont contenus dans le même
+  paquet.</para>
+
+  <para>Que le poste soit client ou serveur, il faut passer par les mêmes
+  étapes de configuration commune : désigner le serveur
+  <acronym>NIS</acronym> et fixer le nom de domaine <acronym>NIS</acronym>. La
+  notion de nom de domaine propre au service <acronym>NIS</acronym> est
+  comparable au mécanisme de résolution <acronym>WINS</acronym> lié à
+  <application>netbios</application> sur les systèmes Micro$oft.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est le paquet qui contient les outils du service
+      <acronym>NIS</acronym> ? Comment installer ce paquet ?</phrase></para>
+
+      <para>Rechercher la chaîne de caractères <literal>"network information
+      service"</literal> dans les descriptions de paquets pour identifier le
+      paquet à installer.</para>
+      </question>
+      <answer>
+      <para>Identification du paquet :</para>
+<screen><prompt>$</prompt> aptitude search '?description(network information service)'
+p   libnet-nis-perl      - Interface to Sun's Network Information Service
+p   melange              - IPAM management service for Openstack - Daemons
+<emphasis>p   nis                  - clients and daemons for the Network Information Service (NIS)</emphasis>
+p   python-melange       - IPAM management service for Openstack - Python library</screen>
+
+      <para>Installation du paquet <application>nis</application> :</para>
+<screen><prompt>#</prompt> aptitude install nis
+Les NOUVEAUX paquets suivants vont être installés : 
+  libgssglue1{a} libslp1{a} libtirpc1{a} nis rpcbind{a} 
+&lt;snipped/>
+[ ok ] Starting rpcbind daemon....
+Paramétrage de nis (3.17-32) ...
+[ ok ] Stopping NIS services: ypbind ypserv ypppasswdd ypxfrd.
+<emphasis>[info] Setting NIS domainname to: nis.lab.</emphasis>
+[FAIL] Starting NIS services: ypbind[....] binding to YP server..failed (backgrounded).
+. ok</screen>
+      <para>Lors de l'installation du paquet, on attribue un nom de domaine
+      <acronym>NIS</acronym>. Dans cette exemple, le domaine est :
+      <option>nis.lab</option>. Ce nom de domaine est à priori sans rapport
+      avec le service de résolution des noms de domaine de l'Internet : le
+      service <acronym>DNS</acronym>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est l'opération à effectuer pour affecter le rôle
+      <acronym>NIS</acronym> du poste ? Quel est le fichier de configuration
+      concerné ?</phrase></para>
+
+      <para>Consulter le script système de lancement du service
+      (<wordasword>runlevels</wordasword>) et identifier le fichier de
+      configuration à éditer.</para>
+      </question>
+      <answer>
+
+<screen><prompt>#</prompt> grep '/etc/default' /etc/init.d/nis
+<emphasis># Customize the variables in /etc/default/nis rather than here</emphasis>
+[ -f /etc/default/nis ] &amp;&amp; . /etc/default/nis
+test -f ${NET}/ypbind -a -f /etc/defaultdomain || exit 0
+        nname=`cat /etc/defaultdomain`</screen>
+
+      <para>Le répertoire <filename class='directory'>/etc/default/</filename>
+      contient les fichiers de paramétrage des services. Ces fichiers sont
+      consultés à chaque lancement des services à partir des scripts
+      d'initialisation (<wordasword>runlevels</wordasword>) du répertoire
+      <filename class='directory'>/etc/init.d/</filename>. Il faut donc éditer
+      le fichier <filename>/etc/default/nis</filename> pour affecter le rôle
+      <emphasis>client</emphasis> ou <emphasis>serveur</emphasis>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est l'opération à effectuer pour (ré)affecter le nom
+      du domaine <acronym>NIS</acronym> ? Quel est le fichier de configuration
+      concerné ?</phrase></para>
+
+      <para>Rechercher l'outil de reconfiguration de paquet ainsi que les
+      options permettant de parcourir les écrans de configuration. Il faut
+      noter que les réponses aux menus de configuration des paquets sont
+      enregistrées.</para>
+
+      <para>Consulter le support &url.debian.nis.howto; pour identifier le
+      fichier dans lequel le nom de domaine <acronym>NIS</acronym> est
+      stocké.</para>
+      </question>
+      <answer>
+      <para>La commande de reconfiguration du paquet
+      <application>nis</application> est : <userinput><prompt>#</prompt>
+      dpkg-reconfigure -plow nis</userinput>.</para>
+
+      <para>Le nom de domaine <acronym>NIS</acronym> est stocké dans le fichier
+      <filename>/etc/defaultdomain</filename>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est la méthode de recherche par défaut du serveur
+      <acronym>NIS</acronym> ? Quel est le type du flux réseau
+      ?</phrase></para>
+
+      <para>Effectuer une capture réseau en mode console avec
+      <application>tshark</application> pour identifier la nature du trafic
+      émis par le client <acronym>NIS</acronym>.</para>
+      </question>
+      <answer>
+<screen><prompt>$</prompt> tshark -i eth0 ! port 22
+Capturing on eth0
+192.0.2.11 -> 192.0.2.31   Portmap 146 V2 CALLIT Call
+192.0.2.11 -> 192.0.2.31   Portmap 146 [RPC retransmission of #1]V2 CALLIT Call
+192.0.2.11 -> 192.0.2.31   Portmap 146 [RPC retransmission of #1]V2 CALLIT Call</screen>
+
+      <para>La capture réseau ci-dessus a été réalisée dans le réseau
+      <systemitem class='ipaddress'>192.0.2.0/27</systemitem> dont l'adresse de
+      diffusion est <systemitem class='ipaddress'>192.0.2.31</systemitem>. Le
+      client recherche donc le serveur à l'aide de paquets de diffusion. Dans
+      notre contexte, on se propose d'identifier le serveur de façon à limiter
+      le recours à la diffusion.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est l'opération à effectuer pour désigner le serveur
+      <acronym>NIS</acronym> ? Quel est le fichier de configuration concerné
+      ?</phrase></para>
+
+      <para>Rechercher les éléments relatifs à la la désignation du serveur
+      dans la liste des fichiers de configuration fournis avec le
+      paquet.</para> 
+
+      <para>Éditer ce fichier en indiquant l'adresse <acronym>IP</acronym> du
+      serveur <acronym>NIS</acronym>.</para>
+      </question>
+      <answer>
+      <para>Le fichier recherché est <filename>yp.conf</filename>.</para>
+
+<screen><prompt>#</prompt> dpkg -L nis | grep 'yp.conf'
+/usr/share/man/man5/yp.conf.5.gz
+/etc/yp.conf</screen>
+
+      <para>Dans notre cas le fichier contient les deux instructions
+      suivantes.</para>
+
+<screen><prompt>#</prompt> grep -v '^#' /etc/yp.conf 
+
+ypserver 2a01:240:feb2:10::12
+ypserver 192.0.2.12</screen>
+
+      <note>
+      <para>Cet exemple est basé sur l'utilisation d'une double pile réseau
+      <acronym>IPv4</acronym> + <acronym>IPv6</acronym>. La capture réseau
+      donnée ci-avant montre que seule la pile réseau <acronym>IPv4</acronym>
+      est utilisée par le démon client <acronym>NIS</acronym>.</para>
+      </note>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est l'outil qui permet de lister les services
+      accessibles via un appel <acronym>RPC</acronym> ?</phrase></para>
+
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/>.</para>
+      </question>
+      <answer>
+      <para>L'outil à utiliser est <application>rpcinfo</application>. Il est
+      fourni par le paquet <application>rpcbind</application>.</para>
+
+<screen><prompt>#</prompt> dpkg -S `which rpcinfo` 
+rpcbind: /usr/sbin/rpcinfo</screen>
+
+      <para>L'option historique <option>-p</option> liée à
+      <acronym>IPv4</acronym> a été remplacée par <option>-s</option> pour
+      tenir compte des deux protocoles de couche réseau. Voici deux exmples
+      d'exécution produisant les mêmes résultats.</para>
+
+<screen><prompt>#</prompt> rpcinfo -s 192.0.2.12
+program version(s) netid(s)                         service     owner
+ 100000  2,3,4     local,udp,tcp,udp6,tcp6          portmapper  superuser
+ 100007  1,2       tcp,udp                          ypbind      superuser</screen>
+
+<screen><prompt>#</prompt> rpcinfo -s 2a01:240:feb2:10::12
+program version(s) netid(s)                         service     owner
+ 100000  2,3,4     local,udp,tcp,udp6,tcp6          portmapper  superuser
+ 100007  1,2       tcp,udp                          ypbind      superuser</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quels sont les numéros de ports utilisés ainsi que la
+      famille de protocole de couche réseau utilisés ?</phrase></para>
+
+      <para>Réaliser une capture lors de l'exécution l'outil obtenu à la
+      question précédente et relever les numéros de ports caractéristiques de
+      cette transaction.</para>
+
+<screen>Client                               Serveur
+-----------------------------------------------
+
+ypbind    --- requête RPC bind --->  portmapper
+
+ypbind    &lt;--- numéro de port ----   portmapper
+
+ypbind    --- requête RPC bind --->  ypserv
+
+ypbind    &lt;--- réponse ------------  ypserv</screen>
+      </question>
+      <answer>
+      <para>On exécute la commande <userinput><prompt>#</prompt> rpcinfo -s
+      2a01:240:feb2:10::12</userinput>.</para>
+
+<screen><prompt>#</prompt> rpcinfo -s 2a01:240:feb2:10::12
+   program version(s) netid(s)                         service     owner
+    100000  2,3,4     local,udp,tcp,udp6,tcp6          portmapper  superuser
+    100004  1,2       tcp,udp                          ypserv      superuser
+    100009  1         udp                              yppasswdd   superuser
+ 600100069  1         tcp,udp                          fypxfrd     superuser
+    100007  1,2       tcp,udp                          ypbind      superuser</screen>
+
+      <para>La copie d'écran ci-dessus montre que les services liés à
+      <acronym>NIS</acronym> utilisent exclusivement <acronym>IPv4</acronym>
+      alors que le <application>portmapper</application> utilise les deux
+      familles de protocoles.</para>
+
+      <para>La capture réseau correspondant à l'exécution de la commande montre
+      que le service <application>portmapper</application> est sollicité pour
+      obtenir la liste des services <acronym>RPC</acronym> disponibles sur
+      l'hôte.</para>
+
+      <itemizedlist>
+        <listitem>
+	<para>Le service <application>portmapper</application> est repéré à
+	partir du nom du port distant : <option>sunrpc</option>.</para>
+
+<screen><prompt>$</prompt> grep sunrpc /etc/services 
+sunrpc          111/tcp         portmapper      # RPC 4.0 portmapper
+sunrpc          111/udp         portmapper</screen>
+	</listitem>
+	<listitem>
+	<para>Le protocole de couche transport utilisé est
+	<acronym>TCP</acronym>.</para>
+	</listitem>
+	<listitem>
+	<para>Le protocole de couche réseau utilisé est
+	<acronym>IPv6</acronym>.</para>
+	</listitem>
+      </itemizedlist>
+
+<screen><prompt>$</prompt> tshark -i eth0 ! port 22
+Capturing on eth0
+2a01:240:feb2:10::11 -> 2a01:240:feb2:10::12 TCP 94 sanity > sunrpc [SYN] Seq=0
+2a01:240:feb2:10::12 -> 2a01:240:feb2:10::11 TCP 94 sunrpc > sanity [SYN, ACK] Seq=0 Ack=1
+2a01:240:feb2:10::11 -> 2a01:240:feb2:10::12 TCP 86 sanity > sunrpc [ACK] Seq=1 Ack=1
+2a01:240:feb2:10::11 -> 2a01:240:feb2:10::12 Portmap 130 V3 DUMP Call
+2a01:240:feb2:10::12 -> 2a01:240:feb2:10::11 TCP 86 sunrpc > sanity [ACK] Seq=1 Ack=45
+2a01:240:feb2:10::12 -> 2a01:240:feb2:10::11 Portmap 1398 V3 DUMP Reply (Call In 6)
+2a01:240:feb2:10::11 -> 2a01:240:feb2:10::12 TCP 86 sanity > sunrpc [ACK] Seq=45 Ack=1313
+2a01:240:feb2:10::11 -> 2a01:240:feb2:10::12 TCP 86 sanity > sunrpc [FIN, ACK] Seq=45 Ack=1313
+2a01:240:feb2:10::12 -> 2a01:240:feb2:10::11 TCP 86 sunrpc > sanity [FIN, ACK] Seq=1313 Ack=46
+2a01:240:feb2:10::11 -> 2a01:240:feb2:10::12 TCP 86 sanity > sunrpc [ACK] Seq=46 Ack=1314</screen>
+      </answer>
+    </qandaentry>
+  </qandaset>
+
+  <para>En affectant un nom de domaine spécifique au service
+  <acronym>NIS</acronym>, on a ouvert un nouveau mécanisme de requête sur les
+  informations des utilisateurs et des hôtes. Pour que ce mécanisme de
+  résolution soit utilisé, il faut compléter la configuration du commutateur de
+  service de résolution de noms (<wordasword>name service switch</wordasword>
+  ou <acronym>NSS</acronym>).</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para><phrase>Quelles sont les opérations à effectuer pour que le service
+      <acronym>NIS</acronym> soit consulté à chaque requête de résolution de
+      nom ? Quel sont les fichiers de configuration concernés ?</phrase></para>
+
+      <para>Consulter le support &url.debian.nis.howto; ainsi que la liste des
+      fichiers du paquet.</para>
+      </question>
+      <answer>
+      <para>Le fichier de configuration concerné est
+      <filename>/etc/nsswitch.conf</filename>. Dans ce fichier l'entrée
+      concernée par la résolution des noms est la ligne débutant par
+      <option>hosts:</option>. Pour que le service <acronym>NIS</acronym> soit
+      utilisé, il est nécessaire d'ajouter l'option <option>nis</option> entre
+      <option>files</option> et <option>dns</option>.</para>
+
+<screen><prompt>#</prompt> grep ^hosts /etc/nsswitch.conf 
+hosts:          files nis dns</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est la commande qui permet de lister les
+      informations diffusées via le service <acronym>NIS</acronym>
+      ?</phrase></para>
+
+      <para>Rechercher dans le support &url.nis.howto; et consulter
+      la liste des commandes <command>yp*</command> fournies avec le
+      paquet.</para>
+      </question>
+      <answer>
+      <para>La commande recherchée est <command>ypcat</command>. On donne un
+      exemple d'exécution ci-dessous.</para>
+
+<screen><prompt>#</prompt> ypcat hosts
+2a01:240:feb2:10::12  ip6-nisserver
+2a01:240:feb2:10::11  ip6-nisclient
+192.0.2.12      nisserver
+127.0.0.1       localhost
+192.0.2.11      nisclient</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelles sont les opérations à effectuer pour que le service
+      d'automontage de répertoire utilisateur soit exploitable ? Quels sont les
+      tests à effectuer pour valider la disponibilité du service d'automontage
+      ?</phrase></para>
+
+      <para>Reprendre les étapes proposées dans la section
+      &url.sysadm-net.nfs.autofs; du support &url.sysadm-net.nfs;.</para>
+      
+      <para>Préparer un fichier <filename>/etc/auto.home</filename> permettant
+      de monter automatiquement le répertoire de l'utilisateur
+      <systemitem>etu-nfs</systemitem> à partir de la racine de montage
+      <acronym>NFS</acronym> <filename
+      class='directory'>/ahome/</filename>.</para>
+
+      <note>
+	<para>Dans le cas de cette question, les éléments de configuration du
+	service d'automontage ne sont pas fournis par le service
+	<acronym>NIS</acronym>. Ici, le but est d'illustrer les étapes de mise
+	en œuvre d'un montage indirect.</para>
+      </note>
+      </question>
+      <answer>
+      <itemizedlist>
+        <listitem>
+	<para>On s'assure que le paquet <systemitem>autofs</systemitem> est
+	bien installé.</para>
+
+<screen><prompt>#</prompt> aptitude search ~iautofs
+i   autofs    - kernel-based automounter for Linux</screen>
+	</listitem>
+	<listitem>
+	<para>On crée la racine de montage du système de fichiers réseau.</para>
+
+<screen><prompt>#</prompt> # mkdir /ahome
+<prompt>#</prompt> ls -l / | grep home
+drwxr-xr-x  2 root root  4096 mai   13 23:16 ahome
+drwxr-xr-x  3 root root  4096 oct.  25  2010 home</screen>
+	</listitem>
+	<listitem>
+	<para>On crée le compte utilisateur sans son répertoire qui doit
+	résider sur le serveur du système de fichiers réseau.</para>
+
+<screen><prompt>#</prompt> adduser --no-create-home --home /ahome/etu-nfs etu-nfs
+<prompt>#</prompt> id etu-nfs
+uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
+	</listitem>
+	<listitem>
+	<para>On définit la racine de montage <filename
+	class='directory'>/ahome</filename> dans le fichier de configuration du
+	service d'automontage : <filename>/etc/auto.master</filename>.</para>
+
+<screen><prompt>#</prompt> grep -v ^# /etc/auto.master
+/ahome  /etc/auto.home</screen>
+
+	<para>Ensuite, on définit le point de montage proprement dit : le
+	répertoire utilisateur dans le fichier
+	<filename>/etc/auto.home</filename>.</para>
+
+<screen><prompt>#</prompt> cat /etc/auto.home 
+*       -fstype=nfs4    2a01:240:feb2:10::12:/home/&amp;</screen>
+
+	<para>Ici, l'adresse <acronym>IP</acronym> correspond à celle du
+	serveur <acronym>NIS</acronym> qui joue aussi le rôle de serveur pour
+	le système de fichiers réseau <acronym>NFS</acronym>.</para>
+	</listitem>
+	<listitem>
+	<para>On valide la disponibilité du service après l'avoir
+	redémarré.</para>
+
+<screen><prompt>#</prompt> service autofs restart
+<prompt>#</prompt> mount | grep auto
+/etc/auto.home on /ahome type autofs (rw,relatime,fd=6,pgrp=8632,timeout=300,minproto=5,maxproto=5,indirect)</screen>
+	</listitem>
+      </itemizedlist>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quels sont les critères à respecter sur les
+      <systemitem>uids</systemitem> et <systemitem>gids</systemitem> pour que
+      le compte utilisateur diffusé via le service <acronym>NIS</acronym> soit
+      utilisable ?</phrase></para>
+
+      <para>Rechercher dans le support &url.nis.howto; et consulter les
+      informations publiées via le service <acronym>NIS</acronym>. Attention !
+      Il faut que le service soit actif sur le serveur pour valider ce dernier
+      point.</para>
+      </question>
+      <answer>
+      <para>Les identifiants numériques d'utilisateur et de groupe doivent
+      impérativement être identiques sur le client <emphasis>et</emphasis> le
+      serveur.</para>
+      </answer>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='sysadm-net.nis.server'>
+  <title>Configuration du serveur NIS</title>
+
+  <para>Le serveur <acronym>NIS</acronym> sert de référence pour tous les
+  clients. Ses fichiers de configuration ne présentent pas de particularité.
+  Ils sont diffusés sur le réseau via le démon <systemitem
+  class='daemon'>ypserv</systemitem> à destination des clients du domaine
+  <acronym>NIS</acronym>.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para>Quelle est l'opération à effectuer pour affecter le rôle
+      <acronym>NIS</acronym> du poste ? Quel est le fichier de
+      configuration concerné ?</para>
+      </question>
+      <answer>
+      <para>Le répertoire <filename class='directory'>/etc/default/</filename>
+      contient les fichiers de paramétrage des services. Ces fichiers sont
+      consultés à chaque lancement des services à partir des scripts
+      d'initialisation (<wordasword>runlevels</wordasword> du répertoire
+      <filename class='directory'>/etc/init.d/</filename>. Il faut donc éditer
+      le fichier des paramètres du service <acronym>NIS</acronym> dans le
+      répertoire <filename class='directory'>/etc/default/</filename> pour
+      affecter les rôles <emphasis>client</emphasis> ou
+      <emphasis>serveur</emphasis>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Où sont placés les fichiers de base de données
+      <acronym>NIS</acronym> dans l'arborescence système ?</para>
+      </question>
+      <answer>
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/> ainsi que
+      dans la liste des fichiers et répertoires du paquet.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quels sont les fichiers de configuration propagés par défaut par le
+      serveur <acronym>NIS</acronym> ?</para>
+      </question>
+      <answer>
+      <para>Consulter le support <xref linkend='sysadm-net.nis.howto'/> ainsi que la
+      documentation fournie avec le paquet.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelle est la commande qui permet de créer les fichiers de base de
+      données <acronym>NIS</acronym> ?</para>
+      </question>
+      <answer>
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/> ainsi que
+      dans la liste des fichiers et répertoires du paquet.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les commandes qui permettent de lister les services
+      accessibles via un appel <acronym>RPC</acronym> ?</para>
+      </question>
+      <answer>
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Une fois les fichiers de base de données créés, quels sont les
+      tests à effectuer pour valider le contenu de la base
+      <acronym>NIS</acronym> ?</para>
+      </question>
+      <answer>
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/> et consulter
+      la liste des commandes <command>yp*</command> fournies avec le
+      paquet.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quel est le fichier de configuration à éditer pour que les
+      paramètres <systemitem>uid</systemitem> et <systemitem>gid</systemitem>
+      des utilisateurs diffusés via le service <acronym>NIS</acronym> soient
+      comptés à partir de 2000 ?</para>
+      </question>
+      <answer>
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/>
+      ainsi que le <wordasword>Makefile</wordasword> dans la liste des fichiers
+      et répertoires du paquet.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Une fois l'édition effectuée, quelle est la commande qui permet de
+      mettre à jour la base de données <acronym>NIS</acronym> ? De quel
+      autre domaine d'utilisation est extraite cette méthode de mise à jour
+      utilisant la même commande ?</para>
+      </question>
+      <answer>
+      <para>Consulter la section <citetitle>Creating and Updating NIS
+      maps</citetitle> dans le support <xref
+      linkend='sysadm-net.nis.howto'/>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelle est la syntaxe à utiliser pour créer un nouveau compte
+      utilisateur <systemitem>etu-nis</systemitem> ayant pour
+      <systemitem>uid</systemitem> et <systemitem>gid</systemitem> une valeur
+      supérieure ou égale à 2000 et le répertoire utilisateur <filename
+      class='directory'>/home/nis/etu-nis/</filename> ? Créer ce nouveau
+      compte utilisateur <systemitem>etu-nis</systemitem>.</para>
+      </question>
+      <answer>
+      <para>Rechercher dans les pages de manuels de la commande de création de
+      compte utilisateur.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelle est la commande qui permet de mettre à jour les fichiers de
+      base de données <acronym>NIS</acronym> ? Valider la mise à
+      jour.</para>
+      </question>
+      <answer>
+      <para>Consulter la section <citetitle>Creating and Updating NIS
+      maps</citetitle> dans le support <xref
+      linkend='sysadm-net.nis.howto'/>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>En reprenant la configuration de l'exportation
+      <acronym>NFS</acronym> (voir &url.sysadm-net.nfs.server;),
+      exporter le répertoire du nouvel utilisateur
+      <systemitem>etu-nis</systemitem>. Quelle est l'option d'exportation qui
+      interdit les opérations d'administration à partir d'un montage
+      <acronym>NFS</acronym> ?</para>
+      </question>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Configurer le contrôle d'accès au démon <systemitem
+      class='daemon'>portmap</systemitem> pour que seul les postes du réseau
+      local indiqué dans le <xref linkend='tp.nis'/> soient autorisés à
+      utiliser les services <acronym>NFS</acronym> et
+      <acronym>NIS</acronym>.</para>
+      </question>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='sysadm-net.nis.refdocs'>
+  <title>Documents de référence</title>
+
+  <variablelist>
+    <varlistentry xml:id='sysadm-net.nis.howto'>
+    <term><citetitle>The Linux NIS(YP)/NYS/NIS+ HOWTO</citetitle></term>
+    <listitem>
+    <para>&url.nis.howto; : documentation complète sur la configuration
+    d'un serveur et d'un client <acronym>NIS</acronym>.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.nis.debian-howto'>
+    <term>Documentation du paquet Debian <systemitem>nis</systemitem></term>
+    <listitem>
+    <para>Le fichier
+    <filename>/usr/share/doc/nis/nis.debian.howto.gz</filename> contient une
+    description pas à pas de la marche à suivre pour configurer le service
+    <acronym>NIS</acronym>.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.nfs.server'>
+    <term><citetitle>Configuration du serveur NFS</citetitle></term>
+    <listitem>
+    <para>&url.sysadm-net.nfs.server; : Support de TP sur la configuration du serveur
+    <acronym>NFS</acronym>.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.nfs.client.auto'>
+    <term><citetitle>Configuration de l'automontage NFS</citetitle></term>
+    <listitem>
+    <para>&url.sysadm-net.nfs.autofs; : Section du support de travaux pratiques
+    sur le système de fichiers réseau <acronym>NFS</acronym>.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+</article>
