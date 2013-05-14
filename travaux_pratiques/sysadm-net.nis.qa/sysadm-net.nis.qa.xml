@@ -220,6 +220,369 @@
   conservé le préfixe <literal>yp</literal> : ypinit, ypcat, etc.</para>
 </sect1>
 
+<sect1 xml:id='sysadm-net.nis.server'>
+  <title>Configuration du serveur NIS</title>
+
+  <para>Le serveur <acronym>NIS</acronym> est un hôte dont les fichiers de
+  configuration servent de référence pour tous les autres hôtes qui sont ses
+  clients. Ses fichiers de configuration ne présentent pratiquement pas de
+  particularité. Ils sont diffusés sur le réseau via le démon <systemitem
+  class='daemon'>ypserv</systemitem> à destination des clients du même domaine
+  <acronym>NIS</acronym>.</para>
+
+  <qandaset defaultlabel='number'>
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est le paquet qui contient les outils du service
+      <acronym>NIS</acronym> ? Comment installer ce paquet ?</phrase></para>
+
+      <para>Rechercher la chaîne de caractères <literal>"network information
+      service"</literal> dans les descriptions de paquets pour identifier le
+      paquet à installer.</para>
+      </question>
+      <answer>
+      <para>Identification du paquet :</para>
+<screen><prompt>$</prompt> aptitude search '?description(network information service)'
+p   libnet-nis-perl      - Interface to Sun's Network Information Service
+p   melange              - IPAM management service for Openstack - Daemons
+<emphasis>p   nis                  - clients and daemons for the Network Information Service (NIS)</emphasis>
+p   python-melange       - IPAM management service for Openstack - Python library</screen>
+
+      <para>Installation du paquet <application>nis</application> :</para>
+<screen><prompt>#</prompt> aptitude install nis
+Les NOUVEAUX paquets suivants vont être installés : 
+  libgssglue1{a} libslp1{a} libtirpc1{a} nis rpcbind{a} 
+&lt;snipped/>
+[ ok ] Starting rpcbind daemon....
+Paramétrage de nis (3.17-32) ...
+[ ok ] Stopping NIS services: ypbind ypserv ypppasswdd ypxfrd.
+<emphasis>[info] Setting NIS domainname to: nis.lab.</emphasis>
+[FAIL] Starting NIS services: ypbind[....] binding to YP server..failed (backgrounded).
+. ok</screen>
+      <para>Lors de l'installation du paquet, on attribue un nom de domaine
+      <acronym>NIS</acronym>. Dans cette exemple, le domaine est :
+      <option>nis.lab</option>. Ce nom de domaine est à priori sans rapport
+      avec le service de résolution des noms de domaine de l'Internet : le
+      service <acronym>DNS</acronym>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est l'opération à effectuer pour affecter le rôle
+      <acronym>NIS</acronym> du poste ? Quel est le fichier de configuration
+      concerné ?</phrase></para>
+
+      <para>Consulter le script système de lancement du service
+      (<wordasword>runlevels</wordasword>) et identifier le fichier de
+      configuration à éditer.</para>
+      </question>
+      <answer>
+
+<screen><prompt>#</prompt> grep '/etc/default' /etc/init.d/nis
+<emphasis># Customize the variables in /etc/default/nis rather than here</emphasis>
+[ -f /etc/default/nis ] &amp;&amp; . /etc/default/nis
+test -f ${NET}/ypbind -a -f /etc/defaultdomain || exit 0
+        nname=`cat /etc/defaultdomain`</screen>
+
+      <para>Le répertoire <filename class='directory'>/etc/default/</filename>
+      contient les fichiers de paramétrage des services. Ces fichiers sont
+      consultés à chaque lancement des services à partir des scripts
+      d'initialisation (<wordasword>runlevels</wordasword>) du répertoire
+      <filename class='directory'>/etc/init.d/</filename>. Il faut donc éditer
+      le fichier <filename>/etc/default/nis</filename> pour affecter le rôle
+      <emphasis>client</emphasis> ou <emphasis>serveur</emphasis>.</para>
+
+      <para>Dans le cas du serveur, il est pas nécessaire de modifier ce
+      fichier sachant que le rôle client est attribué par défaut. Pour
+      faciliter la mise au point, il est aussi très pratique de se déclarer
+      client de son propre service.</para>
+
+<screen><prompt>#</prompt> grep ^NIS /etc/default/nis
+NISSERVER=master
+NISCLIENT=true
+NISMASTER=</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quelle est l'opération à effectuer pour désigner le serveur
+      <acronym>NIS</acronym> ? Quel est le fichier de configuration concerné
+      ?</phrase></para>
+
+      <para>Rechercher les éléments relatifs à la la désignation du serveur
+      dans la liste des fichiers de configuration fournis avec le
+      paquet.</para> 
+
+      <para>Éditer ce fichier en indiquant l'adresse <acronym>IP</acronym> du
+      serveur <acronym>NIS</acronym>.</para>
+      </question>
+      <answer>
+      <para>Le fichier recherché est <filename>yp.conf</filename>.</para>
+
+<screen><prompt>#</prompt> dpkg -L nis | grep 'yp.conf'
+/usr/share/man/man5/yp.conf.5.gz
+/etc/yp.conf</screen>
+
+      <para>Dans notre cas le fichier contient les deux instructions
+      suivantes.</para>
+
+<screen><prompt>#</prompt> grep -v '^#' /etc/yp.conf 
+
+ypserver ::1
+ypserver 127.0.0.1</screen>
+
+      <note>
+      <para>Cet exemple est basé sur l'utilisation d'une double pile réseau
+      <acronym>IPv4</acronym> + <acronym>IPv6</acronym>. La capture réseau
+      donnée ci-avant montre que seule la pile réseau <acronym>IPv4</acronym>
+      est utilisée par le démon client <acronym>NIS</acronym>.</para>
+      </note>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est l'outil qui permet de lister les services
+      accessibles via un appel <acronym>RPC</acronym> ? Comment peut-on
+      relancer le service <acronym>NIS</acronym> s'il n'est pas actif
+      ?</phrase></para>
+
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/>.</para>
+      </question>
+      <answer>
+      <para>L'outil à utiliser est <application>rpcinfo</application>. Il est
+      fourni par le paquet <application>rpcbind</application>.</para>
+
+<screen><prompt>#</prompt> dpkg -S `which rpcinfo` 
+rpcbind: /usr/sbin/rpcinfo</screen>
+
+      <para>L'option historique <option>-p</option> liée à
+      <acronym>IPv4</acronym> a été remplacée par <option>-s</option> pour
+      tenir compte des deux protocoles de couche réseau. Voici un exmple
+      d'exécution.</para>
+
+<screen><prompt>#</prompt> rpcinfo -s
+   program version(s) netid(s)                         service     owner
+    100000  2,3,4     local,udp,tcp,udp6,tcp6          portmapper  superuser
+<emphasis>    100004  1,2       tcp,udp                          ypserv      superuser</emphasis>
+    100009  1         udp                              yppasswdd   superuser
+ 600100069  1         tcp,udp                          fypxfrd     superuser
+<emphasis>    100007  1,2       tcp,udp                          ypbind      superuser</emphasis>
+    100024  1         tcp6,udp6,tcp,udp                status      102</screen>
+
+      <para>Si les démons <systemitem class='daemon'>ypbind</systemitem> et
+      <systemitem class='daemon'>ypserv</systemitem> ne sont pas présent dans
+      la liste des services ouverts, on doit faire appels aux scripts des
+      niveaux de démarrage (<wordasword>runlevels</wordasword>) pour relancer
+      le service. Deux méthodes sont disponibles.</para>
+ 
+<screen><prompt>#</prompt> /etc/init.d/nis restart</screen>
+
+<screen><prompt>#</prompt> service nis restart</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Où sont placés les fichiers de base de données
+      <acronym>NIS</acronym> dans l'arborescence système ?</phrase></para>
+
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/> ainsi que
+      dans la liste des fichiers et répertoires du paquet.</para>
+      </question>
+      <answer>
+      <para>Par définition, les données d'un service doivent se trouver dans
+      l'arborescence <filename class='directory'>/var</filename>. On recherche
+      donc cette arborescence dans la liste des fichiers du paquet.</para>
+
+<screen><prompt>#</prompt> dpkg -L nis | grep var
+/var
+<emphasis>/var/yp</emphasis>
+/var/yp/Makefile
+/var/yp/nicknames</screen>
+
+      <para>Le répertoire recherché est donc <filename
+      class='directory'>/var/yp</filename>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quel est le procédé utilisé par le service
+      <acronym>NIS</acronym> pour publier les informations à destination des
+      clients ?</phrase></para>
+
+      <para>Consulter le support &url.nis.howto;, la documentation fournie avec
+      le paquet ainsi que les fichiers contenus dans le répertoire identifié à
+      la question précédente.</para>
+      </question>
+      <answer>
+      <para>Le répertoire <filename class='directory'>/var/yp</filename>
+      contient un fichier <filename>Makefile</filename> qui gère les appels à
+      la fonction de hachage utilisée pour traiter les fichiers de
+      configuration du serveur <acronym>NIS</acronym>. L'outil
+      <command>make</command> utilise automatiquement ce fichier et déclenche
+      le hachage d'un fichier de configuration dès que celui-ci a été
+      modifié.</para>
+
+      <para>Les résultats des différents hachages sont ensuite publiés via les
+      appels de procédures distants (<acronym>RPC</acronym>) traités
+      respectivement par les démons <systemitem
+      class='daemon'>ypbind</systemitem> et <systemitem
+      class='daemon'>ypserv</systemitem> du client et du serveur.</para>
+
+      <para>Exemple d'exécution de l'outil <command>make</command>.</para>
+
+<screen><prompt>#</prompt> make
+make[1]: entrant dans le répertoire « /var/yp/nis.lab »
+Updating netid.byname...
+make[1]: quittant le répertoire « /var/yp/nis.lab »</screen>
+
+      <note>
+	<para>L'outil <command>make</command> doit nécessairement être exécuté
+	à partir du répertoire <filename
+	class='directory'>/var/yp</filename>.</para>
+      </note>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para><phrase>Quels sont les fichiers de configuration propagés par
+      défaut par le serveur <acronym>NIS</acronym> ?</phrase></para>
+
+      <para>Consulter le support &url.nis.howto; la documentation fournie avec
+      le paquet ainsi que les fichiers contenus dans le répertoire contenant
+      les données du service <acronym>NIS</acronym>.</para>
+      </question>
+      <answer>
+      <para>C'est le fichier <filename>Makefile</filename> qui contient les
+      directives de hachage. La règle utilisée par défaut est désignée par le
+      mot clé <option>all:</option>.</para>
+
+<screen><prompt>#</prompt> grep -i ^all Makefile 
+<emphasis>ALL =   passwd group hosts rpc services netid protocols netgrp
+ALL += shadow
+ALL += passwd.adjunct</emphasis>
+all:   $(ALL)</screen>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelle est la commande qui permet de créer les fichiers de base de
+      données <acronym>NIS</acronym> ?</para>
+      </question>
+      <answer>
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/> ainsi que
+      dans la liste des fichiers et répertoires du paquet.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelles sont les commandes qui permettent de lister les services
+      accessibles via un appel <acronym>RPC</acronym> ?</para>
+      </question>
+      <answer>
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Une fois les fichiers de base de données créés, quels sont les
+      tests à effectuer pour valider le contenu de la base
+      <acronym>NIS</acronym> ?</para>
+      </question>
+      <answer>
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/> et consulter
+      la liste des commandes <command>yp*</command> fournies avec le
+      paquet.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quel est le fichier de configuration à éditer pour que les
+      paramètres <systemitem>uid</systemitem> et <systemitem>gid</systemitem>
+      des utilisateurs diffusés via le service <acronym>NIS</acronym> soient
+      comptés à partir de 2000 ?</para>
+      </question>
+      <answer>
+      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/>
+      ainsi que le <wordasword>Makefile</wordasword> dans la liste des fichiers
+      et répertoires du paquet.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Une fois l'édition effectuée, quelle est la commande qui permet de
+      mettre à jour la base de données <acronym>NIS</acronym> ? De quel
+      autre domaine d'utilisation est extraite cette méthode de mise à jour
+      utilisant la même commande ?</para>
+      </question>
+      <answer>
+      <para>Consulter la section <citetitle>Creating and Updating NIS
+      maps</citetitle> dans le support <xref
+      linkend='sysadm-net.nis.howto'/>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelle est la syntaxe à utiliser pour créer un nouveau compte
+      utilisateur <systemitem>etu-nis</systemitem> ayant pour
+      <systemitem>uid</systemitem> et <systemitem>gid</systemitem> une valeur
+      supérieure ou égale à 2000 et le répertoire utilisateur <filename
+      class='directory'>/home/nis/etu-nis/</filename> ? Créer ce nouveau
+      compte utilisateur <systemitem>etu-nis</systemitem>.</para>
+      </question>
+      <answer>
+      <para>Rechercher dans les pages de manuels de la commande de création de
+      compte utilisateur.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quelle est la commande qui permet de mettre à jour les fichiers de
+      base de données <acronym>NIS</acronym> ? Valider la mise à
+      jour.</para>
+      </question>
+      <answer>
+      <para>Consulter la section <citetitle>Creating and Updating NIS
+      maps</citetitle> dans le support <xref
+      linkend='sysadm-net.nis.howto'/>.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>En reprenant la configuration de l'exportation
+      <acronym>NFS</acronym> (voir &url.sysadm-net.nfs.server;),
+      exporter le répertoire du nouvel utilisateur
+      <systemitem>etu-nis</systemitem>. Quelle est l'option d'exportation qui
+      interdit les opérations d'administration à partir d'un montage
+      <acronym>NFS</acronym> ?</para>
+      </question>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Configurer le contrôle d'accès au démon <systemitem
+      class='daemon'>portmap</systemitem> pour que seul les postes du réseau
+      local indiqué dans le <xref linkend='tp.nis'/> soient autorisés à
+      utiliser les services <acronym>NFS</acronym> et
+      <acronym>NIS</acronym>.</para>
+      </question>
+    </qandaentry>
+  </qandaset>
+</sect1>
+
 <sect1 xml:id='sysadm-net.nis.client'>
   <title>Configuration du client NIS</title>
 
@@ -296,6 +659,14 @@ test -f ${NET}/ypbind -a -f /etc/defaultdomain || exit 0
       <filename class='directory'>/etc/init.d/</filename>. Il faut donc éditer
       le fichier <filename>/etc/default/nis</filename> pour affecter le rôle
       <emphasis>client</emphasis> ou <emphasis>serveur</emphasis>.</para>
+
+      <para>Dans le cas du client, il n'est pas nécessaire de modifier ce
+      fichier sachant qu'il s'agit du rôle attribué par défaut.</para>
+
+<screen><prompt>#</prompt> grep ^NIS /etc/default/nis
+NISSERVER=false
+NISCLIENT=true
+NISMASTER=</screen>
       </answer>
     </qandaentry>
 
@@ -390,7 +761,9 @@ ypserver 192.0.2.12</screen>
     <qandaentry>
       <question>
       <para><phrase>Quel est l'outil qui permet de lister les services
-      accessibles via un appel <acronym>RPC</acronym> ?</phrase></para>
+      accessibles via un appel <acronym>RPC</acronym> ? Comment peut-on
+      relancer le service <acronym>NIS</acronym> s'il n'est pas actif
+      ?</phrase></para>
 
       <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/>.</para>
       </question>
@@ -409,12 +782,21 @@ rpcbind: /usr/sbin/rpcinfo</screen>
 <screen><prompt>#</prompt> rpcinfo -s 192.0.2.12
 program version(s) netid(s)                         service     owner
  100000  2,3,4     local,udp,tcp,udp6,tcp6          portmapper  superuser
- 100007  1,2       tcp,udp                          ypbind      superuser</screen>
+<emphasis> 100007  1,2       tcp,udp                          ypbind      superuser</emphasis></screen>
 
 <screen><prompt>#</prompt> rpcinfo -s 2a01:240:feb2:10::12
 program version(s) netid(s)                         service     owner
  100000  2,3,4     local,udp,tcp,udp6,tcp6          portmapper  superuser
- 100007  1,2       tcp,udp                          ypbind      superuser</screen>
+<emphasis> 100007  1,2       tcp,udp                          ypbind      superuser</emphasis></screen>
+
+      <para>Si le démon <systemitem class='daemon'>ypbind</systemitem> n'est
+      pas présent dans la liste des services ouverts, on doit faire appels aux
+      scripts des niveaux de démarrage (<wordasword>runlevels</wordasword>)
+      pour relancer le service. Deux méthodes sont disponibles.</para>
+ 
+<screen><prompt>#</prompt> /etc/init.d/nis restart</screen>
+
+<screen><prompt>#</prompt> service nis restart</screen>
       </answer>
     </qandaentry>
 
@@ -589,14 +971,6 @@ drwxr-xr-x  2 root root  4096 mai   13 23:16 ahome
 drwxr-xr-x  3 root root  4096 oct.  25  2010 home</screen>
 	</listitem>
 	<listitem>
-	<para>On crée le compte utilisateur sans son répertoire qui doit
-	résider sur le serveur du système de fichiers réseau.</para>
-
-<screen><prompt>#</prompt> adduser --no-create-home --home /ahome/etu-nfs etu-nfs
-<prompt>#</prompt> id etu-nfs
-uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
-	</listitem>
-	<listitem>
 	<para>On définit la racine de montage <filename
 	class='directory'>/ahome</filename> dans le fichier de configuration du
 	service d'automontage : <filename>/etc/auto.master</filename>.</para>
@@ -644,170 +1018,6 @@ uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
       impérativement être identiques sur le client <emphasis>et</emphasis> le
       serveur.</para>
       </answer>
-    </qandaentry>
-  </qandaset>
-</sect1>
-
-<sect1 xml:id='sysadm-net.nis.server'>
-  <title>Configuration du serveur NIS</title>
-
-  <para>Le serveur <acronym>NIS</acronym> sert de référence pour tous les
-  clients. Ses fichiers de configuration ne présentent pas de particularité.
-  Ils sont diffusés sur le réseau via le démon <systemitem
-  class='daemon'>ypserv</systemitem> à destination des clients du domaine
-  <acronym>NIS</acronym>.</para>
-
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para>Quelle est l'opération à effectuer pour affecter le rôle
-      <acronym>NIS</acronym> du poste ? Quel est le fichier de
-      configuration concerné ?</para>
-      </question>
-      <answer>
-      <para>Le répertoire <filename class='directory'>/etc/default/</filename>
-      contient les fichiers de paramétrage des services. Ces fichiers sont
-      consultés à chaque lancement des services à partir des scripts
-      d'initialisation (<wordasword>runlevels</wordasword> du répertoire
-      <filename class='directory'>/etc/init.d/</filename>. Il faut donc éditer
-      le fichier des paramètres du service <acronym>NIS</acronym> dans le
-      répertoire <filename class='directory'>/etc/default/</filename> pour
-      affecter les rôles <emphasis>client</emphasis> ou
-      <emphasis>serveur</emphasis>.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Où sont placés les fichiers de base de données
-      <acronym>NIS</acronym> dans l'arborescence système ?</para>
-      </question>
-      <answer>
-      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/> ainsi que
-      dans la liste des fichiers et répertoires du paquet.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Quels sont les fichiers de configuration propagés par défaut par le
-      serveur <acronym>NIS</acronym> ?</para>
-      </question>
-      <answer>
-      <para>Consulter le support <xref linkend='sysadm-net.nis.howto'/> ainsi que la
-      documentation fournie avec le paquet.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Quelle est la commande qui permet de créer les fichiers de base de
-      données <acronym>NIS</acronym> ?</para>
-      </question>
-      <answer>
-      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/> ainsi que
-      dans la liste des fichiers et répertoires du paquet.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Quelles sont les commandes qui permettent de lister les services
-      accessibles via un appel <acronym>RPC</acronym> ?</para>
-      </question>
-      <answer>
-      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/>.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Une fois les fichiers de base de données créés, quels sont les
-      tests à effectuer pour valider le contenu de la base
-      <acronym>NIS</acronym> ?</para>
-      </question>
-      <answer>
-      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/> et consulter
-      la liste des commandes <command>yp*</command> fournies avec le
-      paquet.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Quel est le fichier de configuration à éditer pour que les
-      paramètres <systemitem>uid</systemitem> et <systemitem>gid</systemitem>
-      des utilisateurs diffusés via le service <acronym>NIS</acronym> soient
-      comptés à partir de 2000 ?</para>
-      </question>
-      <answer>
-      <para>Rechercher dans le support <xref linkend='sysadm-net.nis.howto'/>
-      ainsi que le <wordasword>Makefile</wordasword> dans la liste des fichiers
-      et répertoires du paquet.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Une fois l'édition effectuée, quelle est la commande qui permet de
-      mettre à jour la base de données <acronym>NIS</acronym> ? De quel
-      autre domaine d'utilisation est extraite cette méthode de mise à jour
-      utilisant la même commande ?</para>
-      </question>
-      <answer>
-      <para>Consulter la section <citetitle>Creating and Updating NIS
-      maps</citetitle> dans le support <xref
-      linkend='sysadm-net.nis.howto'/>.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Quelle est la syntaxe à utiliser pour créer un nouveau compte
-      utilisateur <systemitem>etu-nis</systemitem> ayant pour
-      <systemitem>uid</systemitem> et <systemitem>gid</systemitem> une valeur
-      supérieure ou égale à 2000 et le répertoire utilisateur <filename
-      class='directory'>/home/nis/etu-nis/</filename> ? Créer ce nouveau
-      compte utilisateur <systemitem>etu-nis</systemitem>.</para>
-      </question>
-      <answer>
-      <para>Rechercher dans les pages de manuels de la commande de création de
-      compte utilisateur.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Quelle est la commande qui permet de mettre à jour les fichiers de
-      base de données <acronym>NIS</acronym> ? Valider la mise à
-      jour.</para>
-      </question>
-      <answer>
-      <para>Consulter la section <citetitle>Creating and Updating NIS
-      maps</citetitle> dans le support <xref
-      linkend='sysadm-net.nis.howto'/>.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>En reprenant la configuration de l'exportation
-      <acronym>NFS</acronym> (voir &url.sysadm-net.nfs.server;),
-      exporter le répertoire du nouvel utilisateur
-      <systemitem>etu-nis</systemitem>. Quelle est l'option d'exportation qui
-      interdit les opérations d'administration à partir d'un montage
-      <acronym>NFS</acronym> ?</para>
-      </question>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Configurer le contrôle d'accès au démon <systemitem
-      class='daemon'>portmap</systemitem> pour que seul les postes du réseau
-      local indiqué dans le <xref linkend='tp.nis'/> soient autorisés à
-      utiliser les services <acronym>NFS</acronym> et
-      <acronym>NIS</acronym>.</para>
-      </question>
     </qandaentry>
   </qandaset>
 </sect1>
