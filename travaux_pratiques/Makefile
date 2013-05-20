@@ -21,6 +21,8 @@ SUBDIRS = \
 	sysadm-net.autofs-ldap-nfs.q \
 	sysadm-net.nis.qa \
 	sysadm-net.nis.q \
+	sysadm-net.autofs-nis-nfs.qa \
+	sysadm-net.autofs-nis-nfs.q \
 	sysadm-net.dns.qa \
 	sysadm-net.dns.q \
 	interco.kernel.qa \
@@ -51,6 +53,7 @@ XML_FILES = \
 	sysadm-net.ldap.q/$(ABSTRACT_FILE) \
 	sysadm-net.autofs-ldap-nfs.q/$(ABSTRACT_FILE) \
 	sysadm-net.nis.q/$(ABSTRACT_FILE) \
+	sysadm-net.autofs-nis-nfs.q/$(ABSTRACT_FILE) \
 	sysadm-net.dns.q/$(ABSTRACT_FILE) \
 	interco.kernel.q/$(ABSTRACT_FILE) \
 	interco.rawip.q/$(ABSTRACT_FILE) \
@@ -58,7 +61,8 @@ XML_FILES = \
 	interco.netfilter.q/$(ABSTRACT_FILE) \
 	interco.inter-vlan.qa/$(ABSTRACT_FILE) \
 	interco.ospf.q/$(ABSTRACT_FILE) \
-	interco.cs/$(ABSTRACT_FILE)
+	interco.cs/$(ABSTRACT_FILE) \
+	$(wildcard images/*.png)
 
 all: $(PROCESS)
 

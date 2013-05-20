@@ -6,10 +6,9 @@ endif
 PROCESS = symlink
 
 SYMLINKS = \
-        $(MAIN_DIR)/images/thumbs/thumb*.png \
-	../sysadm-net.ldap.qa/images/ldap-tree.png \
-	../sysadm-net.autofs-ldap-nfs.qa/images/ldap-automount.png
+        $(MAIN_DIR)/images/thumbs/thumb012.png
 
 all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
+

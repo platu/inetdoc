@@ -4,8 +4,11 @@ endif
 
 ABSTRACT_FILE = transform_output/abstract.xml
 
+# Liste des répertoires à traiter à partir de ce niveau
+SUBDIRS = images
+
 # Type(s) de traitement
-PROCESS = symlink xml2xhtml xml2pdf
+PROCESS = subdirs symlink xml2xhtml xml2pdf
 
 SYMLINKS = \
         $(MAIN_DIR)/common/author.xml \
@@ -21,7 +24,8 @@ XML_FILES = \
 	sysadm-net.nfs.abstract.xml \
 	sysadm-net.ldap.abstract.xml \
 	sysadm-net.autofs-ldap-nfs.abstract.xml \
-	sysadm-net.dns.abstract.xml
+	sysadm-net.dns.abstract.xml \
+	$(wildcard images/*.png)
 
 all: $(PROCESS)
 

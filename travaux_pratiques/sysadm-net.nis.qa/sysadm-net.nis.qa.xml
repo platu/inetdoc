@@ -28,16 +28,17 @@
 
   &author;
   <abstract>
-    <para>Avec un système de fichiers réseau (<acronym>NFS</acronym>) utilisé
-    seul, il n'est pas possible de faire correspondre de façon automatique les
-    propriétés des masques de permissions sur les objets de ce système de
-    fichiers entre client et serveur. Établir manuellement ces correspondances
-    sur un grand nombre de fichiers et de répertoires est pratiquement
-    impossible. Heureusement, il existe un service simple de partage de la base
-    de données utilisateur et des informations d'hôtes sur un réseau local
-    appelé <wordasword>Network Information Service</wordasword>. C'est la
-    configuration et l'utilisation de ce service qui constitue l'objet de ce
-    document.</para>
+    <para><wordasword>Network Information Service</wordasword>
+    (<acronym>NIS</acronym>) est un service simple de partage de la base de
+    données utilisateur et des informations d'hôtes sur un réseau local. Même
+    s'il peut encore être utile, ce service est aujourd'hui démodé et largement
+    supplanté par les annuaires <acronym>LDAP</acronym>. Ce document présente
+    la configuration et l'utilisation du service avec une singularité : la mise
+    en œuvre dans un contexte <wordasword>dual stack</wordasword>
+    <acronym>IPv4</acronym> + <acronym>IPv6</acronym>. <acronym>NIS</acronym>
+    est un exemple de service qui ne fonctionne que sur la pile
+    <acronym>IPv4</acronym> alors que l'environnement immédiat peut utiliser
+    <acronym>IPv6</acronym>.</para>
   </abstract>
   <keywordset>
     <keyword>Debian</keyword>
@@ -231,7 +232,7 @@
   class='daemon'>ypserv</systemitem> à destination des clients du même domaine
   <acronym>NIS</acronym>.</para>
 
-  <qandaset defaultlabel='number'>
+  <qandaset defaultlabel='number' xml:id='sysadm-net.nis.server-qa'>
     <qandaentry>
       <question>
       <para><phrase>Quel est le paquet qui contient les outils du service
@@ -496,7 +497,7 @@ MINGID=1000</screen>
       </answer>
     </qandaentry>
 
-    <qandaentry>
+    <qandaentry xml:id='sysadm-net.nis.server.user-account'>
       <question>
       <para><phrase>Comment créer un nouveau compte utilisateur baptisé
       <systemitem>etu-nis</systemitem> ayant justement la valeur 2000 pour les
@@ -527,7 +528,7 @@ make[1]: entrant dans le répertoire « /var/yp/nis.lab »
 	<listitem>
 	<para>On passe ensuite à la création du compte proprement dit.</para>
 
-<screen><prompt>#</prompt> adduser --uid 2000 --ingroup etu-nis etu-nis
+<screen><prompt>#</prompt> adduser --home /ahome/etu-nis --uid 2000 --ingroup etu-nis etu-nis
 Ajout de l'utilisateur « etu-nis » ...
 make: entrant dans le répertoire « /var/yp »
 &lt;snip/>
@@ -561,7 +562,7 @@ uid=2000(etu-nis) gid=2000(etu-nis) groupes=2000(etu-nis)</screen>
       <filename>/etc/group</filename>.</para>
 
 <screen><prompt>#</prompt> ypcat passwd
-etu-nis:x:2000:2000:Etudiant NIS,,,:/home/etu-nis:/bin/bash
+etu-nis:x:2000:2000:Etudiant NIS,,,:/ahome/etu-nis:/bin/bash
 <prompt>#</prompt> ypcat group
 etu-nis:x:2000:</screen>
       </answer>
@@ -871,7 +872,7 @@ Capturing on eth0
   service de résolution de noms (<wordasword>name service switch</wordasword>
   ou <acronym>NSS</acronym>).</para>
 
-  <qandaset defaultlabel='number'>
+  <qandaset defaultlabel='number' xml:id='sysadm-net.nis.client-libc'>
     <qandaentry>
       <question>
       <para><phrase>Quelles sont les opérations à effectuer pour que le service
@@ -909,11 +910,11 @@ hosts:          files nis dns</screen>
       exemple d'exécution ci-dessous.</para>
 
 <screen><prompt>#</prompt> ypcat hosts
-2001:db8:feb2:10::12  ip6-nisserver
-2001:db8:feb2:10::11  ip6-nisclient
-192.0.2.12      nisserver
+2001:db8:feb2:10::12  ip6-srvr
+2001:db8:feb2:10::11  ip6-clnt
+192.0.2.12      srvr
 127.0.0.1       localhost
-192.0.2.11      nisclient</screen>
+192.0.2.11      clnt</screen>
       </answer>
     </qandaentry>
 
@@ -957,7 +958,7 @@ hosts:          files nis dns</screen>
 
 <screen><prompt>#</prompt> getent passwd | grep etu
 etu:x:1000:1000:Etudiant,,,:/home/etu:/bin/bash
-<emphasis>etu-nis:x:2000:2000:Etudiant NIS,,,:/home/etu-nis:/bin/bash</emphasis></screen>
+<emphasis>etu-nis:x:2000:2000:Etudiant NIS,,,:/ahome/etu-nis:/bin/bash</emphasis></screen>
 
 <screen><prompt>#</prompt> getent group | grep etu
 cdrom:x:24:etu
@@ -987,7 +988,7 @@ wireshark:x:107:etu
 
 <screen><prompt>#</prompt> su etu-nis
 <prompt>$</prompt> cd
-<emphasis>bash: cd: /home/etu-nis: Aucun fichier ou dossier de ce type</emphasis>
+<emphasis>bash: cd: /ahome/etu-nis: Aucun fichier ou dossier de ce type</emphasis>
 <prompt>$</prompt> id
 uid=2000(etu-nis) gid=2000(etu-nis) groupes=2000(etu-nis)
 <prompt>$</prompt> exit</screen>
@@ -996,11 +997,8 @@ uid=2000(etu-nis) gid=2000(etu-nis) groupes=2000(etu-nis)
       bien fonctionné mais que le répertoire utilisateur n'est pas accessible.
       Pour qu'un répertoire utilisateur distant soit vu comme un répertoire
       local, il faut nécessairement disposer d'un système de fichiers
-      réseau.</para>
-
-      <para>Voilà qui tombe à pic ! Vous avez justement un support de travaux
-      pratiques consacré au système de fichiers <acronym>NFS</acronym> à votre
-      disposition : &url.sysadm-net.nfs;</para>
+      réseau. Cette dernière condition peut être satisfaite à l'aide du service
+      d'automontage.</para>
       </answer>
     </qandaentry>
   </qandaset>

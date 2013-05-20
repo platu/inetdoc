@@ -23,7 +23,6 @@ XML_FILES = \
 	rfc.urls.xml \
 	$(wildcard images/*.png)
 
-
 all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
