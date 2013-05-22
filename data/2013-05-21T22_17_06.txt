@@ -1,0 +1,193 @@
+TITLE: NIS, NFSv4, autofs5 &#38; dual stack IPv4 &#43; IPv6
+AUTHOR: Philippe Latu
+DATE: mardi 21 mai 2013, 22:17:06 (UTC+0200)
+DESC: 
+FORMAT: raw
+-----
+BODY:
+<p>Pour employer une formule marketing à 2€cts, la collection des acronymes
+donnés dans le titre constitue un «savoureux mélange» entre anachronisme et
+modernité. Ceci-dit, je me doute bien qu'à la lecture du même titre, d'aucuns
+auront déjà trouvé que la mixture est on ne peut plus indigeste ! Enfin,
+n'ayant plus du peur du ridicule, voici une petite introduction sur ce
+faux-nouveau support : <a
+href="http://www.inetdoc.net/travaux_pratiques/index.html#sysadm-net.autofs-nis-nfs">Association
+NIS, NFSv4 et autofs</a>.</p>
+
+<p>Après avoir adapté les supports de la <a
+href="http://www.inetdoc.net/dev/">rubrique développement</a> à IPv6, je me
+suis posé la question de faire le même travail sur les autres supports de
+travaux pratiques. Écrire une version IPv6 séparée pour chaque séance de
+travaux pratiques obligerait à maintenir deux versions pour un même document.
+Au delà de la quantité de travail, il y a fort à parier qu'une version IPv6
+isolée ne serait jamais utilisée vu ce que l'on sait de l'engouement général
+pour adopter rapidement ce protocole. Il restait donc l'option du document
+unique double pile ou <i>dual stack</i> dans le jargon. À titre d'entraînement,
+j'ai repris <a
+href="http://www.inetdoc.net/travaux_pratiques/index.html#sysadm-net.autofs-nis-nfs">un
+vieux support abandonné</a> qui associe trois services.</p>
+
+<ul>
+  <li><b><i>Network Information Service</i></b> (NIS) permet le partage des
+  paramètres de compte utilisateur. C'est un service démodé qui ne fonctionne
+  qu'avec la pile IPv4 ; ce qui le rend intéressant dans le contexte
+  présent.</li>
+
+  <li><b><i>Network File System</i></b> (NFS) est le système de fichiers réseau
+  de prédilection dans le monde Unix. Sa version 4 fonctionne très bien avec la
+  pile IPv6.</li>
+
+  <li><b><i>Automounter</i></b> (autofs) permet l'accès transparent au système
+  de fichiers réseau. On l'utilise lors de la connexion d'un utilisateur pour
+  accéder simplement à son répertoire. Normalement, ce service fonctionne avec
+  IPv6. J'ai découvert avec surprise que son utilisation d'IPv6 est assez
+  singulière puisqu'il semble s'appuyer exclusivement sur les enregistrements
+  DNS.</li>
+</ul>
+
+<p>Même si le but recherché était de «croiser» les usages des deux piles de
+protocole de couche réseau, le résultat a dépassé mes attentes puisqu'en trois
+services on dispose de trois modes opératoires distincts.</p>
+
+<p>Pour être complet, il faut ajouter les appels de procédures distants (RPC)
+sur lesquels sont basés NIS et NFS. C'est justement ce mécanisme qui autorise
+le mixage entre les deux piles <span style="color:green">IPv4</span> et <span
+style="color:red">IPv6</span>.</p>
+
+<pre># rpcinfo -s ip6-srvr.fake.domain
+   program version(s) netid(s)                         service     owner
+    100000  2,3,4     local,<span style="color:green">udp,tcp,</span><span style="color:red">udp6,tcp6</span>          portmapper  superuser
+    100004  1,2       <span style="color:green">tcp,udp</span>                          ypserv      superuser
+    100009  1         <span style="color:green">udp</span>                              yppasswdd   superuser
+    100003  4,3,2     <span style="color:red">udp6,tcp6</span>,udp,tcp                nfs         superuser
+    100227  3,2       udp6,tcp6,udp,tcp                -           superuser
+    100021  4,3,1     <span style="color:red">tcp6,udp6</span>,tcp,udp                nlockmgr    superuser
+ 600100069  1         <span style="color:green">tcp,udp</span>                          fypxfrd     superuser
+    100007  1,2       <span style="color:green">tcp,udp</span>                          ypbind      superuser
+    100005  3,2,1     tcp6,udp6,tcp,udp                mountd      superuser</pre>
+
+<h3><i>autofs troubleshooting</i></h3>
+
+<p>Comme je l'ai dit plus haut la version du paquet <b>autofs</b> fourni dans
+la branche <i>testing</i> semble se baser uniquement sur les enregistrements
+DNS. Voyons comment je suis parvenu à cette conclusion.</p>
+
+<ol>
+  <li>On commence par un montage statique de l'arborescence depuis le poste
+  client.
+
+<pre># mount -t nfs4 <span style="color:red">[2001:db8:feb2:10::12]</span>:/home /ahome
+root@clnt:/home/etu# ls -lAh /ahome/etu-nis/
+total 16K
+-rw------- 1 etu-nis etu-nis  385 mai   21  2013 .bash_history
+&lt;snip/>
+
+# mount | grep nfs4
+<span style="color:red">[2001:db8:feb2:10::12]</span>://home on /ahome type nfs4 \
+  (rw,relatime,vers=4,rsize=65536,wsize=65536,namlen=255,hard,proto=tcp6, \
+   timeo=600,retrans=2,sec=sys,clientaddr=<span style="color:red">2001:db8:feb2:10::11</span>,minorversion=0, \
+   local_lock=none,addr=<span style="color:red">2001:db8:feb2:10::12</span>)</pre>
+
+  Le montage statique utilisant les adresses <span style="color:red">IPv6</span> fonctionne. Rien d'original.
+  </li>
+  
+  <li>On passe à l'utilisation du démon <b>automount</b> avec des fichiers de
+  configuration complétés directement sur le poste client, toujours avec une
+  adresse IPv6 numérique.
+
+<pre># cat /etc/auto.master
+/ahome          /etc/auto.home
+
+# cat /etc/auto.home 
+* -port=2049,-fstype=nfs4 <span style="color:red">[2001:db8:feb2:10::12]</span>:/home/&amp;
+
+# service autofs start
+[ ok ] Starting automount....
+# automount -m
+
+autofs dump map information
+===========================
+
+global options: none configured
+
+Mount point: /ahome
+
+source(s):
+
+  instance type(s): file 
+  map: /etc/auto.home
+
+  * | -port=2049,-fstype=nfs4 <span style="color:red">[2001:db8:feb2:10::12]</span>:/home/&amp;</pre>
+
+  La configuration a bien été prise en compte par le démon ...
+
+<pre># ls -lAh /ahome/etu-nis
+ls: impossible d'accéder à /ahome/etu-nis: Aucun fichier ou dossier de ce type
+
+# tail -3 /var/log/syslog 
+clnt automount[3652]: attempting to mount entry /ahome/etu-nis
+clnt automount[3652]: <span style="color:purple">mount(nfs): no hosts available</span>
+clnt automount[3652]: failed to mount /ahome/etu-nis</pre>
+
+  <span style="color:purple">Catastrophe !</span> Le montage automatique échoue.
+  </li>
+
+  <li>On reprend la même expérience avec un nom d'hôte DNS dont les
+  enregistrements AAAA et PTR sont valides.
+
+<pre># service autofs start
+[ ok ] Starting automount....
+# automount -m
+
+autofs dump map information
+===========================
+
+global options: none configured
+
+Mount point: /ahome
+
+source(s):
+
+  instance type(s): file 
+  map: /etc/auto.home
+
+  * | -port=2049,-fstype=nfs4 <span style="color:red">vm2.fake.domain</span>:/home/&
+
+# dig +short aaaa vm2.fake.domain
+<span style="color:red">2001:db8:feb2:10::12</span>
+root@clnt:/home/etu# dig +short -x <span style="color:red">2001:db8:feb2:10::12</span>
+vm2.fake.domain.</pre>
+  
+  L'adresse IPv6 utilisée est bien identique à celle du test précédent.
+
+<pre># ls -lAh /ahome/etu-nis
+total 16K
+-rw------- 1 etu-nis etu-nis  385 mai   21 23:44 .bash_history
+&lt;snip/>
+
+# tail -3 /var/log/syslog 
+clnt automount[3759]: mounted indirect on /ahome with timeout 300, freq 75 seconds
+clnt automount[3759]: attempting to mount entry /ahome/etu-nis
+clnt automount[3759]: <span style="color:purple">mounted /ahome/etu-nis</span></pre>
+
+  <span style="color:purple">Bingo !</span> Cette fois-ci le montage se fait
+  correctement. Enfin, si les paramètres de configuration sont publiés via NIS,
+  ça fonctionne aussi.
+  </li>
+</ol>
+
+<p>Voilà. On peut considérer que le choix consistant à associer les trois
+services est pertinent puisqu'il illustre des usages distincts de la pile IPv6.
+À mon niveau de connaissances, je ne sais pas si le fait d'imposer
+l'utilisation des enregsitrements DNS par le démon <b>automount</b> est
+volontaire.</p>
+
+<p>Dans tous les cours sur IPv6, il est courant de dire que comme le format
+numérique des adresses IPv6 est très difficile à retenir, l'usage des
+enregistrements DNS est impératif. Pour généraliser l'utilisation de la double
+pile réseau, il semble qu'il faille revoir la séquence des travaux pratiques.
+Je vais devoir aborder le service DNS au tout début de façon à en bénéficier
+pour le cycle sur le stockage et les systèmes de fichiers réseau. En
+conclusion, le support de travaux pratiques DNS est le prochain sur la liste
+!</p>
+END-----
