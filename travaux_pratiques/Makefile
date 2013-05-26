@@ -25,6 +25,7 @@ SUBDIRS = \
 	sysadm-net.autofs-nis-nfs.q \
 	sysadm-net.dns.qa \
 	sysadm-net.dns.q \
+	sysadm-net.set \
 	interco.kernel.qa \
 	interco.kernel.q \
 	interco.rawip.qa \
