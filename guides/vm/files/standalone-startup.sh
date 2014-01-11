@@ -23,7 +23,7 @@ then
         exit 1
 fi
 
-macaddress="ba:ad:00:ca:fe:`printf "%02d" $num`"
+macaddress="ba:ad:00:ca:fe:`printf "%02x" $num`"
 
 echo -e "$RedOnBlack"
 echo "~> Machine virtuelle : $vm"
@@ -46,7 +46,7 @@ ionice -c3 qemu-system-x86_64 \
   -device virtio-blk,drive=drive0,scsi=off,config-wce=off,x-data-plane=on \
   -k fr \
   -vga qxl \
-  -spice port=$((5900 + $num)),addr=127.0.0.1,disable-ticketing \
+  -spice port=$((5900 + $num)),addr=localhost,disable-ticketing \
   -device virtio-serial-pci \
   -device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
   -chardev spicevmc,id=spicechannel0,name=vdagent \
