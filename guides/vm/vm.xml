@@ -597,16 +597,19 @@ Formatting 'vm0-debian-stable-amd64.raw', fmt=raw size=64424509440
 
   <para>Dans le contexte de ce guide, l'utilisation de ce protocole est
   systématique que les manipulations sur les machines virtuelles aient lieu
-  directement sur le système hôte ou sur un serveur distant.</para>
+  directement sur le système hôte ou sur un serveur distant. En effet, les
+  scripts donnés en <xref linkend='vm.appendix' /> utilisent tous le nom
+  <emphasis>localhost</emphasis> comme addresse d'accès.</para>
 
   <para>Le script <command>standalone-startup.sh</command> utilisé plus haut
-  ouvre un accès sur le port <option>tcp/5900</option> en écoute sur le système
-  hôte. Ce script ne définit ni authentification ni option de sécurité. Pour
-  accéder à l'écran distant, il est possible d'utiliser un tunnel
+  ouvre un accès sur le port <option>tcp/5900</option> en écoute sur
+  l'interface de boucle locale du système hôte. Ce script ne définit ni
+  authentification ni option de sécurité. Pour accéder à l'écran distant via un
+  canal de communication chiffré, il est possible d'utiliser un tunnel
   <acronym>SSH</acronym>.</para>
 
   <para>Sur le système client, on peut établir un tunnel <acronym>SSH</acronym>
-  puis exécuter la client <application>SPICE</application> à l'aide des
+  puis exécuter le client <application>SPICE</application> à l'aide des
   commandes suivantes.</para>
 
 <screen><prompt>:~$</prompt> ssh -f -N -L 5900:localhost:5900 &lt;user>@&lt;hostname>
@@ -615,38 +618,39 @@ Formatting 'vm0-debian-stable-amd64.raw', fmt=raw size=64424509440
 
   <para>Le programme <command>spicec</command> appartient au paquet
   <systemitem>spice-client</systemitem>.</para>
+
+  <para>La <link linkend='vm.instance.debian0'>copie d'écran ci-dessus</link> a
+  été réalisée à l'aide de cet accès distant via un tunnel
+  <acronym>SSH</acronym>.</para>
 </sect1>
 
-<sect1 xml:id="vm.instance-optimisation">
+<sect1 xml:id="vm.optimisation">
   <title>Optimisation d'une machine virtuelle</title>
 
-  <para>Cette section est commune aux deux solutions de virtualisation
-  <application>QEMU</application> et <application>KVM</application>. Il s'agit
-  d'un catalogue de quelques trucs et astuces permettant d'optimiser l'usage
-  d'une instance virtuelle de système d'exploitation.</para>
+  <para>Cette section est une liste de quelques trucs et astuces permettant
+  d'optimiser l'usage d'une instance virtuelle de système
+  d'exploitation.</para>
 
-  <sect2 xml:id='vm.instance-optimisation.apt'>
-    <title>Optimisation de la gestion de paquets</title>
+  <bridgehead xml:id='vm.optimisation.apt' renderas='sect2'>Optimisation de la
+  gestion de paquets</bridgehead>
 
   <para>Pour optimiser la gestion de paquets avec <acronym>APT</acronym> sur
   une machine virtuelle Debian GNU/Linux on essaie de limiter au maximum
-  l'occupation disque de façon à donner un maximum d'espace aux services
-  Internet dans l'arborescence <filename
-  class='directory'>/var</filename>.</para>
+  l'occupation disque de façon à donner un maximum d'espace dans l'arborescence
+  <filename class='directory'>/var</filename>.</para>
 
   <variablelist>
-    <varlistentry xml:id='vm.instance-optimisation.apt.clean'>
+    <varlistentry xml:id='vm.optimisation.apt.clean'>
     <term><userinput><prompt>#</prompt> aptitude clean</userinput></term>
     <listitem>
     <para>Il est inutile de conserver les fichiers <filename>.deb</filename>
-    correspondant aux paquets installés sur le système virtuel. La commande
-    <userinput><prompt>#</prompt> aptitude clean</userinput> sert justement à
-    nettoyer l'arborescence <filename
+    correspondant aux paquets installés sur le système virtuel. Cette commande
+    sert justement à nettoyer l'arborescence <filename
     class='directory'>/var/cache/apt</filename>.</para>
     </listitem>
     </varlistentry>
 
-    <varlistentry xml:id='vm.instance-optimisation.apt.deborphan'>
+    <varlistentry xml:id='vm.optimisation.apt.deborphan'>
     <term><userinput><prompt>#</prompt> aptitude purge $(deborphan)</userinput></term>
     <listitem>
     <para>La commande <command>deborphan</command> appartenant au paquet du
@@ -654,28 +658,10 @@ Formatting 'vm0-debian-stable-amd64.raw', fmt=raw size=64424509440
     paquets trouvés ne sont pas nécessaires au fonctionnement des services
     installés ; on peut donc les supprimer sans problème pour gagner de la
     place disque.</para>
-
-    <para>Le résultat de la commande suivante montre que le «ménage» a été
-    fait.</para>
-
-<screen># aptitude purge $(deborphan)
-Lecture des listes de paquets... Fait
-Construction de l'arbre des dépendances
-Lecture des informations d'état... Fait
-Lecture de l'information d'état étendu
-Initialisation de l'état des paquets... Fait
-Aucun paquet ne va être installé, mis à jour ou enlevé.
-0 paquets mis à jour, 0 nouvellement installés, 0 à enlever et 0 non mis à jour.
-Il est nécessaire de télécharger 0o d'archives. Après dépaquetage, 0o seront utilisés.
-Lecture des listes de paquets... Fait
-Construction de l'arbre des dépendances
-Lecture des informations d'état... Fait
-Lecture de l'information d'état étendu
-Initialisation de l'état des paquets... Fait</screen>
     </listitem>
     </varlistentry>
 
-    <varlistentry xml:id='vm.instance-optimisation.apt.localepurge'>
+    <varlistentry xml:id='vm.optimisation.apt.localepurge'>
     <term><userinput><prompt>#</prompt> localepurge</userinput></term>
     <listitem>
     <para>La commande <command>localepurge</command> appartenant au paquet du
@@ -689,7 +675,7 @@ Initialisation de l'état des paquets... Fait</screen>
     <filename>/etc/locale.nopurge</filename> répertorie les paramètres des
     fichiers de localisation à conserver.</para>
 
-<screen># tail /etc/locale.nopurge
+<screen><prompt>#</prompt> tail /etc/locale.nopurge
 #####################################################
 # Following locales won't be deleted from this system
 # after package installations done with apt-get(8):
@@ -701,7 +687,7 @@ fr_FR.UTF-8
     </listitem>
     </varlistentry>
 
-    <varlistentry xml:id='vm.instance-optimisation.apt.proxy'>
+    <varlistentry xml:id='vm.optimisation.apt.proxy'>
     <term><wordasword>Transparent proxy</wordasword></term>
     <term>Service Mandataire</term>
     <listitem>
@@ -714,13 +700,13 @@ fr_FR.UTF-8
     le répertoire <filename
     class='directory'>/etc/apt/apt.conf.d/</filename>.</para>
 
-<screen># cat /etc/apt/apt.conf.d/10proxy
+<screen><prompt>#</prompt> cat /etc/apt/apt.conf.d/10proxy
 Acquire::http::No-Cache "true";
 Acquire::http::Max-Age "0";</screen>
     </listitem>
     </varlistentry>
 
-    <varlistentry xml:id='vm.instance-optimisation.apt.duplicate'>
+    <varlistentry xml:id='vm.optimisation.apt.duplicate'>
     <term>Duplication du jeu de paquets entre systèmes</term>
     <term><command>aptitude-create-state-bundle</command></term>
     <term><command>aptitude-run-state-bundle</command></term>
@@ -728,54 +714,46 @@ Acquire::http::Max-Age "0";</screen>
     <para>Pour dupliquer le jeu de paquets installés entre instances système,
     il est possible de créer un fichier image de l'état d'une installation.
     Cette technique permet de transférer la liste des paquets installés entre
-    architectures différentes. Le transfert le plus courant consiste à passer
-    d'une architecture 32 bits ou <option>i386</option> à une architecture 64
-    bits ou <option>amd64</option>.</para>
+    architectures différentes.</para>
 
     <para>Côté système source, celui qui détient le jeu de référence, on
     utilise la commande <command>aptitude-create-state-bundle</command>.</para>
 
-<screen># aptitude-create-state-bundle selections.bz2
+<screen><prompt>#</prompt> <emphasis>aptitude-create-state-bundle selections.bz2</emphasis>
 # exit
 etu@vm:~$ logout
 Connection to 192.0.2.2 closed.
 :~/vm$ scp etu@192.0.2.2:~/selections.bz2 .
 etu@192.0.2.2's password:
-selections.bz2	100%   30MB  15.0MB/s   00:02
-</screen>
+selections.bz2	100%   30MB  15.0MB/s   00:02</screen>
 
     <para>Côté système destination, celui sur lequel on doit appliquer le jeu
     de référence pour compléter sa liste de paquets installés, on utilise la
     commande <command>aptitude-run-state-bundle</command>.</para>
 
-<screen>:~/vm$ ./scripts/startup.sh vm0-debian-stable-amd64-base.raw 384 2
-Adresse MAC : 52:54:00:12:34:02 et N° port 2
-:~/vm$ scp selections.bz2 etu@192.0.2.2:~
+<screen><prompt>:~/vm$</prompt> scp selections.bz2 etu@192.0.2.2:~
 etu@192.0.2.2's password:
 selections.bz2	100%   30MB  29.9MB/s   00:01
-:~/vm$ ssh etu@192.0.2.2
+<prompt>:~/vm$</prompt> ssh etu@192.0.2.2
 etu@192.0.2.2's password:
-etu@vm:~$ su
+<prompt>etu@vm:~$</prompt> su
 Mot de passe :
-vm:/home/etu# aptitude-run-state-bundle selections.bz2
-vm:/home/etu# aptitude -u
-</screen>
+<prompt>vm:/home/etu#</prompt> <emphasis>aptitude-run-state-bundle selections.bz2</emphasis>
+<prompt>vm:/home/etu#</prompt> aptitude -u</screen>
     </listitem>
     </varlistentry>
   </variablelist>
-  </sect2>
 
-  <sect2 xml:id='vm.instance-optimisation.console'>
-    <title>Optimisation de la console</title>
+  <bridgehead xml:id='vm.optimisation.console' renderas='sect2'>Optimisation de
+  la console</bridgehead>
 
-  <para>Que l'on accède à une instance de système virtualisé via le terminal
-  d'exécution, <acronym>VNC</acronym> ou <acronym>SSH</acronym>, il est
-  important de disposer d'un jeu de caractères et d'un affichage
+  <para>Que l'on accède à une instance de système virtualisé via une connexion
+  <acronym>SSH</acronym> ou via un écran distant avec le protocole &url.spice;,
+  il est important de disposer d'un jeu de caractères et d'un affichage
   cohérent.</para> 
 
-
   <variablelist>
-    <varlistentry xml:id='vm.instance-optimisation.console.gpm'>
+    <varlistentry xml:id='vm.optimisation.console.gpm'>
     <term>Terminal d'exécution</term>
     <term><application>gpm</application></term>
     <listitem>
@@ -784,263 +762,142 @@ vm:/home/etu# aptitude -u
     </listitem>
     </varlistentry>
 
-    <varlistentry xml:id='vm.instance-optimisation.console.data'>
-    <term><systemitem>console-data</systemitem></term>
+    <varlistentry xml:id='vm.optimisation.console-setup'>
+    <term><systemitem>console-setup</systemitem></term>
     <listitem>
-    <para>Avec une instance stable (<citetitle>Lenny</citetitle>) de système
-    virtuel sans interface graphique, c'est le paquet
-    <systemitem>console-data</systemitem> qui permet de gérer les codes de
-    touches clavier, les jeux de caractères et les polices en mode
+    <para>Avec une instance de système virtuel sans interface graphique, c'est
+    le paquet <systemitem>console-setup</systemitem> qui permet de gérer les
+    codes de touches clavier, les jeux de caractères et les polices en mode
     console.</para>
 
-    <para>La reconfiguration du paquet <systemitem>console-data</systemitem>
-    avec la commande 
-    <userinput><prompt>#</prompt> dpkg-reconfigure -plow console-data</userinput>
-    permet de sélectionner les options suivantes :</para>
-
-    <para><menuchoice>
-    <guimenu>Politique de gestion des codages clavier :</guimenu>
-    <guimenuitem>Choisir un codage clavier pour votre architecture</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Disposition générale du clavier :</guimenu>
-    <guimenuitem>azerty</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Disposition du clavier :</guimenu>
-    <guimenuitem>French</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Variante du clavier :</guimenu>
-    <guimenuitem>Same as X11 (latin 9)</guimenuitem>
-    </menuchoice></para>
+    <para>La reconfiguration du paquet avec la commande 
+    <userinput><prompt>#</prompt> dpkg-reconfigure -plow console-setup</userinput>
+    permet de passer en revue et de modifier les options relatives aux
+    dispositions de claviers.</para>
     </listitem>
     </varlistentry>
 
-    <varlistentry xml:id='vm.instance-optimisation.console.setup'>
-    <term><systemitem>console-setup</systemitem></term>
+    <varlistentry xml:id='vm.optimisation.console.spice-vdagent'>
+    <term><systemitem>spice-vdagent</systemitem></term>
     <listitem>
-    <para>Dans le cas d'une instance <wordasword>testing</wordasword> ou
-    <wordasword>unstable</wordasword> de système virtuel avec ou sans interface
-    graphique, c'est le paquet <systemitem>console-setup</systemitem> qui gère
-    les codes de touches clavier, les jeux de caractères et les polices en mode
-    console.</para>
-
-    <para>La reconfiguration du paquet <systemitem>console-setup</systemitem>
-    avec la commande 
-    <userinput><prompt>#</prompt> dpkg-reconfigure -plow console-setup</userinput>
-    permet de sélectionner les options suivantes :</para>
-
-    <para><menuchoice>
-    <guimenu>Modèle du clavier :</guimenu>
-    <guimenuitem>Generic 105-key (Intl) PC</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Origine du clavier :</guimenu>
-    <guimenuitem>France</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Disposition du clavier :</guimenu>
-    <guimenuitem>France - (Legacy) Alternative</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Touche de remplacement d'AltGr :</guimenu>
-    <guimenuitem>Touche Alt de droite</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Touche « compose » :</guimenu>
-    <guimenuitem>Pas de touche « compose »</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Codage de la console :</guimenu>
-    <guimenuitem>UTF-8</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Jeu de caractères devant être pris en charge par la police de la console :</guimenu>
-    <guimenuitem># latin1 et latin5 : langues de l'Europe de l'ouest et turc</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Police de caractères pour la console :</guimenu>
-    <guimenuitem>Fixed</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Taille de la police :</guimenu>
-    <guimenuitem>18</guimenuitem>
-    </menuchoice></para>
-    <para><menuchoice>
-    <guimenu>Consoles virtuelles utilisées :</guimenu>
-    <guimenuitem>/dev/tty[1-6]</guimenuitem>
-    </menuchoice></para>
+    <para>Dans le cas où l'on accède à l'écran du système virtualisé via le
+    protocole &url.spice;, il est possible de «partager» les actions à la
+    souris entre l'interface graphique du système local et le système virtuel.
+    Cet outil permet aussi le redimensionnement dynamique de l'écran du système
+    virtuel en fonction de la résolution de l'écran du système local.</para>
     </listitem>
     </varlistentry>
   </variablelist>
-  </sect2>
 
-  <sect2 xml:id='vm.instance-optimisation.xorg'>
-    <title>Optimisation de la configuration graphique</title>
+  <bridgehead xml:id='vm.optimisation.xorg' renderas='sect2'>Optimisation de la
+  configuration graphique</bridgehead>
 
   <para>La gestion de l'interface graphique d'une instance de système
-  virtualisé ne peut prétendre atteindre les mêmes performances que sur un
-  système hôte. En effet, sur un système non virtualisé le graphisme utilise
-  les ressources d'un composant spécifique baptisé <wordasword>Graphics
-  Processing Unit</wordasword> ou <acronym>GPU</acronym>. La virtualisation
-  implique l'émulation d'un composant <acronym>GPU</acronym> et vu la
-  complexité des traitements assurés par ces composants, la tâche est
-  particulièrement ardue. À l'heure actuelle, on ne trouve pas d'émulation de
-  composant interfacé sur bus PCI Express dans les solutions libres.</para>
+  virtualisé est en constante évolution avec les développements du noyau Linux,
+  les outils de la famille <application>QEMU</application> et le protocole
+  <application>SPICE</application>.</para>
 
-  <para>Pour corser un peu plus la situation, les bibliothèques
-  <citetitle>X.Org</citetitle> sont en pleine mutation au moment de la
-  rédaction de ces lignes. Historiquement, le serveur graphique procède
-  lui-même à l'inventaire des fonctions graphiques offertes par le
-  <acronym>GPU</acronym> présent sur le système. C'est le mode de
-  fonctionnement que l'on retrouve sur la version stable de la distribution
-  Debian GNU/Linux.</para>
+  <para>Sur un système non virtualisé le graphisme utilise les ressources d'un
+  composant spécifique baptisé <wordasword>Graphics Processing
+  Unit</wordasword> ou <acronym>GPU</acronym>. La virtualisation implique
+  l'émulation d'un composant <acronym>GPU</acronym>. Cette émualtion doit être
+  en mesure de traiter tous les appels aux bibliothèques graphiques effectués
+  par les différents gestionnaire d'interface utilisateur. La tâche est donc
+  particulièrement ardue.</para>
 
-  <para>Avec les versions les plus récentes des bibliothèques
-  <citetitle>X.org</citetitle>, le logiciel serveur ne procède plus à un
-  inventaire autonome et doit s'appuyer sur d'autres outils de façon à réagir à
-  chaud aux modifications de configuration matérielle :
-  connexion/déconnexion de périphériques.</para> 
+  <para>Au moment de la rédaction de cette section, c'est l'émulateur
+  <application>QXL</application>, associé au protocole
+  <application>SPICE</application> qui offre le plus de possibilités sur les
+  systèmes hôtes utilisant <citetitle>Debian GNU/Linux</citetitle>.</para>
 
-  <para>Comme les solutions <application>KVM</application> et
-  <application>QEMU</application> partagent les mêmes fonctions d'émulation,
-  elles proposent la même carte graphique très basique.</para>
+  <para>Les scripts utilisés pour la rédaction de ce guide définissent
+  l'émulateur <application>QXL</application> comme <acronym>GPU</acronym>.
+  Voici quelques éléments d'identification.</para>
 
-<screen>$ lspci |grep VGA
-00:02.0 VGA compatible controller: Cirrus Logic GD 5446
+<screen><prompt>$</prompt> lspci | grep VGA
+00:01.0 VGA compatible controller: Red Hat, Inc. Device 0100 (rev 04)
 </screen>
 
-  <para>La lecture de la documentation du composant
-  <citetitle>CL-GD5446</citetitle> indique clairement que la meilleure qualité
-  d'affichage est obtenue pour une résolution de 1024x768. Toute augmentation
-  de cette résolution se fait au détriment de la profondeur de couleur. Pour
-  cette raison, nous ne chercherons pas à dépasser la résolution nominale du
-  composant émulé.</para>
-
-  <para>À titre d'exemple, voici une copie du fichier de configuration sur une
-  instance de système virtuel Debian/testing, un extrait de l'inventaire des
-  caractéristiques du composant graphique identifiées ainsi que deux copies
-  d'écran de l'interface KDE 4.2.</para>
+  <para>Malheureusement, la version stable <citetitle>Wheezy</citetitle> ne
+  dispose pas du paquet de pilotage de <acronym>GPU</acronym> émulé. Le suuport
+  des fonctions graphiques est donc moins performant. En revanche, la version
+  testing contient bien le paquet
+  <systemitem>xserver-xorg-video-qxl</systemitem>.</para>
 
   <itemizedlist>
     <listitem>
-    <para>Fichier de configuration principal
-    <citetitle>X.Org</citetitle> :
-    <filename>/etc/X11/xorg.conf</filename>.</para>
+    <para>Extrait du journal d'initialisation du serveur graphique sur la
+    distribution stable <citetitle>Wheezy</citetitle>.</para>
 
-<screen>Section "InputDevice"
-        Identifier      "Generic Keyboard"
-        Driver          "kbd"
-        Option          "XkbRules"      "xorg"
-        Option          "XkbModel"      "pc105"
-        Option          "XkbLayout"     "fr"
-        Option          "XkbVariant"    "latin9"
-        Option          "XkbOptions"    "lv3:ralt_switch"
-EndSection
-
-Section "InputDevice"
-	Identifier      "Configured Mouse"
-	Driver          "mouse"
-EndSection
-
-Section "Device"
-	Identifier      "Configured Video Device"
-EndSection
-
-Section "Monitor"
-	Identifier      "Configured Monitor"
-	HorizSync       30 - 90
-	VertRefresh     50 - 160
-EndSection
-
-Section "Screen"
-	Identifier      "Default Screen"
-	Monitor         "Configured Monitor"
-	DefaultDepth    24
-	Subsection "Display"
-		Depth         24
-		Modes         "1024x768" "800x600"
-	EndSubSection
-EndSection</screen>
+<screen><prompt>#</prompt> grep -i qxl /var/log/Xorg.0.log
+[    10.785] (==) Matched qxl as autoconfigured driver 0
+[    10.785] (II) LoadModule: "qxl"
+[    10.848] (WW) Warning, couldn't open module qxl
+[    10.848] (II) UnloadModule: "qxl"
+[    10.848] (II) Unloading qxl
+[    10.848] (EE) Failed to load module "qxl" (module does not exist, 0)</screen>
     </listitem>
     <listitem>
-    <para>Extraits du journal d'exécution du serveur graphique.</para>
+    <para>Extrait du journal d'initialisation du serveur graphique sur la
+    distribution testing <citetitle>Jessie</citetitle>.</para>
 
-<screen># less /var/log/Xorg.0.log
-&lt;snip/>
-(--) PCI:*(0:2:0) Cirrus Logic GD 5446 rev 0, Mem @ 0xf0000000/25, 0xf2000000/12
-&lt;snip/>
-(==) CIRRUS(0): Write-combining range (0xf0000000,0x100000)
-(--) CIRRUS(0): Memory Config reg 1 is 0x98
-(--) CIRRUS(0): Memory Config reg 2 is 0x20
-(--) CIRRUS(0): VideoRAM: 4096 kByte
-(==) CIRRUS(0): Min pixel clock is 12 MHz
-(--) CIRRUS(0): Max pixel clock is 85 MHz
-(II) CIRRUS(0): Configured Monitor: Using hsync range of 30.00-90.00 kHz
-(II) CIRRUS(0): Configured Monitor: Using vrefresh range of 50.00-160.00 Hz
-(II) CIRRUS(0): Clock range:  12.00 to  85.50 MHz
-&lt;snip/>
-(--) CIRRUS(0): Virtual size is 1024x768 (pitch 1024)
-(**) CIRRUS(0): *Default mode "1024x768": 78.8 MHz, 60.0 kHz, 75.0 Hz
-(II) CIRRUS(0): Modeline "1024x768"x75.0   78.75  1024 1040 1136 1312  768 769 772 800 +hsync +vsync (60.0 kHz)
-</screen>
-    </listitem>
-    <listitem>
-    <para>Copies d'écran de l'interface graphique sur une instance de machine
-    virtuelle Debian/testing.</para>
-
-<mediaobject xml:id='vm.instance-optimisation.xorg.screenshot0'>
-  <imageobject>
-    <imagedata fileref="images/vm-debian-x11-kde42-kdm.png" format="PNG" contentwidth='12cm' width='12.5cm'/>
-  </imageobject>
-  <textobject>
-    <phrase>Gestionnaire de connexion KDE 4.2</phrase>
-  </textobject>
-  <caption>
-    <para><link xmlns="http://docbook.org/ns/docbook"
-    xlink:href="http://www.linux-france.org/prj/inetdoc/articles/vm/images/vm-debian-x11-kde42-kdm.png">Gestionnaire
-    de connexion KDE 4.2 - copie d'écran</link></para>
-  </caption>
-</mediaobject>
-
-<mediaobject xml:id='vm.instance-optimisation.xorg.screenshot1'>
-  <imageobject>
-    <imagedata fileref="images/vm-debian-x11-kde42-kwin.png" format="PNG" contentwidth='12cm' width='12.5cm'/>
-  </imageobject>
-  <textobject>
-    <phrase>Gestionnaire de fenêtre KDE 4.2</phrase>
-  </textobject>
-  <caption>
-    <para><link xmlns="http://docbook.org/ns/docbook"
-    xlink:href="http://www.linux-france.org/prj/inetdoc/articles/vm/images/vm-debian-x11-kde42-kdm.png">Gestionnaire
-    de fenêtre KDE 4.2 - copie d'écran</link></para>
-  </caption>
-</mediaobject>
+<screen><prompt>#</prompt> grep -i qxl /var/log/Xorg.0.log
+[    13.206] (==) Matched qxl as autoconfigured driver 0
+[    13.206] (II) LoadModule: "qxl"
+[    13.230] (II) Loading /usr/lib/xorg/modules/drivers/qxl_drv.so
+[    13.240] (II) Module qxl: vendor="X.Org Foundation"
+[    13.252] (II) qxl: Driver for QXL virtual graphics: QXL 1
+[    13.302] (II) qxl(0): Creating default Display subsection in Screen section
+[    13.302] (==) qxl(0): Depth 24, (--) framebuffer bpp 32
+[    13.302] (==) qxl(0): RGB weight 888
+[    13.302] (==) qxl(0): Default visual is TrueColor
+[    13.302] (==) qxl(0): Using gamma correction (1.0, 1.0, 1.0)
+[    13.302] (II) qxl(0): Offscreen Surfaces: Enabled
+[    13.302] (II) qxl(0): Image Cache: Enabled
+[    13.302] (II) qxl(0): Fallback Cache: Enabled
+[    13.303] (II) qxl(0): framebuffer at 0x7f1d30471000 (16384 KB)
+[    13.303] (II) qxl(0): command ram at 0x7f1d31471000 (32760 KB)
+[    13.303] (II) qxl(0): vram at 0x7f1d2c471000 (65536 KB)
+[    13.303] (II) qxl(0): rom at 0x7f1d3852a000
+[    13.303] (II) qxl(0): Device version 0.0
+[    13.303] (II) qxl(0): Compression level 0, log level 0
+[    13.303] (II) qxl(0): 12286 io pages at 0x7f1d30471000
+[    13.303] (II) qxl(0): RAM header offset: 0x3ffe000
+[    13.303] (II) qxl(0): Correct RAM signature 41525851
+[    13.303] (II) qxl(0): 49144 KB of video RAM
+[    13.303] (II) qxl(0): 1024 surfaces</screen>
     </listitem>
   </itemizedlist>
 
-  <para>Une autre solution consiste à utiliser le paramètre
-  <option>-vga</option> lors de l'initialisation de l'instance de machine
-  virtuelle en indiquant une autre émulation graphique. L'émulation
-  d'adaptateur compatible <citetitle>VMWare SVGA-II</citetitle> offre un panel
-  de résolutions plus important. Relativement à l'émulation de la carte
-  <citetitle>Cirrus CL-GD5446</citetitle> présentée ci-dessus, la configuration
-  est considérablement simplifiée puisqu'il n'est plus nécessaire d'utiliser un
-  fichier <filename>/etc/X11/xorg.conf</filename> paramétré manuellement. La
-  reconnaissance automatisée du composant graphique fonctionne
-  directement.</para>
-  </sect2>
+    <para>Copie d'écran de l'interface graphique sur une instance de machine
+    virtuelle Debian/testing.</para>
 
-  <sect2 xml:id='vm.instance-optimisation.ssh'>
-    <title>Optimisation des accès SSH</title>
+<mediaobject xml:id='vm.optimisation.xorg.screenshot0'>
+  <imageobject role='html'>
+    <imagedata fileref="images/debian-qxl.png" format="PNG" width='640px' scalefit='1' />
+  </imageobject>
+  <imageobject role='fo'>
+    <imagedata fileref="images/debian-qxl.png" format="PNG" width='12cm' scalefit='1' />
+  </imageobject>
+  <textobject>
+    <phrase>Pilote Graphique QXL</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook"
+    xlink:href="http://www.intedoc.net/guides/vm/images/debian-qxl.png">Pilote
+    graphique QXL - copie d'écran</link></para>
+  </caption>
+</mediaobject>
+
+  <bridgehead xml:id='vm.optimisation.ssh' renderas='sect2'>Optimisation des
+  accès SSH</bridgehead>
 
     <para>Pour administrer des systèmes à distance, le protocole
     <acronym>SSH</acronym> est le mode de connexion universel. Dans le contexte
     particulier de l'administration des instances de systèmes virtuels, une
     même image système avec une même clé d'hôte <acronym>RSA</acronym> est
     dupliquée autant de fois que nécessaire. On se trouve rapidement confronté
-    aux traditionnels messages d'alertes sur l'usurpation de cette clé d'hôte
+    aux traditionnels messages d'alerte sur l'usurpation de cette clé d'hôte
     lorsque l'on accès aux instances virtuelles depuis le système hôte.</para>
 
     <para>On peut configurer le client <acronym>SSH</acronym> du système hôte
@@ -1053,36 +910,31 @@ EndSection</screen>
     <para>Voici un extrait de fichier <filename>~/.ssh/config</filename> qui
     désactive les contrôles pour tous les hôtes dont les adresses
     <acronym>IP</acronym> correspondent au masque <systemitem
-    class='ipaddress'>192.0.*</systemitem>.</para>
+    class='ipaddress'>192.0.2.*</systemitem>.</para>
 
-<screen>Host 192.0.*
+<screen>Host 192.0.2.*
   CheckHostIP no
   StrictHostKeyChecking no
   UserKnownHostsFile=/dev/null</screen>
-  </sect2>
 </sect1>
 
 <sect1 xml:id="vm.storage">
-  <title>Extension de la capacité de stockage d'une image de machine virtuelle</title>
+  <title>Extension de la capacité de stockage d'une image de machine
+  virtuelle</title>
 
   <para>L'énorme avantage de l'utilisation du gestionnaire de volume logique
   <acronym>LVM</acronym> avec les images disques de machine virtuelle, c'est
   que l'on peut manipuler la capacité de stockage après installation.</para>
 
-  <para>Dans le cas présent, les images disques ont été dimensionnées à minima
-  pour faciliter le téléchargement à partir du serveur Web de l'infrastructure
-  de travaux pratiques. Il est donc important de pouvoir étendre la capacité
-  d'une instance système après copie sur le système hôte.</para>
-
   <para>Du point de vue pédagogique, c'est aussi l'occasion de se familiariser
   avec les fonctionnalités offertes par les outils <acronym>LVM</acronym>. Ces
-  outils sont devenus indispensables dans la gestion de la capacité de stockage
-  d'un serveur aujourd'hui.</para>
+  outils sont devenus indispensables dans la gestion de la capacité de
+  stockage.</para>
 
   <para>Voici un exemple d'extension de la capacité de stockage d'une image de
-  machine virtuelle Debian/testing avec interface graphique. À partir d'un
-  volume de stockage initial de 4Go on ajoute 8Go en répartissant cette
-  extension entre les volumes logiques de l'arborescence système.</para>
+  machine virtuelle. À partir d'un volume de stockage initial de 4Go on ajoute
+  8Go en répartissant cette extension entre les volumes logiques de
+  l'arborescence système.</para>
 
   <sect2 xml:id="vm.storage.raw">
     <title>Extension de l'image disque</title>
@@ -1426,8 +1278,7 @@ tmpfs                 503M     0  503M   0% /dev/shm
 
   <para>Les options intéressantes de ce script sont les suivantes.</para>
   	
-<screen>
-  -device virtio-net,netdev=net0,mac="$macaddress" \
+<screen>-device virtio-net,netdev=net0,mac="$macaddress" \
   <emphasis>-netdev user</emphasis>,id=net0 \ <co xml:id='vm.network.user.example.user'/>
   <emphasis>-redir tcp:5555::22</emphasis> \ <co xml:id='vm.network.user.example.ssh'/>
 </screen>
@@ -2728,7 +2579,7 @@ href='files/standalone-startup.sh' parse='text'
 xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
   </section>
   
-  <section>
+  <section xml:id='vm.appendix-vde'>
     <title>VDE</title>
   <para>L'utilisation de ce script suppose que l'on utilise le commutateur
   <link linkend='vm.network.vde_switch.system'>vde</link> sur lequel le port 1
