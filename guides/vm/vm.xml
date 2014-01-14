@@ -194,6 +194,7 @@
   que j'ai fait pour répondre aux objectifs.</para>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='vm.choix'>
   <title>Choix d'une solution de virtualisation</title>
 
@@ -369,6 +370,7 @@
   <application>QEMU</application>.</para>  
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id="vm.virtio">
   <title>KVM et VIRTIO</title>
 
@@ -456,6 +458,7 @@ virtio                 13058  5 virtio_blk,virtio_net,virtio_pci,virtio_balloon,
   virtuel relativement au catalogue donné dans la section précédente.</para>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id="vm.instance">
   <title>Création d'une machine virtuelle</title>
 
@@ -624,6 +627,7 @@ Formatting 'vm0-debian-stable-amd64.raw', fmt=raw size=64424509440
   <acronym>SSH</acronym>.</para>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id="vm.optimisation">
   <title>Optimisation système</title>
 
@@ -917,12 +921,14 @@ Mot de passe :
   UserKnownHostsFile=/dev/null</screen>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id="vm.storage">
   <title>Extension de la capacité de stockage avec LVM</title>
 
   <para>L'énorme avantage de l'utilisation du gestionnaire de volume logique
-  <acronym>LVM</acronym> avec les images disques de machine virtuelle, c'est
-  que l'on peut manipuler la capacité de stockage après installation.</para>
+  (<wordasword>Logical Volume Manager</wordasword> ou  <acronym>LVM</acronym>)
+  avec les images disques de machine virtuelle, c'est que l'on peut manipuler
+  la capacité de stockage après installation.</para>
 
   <para>Du point de vue pédagogique, c'est aussi l'occasion de se familiariser
   avec les fonctionnalités offertes par les outils <acronym>LVM</acronym>. Ces
@@ -930,295 +936,251 @@ Mot de passe :
   stockage.</para>
 
   <para>Voici un exemple d'extension de la capacité de stockage d'une image de
-  machine virtuelle. À partir d'un volume de stockage initial de 4Go on ajoute
-  8Go en répartissant cette extension entre les volumes logiques de
-  l'arborescence système.</para>
+  machine virtuelle.</para>
 
-  <sect2 xml:id="vm.storage.raw">
-    <title>Extension de l'image disque</title>
+  <bridgehead xml:id='vm.storage.extension' renderas='sect2'>Extension du
+  fichier image</bridgehead>
 
-  <para>On commence par identifier les caractéristiques du fichier image du
-  système avant extension.</para>
+  <para>On commence par identifier les caractéristiques du fichier image vu du
+  système hôte. Le fichier au format <option>raw</option> est un
+  <wordasword>sparse file</wordasword>. Si on a réservé un volume total, seule
+  l'occupation effective est prise en compte pour le calcul de l'occupation disque.</para>
 
-<screen>$ ls -sh vm0-debian-testing-amd64-X11.qcow2
-2,3G vm0-debian-testing-amd64-X11.qcow2</screen>
+  <para>La commande <command>ls</command> fait apparaître l'occupation
+  effective ainsi que l'espace total réservé lors de la création du fichier
+  image.</para>
+
+<screen><prompt>$</prompt> ls -gGh
+total <emphasis>3,4G</emphasis>
+-rw-r--r-- 1 <emphasis>32G</emphasis> janv. 13 18:58 vm0-debian-testing-amd64-base.raw</screen>
 
   <para>Une fois l'instance de système virtuel lancée, on obtient l'occupation
   disque suivante.</para>
 
-<screen>etu@vm:~$ df -h
-Sys. de fich.         Tail. Occ. Disp. %Occ. Monté sur
-/dev/mapper/vm--debian-root
-                      473M  105M  344M  24% /
-tmpfs                 503M     0  503M   0% /lib/init/rw
-udev                   10M  148K  9,9M   2% /dev
-tmpfs                 503M     0  503M   0% /dev/shm
-/dev/hda1             228M   20M  197M   9% /boot
-/dev/mapper/vm--debian-home
-                      473M   14M  435M   3% /home
-/dev/mapper/vm--debian-usr
-                      1,9G  1,2G  586M  68% /usr
-/dev/mapper/vm--debian-var
-                      595M  235M  330M  42% /var</screen>
+<screen><prompt>etu@vm0:~$</prompt> df -h
+Sys. de fichiers     Taille Utilisé Dispo Uti% Monté sur
+<emphasis>/dev/mapper/vm0-root    30G    937M   28G   4% /</emphasis>
+udev                    10M       0   10M   0% /dev
+tmpfs                  202M    204K  201M   1% /run
+tmpfs                  5,0M       0  5,0M   0% /run/lock
+tmpfs                  403M       0  403M   0% /run/shm
+/dev/vda1              228M     23M  190M  11% /boot</screen>
 
   <para>Toujours à partir de la même instance la table des partitions est la
   suivante.</para>
 
-<screen># fdisk -l /dev/hda
+<screen><prompt>#</prompt> parted /dev/vda print
+Model: Virtio Block Device (virtblk)
+<emphasis>Disk /dev/vda: 34,4GB</emphasis>
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
 
-Disk /dev/hda: 4294 MB, 4294967296 bytes
-255 heads, 63 sectors/track, 522 cylinders
-Units = cylinders of 16065 * 512 = 8225280 bytes
-Disk identifier: 0x00000162
+Number  Start   End     Size    Type      File system  Flags
+ 1      1049kB  256MB   255MB   primary   ext2         boot
+ 2      257MB   34,4GB  34,1GB  extended
+ 5      257MB   34,4GB  34,1GB  logical                lvm</screen>
 
-   Device Boot      Start         End      Blocks   Id  System
-/dev/hda1   *           1          31      248976   83  Linux
-/dev/hda2              32         522     3943957+  8e  Linux LVM</screen>
+  <para>L'opération d'extension, s'effectue directement sur le fichier image au
+  format «brut» non compressé <option>raw</option>.</para>
 
-  <para>Avant de passer à l'opération d'extension, on effectue une conversion
-  du fichier image au format «brut» non compressé ou format
-  <option>raw</option>.</para>
+<screen><prompt>$</prompt> qemu-img resize vm0-debian-testing-amd64-base.raw +20G
+Image resized.</screen>
 
-<screen>$ qemu-img convert -O raw vm0-debian-testing-amd64-X11.qcow2 \
-  vm0-debian-testing-amd64-X11-extended.raw
-$ ls -sh vm0-debian-testing-amd64-X11*
-2,1G vm0-debian-testing-amd64-X11-extended.raw  2,3G vm0-debian-testing-amd64-X11.qcow2</screen>
-
-  <para>On procède enfin à l'augmentation de capacité à l'aide de la commande
-  <command>dd</command>. On passe d'un fichier image d'une capacité de 4Go à
-  12Go en ajoutant 8Go.</para>
-
-<screen>$ dd if=/dev/zero of=vm0-debian-testing-amd64-X11-extended.raw seek=12288 obs=1MB count=0
-0+0 enregistrements lus
-0+0 enregistrements écrits
-0 octet (0 B) copié, 3,3943e-05 s, 0,0 kB/s</screen>
-
-  <para>Pour terminer cette extension d'image disque, on reconvertit le fichier
-  image au format compressé <option>qcow2</option>.</para>
-
-<screen>$ qemu-img convert -O qcow2 vm0-debian-testing-amd64-X11-extended.raw \
-  vm0-debian-testing-amd64-X11-extended.qcow2
-$ ls -lAh vm0-debian-testing-amd64-X11*
--rw-r--r-- 1 phil phil 2,1G mai 24 18:10 vm0-debian-testing-amd64-X11-extended.qcow2
--rw-r--r-- 1 phil phil  12G mai 24 16:23 vm0-debian-testing-amd64-X11-extended.raw
--rw-r--r-- 1 phil phil 2,3G mai 24 18:08 vm0-debian-testing-amd64-X11.qcow2</screen>
-
-  <para>Le fichier image au format brut (<option>raw</option>) est maintenant
-  inutile et peut être supprimé sans problème.</para>
-  </sect2>
-
-  <sect2 xml:id="vm.storage.lvm">
-    <title>Extension des volumes logiques LVM</title>
+  <bridgehead xml:id='vm.storage.lvm' renderas='sect2'>Extension de l'espace de
+  stockage du système virtuel</bridgehead>
 
   <para>En utilisant l'image système étendue générée ci-avant, on fait
   apparaître l'espace disponible en affichant l'état des partitions.</para>
 
-<screen># fdisk -l /dev/hda
+<screen><prompt>#</prompt> parted /dev/vda print
+Model: Virtio Block Device (virtblk)
+<emphasis>Disk /dev/vda: 55,8GB</emphasis>
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
 
-Disk /dev/hda: 12.2 GB, 12288000000 bytes
-255 heads, 63 sectors/track, 1493 cylinders
-Units = cylinders of 16065 * 512 = 8225280 bytes
-Disk identifier: 0x00000162
+Number  Start   End     Size    Type      File system  Flags
+ 1      1049kB  256MB   255MB   primary   ext2         boot
+ 2      257MB   34,4GB  34,1GB  extended
+ 5      257MB   34,4GB  34,1GB  logical                lvm</screen>
 
-   Device Boot      Start         End      Blocks   Id  System
-/dev/hda1   *           1          31      248976   83  Linux
-/dev/hda2              32         522     3943957+  8e  Linux LVM</screen>
-   
   <para>On remarque que l'espace total a bien été augmenté et qu'aucune
   partition n'est disponible. Il faut donc créer une nouvelle partition
   correspondant à l'espace libre.</para>
 
-<screen># fdisk /dev/hda
+<screen><prompt>#</prompt> <emphasis>parted /dev/vda unit % print free</emphasis>
+Model: Virtio Block Device (virtblk)
+Disk /dev/vda: 100%
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
 
-The number of cylinders for this disk is set to 1493.
-There is nothing wrong with that, but this is larger than 1024,
-and could in certain setups cause problems with:
-1) software that runs at boot time (e.g., old versions of LILO)
-2) booting and partitioning software from other OSs
-   (e.g., DOS FDISK, OS/2 FDISK)
+Number  Start  End    Size   Type      File system  Flags
+        0,00%  0,00%  0,00%            Free Space
+ 1      0,00%  0,46%  0,46%  primary   ext2         boot
+        0,46%  0,46%  0,00%            Free Space
+ 2      0,46%  61,5%  61,1%  extended
+ 5      0,46%  61,5%  61,1%  logical                lvm
+<emphasis>        61,5%  100%   38,5%            Free Space</emphasis>
 
-Command (m for help): p
+<prompt>#</prompt> <emphasis>parted /dev/vda mkpart primary 62% 100%</emphasis>
+Information: You may need to update /etc/fstab.
 
-Disk /dev/hda: 12.2 GB, 12288000000 bytes
-255 heads, 63 sectors/track, 1493 cylinders
-Units = cylinders of 16065 * 512 = 8225280 bytes
-Disk identifier: 0x00000162
+<prompt>#</prompt> <emphasis>parted /dev/vda set 3 lvm on</emphasis>
 
-   Device Boot      Start         End      Blocks   Id  System
-/dev/hda1   *           1          31      248976   83  Linux
-/dev/hda2              32         522     3943957+  8e  Linux LVM
+<prompt>#</prompt> parted /dev/vda print 
+Model: Virtio Block Device (virtblk)
+Disk /dev/vda: 55,8GB
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
 
-Command (m for help): n
-Command action
-   e   extended
-   p   primary partition (1-4)
-p
-Partition number (1-4): 3
-First cylinder (523-1493, default 523):
-Using default value 523
-Last cylinder or +size or +sizeM or +sizeK (523-1493, default 1493):
-Using default value 1493
+Number  Start   End     Size    Type      File system  Flags
+ 1      1049kB  256MB   255MB   primary   ext2         boot
+ 2      257MB   34,4GB  34,1GB  extended
+ 5      257MB   34,4GB  34,1GB  logical                lvm
+<emphasis> 3      34,4GB  55,8GB  21,5GB  primary                lvm</emphasis></screen>
 
-Command (m for help): t
-Partition number (1-4): 3
-Hex code (type L to list codes): 8e
-Changed system type of partition 3 to 8e (Linux LVM)
+  <para>C'est la nouvelle partition <systemitem>/dev/vda3</systemitem> que nous
+  utilisons pour créer un nouveau volume physique <acronym>LVM</acronym>. On
+  visualise ensuite les propriétés des deux volumes physiques du système
+  virtuel.</para>
 
-Command (m for help): w
-The partition table has been altered!
+<screen><prompt>#</prompt> <emphasis>pvcreate /dev/vda3</emphasis>
+  Physical volume "/dev/vda3" successfully created
 
-Calling ioctl() to re-read partition table.
-
-WARNING: Re-reading the partition table failed with error 16: Périphérique ou ressource occupé.
-The kernel still uses the old table.
-The new table will be used at the next reboot.
-Syncing disks.</screen>
-
-  <para>C'est la nouvelle partition <systemitem>/dev/hda3</systemitem> que nous
-  utilisons pour créer un nouveau volume physique
-  <acronym>LVM</acronym>. On visualise ensuite les propriétés des deux volumes
-  physiques du système virtuel.</para>
-
-<screen># pvcreate /dev/hda3
-  Physical volume "/dev/hda3" successfully created
-vm:/home/etu# pvdisplay
+<prompt>#</prompt> <emphasis>pvdisplay</emphasis>
   --- Physical volume ---
-  PV Name               /dev/hda2
-  VG Name               vm-debian
-  PV Size               3,76 GB / not usable 3,52 MB
+  PV Name               /dev/vda5
+  VG Name               vm0
+  PV Size               31,76 GiB / not usable 2,00 MiB
   Allocatable           yes (but full)
-  PE Size (KByte)       4096
-  Total PE              962
+  PE Size               4,00 MiB
+  Total PE              8130
   Free PE               0
-  Allocated PE          962
-  PV UUID               ahs2DO-u8gV-VVnN-sUOT-dUwv-fjlz-VRQpUl
-
-  "/dev/hda3" is a new physical volume of "7,44 GB"
+  Allocated PE          8130
+  PV UUID               CpaZ5D-vbVS-32w3-QLnk-GVAd-06pB-y2Iw8Y
+   
+<emphasis>  "/dev/vda3" is a new physical volume of "20,00 GiB"</emphasis>
   --- NEW Physical volume ---
-  PV Name               /dev/hda3
-  VG Name
-  PV Size               7,44 GB
+  PV Name               /dev/vda3
+  VG Name               
+  PV Size               20,00 GiB
   Allocatable           NO
-  PE Size (KByte)       0
+  PE Size               0   
   Total PE              0
   Free PE               0
   Allocated PE          0
-  PV UUID               IHbF6G-Tfye-uUXC-mcWf-KUNd-MrSD-y4Yy4y</screen>
+  PV UUID               jZJ5xq-bZlt-m0ZL-RkUG-Phe2-bbDY-r6cAPI</screen>
 
-  <para>On remarque facilement les différences entre les deux volumes physiques
-  <acronym>LVM</acronym>. Le volume physique <systemitem>/dev/hda3</systemitem>
+  <para>On remarque les différences entre les deux volumes physiques
+  <acronym>LVM</acronym>. Le volume physique <systemitem>/dev/vda3</systemitem>
   n'est associé à aucun groupe de volumes et ne dispose pas d'une taille de
   bloc ou <wordasword>Physical Extent</wordasword> (<acronym>PE</acronym>)
-  définie.</para>
-
-  <para>L'étape suivante consiste à étendre le groupe de volumes logiques avec
-  le nouveau volume physique disponible ; c'est le rôle de la commande
+  définie. L'étape suivante consiste à étendre le groupe de volumes logiques
+  avec le nouveau volume physique disponible ; c'est le rôle de la commande
   <command>vgextend</command>. On visualise ensuite le résultat sur les
   propriétés du nouveau volume physique.</para>
 
-<screen># vgextend vm-debian /dev/hda3
-  Volume group "vm-debian" successfully extended
+<screen><prompt>#</prompt> vgextend vm0 /dev/vda3
+  Volume group "vm0" successfully extended
 
-# pvdisplay /dev/hda3
+<prompt>#</prompt> pvdisplay /dev/vda3
   --- Physical volume ---
-  PV Name               /dev/hda3
-  VG Name               vm-debian
-  PV Size               7,44 GB / not usable 773,50 KB
-  Allocatable           yes
-  PE Size (KByte)       4096
-  Total PE              1904
-  Free PE               1904
+  PV Name               /dev/vda3
+  VG Name               vm0
+  PV Size               20,00 GiB / not usable 0   
+  Allocatable           yes 
+  PE Size               4,00 MiB
+  Total PE              5120
+  Free PE               5120
   Allocated PE          0
-  PV UUID               IHbF6G-Tfye-uUXC-mcWf-KUNd-MrSD-y4Yy4y</screen>
+  PV UUID               jZJ5xq-bZlt-m0ZL-RkUG-Phe2-bbDY-r6cAPI</screen>
 
+  <para>Pour achever l'opération, on affecte l'espace offert par le nouveau
+  volume physique à un volume logique du système. Dans l'exemple ci-dessous, on
+  se propose de déplacer le contenu de l'arborescence <filename
+  class='directory'>/var</filename> dans le nouveau volume logique.</para>
 
-  <para>Pour achever l'opération, il est nécessaire d'affecter l'espace offert
-  par le nouveau volume physique aux différents volumes logiques du système.
-  Pour étendre les volumes logiques voulus à l'aide de la commande
-  <command>lvextend</command>, on utilise deux options différentes :
-  <option>-L</option> pour ajouter une capacité fixe et <option>-l</option>
-  pour attribuer un pourcentage de volume.</para>
+<screen><prompt>#</prompt> <emphasis>lvcreate --name var vm0 /dev/vda3 -l 100%FREE</emphasis>
+  Logical volume "var" created
 
-<screen># lvextend -L +512M /dev/mapper/vm--debian-root
-  Extending logical volume root to 1000,00 MB
-  Logical volume root successfully resized
+<prompt>#</prompt> <emphasis>lvdisplay /dev/vm0/var</emphasis>
+  --- Logical volume ---
+  LV Path                /dev/vm0/var
+  LV Name                var
+  VG Name                vm0
+  LV UUID                mQTwlc-4zNt-0V7P-SfWM-qh3G-Zulh-y4zYN4
+  LV Write Access        read/write
+  LV Creation host, time vm0, 2014-01-15 00:20:40 +0100
+  LV Status              available
+  # open                 0
+  LV Size                20,00 GiB
+  Current LE             5120
+  Segments               1
+  Allocation             inherit
+  Read ahead sectors     auto
+  - currently set to     256
+  Block device           253:2</screen>
 
-# lvextend -L +2560M /dev/mapper/vm--debian-usr
-  Extending logical volume usr to 4,36 GB
-  Logical volume usr successfully resized
+  <para>Une fois le nouveau volume logique prêt à l'emploi, on passe aux
+  manipulations sur le système de fichiers avec le formatage, la
+  synchronisation de l'arborescence et la définition du point de
+  montage.</para>
 
-# lvextend -L +2560M /dev/mapper/vm--debian-var
-  Extending logical volume var to 3,09 GB
-  Logical volume var successfully resized
+<screen><prompt>#</prompt> <emphasis>mkfs.ext4 /dev/mapper/vm0-var</emphasis>
+mke2fs 1.42.9 (28-Dec-2013)
+Étiquette de système de fichiers=
+Type de système d'exploitation : Linux
+Taille de bloc=4096 (log=2)
+Taille de fragment=4096 (log=2)
+« Stride » = 0 blocs, « Stripe width » = 0 blocs
+1310720 i-noeuds, 5242880 blocs
+262144 blocs (5.00%) réservés pour le super utilisateur
+Premier bloc de données=0
+Nombre maximum de blocs du système de fichiers=4294967296
+160 groupes de blocs
+32768 blocs par groupe, 32768 fragments par groupe
+8192 i-noeuds par groupe
+Superblocs de secours stockés sur les blocs : 
+        32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208, 
+        4096000
 
-# lvextend -l +100%FREE /dev/mapper/vm--debian-home
-  Extending logical volume home to 2,48 GB
-  Logical volume home successfully resized</screen>
+Allocation des tables de groupe : complété                        
+Écriture des tables d'i-noeuds : complété                        
+Création du journal (32768 blocs) : complété
+Écriture des superblocs et de l'information de comptabilité du système de
+fichiers : complété
 
-  <para>Il ne reste plus qu'à répercuter l'extension des volumes logiques
-  au niveau système de fichiers à l'aide de la commande
-  <command>resise2fs</command>.</para>
+<prompt>#</prompt> <emphasis>mount /dev/mapper/vm0-var /mnt</emphasis>
 
-<screen># resize2fs /dev/mapper/vm--debian-root
-resize2fs 1.41.3 (12-Oct-2008)
-Le système de fichiers de /dev/mapper/vm--debian-root est monté sur / ; le changement de taille doit être effectué en ligne
-old desc_blocks = 2, new_desc_blocks = 4
-En train d'effectuer un changement de taille en ligne de /dev/mapper/vm--debian-root vers 1024000 (1k) blocs.
-Le système de fichiers /dev/mapper/vm--debian-root a maintenant une taille de 1024000 blocs.
+<prompt>#</prompt> <emphasis>rsync -ah --numeric-ids /var/ /mnt/</emphasis>
 
-# resize2fs /dev/mapper/vm--debian-usr
-resize2fs 1.41.3 (12-Oct-2008)
-Le système de fichiers de /dev/mapper/vm--debian-usr est monté sur /usr ; le changement de taille doit être effectué en ligne
-old desc_blocks = 1, new_desc_blocks = 1
-En train d'effectuer un changement de taille en ligne de /dev/mapper/vm--debian-usr vers 1142784 (4k) blocs.
-Le système de fichiers /dev/mapper/vm--debian-usr a maintenant une taille de 1142784 blocs.
+<prompt>#</prompt> <emphasis>umount /mnt</emphasis></screen>
 
-# resize2fs /dev/mapper/vm--debian-var
-resize2fs 1.41.3 (12-Oct-2008)
-Le système de fichiers de /dev/mapper/vm--debian-var est monté sur /var ; le changement de taille doit être effectué en ligne
-old desc_blocks = 1, new_desc_blocks = 1
-En train d'effectuer un changement de taille en ligne de /dev/mapper/vm--debian-var vers 793600 (4k) blocs.
-Le système de fichiers /dev/mapper/vm--debian-var a maintenant une taille de 793600 blocs.
+  <para>Enfin, on créé l'entrée pour le nouveau point de montage dans le
+  fichier <filename>/etc/fstab</filename>.</para>
 
-# resize2fs /dev/mapper/vm--debian-home
-resize2fs 1.41.3 (12-Oct-2008)
-Le système de fichiers de /dev/mapper/vm--debian-home est monté sur /home ; le changement de taille doit être effectué en ligne
-old desc_blocks = 2, new_desc_blocks = 10
-En train d'effectuer un changement de taille en ligne de /dev/mapper/vm--debian-home vers 2596864 (1k) blocs.
-Le système de fichiers /dev/mapper/vm--debian-home a maintenant une taille de 2596864 blocs.</screen>
+<screen><prompt>#</prompt> grep var /etc/fstab
+/dev/mapper/vm0-var /var        ext4    noatime,commit=600,defaults        0       2</screen>
 
   <para>En conclusion, on visualise l'espace occupé et disponible sur
   l'ensemble des volumes logiques du système virtuel.</para>
 
-<screen># df -h
-Sys. de fich.         Tail. Occ. Disp. %Occ. Monté sur
-/dev/mapper/vm--debian-root
-                      969M  106M  814M  12% /
-tmpfs                 503M     0  503M   0% /lib/init/rw
-udev                   10M  152K  9,9M   2% /dev
-tmpfs                 503M     0  503M   0% /dev/shm
-/dev/hda1             228M   20M  197M   9% /boot
-/dev/mapper/vm--debian-home
-                      2,4G   14M  2,3G   1% /home
-/dev/mapper/vm--debian-usr
-                      4,3G  1,2G  3,0G  29% /usr
-/dev/mapper/vm--debian-var
-                      3,0G  236M  2,7G   9% /var</screen>
+<screen><prompt>#</prompt> df -h
+Sys. de fichiers     Taille Utilisé Dispo Uti% Monté sur
+/dev/mapper/vm0-root    30G    742M   28G   3% /
+udev                    10M       0   10M   0% /dev
+tmpfs                  202M    212K  201M   1% /run
+tmpfs                  5,0M       0  5,0M   0% /run/lock
+tmpfs                  403M       0  403M   0% /run/shm
+/dev/vda1              228M     23M  190M  11% /boot
+/dev/mapper/vm0-var     20G    242M   19G   2% /var</screen>
 
-  <para>Du point de vue du système hôte, rien n'a changé dans la mesure ou
-  l'extension réalisée n'est pas occupée et que le format compressé
-  <option>qcow2</option> joue son rôle.</para>
-
-<screen>$ ls -sh vm0-debian-testing-amd64-X11*
-2,3G vm0-debian-testing-amd64-X11-extended.qcow2  2,3G vm0-debian-testing-amd64-X11.qcow2</screen>
-
-  <para>Bien sûr, les valeurs numériques utilisées dans cette section ne sont
+  <para>Bien sûr, les manipulations réalisées dans cette section ne sont
   que des exemples. Il est possible de faire beaucoup d'autres manipulations
   avec le gestionnaire de volume logique <acronym>LVM</acronym>. L'extension de
   capacité n'est qu'une facette des fonctionnalités offertes.</para>
-  </sect2>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id="vm.user-network">
   <title>Communications réseau en mode utilisateur</title>
 
