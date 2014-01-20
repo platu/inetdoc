@@ -134,6 +134,7 @@
     <xsl:param name="callout.graphics" select="1" />
     <xsl:param name="callout.graphics.path">&callout_gfx_path;</xsl:param>
     <xsl:param name="callout.graphics.number.limit" select="15" />
+    <xsl:param name="callout.icon.size" select="7" />
     
     <!-- Place callout marks at this column in annotated areas -->
     <xsl:param name="callout.defaultcolumn">90</xsl:param>

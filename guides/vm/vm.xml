@@ -1221,9 +1221,8 @@ tmpfs                  403M       0  403M   0% /run/shm
   <systemitem class='ipaddress'>10.0.2.15</systemitem> aux interfaces réseau de
   la machine virtuelle.</para>
 
-  <simplesect xml:id='vm.network.user.example'>
-    <title>Exemple d'utilisation des communications réseau en mode
-    utilisateur</title>
+  <bridgehead xml:id='vm.network.user.example' renderas='sect2'>Exemple
+  d'utilisation des communications réseau en mode utilisateur</bridgehead>
 
   <para>On lance l'instance de machine virtuelle à l'aide du script
   <command>standalone-startup.sh</command> donné en annexe <xref
@@ -1298,9 +1297,9 @@ default via <emphasis>10.0.2.2</emphasis> dev eth0
   <para>Les informations relevées dans les copies d'écran ci-dessus montrent
   que ce sont les fonctions intégrées de l'émulateur qui ont servi à la
   configuration de l'interface réseau Ethernet de l'hôte virtuel.</para>
-  </simplesect>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='vm.network.tun-tap'>
   <title>Fonction TUN/TAP du noyau Linux</title>
 
@@ -1321,116 +1320,72 @@ default via <emphasis>10.0.2.2</emphasis> dev eth0
   <para>Dans le contexte de ce document, le programme de l'espace mémoire
   utilisateur est l'instance virtuelle de système d'exploitation. L'interface
   réseau <systemitem>TUN/TAP</systemitem> devient un canal de communication
-  réseau entre le système hôte et un système émulé via
-  <application>KVM</application> (et|ou)
-  <application>QEMU</application>.</para>
+  réseau entre le système hôte et un système virtualisé. Par analogie, on peut
+  assimiler ce canal de communication à un cordon de brassage qui relie le
+  système de commutation de circuit fourni par le système hôte à l'interface
+  Ethernet du système virtualisé.</para>
 
-  <para>Cette section se décompose en trois parties consacrées à la mise en
-  œuvre d'une interface <systemitem>TAP</systemitem>. La première propose une
+  <para>La création d'une interface <acronym>TAP</acronym> doit se faire par
+  l'intermédiaire d'un programme de l'espace utilisateur. En fonction des
+  usages, plusieurs outils différents permettent de manipuler ces interfaces.
+  On peut citer <application>tunctl</application> qui fait partie du paquet
+  <systemitem>uml-utilities</systemitem>. L'acronyme <acronym>UML</acronym>
+  correspond à <wordasword>User Mode Linux</wordasword> une solution qui permet
+  «d'imbriquer» l'exécution de plusieurs systèmes Linux. On peut aussi citer
+  <application>openvpn</application> qui appartient au paquet éponyme. Il
+  s'agit là de manipuler le tunnel correspondant au réseau virtuel.</para>
+
+  <para>Cette section se décompose en deux parties consacrées à la mise en
+  œuvre d'une interface <acronym>TAP</acronym>. La première propose une
   configuration d'interface à partir de la session utilisateur alors que la
-  deuxième et la troisième proposent une configuration permanente au niveau
-  système. Seule la troisième partie est spécifique à la distribution Debian
-  GNU/Linux. À l'usage et compte tenu de la faible empreinte mémoire du module
-  <systemitem>tun</systemitem>, la deuxième ou la troisième solution sont à
-  privilégier.</para>
-
-  <sect2 xml:id='vm.network.tun-tap.manual'>
-    <title>Configuration manuelle d'une interface TAP</title>
-
-  <para>La création d'une interface TAP doit se faire par l'intermédiaire d'un
-  programme de l'espace mémoire utilisateur. Il existe deux méthodes classiques
-  de création d'interface à partir des outils fournis avec les paquets de la
+  deuxième propose une configuration permanente au niveau système sur la
   distribution Debian GNU/Linux.</para>
+
+  <bridgehead xml:id='vm.network.tun-tap.manual' renderas='sect2'>Configuration
+  manuelle d'une interface TAP</bridgehead>
+
+  <para>Aujourd'hui, la commande <command>ip</command> du paquet
+  <systemitem>iproute2</systemitem> est devenue le «couteau suisse» des
+  manipulations réseau. C'est elle que l'on utilise le plus souvent.</para>
   
-  <variablelist>
-    <varlistentry xml:id='vm.network.tun-tap.tap-int.uml-utilities'>
-      <term><citetitle>User-Mode Linux</citetitle></term>
-      <term><systemitem>uml-utilities</systemitem></term>
-      <listitem>
-      <para>Ce paquet contient les programmes utilitaires liés à la solution
-      <citetitle>User-Mode Linux</citetitle> qui permet «d'imbriquer»
-      l'exécution de plusieurs noyaux Linux. L'utilitaire de manipulation des
-      interfaces <systemitem>TUN/TAP</systemitem> est baptisé
-      <application>tunctl</application>. Voici un exemple de séquence de
-      configuration d'une interface TAP.</para>
+  <para>La création d'une interface utilise la syntaxe suivante :</para>
 
-<screen># tunctl -d tap0
-Set 'tap0' nonpersistent
-# tunctl -u etu -t tap0
-Set 'tap0' persistent and owned by uid 1000
-# ifconfig tap0
-tap0      Link encap:Ethernet  HWaddr 00:ff:3b:71:37:bb
-          BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 lg file transmission:500
-          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-</screen>
+<screen><prompt>$</prompt> sudo<co xml:id='vm.network.tap.sudo'/> <emphasis>ip tuntap add mode tap dev tap1 group kvm</emphasis><co xml:id='vm.network.tap.kvm'/>
 
-      <para>Comme la solution <citetitle>User-Mode Linux</citetitle> ne fait
-      pas partie des outils utilisés dans le contexte de ce document, ce mode
-      de configuration ne sera pas utilisé par la suite.</para>
-      </listitem>
-    </varlistentry>
+<prompt>$</prompt> <emphasis>ip addr ls tap1</emphasis>
+6: tap1: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop \
+         state DOWN group default qlen 500
+    link/ether de:e0:7a:25:ba:8c brd ff:ff:ff:ff:ff:ff
 
-    <varlistentry xml:id='vm.network.tun-tap.tap-int.openvpn'>
-      <term><citetitle>OpenVPN</citetitle></term>
-      <term><systemitem>openvpn</systemitem></term>
-      <listitem>
-      <para><citetitle>OpenVPN</citetitle> est une solution très populaire de
-      mise en œuvre de réseaux privés virtuels (<acronym>VPN</acronym>) ou
-      tunnels <acronym>IP</acronym> utilisant les fonctions de chiffrement, de
-      certification et d'authentification de la bibliothèque
-      <citetitle>OpenSSL</citetitle>.</para>
+<prompt>$</prompt> sudo <emphasis>ip link set dev tap1 up</emphasis>
 
-      <para>La commande
-      <userinput><prompt>#</prompt> openvpn --mktun --dev tap0</userinput>
-      suffit à la création de l'interface TAP.</para>
+<prompt>$</prompt> ip addr ls tap1
+6: tap1: &lt;NO-CARRIER,BROADCAST,MULTICAST,<emphasis>UP</emphasis>> mtu 1500 qdisc \
+         pfifo_fast state DOWN group default qlen 500
+    link/ether de:e0:7a:25:ba:8c brd ff:ff:ff:ff:ff:ff</screen>
 
-      <para>Comme <citetitle>OpenVPN</citetitle> est utilisé par ailleurs dans
-      l'infrastructure des travaux pratiques de la filière STRI, c'est cette
-      solution qui est retenue pour la création des interfaces
-      <systemitem>TAP</systemitem>. Les informations de la version utilisée
-      pour les manipulations sont les suivantes :</para>
+  <calloutlist>
+    <callout arearefs='vm.network.tap.sudo'>
+    <para>L'utilisation de <command>sudo</command> suppose que les droits aient
+    été délégués au préalable. Soit l'utilisateur a été intégré au groupe
+    système <systemitem>sudo</systemitem>, soit il dispose d'une délégation
+    plus précise relative aux outils réseau. À titre d'exemple, le fichier
+    <filename>/etc/sudoers</filename> peut contenir une ligne du type suivant
+    qui autorise tous les membres du groupe <systemitem>kvm</systemitem> à
+    utiliser trois commandes utiles :</para>
 
-<screen># dpkg -l openvpn |grep ^ii
-ii  openvpn          2.1~rc15-1                virtual private network daemon
+<screen>%kvm ALL=(ALL) NOPASSWD: /usr/bin/ovs-vsctl, /sbin/ip, /usr/sbin/iotop</screen>
+    </callout>
 
-# openvpn --mktun --dev tap0
-Wed May 14 21:22:52 2008 TUN/TAP device tap0 opened
-Wed May 14 21:22:52 2008 Persist state set to: ON
-# ifconfig tap0
-tap0      Link encap:Ethernet  HWaddr 00:ff:11:82:55:fe
-          BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 lg file transmission:100
-          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-</screen>
-      </listitem>
-    </varlistentry>
-  </variablelist>
-
-  <para>Si on retient l'utilisation d'<link
-  linkend='vm.network.tun-tap.tap-int.openvpn'>openvpn</link> pour créer
-  l'interface <systemitem>tap0</systemitem>, il est préférable d'utiliser un
-  script qui permet aussi de configurer cette interface sur le système
-  hôte.</para>
-
-<programlisting><xi:include href='files/tap-up.sh' parse='text'
-xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
-
-  <para>Dans cet exemple, l'exécution du script est indépendante du lancement
-  de l'instance de machine virtuelle. Cette configuration autonome de
-  l'interface <systemitem>TAP</systemitem> correspond au cas le plus
-  général.</para>
-
-  <para>Comme ce script est utilisé au niveau utilisateur normal, on suppose
-  qu'il est stocké dans le répertoire <filename
-  class='directory'>~/bin/</filename>. C'est habituellement dans ce répertoire
-  que l'on retrouve l'ensemble des (programmes|scripts) exécutables propres au
-  compte utilisateur.</para>
-  </sect2>
+    <callout arearefs='vm.network.tap.kvm'>
+    <para>L'attribution de l'interface <acronym>tap1</acronym> au groupe
+    système <systemitem>kvm</systemitem> est importante. En effet, c'est
+    l'appartenance à ce groupe qui donne accès aux ressources liées à la
+    virtualisation. Dans l'exemple, l'interface créée pourra être utilisée lors
+    de l'initialisation du processus utilisateur correspondant au système
+    virtuel.</para>
+    </callout>
+  </calloutlist>
 
   <sect2 xml:id='vm.network.tun-tap.system'>
     <title>Configuration système d'une interface TAP</title>
