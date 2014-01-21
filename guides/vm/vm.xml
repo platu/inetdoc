@@ -1357,7 +1357,7 @@ default via <emphasis>10.0.2.2</emphasis> dev eth0
          state DOWN group default qlen 500
     link/ether de:e0:7a:25:ba:8c brd ff:ff:ff:ff:ff:ff
 
-<prompt>$</prompt> sudo <emphasis>ip link set dev tap1 up</emphasis>
+<prompt>$</prompt> sudo <emphasis>ip link set dev tap1 up</emphasis><co xml:id='vm.network.tap.up'/>
 
 <prompt>$</prompt> ip addr ls tap1
 6: tap1: &lt;NO-CARRIER,BROADCAST,MULTICAST,<emphasis>UP</emphasis>> mtu 1500 qdisc \
@@ -1385,229 +1385,38 @@ default via <emphasis>10.0.2.2</emphasis> dev eth0
     de l'initialisation du processus utilisateur correspondant au système
     virtuel.</para>
     </callout>
+
+    <callout arearefs='vm.network.tap.up'>
+    <para>Pour être utilisable, l'interface <acronym>tap1</acronym> doit être
+    activée. Pour reprendre l'analogie entre canal de communication mémoire et
+    cordon de brassage, on peut considérer que la prise réseau dispose d'un
+    «interrupteur». La commande d'ouverture de cet interrupteur est symétrique
+    à celle présentée dans la copie d'écran ci-dessus :
+    <userinput><prompt>$</prompt> sudo ip link set dev tap1 down</userinput>.</para>
+    </callout>
   </calloutlist>
 
-  <sect2 xml:id='vm.network.tun-tap.system'>
-    <title>Configuration système d'une interface TAP</title>
+  <bridgehead xml:id='vm.network.tun-tap.system' renderas='sect2'>Configuration
+  système d'une interface TAP</bridgehead>
 
   <para>Pour généraliser l'utilisation d'une interface
   <systemitem>TAP</systemitem>, il est possible de la paramétrer directement au
   niveau système dans le fichier de configuration des interfaces réseau. Voici
   un extrait de fichier <filename>/etc/network/interfaces</filename>.</para>
 
-<screen># The tap network interface
-auto tap0
-iface tap0 inet static <co xml:id='vm.network.tap.system.iface'/>
-        address 192.0.2.1
-        netmask 255.255.255.224
-        network 192.0.2.0
-        broadcast 192.0.2.31
-        pre-up /usr/sbin/openvpn --mktun --dev tap0 <co xml:id='vm.network.tap.system.openvpn'/>
-        post-up su phil -c "vde_switch -d -F --tap tap0 -s /tmp/vde.ctl -M /tmp/vde.mgmt" <co xml:id='vm.network.tap.system.vde'/>
-        post-up iptables-restore &lt;/var/lib/iptables/active <co xml:id='vm.network.tap.system.iptables'/>
-        pre-down kill `ps -o pid -C vde_switch --no-headers` <co xml:id='vm.network.tap.system.kill'/>
-        post-down /usr/sbin/openvpn --rmtun --dev tap0 <co xml:id='vm.network.tap.system.rmtun'/></screen>
+<screen>auto tap1
+iface tap1 inet manual
+        up ip tuntap add mode tap dev tap1 group kvm
+        up ip link set dev tap1 up
+        down ip link set dev tap1 down
+        down ip tuntap del mode tap dev tap1</screen>
 
-  <calloutlist>
-    <callout arearefs='vm.network.tap.system.iface'>
-    <para>La configuration de l'interface se présente avec les éléments
-    classiques communs à n'importe quelle interface réseau
-    <acronym>IP</acronym> statique configurée sur un système Debian GNU/Linux
-    ou apparenté. On y trouve, l'adresse <acronym>IP</acronym>, le masque
-    réseau, l'adresse du réseau ainsi que l'adresse de diffusion.</para>
-    </callout>
+  <para>À partir de cet exemple, il est possible de créer autant de «cordons de
+  brassage» que nécessaire sur le système hôte.</para>
 
-    <callout arearefs='vm.network.tap.system.openvpn'>
-    <para>La directive <option>pre-up</option> permet de lancer la commande de
-    création de l'interface au niveau système avant l'application des
-    paramètres de configuration <acronym>IP</acronym>.</para>
-
-    <para>À ce niveau, l'appel à <application>OpenVPN</application> ne fait
-    qu'installer le périphérique (<wordasword>device</wordasword>)
-    <option>tap0</option>. On retrouve les traces de cette opération dans le
-    journal de l'initialisation du système.</para>
-
-<screen>$ egrep  ' tap| tun' /var/log/kern.log
- tun: Universal TUN/TAP device driver, 1.6
- tun: (C) 1999-2004 Max Krasnyansky &lt;maxk@qualcomm.com>
- tap0: no IPv6 routers present
- tun0: Disabled Privacy Extensions</screen>
-    </callout>
-
-    <callout arearefs='vm.network.tap.system.vde'>
-    <para>La directive <option>post-up</option> permet de lancer la commande
-    d'initialisation du commutateur virtuel <acronym>VDE</acronym> après la
-    configuration de l'interface <option>tap0</option>.</para>
-    
-    <para>Comme pour l'interface réseau, l'empreinte mémoire du commutateur
-    virtuel est suffisamment légère pour que l'on puisse rendre son chargement
-    systématique sans pénaliser les performances du système hôte. De plus,
-    cette interface <option>tap0</option> constitue l'unique «lien montant»
-    (<wordasword>uplink</wordasword>) du commutateur virtuel vers les autres
-    réseaux. Il est donc logique d'associer le démarrage du commutateur à la
-    configuration de l'interface.</para>
-
-    <para>L'utilisation du commutateur virtuel <acronym>VDE</acronym> est
-    détaillée dans la <xref linkend='vm.network.vde_switch'/>.</para>
-
-    <para>Dans la configuration présentée ici, l'utilisateur <systemitem
-    class='username'>phil</systemitem> est propriétaire du processus
-    <systemitem class='daemon'>vde_switch</systemitem> et des
-    <wordasword>sockets</wordasword> de communication.</para>
-    </callout>
-
-    <callout arearefs='vm.network.tap.system.iptables'>
-    <para>La seconde directive <option>post-up</option> permet d'installer les
-    règles de filtrage réseau consécutives à l'activation de
-    l'interface.</para>
-
-    <para>L'objectif de ces règles de filtrage est de rendre l'utilisation du
-    ou des réseau(x) virtuel(s) transparente vis-à-vis des réseaux réels situé
-    «à l'extérieur» du système hôte. Il s'agit donc d'un cas classique de
-    traduction d'adresse source sur les interfaces physiques de ce système hôte.
-    Dans le cas de l'ordinateur «transportable» de l'enseignant, on peut
-    trouver les règles suivantes.</para> 
-
-<screen># cat /var/lib/iptables/active
-*nat
-:PREROUTING ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A POSTROUTING -p tcp -m tcp --syn -m tcpmss --mss 1400:1536 -j TCPMSS --clamp-mss-to-pmtu
--A POSTROUTING -o wlan0 -j MASQUERADE
--A POSTROUTING -o eth0 -j MASQUERADE
-COMMIT</screen>
-
-  <para>Même si l'opération n'est pas effectuée à ce niveau, on suppose que la
-  fonction routage du noyau est activée pour les paquets <acronym>IP</acronym>
-  puissent transiter entre l'interface <option>tap0</option> et les autres
-  interfaces réseau du système hôte.</para>
-
-<screen># sysctl net.ipv4.ip_forward
-net.ipv4.ip_forward = 1</screen>
-    </callout>
-
-    <callout arearefs='vm.network.tap.system.kill'>
-    <para>Avec la directive <option>pre-down</option>, on aborde les opérations
-    d'arrêt de l'interface <option>tap0</option>.</para>
-    
-    <para>Dans le cas présent, il s'agit d'arrêter le commutateur virtuel
-    <acronym>VDE</acronym> en tuant le processus correspondant.</para>
-    </callout>
-
-    <callout arearefs='vm.network.tap.system.rmtun'>
-    <para>Enfin, la commande appelée par la directive
-    <option>post-down</option> efface le canal de communication entre
-    l'interface réseau virtuelle dans l'espace mémoire utilisateur et le
-    sous-système réseau du noyau. Cette opération est effectuée une fois que
-    les paramètres de configuration <acronym>IP</acronym> ont été supprimés et
-    que l'interface est inactive.</para>
-    </callout>
-  </calloutlist>
-  </sect2>
-
-  <sect2 xml:id='vm.network.tun-tap.debian'>
-    <title>Configuration Debian d'une interface TAP</title>
-
-  <para>Sur un système Debian GNU/Linux, il est possible configurer directement
-  une interface <systemitem>TAP</systemitem> tout en initialisant le
-  commutateur &url.vde;. Cette méthode de configuration est très voisine de
-  celle présentée dans la section ci-dessus. Elle ne se différencie que par
-  l'utilisation des scripts fournis avec le paquet
-  <systemitem>vde2</systemitem>. Si on reprend un extrait du fichier
-  <filename>/etc/network/interfaces</filename>, on obtient la syntaxe
-  suivante.</para>
-
-<screen>auto tap0
-iface tap0 inet static
-        address 192.0.2.1
-        netmask 255.255.255.224
-        network 192.0.2.0
-        broadcast 192.0.2.31
-        vde2-switch -</screen>
-
-  <para>La dernière instruction : <option>vde2-switch -</option> déclenche
-  l'initialisation du commutateur virtuel avec les attributs définis dans les
-  scripts du paquet <systemitem>vde2</systemitem>.</para>
-
-<screen>$ ps aux | grep vde
-/usr/bin/vde_switch -s /var/run/vde2/tap0.ctl \ <co xml:id='vm.network.tap.debian.socket'/>
-                    -m 660 -g vde2-net \ <co xml:id='vm.network.tap.debian.group'/>
-                    -p /var/run/vde2/tap0.pid \
-                    -t tap0 \
-                    -M /var/run/vde2/tap0.mgmt --mgmtmode 660 \ <co xml:id='vm.network.tap.debian.mgmt'/>
-                    -d</screen>
-
-  <para>L'ensemble des options de configuration du commutateur est présenté à
-  la <xref linkend='vm.network.vde_switch'/>.</para>
-
-  <para>On relève cependant les éléments relatifs au groupe propriétaire du
-  processus et à son masque de permissions.</para>
-
-  <calloutlist>
-    <callout arearefs='vm.network.tap.debian.socket'>
-    <para>Les canaux de communication avec le commutateur sont définis dans le
-    répertoire <filename class='directory'>/var/run/</filename> comme pour
-    n'importe quel autre service d'un système Debian GNU/Linux. Ici, le
-    répertoire <filename class='directory'>/var/run/vde2/</filename> contient
-    toutes les références de communication avec le processus <systemitem
-    class='daemon'>vde_switch</systemitem>.</para>
-
-<screen>$ ll /var/run/ | grep vde
-drwxrws--- 3 vde2-net   vde2-net   4,0K jun 27 14:12 vde2</screen>
-
-    <para>L'utilisteur système <systemitem
-    class='username'>vde2-net</systemitem> et les membres du groupe du même nom
-    ont accès au contenu de ce répertoire qui contient le répertoire des
-    <wordasword>sockets</wordasword> de communication, l'identifiant de
-    processus et le <wordasword>socket</wordasword> de gestion de la
-    configuration du commutateur.</para>
-    </callout>
-
-    <callout arearefs='vm.network.tap.debian.group vm.network.tap.debian.mgmt'>
-    <para>Les valeurs numériques <option>660</option> correspondent au masque
-    des permissions sur les objets du système de fichiers. Ces objets sont des
-    <wordasword>sockets</wordasword> de type
-    <systemitem>UNIX</systemitem>. La valeur numérique <option>660</option>
-    correspond au masque <literal>rw-rw----</literal> qui donne les droits de
-    lecture et d'écriture exclusivement au propriétaire et au groupe.</para>
-    </callout>
-  </calloutlist>
-
-  <para>D'après les éléments identifiés ci-dessus, il est nécessaire que le
-  compte utilisateur «normal» appartienne au groupe
-  <systemitem>vde2-net</systemitem> pour utiliser le commutateur et l'interface
-  <option>tap0</option>. Si on reprend l'exemple de la section précédente,
-  c'est le compte utilisateur <systemitem class='username'>phil</systemitem>
-  qui est concerné.</para>
-
-<screen><prompt>$</prompt> grep vde /etc/group
-vde2-net:x:120:phil</screen>
-
-  <para>Les scripts proposés avec le paquet <systemitem>vde2</systemitem>
-  assurent la configuration de l'interface <option>tap0</option> mais non son
-  activation. De plus, il manque la partie filtrage relativement à la section
-  précédente. On implante donc un script supplémentaire dans le répertoire
-  <filename class='directory'>/etc/network/if-up.d/</filename> qui se charge de
-  ces opérations.</para>
-
-<screen># cat /etc/network/if-up.d/tap0
-#!/bin/sh
-
-if [ -d "/proc/sys/net/ipv4/conf/tap0" ]
-then
-        /sbin/ifup tap0
-fi
-
-if [ -f "/var/lib/iptables/active" ]
-then
-        /sbin/iptables-restore &lt;/var/lib/iptables/active
-fi</screen>
-
-  <para>Une fois ce dernier script en place, on dispose d'une interface de
-  communication fonctionnelle entre le système hôte et les instances de
-  machines virtuelles.</para>
-  </sect2>
+  <para>Pour conclure cette section, on dispose maintenant d'interfaces qui
+  sont utilisées dans la suite du document pour connecter les instances de
+  systèmes virtuels aux ports du commutateur réseau du système hôte.</para>
 </sect1>
 
 <sect1 xml:id='vm.network.pointopoint'>
@@ -2236,23 +2045,6 @@ Hash: 0088 Addr: 52:54:00:12:34:62 VLAN 0000 to port: 002  age 1 secs
 
   <variablelist>
     <varlistentry>
-    <term>Interface TAP</term>
-    <listitem>
-    <para>La configuration système de l'interface TAP sur la <emphasis>machine
-    hôte</emphasis> reprend les éléments présentés précédemment dans la <xref
-    linkend='vm.network.tun-tap.debian'/>.</para>
-
-<screen>auto tap0
-iface tap0 inet static
-        address 192.0.2.1
-        netmask 255.255.255.0
-        network 192.0.2.0
-        broadcast 192.0.2.255
-        vde2-switch -</screen>
-    </listitem>
-    </varlistentry>
-
-    <varlistentry>
     <term>Table de routage et traduction d'adresses (NAT)</term>
     <listitem>
     <para>Pour activer systématiquement la fonction de routage des paquets
@@ -2313,14 +2105,6 @@ COMMIT</screen>
     <term>Commutateur virtuel</term>
     <term>&url.vde;</term>
     <listitem>
-
-    <para>Ici, le commutateur virtuel <application>vde_switch</application> est
-    lancé automatiquement lors de l'initialisation de l'interface TAP. Le
-    paramétrage est imposé comme indiqué dans la <xref
-    linkend='vm.network.tun-tap.debian'/>. Relativement à la section précédente
-    sur la configuration manuelle, on remarque que l'accès au commutateur
-    virtuel est réservé aux membres du groupe <systemitem
-    class='groupname'>vde2-net</systemitem>.</para>
 
 <screen><prompt>$</prompt> ls -lAh /var/run/vde2/*
 srw-rw---- 1 root vde2-net    0 sep  3 06:40 /var/run/vde2/tap0.mgmt
@@ -2511,15 +2295,6 @@ xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
   le numéro de port comme octet le plus à droite.</para>
 
 <programlisting xml:id='vm.appendix.startup.sh'><xi:include href='files/startup.sh' parse='text'
-xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
-
-  <para>Le script ci-dessous, baptisé <function>tap-up.sh</function>, illustre
-  la création manuelle d'une interface de type <systemitem>tap</systemitem>. Il
-  n'est utile que dans le cas où la distribution ne propose pas de
-  configuration intégrée. La <xref linkend='vm.network.tun-tap.debian' />
-  présente le fichier de configuration à privilégier.</para>
-
-<programlisting><xi:include href='files/tap-up.sh' parse='text'
 xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
 
   <para>Comme dans le cas précédent, la configuration manuelle du commutateur
