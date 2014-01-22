@@ -36,9 +36,17 @@
    '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.qemu.org/qemu-doc.html#SEC32">
    <citetitle>Using the user mode network stack</citetitle></link>'>
 
-<!ENTITY url.vde
-   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://vde.sourceforge.net/">
-   <citetitle>Virtual Distributed Ethernet</citetitle></link>'>
+<!ENTITY url.ovs
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://openvswitch.org/">
+   <citetitle>Open vSwitch</citetitle></link>'>
+
+<!ENTITY url.fib
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.wikipedia.org/wiki/Forwarding_plane">
+   <citetitle>Forwarding plane</citetitle></link>'>
+
+<!ENTITY url.sdn
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.wikipedia.org/wiki/Software-defined_networking">
+   <citetitle>Software-defined networking</citetitle></link>'>
 
 <!ENTITY url.CAM
    '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.wikipedia.org/wiki/CAM_Table">
@@ -1419,43 +1427,71 @@ iface tap1 inet manual
   systèmes virtuels aux ports du commutateur réseau du système hôte.</para>
 </sect1>
 
-<sect1 xml:id='vm.network.pointopoint'>
-  <title>Communications réseau en mode point-à-point</title>
+<sect1 xml:id='vm.network.ovs'>
+  <title>Communications réseau avec un commutateur virtuel</title>
 
-  <para>Relativement au contexte précédent, ce mode permet de faire
-  «apparaître» une interface réseau de machine virtuelle sur le système
-  hôte. Cette configuration nécessite donc l'utilisation de droits
-  super utilisateur pour administrer les interfaces depuis le système hôte. Ces
-  droits peuvent être délégués «à l'acte» via <systemitem>sudo</systemitem> ou
-  utilisés directement à la console.</para>
+  <para>Sur les systèmes GNU/Linux, il existe une grande variété de solutions
+  d'interconnexion réseau entre système hôte et systèmes virtuels. Il se trouve
+  justement que l'interconnexion réseau est la préoccupation principale du site
+  &url.inetdoc;. Il est donc essentiel de choisir les outils qui offrent le
+  maximum de fonctionnalités. Le commutateur virtuel occupe une place
+  essentielle dans une solution de virtualisation moderne.</para>
 
-  <sect2 xml:id='vm.network.pointopoint.example'>
-    <title>Exemple d'utilisation des communications réseau en mode point à point</title>
+  <para>Cette section présente la configuration du commutateur virtuel
+  &url.ovs;. Ce commutateur comprend une partie noyau ainsi que des processus
+  dans l'espace utilisateur. La partie noyau exploite la partie
+  <emphasis>commutation de circuit</emphasis> de celui-ci. Dans le jargon,
+  cette partie est connue sous le nom de &url.fib; ou encore
+  <wordasword>Forwarding Information Base</wordasword>
+  (<acronym>FIB</acronym>). Côté espace utilisateur, on trouve les outils de
+  configuration tels que <command>ovs-vsctl</command> et plusieurs démons de
+  gestion des ports et des <acronym>VLANs</acronym>. Il faut ajouter que cet
+  outil exploite les fonctions de routage (<emphasis>commutation de
+  paquets</emphasis>) déjà présentes dans le noyau Linux.</para>
 
-  <para>Voici la topologie type des communications réseau entre une machine
-  virtuelle, un système hôte et un hôte distant.</para>
-
-<mediaobject xml:id='vm.network.pointopoint.img'>
-  <imageobject>
-    <imagedata fileref="images/pointopoint.png" format="PNG" contentwidth='12cm' width='12.5cm'/>
+<mediaobject xml:id='vm.network.ovs-vm'>
+  <imageobject role='fo'>
+    <imagedata fileref="images/ovs-vm.png" format="PNG" width='12cm' scalefit='1'/>
+  </imageobject>
+  <imageobject role='html'>
+    <imagedata fileref="images/ovs-vm.png" format="PNG" width='480px' scalefit='1'/>
   </imageobject>
   <textobject>
-    <phrase>Topologie réseau communication point à point</phrase>
+    <phrase>Système hôte &amp; commutation virtuelle</phrase>
   </textobject>
   <caption>
     <para><link xmlns="http://docbook.org/ns/docbook"
-    xlink:href="http://www.linux-france.org/prj/inetdoc/articles/vm/images/pointopoint.png">Topologie
-    réseau communication point à point - vue complète</link></para>
+    xlink:href="http://www.inetdoc.net/guides/vm/images/ovs-vm.png">Système
+    hôte &amp; commutation virtuelle - vue complète</link></para>
   </caption>
 </mediaobject>
 
-  <para>On trouve ci-dessous les attributions d'adresses IPv4 en fonction des
-  types d'interfaces. Bien entendu, ces adresses ne sont que des exemples
-  utiles à l'interprétation des étapes de mise en place de la topologie
-  illustrée.</para>
+  <para>&url.ovs; est une pièce maîtresse des architectures d'interconnexion de
+  systèmes virtualisés. Il est présent dans la plupart des solutions intégrées
+  de la famille du &url.sdn;. L'intégration sort du champ couvert par ce guide.
+  On se contente ici de présenter le fonctionnement du commutateur virtuel à
+  l'échelle unitaire. la topologie minimaliste présentée dans la suite
+  correspond à la vue ci-dessous.</para>
+
+<mediaobject xml:id='vm.network.ovs-min'>
+  <imageobject role='fo'>
+    <imagedata fileref="images/ovs-min.png" format="PNG" width='12cm' scalefit='1'/>
+  </imageobject>
+  <imageobject role='html'>
+    <imagedata fileref="images/ovs-min.png" format="PNG" width='480px' scalefit='1'/>
+  </imageobject>
+  <textobject>
+    <phrase>Topologie minimum</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook"
+    xlink:href="http://www.inetdoc.net/guides/vm/images/ovs-min.png">Topologie
+    minimum - vue complète</link></para>
+  </caption>
+</mediaobject>
 
   <table frame='all' pgwide='1'>
-    <title>Plan d'adressage IPv4 pour les communications point à point</title>
+    <title>Plan d'adressage de la topologie étudiée</title>
     <tgroup cols='3' align='left' colsep='1' rowsep='1'>
     <thead>
       <row>
@@ -1476,7 +1512,7 @@ iface tap1 inet manual
       <entry><systemitem class='ipaddress'>192.0.2.1/24</systemitem></entry>
       </row>
       <row>
-      <entry>virtuel</entry>
+      <entry>machine virtuelle</entry>
       <entry>eth0</entry>
       <entry><systemitem class='ipaddress'>192.0.2.2/24</systemitem></entry>
       </row>
@@ -1489,765 +1525,152 @@ iface tap1 inet manual
     </tgroup>
   </table>
 
-  <para>Pour la suite, on considère que la configuration et le fonctionnement
-  du réseau local de communication entre le système hôte et le système distant
-  sont déjà validés.</para>
+  <bridgehead xml:id='vm.network.ovs.install' renderas='sect2'>Installation du
+  commutateur</bridgehead>
 
-  <orderedlist numeration='arabic'>
+  <para>L'installation du paquet <systemitem>openvswitch-switch</systemitem>
+  comprend la configuration système des outils et des démons de gestion de la
+  configuration du commutateur. Voici quelques éléments relevés après
+  l'installation du paquet.</para>
+
+  <itemizedlist>
     <listitem>
-    <para>Configuration de l'interface TAP sur le <emphasis>système
-    hôte</emphasis>.</para>
+    <para>Paquets installés</para>
 
-<screen><prompt>$</prompt> ./scripts/tap-up.sh tap0 192.0.2.1/24
-<prompt>$</prompt> /sbin/ifconfig tap0
-tap0      Link encap:Ethernet  HWaddr 00:ff:8c:db:de:99
-          inet adr:192.0.2.1  Bcast:192.0.2.255  Masque:255.255.255.0
-          adr inet6: fe80::2ff:8cff:fedb:de99/64 Scope:Lien
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:47 overruns:0 carrier:0
-          collisions:0 lg file transmission:100
-          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-</screen>
+<screen><prompt>$</prompt> aptitude search ~iopenvswitch
+i A openvswitch-common      - Open vSwitch common components
+i   openvswitch-switch      - Open vSwitch switch implementations</screen>
     </listitem>
     <listitem>
-    <para>Lancement de l'instance de machine virtuelle sur le <emphasis>système
-    hôte</emphasis>.</para>
+    <para>Partie noyau</para>
 
-<screen><prompt>$</prompt> kvm \
-  -name pointopoint-example \
-  -m 512 \
-  -rtc base=localtime,clock=host \
-  -drive file=vm0-debian-stable-x86_64.raw,if=virtio,media=disk,boot=on \
-  -k fr \
-  -usb -usbdevice tablet \
-  -net nic,vlan=0 <co xml:id='vm.network.pointopoint.example.nic'/> \
-  -net tap,vlan=0,ifname=tap0<co xml:id='vm.network.pointopoint.example.tap'/>,script=no <co xml:id='vm.network.pointopoint.example.script'/>
-</screen>
-
-    <calloutlist>
-      <callout arearefs='vm.network.pointopoint.example.nic'>
-      <para>L'option <option>-net nic</option> indique que la machine virtuelle
-      doit disposer d'une interface réseau (<acronym>nic</acronym> :
-      <wordasword>network interface card</wordasword>) émulée. Le paramètre
-      <option>vlan=0</option> désigne le réseau local virtuel
-      (<acronym>vlan</acronym> : <wordasword>virtual local area
-      network</wordasword>) auquel cette interface est raccordée.</para>
-      </callout>
-
-      <callout arearefs='vm.network.pointopoint.example.tap'>
-      <para>L'option <option>-net tap,vlan=0,ifname=tap0</option> indique que
-      l'interface TAP du système hôte doit être raccordée au même réseau local
-      virtuel (<acronym>vlan</acronym>) que l'interface réseau émulée.</para>
-      </callout>
-
-      <callout arearefs='vm.network.pointopoint.example.script'>
-      <para>L'option <option>no</option> indique que l'on ne fait appel à aucun
-      script d'initialisation et de configuration d'interface TAP du système
-      hôte lors du lancement de la machine virtuelle.</para>
-      </callout>
-    </calloutlist>
+<screen><prompt>$</prompt> lsmod | grep openvswitch
+openvswitch            63837  0 
+vxlan                  30915  1 openvswitch
+gre                    12957  1 openvswitch
+libcrc32c              12426  1 openvswitch</screen>
     </listitem>
     <listitem>
-    <para>Mise en place des entrées statiques de la table de routage du
-    <emphasis>système distant</emphasis> pour pouvoir joindre la machine
-    virtuelle via le système hôte.</para>
+    <para>Démons de l'espace utilisateur</para>
 
-<screen># route add -net 192.0.2.0 netmask 255.255.255.0 dev eth1
-# route add -host 192.0.2.2 gw 192.0.2.1
-# ping -c 2 192.0.2.2
-PING 192.0.2.2 (192.0.2.2) 56(84) bytes of data.
-64 bytes from 192.0.2.2: icmp_seq=1 ttl=63 time=3.81 ms
-64 bytes from 192.0.2.2: icmp_seq=2 ttl=63 time=1.78 ms
-
---- 192.0.2.2 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1007ms
-rtt min/avg/max/mdev = 1.782/2.797/3.812/1.015 ms
-</screen>
-
-  <para>Test de connexion à la machine virtuelle.</para>
-<screen>:~$ ssh etu@192.0.2.2
-etu@192.0.2.2's password:
-Linux vm0 2.6.24-1-amd64 #1 SMP Fri Apr 18 23:08:22 UTC 2008 x86_64
-
-The programs included with the Debian GNU/Linux system are free software;
-the exact distribution terms for each program are described in the
-individual files in /usr/share/doc/*/copyright.
-
-Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
-permitted by applicable law.
-Last login: Wed May 14 22:12:46 2008 from topaze.linux.home
-etu@vm0:~$                       
-</screen>
+<screen><prompt>$</prompt> pstree
+init─┬─acpid
+     ├─atd
+     ├─cron
+     ├─dbus-daemon
+     ├─exim4
+     ├─6*[getty]
+     <emphasis>├─ovs-vswitchd───ovs-vswitchd───ovs-vswitchd</emphasis>
+     <emphasis>├─ovsdb-server───ovsdb-server</emphasis>
+     ├─rsyslogd───3*[{rsyslogd}]
+     └─udevd</screen>
     </listitem>
-  </orderedlist>
-  </sect2>
-</sect1>
-
-<sect1 xml:id='vm.network.bridge'>
-  <title>Communications réseau en mode pont</title>
-
-  <para>Par définition, l'utilisation d'un pont
-  (<wordasword>bridge</wordasword>) permet d'étendre un réseau local. Dans le
-  contexte de la virtualisation, les ponts sont couramment employé pour rendre
-  les instances de machines virtuelles visibles depuis le réseau
-  physique réel.</para>
-
-  <sect2 xml:id='vm.network.bridge.simple'>
-    <title>Configuration simple</title>
-
-  <para>La configuration la plus simple utilise un pont entre l'interface
-  physique du système hôte et l'interface de l'instance de machine
-  virtuelle.</para>
-
-<mediaobject xml:id='vm.network.bridge.img'>
-  <imageobject>
-    <imagedata fileref="images/bridge-simple.png" format="PNG" contentwidth='12cm' width='12.2cm' />
-  </imageobject>
-  <textobject>
-    <phrase>Topologie réseau commutation virtuelle</phrase>
-  </textobject>
-  <caption>
-    <para><link xmlns="http://docbook.org/ns/docbook"
-    xlink:href="http://www.linux-france.org/prj/inetdoc/articles/vm/images/bridge-simple.png">Topologie
-    réseau commutation virtuelle - vue complète</link></para>
-  </caption>
-</mediaobject>
-  </sect2>
-</sect1>
-
-<sect1 xml:id='vm.network.vde_switch'>
-  <title>Communications réseau en mode commutation virtuelle</title>
-
-  <para>Dans ce contexte, l'objectif est de faire communiquer les machines
-  virtuelles entre elles. Pour ce faire, on utilise un commutateur virtuel lui
-  aussi : &url.vde;. Ce commutateur est un processus utilisateur appelé
-  <application>vde_switch</application>. Il est fourni par le paquet
-  <systemitem>vde2</systemitem>. Voici un exemple de topologie réseau utilisant
-  <application>vde_switch</application>.</para>
-
-<mediaobject xml:id='vm.network.vde_switch.img'>
-  <imageobject>
-    <imagedata fileref="images/vde_switch.png" format="PNG" contentwidth='12cm' width='12.5cm'/>
-  </imageobject>
-  <textobject>
-    <phrase>Topologie réseau commutation virtuelle</phrase>
-  </textobject>
-  <caption>
-    <para><link xmlns="http://docbook.org/ns/docbook"
-    xlink:href="http://www.linux-france.org/prj/inetdoc/articles/vm/images/vde_switch.png">Topologie
-    réseau commutation virtuelle - vue complète</link></para>
-  </caption>
-</mediaobject>
-
-<note>
-  <para>C'est cette topologie de base que j'utilise systématiquement pour les
-  travaux pratiques de la série <citetitle>Administration système en
-  réseau</citetitle>. En effet, on retrouve une machine virtuelle de type
-  serveur et une autre de type client. Le système hôte joue le rôle de
-  passerelle donnant accès à l'Internet (et|ou) à un système distant.</para>
-</note>
-
-  <para>On trouve ci-dessous les attributions d'adresses IPv4 en fonction des
-  types d'interfaces. Bien entendu, ces adresses ne sont que des exemples
-  utiles à l'interprétation des étapes de mise en place de la topologie
-  illustrée.</para>
-
-  <table frame='all' pgwide='1'>
-    <title>Plan d'adressage IPv4 pour les communications point à point</title>
-    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
-    <thead>
-      <row>
-      <entry>Système</entry>
-      <entry>Interface</entry>
-      <entry>Adresse IPv4</entry>
-      </row>
-    </thead>
-    <tbody>
-      <row>
-      <entry>hôte</entry>
-      <entry>eth0</entry>
-      <entry><systemitem class='ipaddress'>192.168.1.1/24</systemitem></entry>
-      </row>
-      <row>
-      <entry>hôte</entry>
-      <entry>tap0</entry>
-      <entry><systemitem class='ipaddress'>192.0.2.1/24</systemitem></entry>
-      </row>
-      <row>
-      <entry>machine virtuelle «serveur»</entry>
-      <entry>eth0</entry>
-      <entry><systemitem class='ipaddress'>192.0.2.2/24</systemitem></entry>
-      </row>
-      <row>
-      <entry>machine virtuelle «client»</entry>
-      <entry>eth0</entry>
-      <entry><systemitem class='ipaddress'>192.0.2.3/24</systemitem></entry>
-      </row>
-      <row>
-      <entry>distant</entry>
-      <entry>eth0</entry>
-      <entry><systemitem class='ipaddress'>192.168.1.7/24</systemitem></entry>
-      </row>
-    </tbody>
-    </tgroup>
-  </table>
-
-  <sect2 xml:id='vm.network.vde_switch.manual'>
-    <title>Configuration manuelle</title>
-
-    <para>Cette section reprend la configuration manuelle de l'interface TAP
-    (Voir <xref linkend='vm.network.tun-tap.manual'/>) à partir d'un compte
-    utilisateur normal et décrit son «brassage» sur le commutateur virtuel. La
-    configuration du commutateur &url.vde; est elle aussi réalisée avec les
-    droits du compte utilisateur normal.</para>
-
-  <variablelist>
-    <varlistentry>
-    <term>Interface TAP</term>
     <listitem>
-
-    <para>La configuration de l'interface TAP sur le <emphasis>système
-    hôte</emphasis> reprend les éléments présentés précédemment <xref
-    linkend='vm.network.tun-tap'/>.</para>
-
-<screen><prompt>$</prompt> ./scripts/tap-up.sh tap0 192.0.2.1/24
-<prompt>$</prompt> /sbin/ifconfig tap0
-tap0      Link encap:Ethernet  HWaddr 00:ff:8c:db:de:99
-          inet adr:192.0.2.1  Bcast:192.0.2.255  Masque:255.255.255.0
-          adr inet6: fe80::2ff:8cff:fedb:de99/64 Scope:Lien
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:47 overruns:0 carrier:0
-          collisions:0 lg file transmission:100
-          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-</screen>
-    </listitem>
-    </varlistentry>
-
-    <varlistentry>
-    <term>Table de routage et traduction d'adresses (NAT)</term>
-    <listitem>
-    <para>L'objectif principal des opérations présentées ici est de «préserver»
-    la table de routage du <emphasis>système hôte</emphasis>. En effet, ce
-    système correspond le plus souvent à un ordinateur portable utilisé pour
-    les enseignements. La connexion au réseau public de ce portable peut
-    utiliser plusieurs types d'interfaces différentes : Ethernet filaire,
-    Wifi (et|ou) VPN. Il faut donc que les instances de machines virtuelles
-    puissent avoir accès aux réseaux réels externes via n'importe laquelle de
-    ces différentes interfaces.</para>
-
-    <para>On commence donc par activer le routage des paquets IPv4 au niveau du
-    noyau Linux manuellement ou au niveau système dans le fichier de
-    configuration de <command>sysctl</command>.</para>
-
-<screen><prompt>#</prompt> echo 1 >/proc/sys/net/ipv4/ip_forward</screen>
-
-<screen><prompt>#</prompt> grep ip_forward /etc/sysctl.conf
-net.ipv4.ip_forward=1</screen>
-
-    <para>Ensuite, on utilise les fonctions de traduction d'adresses IP sources
-    (<acronym>S-NAT</acronym>) dynamiques du noyau Linux à l'aide de l'outil de
-    configuration <application>ipatbles</application>.</para>
-
-<screen># iptables -t nat -A POSTROUTING -s 192.0.2.0/24 -j MASQUERADE
-</screen>
-
-    <para>La cible <option>MASQUERADE</option> permet l'utilisation dynamique
-    de n'importe quelle interface de sortie du système hôte vers le réseau
-    public. La traduction d'adresses se fait sur la base des adresses IP
-    sources du réseau des instances de machines virtuelles desservi par le
-    commutateur <application>vde_switch</application>. Ces adresses sources
-    sont désignées à l'aide de l'option <option>-s
-    192.0.2.0/24</option>.</para>
-
-    <para>On valide le fonctionnement de la traduction d'adresses en consultant
-    l'état des chaînes correspondantes.</para>
-
-<screen># iptables -vL -t nat
-Chain PREROUTING (policy ACCEPT 56 packets, 4650 bytes)
- pkts bytes target     prot opt in     out     source               destination
-
-Chain POSTROUTING (policy ACCEPT 220 packets, 20710 bytes)
- pkts bytes target     prot opt in     out     source               destination
-   32  1966 MASQUERADE  all  --  any    any     192.0.2.0/24       anywhere
-
-Chain OUTPUT (policy ACCEPT 220 packets, 20710 bytes)
- pkts bytes target     prot opt in     out     source               destination
-</screen>
-
-    <para>Il est aussi possible, avec des outils comme
-    <application>iptsate</application>, de visualiser en temps réel l'état des
-    tables de suivi de communication du système de filtrage
-    <systemitem>netfilter/iptables</systemitem>.</para>
-    </listitem>
-  </varlistentry>
-
-  <varlistentry xml:id='vm.network.vde_switch.run'>
-    <term>Commutateur virtuel</term>
-    <term>&url.vde;</term>
-    <listitem>
-
-    <para>Le commutateur virtuel <application>vde_switch</application> doit
-    être lancé avant les instances de machines virtuelles pour que le brassage
-    des connexions puisse se faire. Voici un exemple de commande de lancement
-    du commutateur suivi de la visualisation du <wordasword>socket</wordasword>
-    et du processus correspondant.</para>
-
-<screen><prompt>$</prompt> vde_switch -d --tap tap0<co xml:id='vm.network.vde_switch.tap'/> -s /tmp/vde.ctl<co xml:id='vm.network.vde_switch.socket'/> -M /tmp/vde.mgmt<co xml:id='vm.network.vde_switch.mgmt'/>
-
-<prompt>$</prompt> ls -lAh /tmp/vde*<co xml:id='vm.network.vde_switch.socket-uid'/>
-srw------- 1 phil phil  0 jun  1 17:29 /tmp/vde.mgmt
-
-/tmp/vde.ctl:
-total 0
-srwx------ 1 phil phil 0 jun  1 17:29 ctl
-
-<prompt>$</prompt> pgrep -l -u phil vde<co xml:id='vm.network.vde_switch.uid'/>
-11198 vde_switch
-</screen>
-
-    <calloutlist>
-    <callout arearefs='vm.network.vde_switch.tap'>
-    <para>Avec l'option <option>--tap</option>, le commutateur virtuel est
-    «connecté» au <emphasis>système hôte</emphasis> via une interface TAP comme
-    dans le cas des communications point à point. Cette connexion correspond au
-    lien vers le réseau externe «réel» : le réseau local du système hôte
-    et l'Internet. Le réseau local auquel appartient cette interface TAP
-    apparaît dans la table de routage du système hôte.</para>
-<screen># route -n
-Table de routage IP du noyau
-Destination     Passerelle      Genmask         Indic Metric Ref    Use Iface
-192.168.1.0     0.0.0.0         255.255.255.0   U     0      0        0 eth1
-192.0.2.0     0.0.0.0         255.255.255.0   U     0      0        0 tap0
-0.0.0.0         192.168.1.1     0.0.0.0         UG    0      0        0 eth1
-</screen>
-    </callout>
-
-    <callout arearefs='vm.network.vde_switch.socket'>
-    <para>L'option <option>-s</option> désigne le
-    <wordasword>socket</wordasword> de communication sur lequel les machines
-    virtuelles vont se brancher. Ce <wordasword>socket</wordasword> sert au
-    brassage des connexions de toutes les machines virtuelles.</para>
-    </callout>
-
-    <callout arearefs='vm.network.vde_switch.mgmt'>
-    <para>L'option <option>-M</option> désigne le
-    <wordasword>socket</wordasword> de gestion de la configuration du
-    commutateur virtuel. Ces opérations se font via ce
-    <wordasword>socket</wordasword> dédié. Le paquet
-    <systemitem>vde2</systemitem> fournit un programme utilisateur pour
-    l'utiliser : <application>vdeterm</application>.</para>
-    </callout>
-
-    <callout arearefs='vm.network.vde_switch.socket-uid vm.network.vde_switch.uid'>
-    <para>On observe que l'utilisateur normal <systemitem
-    class='username'>phil</systemitem> est propriétaire des
-    <wordasword>sockets</wordasword> de communication et de gestion du
-    commutateur. Comme les machines virtuelles sont elles même des processus
-    utilisateur, il est nécessaire que ces processus aient la même identité
-    (<acronym>uid</acronym>) que le <wordasword>socket</wordasword>.</para>
-    </callout>
-    </calloutlist>
-
-    <para>Il est possible de combiner le script d'initialisation de l'interface
-    TAP (voir <xref linkend='vm.network.tun-tap'/>) et le lancement
-    du commutateur virtuel à l'aide du script suivant :</para>
-
-<programlisting><xi:include href='files/vde-up.sh' parse='text'
-xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
-
-    <para>Avec cette combinaison de scripts, la séquence d'initialisation de
-    l'interface TAP et du commutateur virtuel associé devient :</para>
-
-<screen>$ vde-up.sh tap0 192.0.2.1/2
-</screen>
-    </listitem>
-    </varlistentry>
-
-    <varlistentry xml:id='vm.network.vde_switch.vm'>
-    <term>Instances de machines virtuelles</term>
-    <listitem>
-
-    <para>Le lancement des machines virtuelles sur le <emphasis>système
-    hôte</emphasis> se fait en fonction du brassage à réaliser. Il faut
-    désigner le <wordasword>socket</wordasword> de communication avec le
-    commutateur virtuel et l'interface de réseau local utilisée par la machine
-    virtuelle.</para>
-
-<screen><prompt>$</prompt> qemu \
--drive file=vm0-debian-i386.raw,if=virtio,media=disk,boot=on \
--m 128 \
--net vde,sock=/tmp/vde.ctl<co xml:id='vm.network.vde_switch.vm0-vde'/> \
--net nic,vlan=0,macaddr=52:54:00:12:34:62<co xml:id='vm.network.vde_switch.vm0-nic'/> &amp;
-
-<prompt>$</prompt> qemu \
--drive file=vm1-debian-i386.raw,if=virtio,media=disk,boot=on \
--m 128 \
--net vde,sock=/tmp/vde.ctl<co xml:id='vm.network.vde_switch.vm1-vde'/> \
--net nic,vlan=0,macaddr=52:54:00:12:34:63<co xml:id='vm.network.vde_switch.vm1-nic'/> &amp; 
-</screen>
-  
-    <calloutlist>
-    <callout arearefs='vm.network.vde_switch.vm0-vde vm.network.vde_switch.vm1-vde'>
-    <para>Quelle que soit l'instance de machine virtuelle initialisée, on utilise
-    le <wordasword>socket</wordasword> unique de communication avec le
-    commutateur virtuel. Dans cet exemple, le brassage des ports du commutateur
-    virtuel se fait dynamiquement dans l'ordre des connexions libres. Les
-    informations de brassage sont visualisées dans la <xref
-    linkend='vm.network.vde_switch.switch-config'/> et les deux instances
-    lancées occupent les ports numérotés <parameter>002</parameter> et
-    <parameter>003</parameter>.</para>
-
-    <para>Ces informations se retrouvent aussi au niveau de l'arborescence des
-    <wordasword>sockets</wordasword> utilisateur.</para>
-
-<screen><prompt>$</prompt> ls -lAh /tmp/vde*
-srwx------ 1 phil phil  0 jun  1 17:53 /tmp/vde.ctl.19747-00000
-srwx------ 1 phil phil  0 jun  1 18:03 /tmp/vde.ctl.21781-00000
-srw------- 1 phil phil  0 jun  1 17:29 /tmp/vde.mgmt
-
-/tmp/vde.ctl:
-total 0
-srwx------ 1 phil phil 0 jun  1 17:53 002
-srwx------ 1 phil phil 0 jun  1 18:03 003
-srwx------ 1 phil phil 0 jun  1 17:29 ctl
-</screen>
-
-    <para>Dans l'exemple ci-dessus, les valeurs <parameter>19747</parameter> et
-    <parameter>21781</parameter> correspondent aux numéros des deux processus
-    de machine virtuelle sur le système hôte.</para>
-    </callout>
-
-    <callout arearefs='vm.network.vde_switch.vm0-nic vm.network.vde_switch.vm1-nic'>
-    <para>Si les interfaces Ethernet des machines virtuelles sont configurées
-    au niveau du système d'exploitation invité, il est malgré tout nécessaire
-    de préciser le paramétrage matériel de ces interfaces au lancement d'une
-    instance. En effet, l'adresse physique <acronym>MAC</acronym> d'une machine
-    virtuelle est toujours la même par défaut. C'est la raison pour laquelle
-    chaque machine virtuelle est lancée avec une adresse <acronym>MAC</acronym>
-    distincte. Il faut se rappeler que la commutation Ethernet réelle ou
-    virtuelle est basée sur la constitution d'une table de correspondance entre
-    adresses <acronym>MAC</acronym> et numéro de port. L'état de cette table de
-    correspondance est disponible via l'interface de gestion du commutateur
-    <application>vde_switch</application>. Voir <xref
-    linkend='vm.network.vde_switch.switch-config'/>.</para>
-
-    <para>De plus, il est possible d'utiliser des réseaux locaux virtuels
-    (<acronym>VLANs</acronym>) en constituant des groupes logiques de ports de
-    commutateur. Ici, les deux instances de machines virtuelles appartiennent
-    au même groupe logique : le <acronym>VLAN</acronym> numéro
-    <parameter>0</parameter>.</para>
-    </callout>
-    </calloutlist>
-    </listitem>
-    </varlistentry>
-
-    <varlistentry xml:id='vm.network.vde_switch.switch-config'>
-    <term>Configuration du commutateur virtuel</term>
-    <listitem>
-
-    <para>La visualisation et la gestion de la configuration du commutateur
-    virtuel sur le <emphasis>système hôte</emphasis> se fait à l'aide d'un
-    <wordasword>socket</wordasword> dédié présenté lors du lancement du
-    processus <application>vde_switch</application> (Voir <xref
-    linkend='vm.network.vde_switch.run'/>).</para>
-
-    <para>On accède à l'interface de gestion du commutateur virtuel via
-    <application>vdeterm</application>, un outil fourni avec le paquet
-    <systemitem>vde2</systemitem>.</para>
-
-    <para>Le jeu des commandes disponibles sur la configuration du commutateur
-    est disponible à partir de la commande <userinput>help</userinput>. Voici
-    quelques exemples basiques de commandes de visualisation de l'état des
-    connexions.</para>
-
-<screen><prompt>$</prompt> vdeterm /tmp/vde.mgmt
-VDE switch V.2.2.0-pre2
-(C) Virtual Square Team (coord. R. Davoli) 2005,2006,2007 - GPLv2
-
-vde$ showinfo<co xml:id='vm.network.vde_switch.switch-config.showinfo'/>
-0000 DATA END WITH '.'
-VDE switch V.2.2.0-pre2
-(C) Virtual Square Team (coord. R. Davoli) 2005,2006,2007 - GPLv2
-
-pid 14433 MAC 00:ff:c6:46:c5:14 uptime 2079
-mgmt /tmp/vde.mgmt perm 0600
-unsent_pktq_len 0
-.
-1000 Success
-
-vde$ port/allprint<co xml:id='vm.network.vde_switch.switch-config.port'/>
-0000 DATA END WITH '.'
-Port 0001 untagged_vlan=0000 ACTIVE - Unnamed Allocatable
- IN:  pkts       2218          bytes              2966493
- OUT: pkts       1480          bytes               106042
-  -- endpoint ID 0008 module tuntap      : tap0
-Port 0002 untagged_vlan=0000 ACTIVE - Unnamed Allocatable
- IN:  pkts       1518          bytes               109167
- OUT: pkts       2292          bytes              2972334
-  -- endpoint ID 0009 module unix prog   : vdeqemu user=phil PID=19747\
-  SOCK=/tmp/vde.ctl.19747-00000
-Port 0003 untagged_vlan=0000 ACTIVE - Unnamed Allocatable
- IN:  pkts         73          bytes                 5788
- OUT: pkts         48          bytes                 3893
-  -- endpoint ID 0011 module unix prog   : vdeqemu user=phil PID=21781\
-  SOCK=/tmp/vde.ctl.21781-00000
-.
-1000 Success
-
-vde$ hash/print<co xml:id='vm.network.vde_switch.switch-config.hash'/>
-0000 DATA END WITH '.'
-Hash: 0048 Addr: 52:54:00:12:34:63 VLAN 0000 to port: 003  age 1 secs
-Hash: 0088 Addr: 52:54:00:12:34:62 VLAN 0000 to port: 002  age 1 secs
-.
-1000 Success
-</screen>
-
-    <calloutlist>
-    <callout arearefs='vm.network.vde_switch.switch-config.showinfo'>
-    <para>La commande <userinput>showinfo</userinput> donne les paramètres du
-    <wordasword>socket</wordasword> de gestion dédié et l'adresse
-    <acronym>MAC</acronym> interne du commutateur.</para>
-    </callout>
-
-    <callout arearefs='vm.network.vde_switch.switch-config.port'>
-    <para>La commande <userinput>port/allprint</userinput> donne la liste des
-    ports actifs du commutateur ainsi que les paramètres associés : numéro
-    de port et de <acronym>VLAN</acronym>, interface ou
-    <wordasword>socket</wordasword> associé au port, référence du processus
-    utilisateur de machine virtuelle.</para>
-    </callout>
-
-    <callout arearefs='vm.network.vde_switch.switch-config.hash'>
-    <para>La commande <userinput>hash/print</userinput> affiche la table de
-    correspondance entre les adresses <acronym>MAC</acronym> et les numéros de
-    ports actifs. Tout comme dans une commutateur réel, cette table est
-    rafraîchie dynamiquement en fonction du trafic qui transite sur un
-    port.</para>
+    <para>État de la configuration</para>
     
-    <para>On retrouve ici les deux adresses <acronym>MAC</acronym> données lors
-    du lancement des instances de machines virtuelles <xref
-    linkend='vm.network.vde_switch.vm'/>.</para>
-    </callout>
-    </calloutlist>
+<screen><prompt>$</prompt> sudo ovs-vsctl show
+cd95ab0d-643d-4a23-bae3-2e6c900a367f
+    ovs_version: "1.9.3"</screen>
     </listitem>
-    </varlistentry>
-  </variablelist>
-  </sect2>
+  </itemizedlist>
 
-  <sect2 xml:id='vm.network.vde_switch.system'>
-    <title>Configuration système</title>
+  <bridgehead xml:id='vm.network.ovs.config' renderas='sect2'>Configuration du
+  commutateur</bridgehead>
 
-  <para>Cette section reprend les mêmes étapes que la précédente, en utilisant
-  cette fois ci les paramètres de configuration fournis avec les paquets de la
-  distribution <citetitle>Debian GNU/Linux</citetitle>.</para>
+  <para>Pour configurer l'interconnexion présentée <link
+  linkend='vm.network.ovs-min'>en début de section</link>, on doit passer par
+  les étapes suivantes.</para>
 
-  <variablelist>
-    <varlistentry>
-    <term>Table de routage et traduction d'adresses (NAT)</term>
+  <itemizedlist>
     <listitem>
-    <para>Pour activer systématiquement la fonction de routage des paquets
-    <acronym>IP</acronym> dans le noyau Linux, on utilise le fichier de
-    configuration <filename>/etc/sysctl.conf</filename> dans lequel on donne la
-    valeur <option>1</option> à la variable
-    <option>net.ipv4.ip_forward</option>.</para>
+    <para>Création du commutateur <systemitem>sw0</systemitem></para>
 
-<screen><prompt>#</prompt> grep ip_forward /etc/sysctl.conf
-net.ipv4.ip_forward=1</screen>
-
-    <para>Pour appliquer les règles de filtrage et de traduction d'adresses
-    sources, il est possible de créer un script exécuté lors de
-    l'initialisation des interfaces réseau du système. Ce script est placé dans
-    le répertoire <filename class='directory'>/etc/network/if-up.d/</filename>.
-    Voici un exemple.</para>
-
-<screen><prompt>#</prompt> cat /etc/network/if-up.d/iptables
-#!/bin/sh
-
-set -e
-
-daemon="/sbin/iptables"
-name="iptables"
-save="/sbin/iptables-save"
-restore="/sbin/iptables-restore"
-active="/var/lib/iptables/active"
-
-test -x "$daemon" -a -x "$save" -a -x "$restore" || exit 0
-
-# Load iptables rules
-test -f $active || exit 0
-echo -n "Starting $name: "
-$restore &lt; "$active"
-echo "loaded active state"</screen>
-
-    <para>D'après ce script, les règles doivent êtres placées dans le fichier
-    <filename>/var/lib/iptables/active</filename>. En sauvegardant le résultat
-    de la commande <command>iptables-save</command> dans ce fichier, on obtient
-    un jeu de règles du type suivant :</para>
-
-<screen><prompt>#</prompt> cat /var/lib/iptables/active
-*nat
-:PREROUTING ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A POSTROUTING -p tcp -m tcp --syn -m tcpmss --mss 1400:1536 -j TCPMSS --clamp-mss-to-pmtu
--A POSTROUTING -o wlan0 -j MASQUERADE
--A POSTROUTING -o eth0 -j MASQUERADE
-COMMIT</screen>
-
-    <para>Bien sûr, ces règles ne répondent qu'au contexte étudié. Elles n'ont
-    aucune valeur en dehors de ce même contexte.</para>
+<screen><prompt>$</prompt> sudo ovs-vsctl add-br sw0</screen>
     </listitem>
-    </varlistentry>
-
-    <varlistentry xml:id='vm.network.vde_switch.debian'>
-    <term>Commutateur virtuel</term>
-    <term>&url.vde;</term>
     <listitem>
+    <para>Création de l'interface réseau pour le <acronym>VLAN</acronym> numéro
+    <option>2</option></para>
 
-<screen><prompt>$</prompt> ls -lAh /var/run/vde2/*
-srw-rw---- 1 root vde2-net    0 sep  3 06:40 /var/run/vde2/tap0.mgmt
--rw-r--r-- 1 root vde2-net    5 sep  3 06:40 /var/run/vde2/tap0.pid
-
-/var/run/vde2/tap0.ctl:
-total 0
-srw-rw---- 1 root vde2-net 0 sep  3 06:40 ctl</screen>
+<screen><prompt>$</prompt> sudo ovs-vsctl add-port sw0 sw0-vlan2 tag=2 -- set Interface sw0-vlan2 type=internal</screen>
     </listitem>
-    </varlistentry>
-
-    <varlistentry xml:id='vm.network.vde_switch.startup.sh'>
-    <term>Instances de machines virtuelles</term>
     <listitem>
+    <para>Création du «cordon de brassage» <option>tap2</option></para>
 
-    <para>Le lancement des machines virtuelles suit le même principe que
-    précédemment. Il faut cependant adapter les références du «brassage» des
-    connexions virtuelles aux nouvelles références de
-    <wordasword>sockets</wordasword>. Le chemin utilisé est correspond à la
-    copie d'écran ci-dessus : <filename
-    class='directory'>/var/run/vde2/tap0.ctl</filename>.</para>
-
-    <para>Pour automatiser le lancement d'une instance de machine virtuelle on
-    peut utiliser le script suivant. Les deux paramètres à fournir lorsque l'on
-    utilise ce script sont le nom de l'image et le numéro du port du
-    commutateur utilisé. Si le numéro de port n'est pas donné, le port 2 est
-    utilisé par défaut.</para>
-
-<programlisting><xi:include href='files/startup.sh' parse='text'
-xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap2 group kvm</screen>
     </listitem>
-    </varlistentry>
-
-    <varlistentry>
-    <term>Configuration du commutateur virtuel</term>
     <listitem>
+    <para>Raccordement du «cordon de brassage» <option>tap2</option> au
+    commutateur et affectation du port correspondant au <acronym>VLAN</acronym>
+    numéro <option>2</option></para>
 
-    <para>La visualisation et la gestion de la configuration du commutateur
-    virtuel sur le <emphasis>système hôte</emphasis> se fait à l'aide d'un
-    <wordasword>socket</wordasword> dédié affecté à l'aide de l'option
-    <option>-M</option> lors du lancement du processus
-    <application>vde_switch</application>. Cette affectation se fait via un
-    script fourni avec le paquet <systemitem>vde2</systemitem> :
-    <filename>/etc/network/if-pre-up.d/vde2</filename>.</para>
-
-    <para>Voici un exemple d'utilisation de l'interface de gestion et de
-    configuration du commutateur virtuel basé sur l'utilisation de trois
-    instances de machines virtuelles dont les interfaces réseau sont «brassées»
-    sur des <acronym>VLANs</acronym> différents.</para>
-
-    <itemizedlist>
-      <listitem>
-      <para>On commence par créer un fichier image «différentiel» pour chaque
-      instance à partir du fichier image maître choisi.</para>
-
-<screen><prompt>$</prompt> ./scripts/diff-img.sh vm0-debian-stable-amd64-base.raw r1.raw
-<prompt>$</prompt> ./scripts/diff-img.sh vm0-debian-stable-amd64-base.raw r2.raw
-<prompt>$</prompt> ./scripts/diff-img.sh vm0-debian-stable-amd64-base.raw r3.raw</screen>
-      </listitem>
-      <listitem>
-      <para>On procède au lancement de chaque instance en affectant un numéro
-      de port différent sur le commutateur virtuel.</para>
-
-<screen><prompt>$</prompt> ./scripts/startup.sh r1.raw 512 2
-<prompt>$</prompt> ./scripts/startup.sh r2.raw 512 3
-<prompt>$</prompt> ./scripts/startup.sh r3.raw 512 4</screen>
-      </listitem>
-      <listitem>
-      <para>Une fois les instances actives et après avoir validé les
-      communications au niveau réseau à l'aide de la commande
-      <command>ping</command>, on peut visualiser le résultats sur l'interface
-      du commutateur. L'équivalent de la &url.CAM; du commutateur virtuel est
-      donné par la commande <command>hash/print</command>.</para>
-
-<screen><prompt>$</prompt> vdeterm /var/run/vde2/tap0.mgmt
-VDE switch V.2.2.3
-(C) Virtual Square Team (coord. R. Davoli) 2005,2006,2007 - GPLv2
-
-vde$ hash/print
-0000 DATA END WITH '.'
-Hash: 0010 Addr: 52:54:00:12:34:<emphasis>02</emphasis> VLAN 0000 to port: <emphasis>002</emphasis>  age 21 secs
-Hash: 0016 Addr: ca:d9:0c:3a:a2:f1 VLAN 0000 to port: 001  age 21 secs
-Hash: 0034 Addr: 52:54:00:12:34:<emphasis>04</emphasis> VLAN 0000 to port: <emphasis>004</emphasis>  age 13 secs
-Hash: 0094 Addr: 52:54:00:12:34:<emphasis>03</emphasis> VLAN 0000 to port: <emphasis>003</emphasis>  age 13 secs
-.
-1000 Success</screen>
-
-      <para>Dans la copie d'écran ci-dessus, on retrouve les valeurs choisies
-      pour distinguer les adresses <acronym>MAC</acronym> et les numéros de
-      ports.</para>
-      </listitem>
-      <listitem>
-      <para>Pour obtenir des informations détaillées sur la correspondance
-      entre les ports de commutation et les <wordasword>sockets</wordasword> de
-      communication des instances de systèmes d'exploitation, on utilise la
-      commande <command>port/print</command>.</para>
-
-<screen>vde$ port/print
-0000 DATA END WITH '.'
-Port <emphasis>0001</emphasis> untagged_vlan=0000 ACTIVE - Unnamed Allocatable
- Current User: NONE Access Control: (User: NONE - Group: NONE)
- IN:  pkts     353870          bytes            507588924
- OUT: pkts     178720          bytes             13090480
- -- endpoint ID 0006 module tuntap      : <emphasis>tap0</emphasis>
-Port <emphasis>0002</emphasis> untagged_vlan=0000 ACTIVE - Unnamed Allocatable
- Current User: phil Access Control: (User: NONE - Group: NONE)
- IN:  pkts     140180          bytes             10268912
- OUT: pkts     274615          bytes            397341431
- -- endpoint ID 0003 module unix prog   : QEMU user=phil <emphasis>PID=31442</emphasis>  SOCK=/var/run/vde2/tap0.ctl/.31442-00000
-Port <emphasis>0003</emphasis> untagged_vlan=0000 ACTIVE - Unnamed Allocatable
- Current User: phil Access Control: (User: NONE - Group: NONE)
- IN:  pkts      38235          bytes              2765961
- OUT: pkts      76949          bytes            109875833
- -- endpoint ID 0008 module unix prog   : QEMU user=phil <emphasis>PID=31452</emphasis>  SOCK=/var/run/vde2/tap0.ctl/.31452-00000
-Port <emphasis>0004</emphasis> untagged_vlan=0000 ACTIVE - Unnamed Allocatable
- Current User: phil Access Control: (User: NONE - Group: NONE)
- IN:  pkts         70          bytes                13110
- OUT: pkts        144          bytes                20998
- -- endpoint ID 0010 module unix prog   : QEMU user=phil <emphasis>PID=31459</emphasis>  SOCK=/var/run/vde2/tap0.ctl/.31459-00000
-.
-1000 Success</screen>
-
-      <para>La copie d'écran ci-dessus illustre bien la correspondance entre
-      les ports de commutation, l'interface TAP et les processus correspondant
-      à chaque instance de système virtualisé. On retrouve les éléments
-      introduits dans la <xref linkend='vm.choix'/>.</para>
-
-      <para>En reprenant l'identifiant de processus <option>31442</option>
-      donné ci-dessus, on retrouve les références du système virtualisé dans la
-      liste des processus du système hôte.</para>
-
-<screen><prompt>$</prompt> ps aux | grep 31442 | grep -v grep
-phil     <emphasis>31442</emphasis>  4.2  1.0 685260 85100 pts/3    Sl   22:41   1:23 \
- kvm -name r1.raw -m 512 -drive file=r1.raw,if=virtio,media=disk,boot=on \
- -k fr -usb -usbdevice tablet -rtc base=localtime,clock=host \
- -net vde,vlan=1,sock=/var/run/vde2/tap0.ctl,port=<emphasis>2</emphasis> \
- -net nic,vlan=1,model=virtio,macaddr=52:54:00:12:34:<emphasis>2</emphasis></screen>
-      </listitem>
-    </itemizedlist>
+<screen><prompt>$</prompt> sudo ovs-vsctl add-port sw0 tap2 tag=2</screen>
     </listitem>
-    </varlistentry>
-  </variablelist>
-  </sect2>
+    <listitem>
+    <para>Visualisation de la configuration</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl show
+cd95ab0d-643d-4a23-bae3-2e6c900a367f
+    Bridge "sw0"
+        Port "sw0-vlan2"
+            tag: 2
+            Interface "sw0-vlan2"
+                type: internal
+        Port "tap2"
+            tag: 2
+            Interface "tap2"
+        Port "sw0"
+            Interface "sw0"
+                type: internal
+    ovs_version: "1.9.3"</screen>
+    </listitem>
+  </itemizedlist>
+
+  <bridgehead xml:id='vm.network.ovs.active' renderas='sect2'>Activation des
+  interfaces réseau et du routage</bridgehead>
+
+  <para>La configuration du commutateur doit être activée pour que les
+  communications réseau soient effectives. De plus, on doit s'assurer que la
+  fonction de routage est activée sur le système hôte.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Activation des interfaces</para>
+
+<screen><prompt>$</prompt> for intf in sw0 sw0-vlan2 tap2; do sudo ip link set dev $intf up; done</screen>
+    </listitem>
+    <listitem>
+    <para>État des interfaces sur le système hôte</para>
+
+<screen><prompt>$</prompt> ip link ls
+1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN \
+                                 mode DEFAULT group default 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP \
+                                 mode DEFAULT group default qlen 1000
+    link/ether ba:ad:00:ca:fe:00 brd ff:ff:ff:ff:ff:ff
+4: sw0: &lt;BROADCAST,MULTICAST,<emphasis>UP,LOWER_UP</emphasis>> mtu 1500 qdisc noqueue state UNKNOWN \
+                                 mode DEFAULT group default 
+    link/ether 16:8f:91:2c:e0:41 brd ff:ff:ff:ff:ff:ff
+5: sw0-vlan2: &lt;BROADCAST,MULTICAST,<emphasis>UP,LOWER_UP</emphasis>> mtu 1500 qdisc noqueue state UNKNOWN \
+                                 mode DEFAULT group default 
+    link/ether 8e:2a:a2:ff:d9:fb brd ff:ff:ff:ff:ff:ff
+6: tap2: &lt;BROADCAST,MULTICAST,<emphasis>UP,LOWER_UP</emphasis>> mtu 1500 qdisc pfifo_fast master sw0 state UP \
+                                 mode DEFAULT group default qlen 500
+    link/ether 46:12:48:6b:be:d4 brd ff:ff:ff:ff:ff:ff</screen>
+    </listitem>
+  </itemizedlist>
+
+  <para>La fonction de routage fournie par le noyau Linux peut être activée via
+  le fichier <filename>/etc/sysctl.conf</filename>. Il suffit de décommenter
+  les entrées correspondantes. Pour appliquer les paramètres définis dans le
+  fichier on utilise l'instruction <userinput><prompt>$</prompt> sudo sysctl
+  -p</userinput>. On peut vérifier les paramètres en n'affichant que les lignes
+  actives de ce même fichier.</para>
+
+<screen><prompt>$</prompt> egrep -e '(^$|^#)' -v /etc/sysctl.conf 
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+net.ipv4.conf.all.log_martians = 1</screen>
 </sect1>
 
 <sect1 xml:id="vm.conclusion">
@@ -2275,36 +1698,6 @@ phil     <emphasis>31442</emphasis>  4.2  1.0 685260 85100 pts/3    Sl   22:41  
 
 <programlisting xml:id='vm.appendix.standalone-startup.sh'><xi:include
 href='files/standalone-startup.sh' parse='text'
-xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
-  </section>
-  
-  <section xml:id='vm.appendix-vde'>
-    <title>VDE</title>
-  <para>L'utilisation de ce script suppose que l'on utilise le commutateur
-  <link linkend='vm.network.vde_switch.system'>vde</link> sur lequel le port 1
-  est dédié à la communication avec le système hôte via l'interface
-  <systemitem>tap0</systemitem>.</para>
-
-  <para>Le script demande deux paramètres : la quantité de mémoire
-  <acronym>RAM</acronym> allouée au système virtuel et le numéro de port du
-  commutateur <link linkend='vm.network.vde_switch.system'>vde</link> sur
-  lequel ce système doit être connecté.</para>
-
-  <para>Pour faciliter l'analyse de la configuration des connexions réseau,
-  l'adresse <acronym>MAC</acronym> du système virtuel est composée en utilisant
-  le numéro de port comme octet le plus à droite.</para>
-
-<programlisting xml:id='vm.appendix.startup.sh'><xi:include href='files/startup.sh' parse='text'
-xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
-
-  <para>Comme dans le cas précédent, la configuration manuelle du commutateur
-  <link linkend='vm.network.vde_switch.system'>vde</link> n'a de sens que si la
-  distribution ne propose pas de configuration intégrée. Au script
-  <function>vde-up.sh</function> ci-dessous, on doit préférer la syntaxe
-  proposée dans la <xref linkend='vm.network.vde_switch.system' /> qui est
-  beaucoup plus simple.</para>
-
-<programlisting><xi:include href='files/vde-up.sh' parse='text'
 xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
   </section>
 </appendix>
