@@ -3,9 +3,7 @@ MAIN_DIR = $(HOME)/inetdoc
 endif
 
 # Type(s) de traitement
-PROCESS = subdirs symlink xml2xhtml xml2pdf
-
-SUBDIRS = files
+PROCESS = symlink xml2xhtml xml2pdf
 
 SYMLINKS = \
         $(MAIN_DIR)/common/author.xml \

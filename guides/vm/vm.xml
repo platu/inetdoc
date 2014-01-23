@@ -1427,7 +1427,7 @@ iface tap1 inet manual
   systèmes virtuels aux ports du commutateur réseau du système hôte.</para>
 </sect1>
 
-<sect1 xml:id='vm.network.ovs'>
+<sect1 xml:id='vm.ovs-network'>
   <title>Communications réseau avec un commutateur virtuel</title>
 
   <para>Sur les systèmes GNU/Linux, il existe une grande variété de solutions
@@ -1449,7 +1449,7 @@ iface tap1 inet manual
   outil exploite les fonctions de routage (<emphasis>commutation de
   paquets</emphasis>) déjà présentes dans le noyau Linux.</para>
 
-<mediaobject xml:id='vm.network.ovs-vm'>
+<mediaobject xml:id='vm.ovs-network-vm'>
   <imageobject role='fo'>
     <imagedata fileref="images/ovs-vm.png" format="PNG" width='12cm' scalefit='1'/>
   </imageobject>
@@ -1473,7 +1473,7 @@ iface tap1 inet manual
   l'échelle unitaire. la topologie minimaliste présentée dans la suite
   correspond à la vue ci-dessous.</para>
 
-<mediaobject xml:id='vm.network.ovs-min'>
+<mediaobject xml:id='vm.ovs-network-min'>
   <imageobject role='fo'>
     <imagedata fileref="images/ovs-min.png" format="PNG" width='12cm' scalefit='1'/>
   </imageobject>
@@ -1530,7 +1530,7 @@ iface tap1 inet manual
     </tgroup>
   </table>
 
-  <bridgehead xml:id='vm.network.ovs.install' renderas='sect2'>Installation du
+  <bridgehead xml:id='vm.ovs-network.install' renderas='sect2'>Installation du
   commutateur</bridgehead>
 
   <para>L'installation du paquet <systemitem>openvswitch-switch</systemitem>
@@ -1579,11 +1579,11 @@ cd95ab0d-643d-4a23-bae3-2e6c900a367f
     </listitem>
   </itemizedlist>
 
-  <bridgehead xml:id='vm.network.ovs.config' renderas='sect2'>Configuration du
+  <bridgehead xml:id='vm.ovs-network.config' renderas='sect2'>Configuration du
   commutateur</bridgehead>
 
   <para>Pour configurer l'interconnexion présentée <link
-  linkend='vm.network.ovs-min'>en début de section</link>, on doit passer par
+  linkend='vm.ovs-network-min'>en début de section</link>, on doit passer par
   les étapes suivantes.</para>
 
   <itemizedlist>
@@ -1630,7 +1630,7 @@ cd95ab0d-643d-4a23-bae3-2e6c900a367f
     </listitem>
   </itemizedlist>
 
-  <bridgehead xml:id='vm.network.ovs.active' renderas='sect2'>Activation des
+  <bridgehead xml:id='vm.ovs-network.active' renderas='sect2'>Activation des
   interfaces réseau et du routage</bridgehead>
 
   <para>Pour que la configuration du commutateur soit effective, il faut que
@@ -1676,6 +1676,94 @@ cd95ab0d-643d-4a23-bae3-2e6c900a367f
 net.ipv4.ip_forward=1
 net.ipv6.conf.all.forwarding=1
 net.ipv4.conf.all.log_martians = 1</screen>
+
+  <bridgehead xml:id='vm.ovs-network.launch' renderas='sect2'>Lancement du
+  système virtuel</bridgehead>
+
+  <para>Comme dans le cas de la <xref linkend='vm.user-network'/>, on utilise
+  une script qui rassemble toutes les options de configuration utiles :
+  <function>ovs-startup.sh</function>. Le code de ce script est donné en <xref
+  linkend='vm.appendix-ovs-network'/>. La copie d'écran ci-desous correspond à
+  la <link linkend='vm.ovs-network-min'>topologie minimale</link> décrite plus
+  haut.</para>
+
+<screen><prompt>:~/vm$</prompt> ./scripts/ovs-startup.sh vm0-debian-testing-amd64-base.raw 1024 2
+
+~> Machine virtuelle : vm0-debian-testing-amd64-base.raw
+~> Port SPICE        : 5902
+~> Mémoire RAM       : 1024
+~> Adresse MAC       : ba:ad:00:ca:fe:02</screen>
+
+  <para>Les options de ce script relatives aux fonctions réseau sont les
+  suivantes :</para>
+
+<screen>-device virtio-net<co xml:id='vm.ovs-network.virtio'/>,netdev=net0<co xml:id='vm.ovs-network.netid'/>,mac="$macaddress"<co xml:id='vm.ovs-network.macaddress'/> \
+-netdev tap,ifname=tap$tapnum<co xml:id='vm.ovs-network.tapnum'/>,id=net0,script=no \</screen>
+
+  <calloutlist>
+    <callout arearefs='vm.ovs-network.virtio'>
+    <para>Le pilote d'interface réseau choisi utilise les fonctions présentées
+    à la <xref linkend='vm.virtio'/>.</para>
+    </callout>
+
+    <callout arearefs='vm.ovs-network.netid'>
+    <para>L'identifiant de l'interface utilisé pour le script est
+    <option>net0</option>.</para>
+    </callout>
+
+    <callout arearefs='vm.ovs-network.macaddress'>
+    <para>L'adresse <acronym>MAC</acronym> de l'interface réseau est déterminée
+    à partir du préfixe hexadécimal <wordasword>bad cafe</wordasword> et du
+    numéro de l'interface <acronym>TAP</acronym>.</para>
+
+<screen>macaddress="ba:ad:00:ca:fe:`printf "%02x" $tapnum`"</screen>
+    </callout>
+
+    <callout arearefs='vm.ovs-network.tapnum'>
+    <para>Le raccordement de l'interface réseau identifiée par l'étiquette
+    <option>net0</option> se fait via le cordon de brassage (ou l'interface
+    <acronym>TAP</acronym>) numéroté aussi avec la variable
+    <option>$tapnum</option> du script.</para>
+    </callout>
+  </calloutlist>
+
+  <bridgehead xml:id='vm.ovs-network.test' renderas='sect2'>Validation des
+  communications entre système hôte et système virtuel</bridgehead>
+
+  <para>Pour conclure cette section, on peut valider le lien direct entre les
+  système hôte et virtuel avec une connexion <acronym>SSH</acronym>. On
+  commence par identifier l'adresse <acronym>MAC</acronym> au format
+  <acronym>EUI64</acronym> du système virtuel puis on l'utilise pour la
+  connexion.</para>
+
+<screen><prompt>$</prompt> ip nei ls
+<emphasis>fe80::b8ad:ff:feca:fe02 dev sw0-vlan2 lladdr ba:ad:00:ca:fe:02 STALE</emphasis>
+fe80::503c:b3ff:febe:b94b dev eth0 lladdr 52:3c:b3:be:b9:4b router REACHABLE
+
+<prompt>$</prompt> <emphasis>ssh etu@fe80::b8ad:ff:feca:fe02%sw0-vlan2</emphasis>
+etu@fe80::b8ad:ff:feca:fe02%sw0-vlan2's password: 
+Linux nested-vm0 3.12-1-amd64 #1 SMP Debian 3.12.6-2 (2013-12-29) x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+No mail.
+Last login: Thu Jan 23 20:10:50 2014 from fe80::8c2a:a2ff:feff:d9fb%eth0
+<prompt>etu@vm0:~$</prompt></screen>
+
+  <para>Vue du système virtuel avec la configuration <acronym>IP</acronym>
+  complète, on obtient les informations suivantes.</para>
+
+<screen><prompt>$</prompt> ip nei ls
+fe80::8c2a:a2ff:feff:d9fb dev eth0 lladdr 8e:2a:a2:ff:d9:fb router DELAY
+203.0.113.129 dev eth0 lladdr 8e:2a:a2:ff:d9:fb STALE
+
+<prompt>$</prompt> ip ro ls
+<emphasis>default via 203.0.113.129 dev eth0</emphasis>
+203.0.113.128/26 dev eth0  proto kernel  scope link  src 203.0.113.130</screen>
 </sect1>
 
 <sect1 xml:id="vm.conclusion">
@@ -1694,7 +1782,7 @@ net.ipv4.conf.all.log_martians = 1</screen>
   document.</para>
   
   <section xml:id='vm.appendix-user-network'>
-    <title>Mode utilsateur</title>
+    <title>Communications réseau en mode utilsateur</title>
 
   <para>Le script <function>standalone-startup.sh</function> sert à lancer une
   instance de système virtualisé dont la configuration réseau est prédéfine en
@@ -1703,6 +1791,20 @@ net.ipv4.conf.all.log_martians = 1</screen>
 
 <programlisting xml:id='vm.appendix.standalone-startup.sh'><xi:include
 href='files/standalone-startup.sh' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+  </section>
+  
+  <section xml:id='vm.appendix-ovs-network'>
+    <title>Communication réseau avec commutateur virtuel Open vSwitch</title>
+
+  <para>Le script <function>ovs-startup.sh</function> sert à lancer une
+  instance de système virtualisé raccordé à un commutateur virtuel via une
+  interface <acronym>TAP</acronym> (Voir <xref linkend='vm.network.tun-tap'/>).
+  Ce mode de fonctionnement est présenté à la <xref
+  linkend='vm.ovs-network'/>.</para>
+
+<programlisting xml:id='vm.appendix.ovs-startup.sh'><xi:include
+href='files/ovs-startup.sh' parse='text'
 xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
   </section>
 </appendix>
