@@ -11,16 +11,16 @@ shift
 
 if [[ -z "$vm" || -z "$memory" || -z "$tapnum" ]]
 then
-        echo "ERREUR : paramètre manquant"
-        echo "Utilisation : $0 <fichier image> <quantité mémoire en Mo> <numéro interface tap>"
-        exit 1
+    echo "ERREUR : paramètre manquant"
+    echo "Utilisation : $0 <fichier image> <quantité mémoire en Mo> <numéro interface tap>"
+    exit 1
 fi
 
 if (( $memory < 128 ))
 then
-	echo "ERREUR : quantité de mémoire RAM insuffisante"
-	echo "La quantité de mémoire en Mo doit être supérieure ou égale à 128"
-	exit 1
+    echo "ERREUR : quantité de mémoire RAM insuffisante"
+    echo "La quantité de mémoire en Mo doit être supérieure ou égale à 128"
+    exit 1
 fi
 
 macaddress="ba:ad:00:ca:fe:`printf "%02x" $tapnum`"
