@@ -12,7 +12,7 @@ SYMLINKS = \
         $(MAIN_DIR)/common/rfc.urls.xml
 
 XML_FILES = \
-	config.interface.lan.xml \
+	conf-intf-lan.xml \
         author.xml \
         legal.xml \
 	inetdoc.urls.xml \
