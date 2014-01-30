@@ -5,10 +5,6 @@
 <!ENTITY phl   	     	   	SYSTEM "author.xml">
 <!ENTITY legal 			SYSTEM "legal.xml">
 
-<!ENTITY topologie.observation	SYSTEM "files/topologie.observation.txt">
-<!ENTITY topologie.multi	SYSTEM "files/topologie.multi.txt">
-<!ENTITY topologie.multi.addr	SYSTEM "files/topologie.multi.addr.txt">
-
 <!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
 %rfc_urls;
 
@@ -34,20 +30,18 @@
     présentées suivent la modélisation réseau en remontant du niveau physique
     jusqu'à la validation des services de la couche application. Les questions
     cherchent à illustrer les relations entre les différents formats
-    d'adressage utilisés à chaque niveau.</para>
+    d'adressage utilisés à chaque niveau ainsi que les protocoles utilisés pour
+    la «correspondance» entre ces formats.</para>
   </abstract>
 
   <keywordset>
-    <keyword>arp</keyword>
     <keyword>ip</keyword>
+    <keyword>iproute2</keyword>
     <keyword>host</keyword>
     <keyword>dig</keyword>
     <keyword>interface</keyword>
     <keyword>ping</keyword>
-    <keyword>route</keyword>
-    <keyword>traceroute</keyword>
     <keyword>sysctl</keyword>
-    <keyword>hping2</keyword>
   </keywordset>
 </info>
 
@@ -65,39 +59,18 @@
   <para>Toutes les commandes utilisées dans ce document ne sont pas spécifiques
   à une version particulière des systèmes UNIX ou GNU/Linux. C'est la
   distribution <citetitle>Debian GNU/Linux</citetitle> qui est utilisée
-  pour les tests présentés. Voici une liste des paquets contenant les
-  commandes utilisées :</para>
+  pour les tests présentés. Voici une liste des principaux paquets contenant
+  les commandes utilisées :</para>
 
   <itemizedlist>
-    <listitem>
-    <para><application>procps</application> - The /proc file system utilities</para>
-    </listitem>
-    <listitem>
-    <para><application>pciutils</application> - Linux PCI Utilities</para>
-    </listitem>
     <listitem>
     <para><application>ethtool</application> - display or change Ethernet device settings</para>
     </listitem>
     <listitem>
-    <para><application>iproute</application> - networking and traffic control tools</para>
+    <para><application>iproute2</application> - networking and traffic control tools</para>
     </listitem>
     <listitem>
     <para><application>ifupdown</application> - High level tools to configure network interfaces</para>
-    </listitem>
-    <listitem>
-    <para><application>iputils-ping</application> - Tools to test the reachability of network hosts</para>
-    </listitem>
-    <listitem>
-    <para><application>bind9-host</application> - Version of 'host' bundled with BIND 9.X</para>
-    </listitem>
-    <listitem>
-    <para><application>dnsutils</application> - Clients provided with BIND</para>
-    </listitem>
-    <listitem>
-    <para><application>traceroute</application> - Traces the route taken by packets over a TCP/IP network</para>
-    </listitem>
-    <listitem>
-    <para><application>hping2</application> - Active Network Smashing Tool</para>
     </listitem>
   </itemizedlist>
 
@@ -116,11 +89,13 @@
     </listitem>
     <listitem>
     <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
-    privilèges du super-utilisateur.</para>
+    privilèges du super-utilisateur. Ces privilèges peuvent être délégués à
+    l'aide de <application>sudo</application>.</para>
     </listitem>
   </itemizedlist>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='conf-intf-lan.physical-layer'>
   <title>Identification d'une interface - couche physique</title>
 
@@ -369,6 +344,7 @@ Settings for eth0:
   réseaux locaux, il est conseillé de lire l'article &url.ethernet;.</para>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='conf-intf-lan.link-layer'>
   <title>Configuration d'une interface - couche liaison</title>
 
@@ -394,7 +370,7 @@ Settings for eth0:
     gestion de mise en file d'attente des paquets issus de la couche réseau
     sortent aussi du cadre de ce document (voir &url.lartc.fr;).</para>
 
-    <para>Dans cette section, le seul principal utilisé est la commande
+    <para>Dans cette section, le principal outil utilisé est la commande
     <command>ip</command> du paquet <application>iproute2</application>.</para>
     </entry>
     <entry align='right'>
@@ -428,12 +404,29 @@ Settings for eth0:
     <callout arearefs='eth0.status'>
     <para>Les indicateurs d'état désignent les fonctions actives au niveau de
     l'interface.</para>
+    </callout>
+
+    <callout arearefs='eth0.mtu'>
+    <para>L'acronyme <acronym>MTU</acronym> signifie <wordasword>Maximum
+    Transmission Unit</wordasword>. La valeur <option>1500</option> correspond
+    à la quantité maximum d'octets transmis de la couche réseau à la couche
+    liaison de données sans fragmentation.</para>
+    </callout>
+
+    <callout arearefs='eth0.mac'>
+    <para>L'adresse <acronym>MAC</acronym> de l'interface joue un rôle
+    essentiel. C'est cette adresse qui identifie l'hôte dans le réseau local
+    (<acronym>LAN</acronym>). Cette adresse unique respecte un format bien
+    particulier : <acronym>EUI-48</acronym>. Voir
+    &url.inter-vlan-routing-mac-types;.</para>
+    </callout>
+  </calloutlist>
 
 <table xml:id='conf-intf-lan.link-layer.status.table' pgwide="1" frame="all">
   <title>Indicateurs d'état d'une interface Ethernet</title>
   <tgroup cols="2" align="left" colsep="1" rowsep="1">
     <colspec colnum="1" colwidth="1*"/>
-    <colspec colnum="2" colwidth="1*"/>
+    <colspec colnum="2" colwidth="4*"/>
   <thead>
     <row>
       <entry>Indicateur</entry>
@@ -471,23 +464,29 @@ Settings for eth0:
   </tbody>
   </tgroup>
 </table>
-    </callout>
 
-    <callout arearefs='eth0.mtu'>
-    <para>L'acronyme <acronym>MTU</acronym> signifie <wordasword>Maximum
-    Transmission Unit</wordasword>. La valeur <option>1500</option> correspond
-    à la quantité maximum d'octets transmis de la couche réseau à la couche
-    liaison de données sans fragmentation.</para>
-    </callout>
+  <bridgehead xml:id='conf-intf-lan.link-layer.statistics' renderas='sect2'>Comment
+  visualiser les statistiques d'une interface réseau ?</bridgehead>
 
-    <callout arearefs='eth0.mac'>
-    <para>L'adresse <acronym>MAC</acronym> de l'interface joue un rôle
-    essentiel. C'est cette adresse qui identifie l'hôte dans le réseau local
-    (<acronym>LAN</acronym>). Cette adresse unique respecte un format bien
-    particulier : <acronym>EUI-48</acronym>. Voir
-    &url.inter-vlan-routing-mac-types;.</para>
-    </callout>
-  </calloutlist>
+  <para>En cas de problème de transmission, il est essentiel de connaître le
+  nombre d'erreurs comptabilisé par le composant Ethernet ainsi que le nombre
+  total de paquets émis ou reçus. Voici un exemple :</para>
+
+<screen><prompt>$</prompt> ip -s link ls dev eth0
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP \
+                                              mode DEFAULT group default qlen 1000
+    link/ether 00:1e:c9:f6:a2:cd brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast   
+    3535504061 4585598  0       0       0       43709  
+    TX: bytes  packets  errors  dropped carrier collsns 
+    3066244859 4103684  0       0       0       0</screen>
+
+  <para>Dans le cas d'une interface Ethernet filaire, les compteurs d'erreurs,
+  de trames abandonnées et de collisions doivent impérativement rester à 0. En
+  effet, une connexion Ethernet filaire en cuivre ou en fibre optique
+  fonctionne normalement en <wordasword>full duplex</wordasword> ; c'est à dire
+  que l'on dispose d'un premier média de transmission réservé pour
+  l'émission et d'un second média réservé pour la réception.</para>
 
   <bridgehead xml:id='conf-intf-lan.link-layer.set' renderas='sect2'>Comment
   activer/désactiver une interface réseau ?</bridgehead>
@@ -521,6 +520,11 @@ Settings for eth0:
 2: eth0: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop <emphasis>state DOWN</emphasis> \
                                   group default qlen 1000
     link/ether ba:ad:00:ca:fe:b9 brd ff:ff:ff:ff:ff:ff</screen>
+
+    <warning>
+    <para>La désactivation d'une interface entraîne la perte des routes vers
+    les réseaux <acronym>IP</acronym> qui dépendent de ce lien.</para>
+    </warning>
     </listitem>
     </varlistentry>
 
@@ -574,6 +578,7 @@ Settings for eth0:
   départ : <userinput><prompt>$</prompt> man ip-link</userinput>.</para>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='conf-intf-lan.arp'>
   <title>Protocole ARP</title>
 
@@ -656,7 +661,7 @@ fe80::226:18ff:fe27:754 dev eth0 lladdr 00:26:18:27:07:54 REACHABLE
   <title>Indicateurs d'état de la table des hôtes voisins</title>
   <tgroup cols="2" align="left" colsep="1" rowsep="1">
     <colspec colnum="1" colwidth="1*"/>
-    <colspec colnum="2" colwidth="1*"/>
+    <colspec colnum="2" colwidth="4*"/>
   <thead>
     <row>
       <entry>Indicateur</entry>
@@ -743,6 +748,7 @@ fe80::226:18ff:fe27:754 dev eth0 lladdr 00:26:18:27:07:54 REACHABLE
   ip-neighbour</userinput>.</para>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='conf-intf-lan.network-layer'>
   <title>Configuration d'une interface - couche réseau</title>
 
@@ -768,7 +774,7 @@ fe80::226:18ff:fe27:754 dev eth0 lladdr 00:26:18:27:07:54 REACHABLE
     plus importants dans la configuration <acronym>IP</acronym> d'une
     interface (Voir le document &url.adressage.ipv4;).</para>
 
-    <para>Dans cette section, le seul principal utilisé est la commande
+    <para>Dans cette section, le principal outil utilisé est la commande
     <command>ip</command> du paquet <application>iproute2</application>.</para>
     </entry>
     <entry align='right'>
@@ -825,12 +831,19 @@ fe80::226:18ff:fe27:754 dev eth0 lladdr 00:26:18:27:07:54 REACHABLE
 
 <prompt>#</prompt> ip addr add 192.168.1.1/24 brd + dev eth0</screen>
 
+  <warning>
+    <para>La suppression de l'adresse <acronym>IP</acronym> d'une interface
+    entraîne la perte des routes vers les réseaux qui dépendent de ce
+    lien.</para>
+  </warning>
+
   <bridgehead xml:id='conf-intf-lan.network-layer.debian'
   renderas='sect2'>Comment rendre la configuration permanente ?</bridgehead>
 
-  <para>Avec la distribution <citetitle>Debian GNU/Linux</citetitle> les
-  paramètres de configuration des interfaces réseau sont stockés dans le
-  répertoire <filename class='directory'>/etc/network</filename>. Le fichier
+  <para>Avec la distribution <citetitle>Debian GNU/Linux</citetitle>, ainsi que
+  pour les distributions dérivées, les paramètres de configuration des
+  interfaces réseau sont stockés dans le répertoire <filename
+  class='directory'>/etc/network</filename>. Le fichier
   <filename>interfaces</filename> de ce répertoire rassemble la configuration
   des interfaces réseau.</para>
 
@@ -859,33 +872,201 @@ iface eth0 inet static
         netmask 255.255.255.0
         network 192.168.1.0
         broadcast 192.168.1.255</screen>
+
+  <para>La syntaxe de l'ensemble des options de configuration d'une interface
+  réseau est décrite dans les pages de manuels : <userinput><prompt>$</prompt>
+  man interfaces</userinput>.</para>
   </sect1>
 
-  <sect1 xml:id='conf-intf-lan.icmp'>
-    <title>Protocole ICMP</title>
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.routing'>
+  <title>Table de routage simple - couche réseau</title>
     
-  <para>Le protocole <citetitle>Internet Control Message Protocol</citetitle>
-  ou <acronym>ICMP</acronym> est décrit dans le document &url.rfc792;. Comme le
-  protocole <acronym>IP</acronym> de la couche réseau fonctionne en mode non
-  connecté, il ne fournit aucun service de contrôle lors de la transmission des
-  paquets sur le réseau. Le rôle du protocole <acronym>ICMP</acronym> est
-  d'informer l'émetteur lorsqu'il y a eu un problème.</para>
+  <para>
+  <informaltable frame='none' pgwide='1'>
+  <tgroup cols='2' align='left' colsep='0' rowsep='0'>
+  <colspec colwidth='5*'/>
+  <colspec colwidth='180px'/>
+  <tbody>
+    <row>
+    <entry valign='top'>
+    <para>Le routage est la fonction essentielle de la couche réseau. Les
+    données du trafic utilisateur sont encapsulées en allant de la couche
+    application jusqu'à la couche réseau dans des paquets
+    <acronym>IP</acronym>. Ces paquets sont <emphasis>routés</emphasis> jusqu'à
+    l'hôte correspondant à l'adresse <acronym>IP</acronym> destination. En
+    fonctionnement normal, un routeur prend ses décisions d'acheminement en
+    analysant l'adresse <acronym>IP</acronym> destination de chaque
+    paquet. Ces prises de décisions sont basées sur une <emphasis>table de
+    routage</emphasis>.</para>
+
+    <para>Cela peut paraître surprenant, mais tout hôte disposant d'un
+    sous-système réseau dans son noyau ou dans un composant équivalent, utilise
+    une table de routage. Bien sûr, pour un système avec une interface Ethernet
+    unique, le nombre d'entrées dans la table de routage est limité.</para>
+
+    <para>Dans cette section, le principal outil utilisé est la commande
+    <command>ip</command> du paquet <application>iproute2</application>.</para>
+    </entry>
+    <entry align='right'>
+    <inlinemediaobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/model-l3.png' format='PNG' width='3cm' scalefit='1'/>
+    </imageobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/model-l3.png' format='PNG' width='160px' scalefit='1'/>
+    </imageobject>
+    </inlinemediaobject>
+    </entry>
+    </row>
+  </tbody>
+  </tgroup>
+  </informaltable>
+  </para>
+
+  <bridgehead xml:id='conf-intf-lan.routing.list' renderas='sect2'>Comment
+  visualiser la table de routage ?</bridgehead>
+
+  <para>Dans l'exemple ci-dessous, on visualise la table de routage d'un hôte
+  dont l'interface Ethernet est nommée <literal>eth0</literal>.</para>
+
+<screen><prompt>$</prompt> <emphasis>ip route ls</emphasis>
+default via 192.168.3.250 dev eth0  proto static 
+192.168.3.0/24 dev eth0  proto kernel  scope link  src 192.168.3.221 
+169.254.0.0/16 dev eth0  scope link  metric 1000</screen>
+
+  <para>L'analyse de chacune des trois ligne donne les informations
+  suivantes.</para>
+
+  <variablelist>
+    <varlistentry>
+    <term>1ère ligne : route par défaut</term>
+    <listitem>
+    <para>Le mot clé '<option>default</option>' désigne toutes les destinations
+    non répertoriées dans les autres entrées de la table de routage ; autrement
+    dit, tous les réseaux inconnus du système. Le mot clé
+    '<option>via</option>' pointe vers l'adresse <acronym>IP</acronym> du
+    routeur qui doit acheminer le trafic vers l'Internet. Ici, l'adresse
+    <systemitem class='ipaddress'>192.168.3.250</systemitem> correspond à un
+    routeur que l'on appelle communément la <emphasis>passerelle par
+    défaut</emphasis>. Ainsi, tout le trafic émis par le système à destination
+    de l'Internet doit être routé par cette passerelle. De plus, elle doit
+    impérativement appartenir au réseau local sur lequel le système est
+    raccordé.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry>
+    <term>2ème ligne : réseau local</term>
+    <listitem>
+    <para>Cette entrée désigne le réseau local sur lequel le système est
+    directement raccordé. Ce réseau a pour adresse <systemitem
+    class='ipaddress'>192.168.3.0/24</systemitem> et c'est le noyau du système
+    qui a inséré cette entrée dans la table de routage. La notation
+    '<option>scope link</option>' indique que cette entrée n'est valide qu'à
+    l'échelle de ce système. L'adresse <acronym>IP</acronym> source de
+    l'interface Ethernet est <systemitem
+    class='ipaddress'>192.168.3.221</systemitem>. Dans l'exemple étudié, les
+    adresses <acronym>IP</acronym> de la passerelle par défaut et de
+    l'interface Ethernet de l'hôte appartiennent bien toutes les deux au réseau
+    <systemitem class='ipaddress'>192.168.3.0/24</systemitem>.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry>
+    <term>3ème ligne : réseau de lien local</term>
+    <listitem>
+    <para>L'adresse réseau <systemitem
+    class='ipaddress'>169.254.0.0/16</systemitem> est définie dans le standard
+    &url.rfc3927;. En cas d'échec de configuration, il est possible d'attribuer
+    automatiquement une adresse <acronym>IP</acronym> de ce préfixe à une
+    interface. Le mot clé '<option>metric</option>' suivi de la valeur
+    <option>1000</option> indique que cette entrée est une route de «dernier
+    recours». Plus la métrique d'une route est élevée, moins elle est
+    prioritaire.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <bridgehead xml:id='conf-intf-lan.routing.default' renderas='sect2'>Comment
+  changer de passerelle par défaut ?</bridgehead>
+
+  <para>En reprenant la table de routage affichée ci-dessus, imaginons que la
+  passerelle par défaut ne soit plus à l'adresse <systemitem
+  class='ipaddress'>192.168.3.250</systemitem> mais à l'adresse <systemitem
+  class='ipaddress'>192.168.3.1</systemitem>. Voici la syntaxe à utiliser pour
+  réaliser ce changement.</para>
+
+<screen><prompt>#</prompt> ip route del default
+
+<prompt>#</prompt> ip route add default via 192.168.3.1</screen>
+
+  <bridgehead xml:id='conf-intf-lan.routing.static' renderas='sect2'>Comment
+  ajouter ou supprimer une route statique ?</bridgehead>
+
+  <para>Imaginons que l'on veuille ajouter une entrée dans la table de routage
+  présentée ci-dessus vers un nouveau réseau dont on connaît l'adresse. Voici
+  la syntaxe à utiliser pour ajouter puis supprimer ce réseau.</para>
+
+<screen><prompt>#</prompt> ip route add 10.1.2.0/26 via 192.168.3.1
+
+<prompt>#</prompt> ip route del 10.1.2.0/26</screen>
+
+  <para>Pour aller plus loin dans les manipulations sur les routes au niveau
+  réseau, la consultation des pages de manuels est un excellent point de départ
+  : <userinput><prompt>$</prompt> man ip-route</userinput>.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.icmp'>
+  <title>Protocole ICMP - couche réseau</title>
+    
+  <para>
+  <informaltable frame='none' pgwide='1'>
+  <tgroup cols='2' align='left' colsep='0' rowsep='0'>
+  <colspec colwidth='5*'/>
+  <colspec colwidth='180px'/>
+  <tbody>
+    <row>
+    <entry valign='top'>
+    <para>Le protocole <citetitle>Internet Control Message Protocol</citetitle>
+    ou <acronym>ICMP</acronym> est décrit dans le document &url.rfc792;. C'est
+    un protocole de la couche réseau. Comme le protocole <acronym>IP</acronym>
+    ne fournit aucun service de contrôle lors de la transmission des paquets
+    sur le réseau, le rôle du protocole <acronym>ICMP</acronym> est d'informer
+    l'émetteur sur les conditions de cette transmission.</para>
   
-  <para>La commande <command>ping</command> utilise principalement deux types
-  de messages du protocole ICMP pour informer l'utilisateur sur les conditions
-  de transmissions :</para>
-  <itemizedlist>
-    <listitem>
-    <para>L'hôte distant est-il actif ou inactif.</para>
-    </listitem>
-    <listitem>
-    <para>Le temps de propagation en boucle (<wordasword>round-trip
-    delay</wordasword>) lors de la communication avec l'hôte distant.</para>
-    </listitem>
-    <listitem>
-    <para>Les pertes de paquets pendant la communication.</para>
-    </listitem>
-  </itemizedlist>
+    <para>La commande <command>ping</command> utilise principalement deux types
+    de messages du protocole <acronym>ICMP</acronym> et fournit les
+    informations suivantes :</para>
+    <itemizedlist>
+      <listitem>
+      <para>Le nombre de routeurs traversés pour joindre la destination</para>
+      </listitem>
+      <listitem>
+      <para>Le temps de propagation aller retour (<wordasword>round-trip
+      delay</wordasword>) lors de la communication avec l'hôte distant</para>
+      </listitem>
+      <listitem>
+      <para>Le taux de pertes de paquets pendant la communication</para>
+      </listitem>
+    </itemizedlist>
+    </entry>
+    <entry align='right'>
+    <inlinemediaobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/model-l3.png' format='PNG' width='3cm' scalefit='1'/>
+    </imageobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/model-l3.png' format='PNG' width='160px' scalefit='1'/>
+    </imageobject>
+    </inlinemediaobject>
+    </entry>
+    </row>
+  </tbody>
+  </tgroup>
+  </informaltable>
+  </para>
 
   <para>Il existe 18 types de messages ICMP. Les deux types de messages
   employés par la commande <command>ping</command> sont :</para>
@@ -900,11 +1081,12 @@ iface eth0 inet static
     </listitem>
   </itemizedlist>
 
-  <para>Quelques autres types sont abordés dans la partie <xref
+  <para>Quelques autres types sont abordés dans la <xref
   linkend='conf-intf-lan.procfs'/>.</para>
 
-  <para>Pour valider le bon fonctionnement d'une communication sur un réseau
-  <acronym>IP</acronym>, on suit une séquence précise de tests :</para>
+  <para>Pour valider le bon fonctionnement des communications entre les
+  adresses <acronym>IP</acronym> source et destination, on suit une séquence
+  classique de tests :</para>
   
   <orderedlist numeration='arabic'>
   <listitem>
@@ -990,21 +1172,20 @@ rtt min/avg/max/mdev = 1.161/1.388/1.616/0.230 ms</screen>
   <calloutlist>
   <callout arearefs='icmpfrom'>
     <para>Adresse de réponse du message ICMP : destinataire du
-    test.</para>
+    test</para>
   </callout>
   <callout arearefs='icmpseq'>
-    <para>Numéro de séquence du message.</para>
+    <para>Numéro de séquence du message</para>
   </callout>
   <callout arearefs='icmpttl'>
     <para>La valeur du champ <acronym>TTL</acronym> d'un paquet
-    <acronym>IP</acronym> correspond au nombre d'interfaces de routage
-    traversées pour arriver à l'interface.</para>
+    <acronym>IP</acronym> correspond au nombre de routeurs traversés pour
+    arriver à destination</para>
   </callout>
   </calloutlist>
     </listitem>
     </varlistentry>
   </variablelist>
-
 
   <bridgehead xml:id='conf-intf-lan.icmp.dns' renderas='sect2'>Comment valider
   la résolution des noms de domaines en plus de l'interconnexion réseau ?</bridgehead>
@@ -1037,659 +1218,682 @@ rtt min/avg/max/mdev = 34.754/36.960/39.167/2.214 ms</screen>
   </calloutlist>
 
   <para>En cas d'échec sur la résolution des noms, il faut contrôler la
-  validité des informations dans les deux fichiers suivants :</para>
+  configuration de la partie cliente du service des noms de domaines. Cette
+  partie est abordée dans la section suivante.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.dns'>
+  <title>Protocole DNS - couche application</title>
+
+  <para>
+  <informaltable frame='none' pgwide='1'>
+  <tgroup cols='2' align='left' colsep='0' rowsep='0'>
+  <colspec colwidth='5*'/>
+  <colspec colwidth='180px'/>
+  <tbody>
+    <row>
+    <entry valign='top'>
+    <para>Pour simplifier, on peut dire que le service Internet
+    <wordasword>Domain Name System</wordasword> ou <acronym>DNS</acronym>
+    fonctionne sur le même mode qu'un annuaire téléphonique dans lequel le
+    numéro de téléphone est remplacé par l'adresse <acronym>IP</acronym> et le
+    nom d'abonné est remplacé par le nom d'hôte.</para>
+
+    <para><acronym>DNS</acronym> est un service de type client/serveur dont la
+    fonction clé est la <emphasis>résolution</emphasis> entre des
+    enregistrements et des adresses <acronym>IP</acronym>. Les enregistrements
+    sont distribués entre les serveurs qui ont chacun autorité sur une partie
+    de l'arborescence des noms de domaines.</para>
+
+    <para>Dans le contexte de ce document, on ne s'intéresse qu'à la partie
+    cliente du service appelée <wordasword>resolver</wordasword>.</para>
+
+    </entry>
+    <entry align='right'>
+    <inlinemediaobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/model-l5.png' format='PNG' width='3cm' scalefit='1'/>
+    </imageobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/model-l5.png' format='PNG' width='160px' scalefit='1'/>
+    </imageobject>
+    </inlinemediaobject>
+    </entry>
+    </row>
+  </tbody>
+  </tgroup>
+  </informaltable>
+  </para>
+
+  <bridgehead xml:id='conf-intf-lan.dns.resolv.conf' renderas='sect2'>Comment
+  visualiser la configuration du resolver ?</bridgehead>
+
+  <para>Généralement, la configuration du <wordasword>resolver</wordasword>
+  d'un poste client est mise en place automatiquement grâce à des services tels
+  que <acronym>DHCP</acronym> (<wordasword>Dynamic Host Configuration
+  Protocol</wordasword>) ou <acronym>RDNSS</acronym> (<wordasword>Recursive DNS
+  Server</wordasword>) et <acronym>DNSSL</acronym> (<wordasword>DNS Search
+  List</wordasword>). Il existe même un paquet appelé
+  <application>resolvconf</application> qui améliore la gestion de la
+  configuration du <wordasword>resolver</wordasword> en choisissant les
+  paramètres en fonction des services d'autoconfiguration disponibles.</para>
+
+  <para>Voici une description succincte des fichiers de configuration système
+  qui jouent un rôle dans la résolution des noms de domaines. La liste des
+  sources d'information puis l'ordre dans lequel on consulte ces sources sont
+  les facteurs les plus importants.</para> 
 
   <variablelist>
     <varlistentry>
     <term><filename>/etc/resolv.conf</filename></term>
     <listitem>
-<screen>search &lt;domaine-fai>.fr
-nameserver &lt;addr dns-fai></screen>
+    <para>Le rôle de ce fichier est de désigner le serveur
+    <acronym>DNS</acronym> qui doit prendre en charge les requêtes du système.
+    Tout programme qui fait référence à un nom d'hôte sollicite cette
+    ressource.</para>
 
-    <para>La première ligne désigne le nom du domaine auquel l'interface de
-    l'hôte appartient. La deuxième ligne l'adresse <acronym>IP</acronym> du
-    serveur de noms récursif du forunisseur d'accès Internet.</para>
+<screen><prompt>$</prompt> cat /etc/resolv.conf 
+# Dynamic resolv.conf(5) file for glibc resolver(3) generated by resolvconf(8)
+#     DO NOT EDIT THIS FILE BY HAND -- YOUR CHANGES WILL BE OVERWRITTEN
+nameserver 192.0.2.1</screen>
+
+    <para>Ici l'adresse <acronym>IP</acronym> du serveur <acronym>DNS</acronym>
+    est 192.0.2.1. Dans un contexte domestique, on retrouve les mêmes
+    informations via l'interface Web d'une «box ADSL».</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry>
+    <term><filename>/etc/nsswitch.conf</filename></term>
+    <listitem>
+    <para>Le rôle du <wordasword>Name Service Switch</wordasword> dépasse le
+    cadre de la simple résolution des noms d'hôtes. Tous les programmes font
+    appel à la bibliothèque standard <wordasword>glibc</wordasword>. Lors des
+    appels à la bibliothèque, celle-ci consulte ce fichier pour connaître les
+    sources à consulter.</para>
+
+<screen><prompt>$</prompt> grep ^hosts /etc/nsswitch.conf 
+hosts:          files mdns_minimal [NOTFOUND=return] dns mdns</screen>
+
+    <para>Dans l'exemple ci-dessus, la scrutation des sources débute avec les
+    fichiers locaux, la version minimale du service <wordasword>multicast
+    DNS</wordasword>, le service <acronym>DNS</acronym> tel que configuré dans
+    le fichier ci-dessus et enfin le service <wordasword>multicast
+    DNS</wordasword>.</para>
+
+    <para>La syntaxe '<literal>[NOTFOUND=return]</literal>', implique que si
+    l'un des deux services qui suivent dans la liste déclare que l'hôte est
+    introuvable, la recherche s'arrête là.</para>
     </listitem>
     </varlistentry>
 
     <varlistentry>
     <term><filename>/etc/host.conf</filename></term>
     <listitem>
-<screen>order hosts, bind
-multi on</screen>
+    <para>Ce dernier fichier est présent pour des raisons de compatibilité avec
+    les anciennes versions de la bibliothèque standard.</para>
 
-    <para>L'ordre de recherche des noms d'hôtes est important. Dans le cas
-    présenté, la recherche est d'abord effectuée localement puis à l'aide du
-    service <acronym>DNS</acronym>.</para>
+<screen><prompt>$</prompt> cat /etc/host.conf 
+multi on</screen>
     </listitem>
     </varlistentry>
   </variablelist>
-  </sect1>
 
-  <sect1 xml:id='conf-intf-lan.dns'>
-    <title>Protocole DNS</title>
+  <bridgehead xml:id='conf-intf-lan.dns.dig' renderas='sect2'>Comment
+  visualiser les résultats d'une requête DNS ?</bridgehead>
 
-    <para>L'opération de <emphasis>résolution</emphasis> consiste à faire la
-    correspondance entre un nom de domaine et son adresse
-    <acronym>IP</acronym>. Pour effectuer ces opérations de résolution on
-    utilise un service Internet particulier appelé <wordasword>Domain Name
-    System</wordasword> ou <acronym>DNS</acronym>. Ce service fonctionne sur le
-    même mode qu'un annuaire téléphonique dans lequel les chiffres du numéro de
-    téléphone sont remplacés par les chiffres de l'adresse
-    <acronym>IP</acronym> et le nom d'abonné est remplacé par le nom de
-    domaine.</para>
-    
-    <para>La commande historique <command>host</command> effectue l'opération
-    de recherche de l'adresse <acronym>IP</acronym> correspondant à un nom
-    d'hôte réseau enregistré sur le service <acronym>DNS</acronym> et vice
-    versa :</para>
+  <para>Sur une système GNU/Linux, les deux commandes de référence sont
+  <command>dig</command> et <command>host</command>. Elles servent à qualifier
+  le bon fonctionnement du <wordasword>resolver</wordasword> sur le système en
+  isolant le service <acronym>DNS</acronym> des autres traitements. Voici
+  quelques exemples de requêtes.</para>
 
-    <itemizedlist>
-      <listitem>
-        <para>Résolution d'un nom d'hôte.</para>
-<screen>$ host www.nic.fr
-www.nic.fr is an alias for rigolo.nic.fr.
-rigolo.nic.fr has address 192.134.4.20</screen>
-      </listitem>
-      <listitem>
-        <para>Résolution d'une adresse <acronym>IP</acronym>.</para>
-<screen>$ host 192.134.4.20
-20.4.134.192.in-addr.arpa domain name pointer rigolo.nic.fr.</screen>
-      </listitem>
-    </itemizedlist>
+  <variablelist>
+    <varlistentry>
+    <term>Résolution simple d'un nom d'hôte</term>
+    <listitem>
+    <para>La question posée est : quelle est l'adresse <acronym>IP</acronym>
+    correspondant au nom de serveur Web <citetitle>www.nic.fr</citetitle>
+    ?</para>
 
-    <para>Il existe une autre commande historique qui donne davantage
-    d'informations sur les jeux de questions/réponses
-    <acronym>DNS</acronym> : <command>nslookup</command>. Cette commande
-    est disponible sur les systèmes Micro$oft ; elle est accessible à
-    partir d'un <wordasword>Shell</wordasword>. Dans l'univers Unix/Linux,
-    cette commande est abandonnée au profit de la commande
-    <command>dig</command> qui offre davantage d'options et des messages
-    d'erreurs plus rigoureux. Voici un exemple d'exécution à partir du même
-    exemple que ci-dessus.</para>
+<screen><prompt>$</prompt> dig +short www.nic.fr
+web.nic.fr.
+<emphasis>192.134.4.20</emphasis></screen>
+    </listitem>
+    </varlistentry>
 
-    <para>Exemple de requête <acronym>DNS</acronym> de type
-    <acronym>A</acronym> qui renvoie l'adresse <acronym>IP</acronym>
-    correspondant à un nom d'hôte.</para>
+    <varlistentry>
+    <term>Résolution inverse d'une adresse IP</term>
+    <listitem>
+    <para>La question posée est : quel est le nom d'hôte correspondant à
+    l'adresse <acronym>IP</acronym> <systemitem
+    class='ipaddress'>192.134.4.20</systemitem> ?</para>
 
-<screen>$ dig www.nic.fr
+<screen><prompt>$</prompt> dig +short -x 192.134.4.20
+<emphasis>web.nic.fr.</emphasis></screen>
+    </listitem>
+    </varlistentry>
 
-; &lt;&lt;>> DiG 9.4.2 &lt;&lt;>> www.nic.fr
-;; global options:  printcmd
+    <varlistentry>
+    <term>Requête DNS complète sur un nom d'hôte</term>
+    <listitem>
+
+<screen><prompt>$</prompt> dig www.iana.org
+
+; &lt;&lt;>> DiG 9.8.4-rpz2+rl005.12-P1 &lt;&lt;>> www.iana.org
+;; global options: +cmd
 ;; Got answer:
-;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 355
-;; flags: qr rd ra; QUERY: 1, ANSWER: 2, AUTHORITY: 7, ADDITIONAL: 9
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 60063
+;; flags: qr rd ra; QUERY: 1, ANSWER: 2, AUTHORITY: 2, ADDITIONAL: 4
 
 ;; QUESTION SECTION:<co xml:id='dig_a.question'/>
-;www.nic.fr.                    IN      A
+;www.iana.org.                  IN      A
 
 ;; ANSWER SECTION:<co xml:id='dig_a.answer'/>
-www.nic.fr.             163437  IN      CNAME   rigolo.nic.fr.
-rigolo.nic.fr.          163437  IN      A       192.134.4.20
+www.iana.org.           600     IN      CNAME   ianawww.vip.icann.org.
+ianawww.vip.icann.org.  30      IN      A       192.0.32.8
 
 ;; AUTHORITY SECTION:<co xml:id='dig_a.authority'/>
-nic.fr.                 70358   IN      NS      ns2.nic.fr.
-nic.fr.                 70358   IN      NS      ns1.nic.fr.
-nic.fr.                 70358   IN      NS      ns1.oleane.net.
-nic.fr.                 70358   IN      NS      dns.inria.fr.
-nic.fr.                 70358   IN      NS      ns-sec.ripe.net.
-nic.fr.                 70358   IN      NS      ns0.oleane.net.
-nic.fr.                 70358   IN      NS      ns3.nic.fr.
+vip.icann.org.          3600    IN      NS      gtm1.dc.icann.org.
+vip.icann.org.          3600    IN      NS      gtm1.lax.icann.org.
 
 ;; ADDITIONAL SECTION:<co xml:id='dig_a.additional'/>
-dns.inria.fr.           23315   IN      A       193.51.208.13
-ns0.oleane.net.         133065  IN      A       194.2.0.30
-ns1.nic.fr.             153582  IN      A       192.93.0.1
-ns1.nic.fr.             153582  IN      AAAA    2001:660:3005:1::1:1
-ns2.nic.fr.             153582  IN      A       192.93.0.4
-ns2.nic.fr.             153582  IN      AAAA    2001:660:3005:1::1:2
-ns3.nic.fr.             70358   IN      A       192.134.0.49
-ns3.nic.fr.             70358   IN      AAAA    2001:660:3006:1::1:1
-ns-sec.ripe.net.        169587  IN      A       193.0.0.196
+gtm1.dc.icann.org.      21600   IN      A       192.0.47.252
+gtm1.dc.icann.org.      21600   IN      AAAA    2620:0:2830:296::252
+gtm1.lax.icann.org.     21600   IN      A       192.0.32.252
+gtm1.lax.icann.org.     21600   IN      AAAA    2620:0:2d0:296::252
 
-;; Query time: 22 msec<co xml:id='dig_a.time'/>
-;; SERVER: 127.0.0.1#53(127.0.0.1)<co xml:id='dig_a.server'/>
-;; WHEN: Mon Mar  3 17:27:29 2008
-;; MSG SIZE  rcvd: 395</screen>
+;; Query time: 562 msec<co xml:id='dig_a.time'/>
+;; SERVER: 192.0.2.1#53(192.0.2.1)<co xml:id='dig_a.server'/>
+;; WHEN: Thu Jan 30 10:37:46 2014
+;; MSG SIZE  rcvd: 211</screen>
 
-    <para>Exemple de requête <acronym>DNS</acronym> de type
-    <acronym>PTR</acronym> qui renvoie le nom d'hôte correspondant à une
-    adresse <acronym>IP</acronym>.</para>
-
-<screen>$ dig -x 192.134.4.20
-
-; &lt;&lt;>> DiG 9.4.2 &lt;&lt;>> -x 192.134.4.20
-;; global options:  printcmd
-;; Got answer:
-;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 22357
-;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 3, ADDITIONAL: 6
-
-;; QUESTION SECTION:<co xml:id='dig_ptr.question'/>
-;20.4.134.192.in-addr.arpa.     IN      PTR
-
-;; ANSWER SECTION:<co xml:id='dig_ptr.answer'/>
-20.4.134.192.in-addr.arpa. 163116 IN    PTR     rigolo.nic.fr.
-
-;; AUTHORITY SECTION:<co xml:id='dig_ptr.authority'/>
-4.134.192.in-addr.arpa. 163116  IN      NS      ns2.nic.fr.
-4.134.192.in-addr.arpa. 163116  IN      NS      ns3.nic.fr.
-4.134.192.in-addr.arpa. 163116  IN      NS      ns1.nic.fr.
-
-;; ADDITIONAL SECTION:<co xml:id='dig_ptr.additional'/>
-ns3.nic.fr.             70037   IN      A       192.134.0.49
-ns3.nic.fr.             70037   IN      AAAA    2001:660:3006:1::1:1
-ns1.nic.fr.             153261  IN      A       192.93.0.1
-ns1.nic.fr.             153261  IN      AAAA    2001:660:3005:1::1:1
-ns2.nic.fr.             153261  IN      A       192.93.0.4
-ns2.nic.fr.             153261  IN      AAAA    2001:660:3005:1::1:2
-
-;; Query time: 2 msec<co xml:id='dig_ptr.time'/>
-;; SERVER: 127.0.0.1#53(127.0.0.1)<co xml:id='dig_ptr.server'/>
-;; WHEN: Mon Mar  3 17:32:50 2008
-;; MSG SIZE  rcvd: 256</screen>
-
-    <para>Ces exemples montrent que la commande <command>dig</command> donne
-    des informations très complètes sur l'état des requêtes.</para>
-    
     <calloutlist>
-      <callout arearefs='dig_a.question dig_ptr.question'>
-        <para>Le champ <acronym>QUESTION</acronym> reprend le terme de la requête
-        émise.</para>
+      <callout arearefs='dig_a.question'>
+	<para>Le champ <acronym>QUESTION</acronym> reprend les termes de la
+	requête <acronym>DNS</acronym> soumise au serveur.</para>
       </callout>
-      <callout arearefs='dig_a.answer dig_ptr.answer'>
-        <para>Le champ <acronym>ANSWER</acronym> donne la réponse à la
-        requête.</para>
+      <callout arearefs='dig_a.answer'>
+        <para>Le champ <acronym>ANSWER</acronym> liste les éléments de réponse à la
+	requête. Ici, le nom d'hôte <systemitem>www.iana.org</systemitem> est
+	en fait un alias de <systemitem>ianawww.vip.icann.org</systemitem>. Cet
+	alias a pour adresse <acronym>IP</acronym> : <systemitem
+	class='ipaddress'>192.0.32.8</systemitem>.</para>
       </callout>
-      <callout arearefs='dig_a.authority dig_ptr.authority'>
+      <callout arearefs='dig_a.authority'>
 	<para>Le champ <acronym>AUTHORITY</acronym> donne la liste des serveurs
 	de noms qui ont autorité sur les enregistrements
 	<acronym>DNS</acronym>. Ce sont les seuls serveurs aptes à fournir une
 	réponse aux requêtes sur le domaine concerné.</para>
       </callout>
-      <callout arearefs='dig_a.additional dig_ptr.additional'>
+      <callout arearefs='dig_a.additional'>
 	<para>Le champ <acronym>ADDITIONAL</acronym> donne les adresses
 	<acronym>IP</acronym> des serveurs <acronym>DNS</acronym> de référence
 	du domaine.</para>
       </callout>
-      <callout arearefs='dig_a.time dig_ptr.time'>
+      <callout arearefs='dig_a.time'>
 	<para>Le champ <acronym>Query time</acronym> donne le temps de
 	traitement de la requête. La valeur obtenue permet de déduire si le
 	serveur interrogé a déjà la réponse en mémoire cache ou non.</para>
       </callout>
-      <callout arearefs='dig_a.server dig_ptr.server'>
+      <callout arearefs='dig_a.server'>
 	<para>Le champ <acronym>SERVER</acronym> identifie le serveur qui a
 	pris la requête <acronym>DNS</acronym> en charge.</para>
       </callout>
     </calloutlist>
+    </listitem>
+    </varlistentry>
+  </variablelist>
 
-    <para>Pour obtenir la syntaxe de toutes les options disponibles, il faut
-    accéder aux pages de manuels Unix :</para>
-    <itemizedlist>
-      <listitem>
-      <para>via la console avec les commandes <userinput>man host</userinput>
-      et <userinput>man dig</userinput>.</para>
-      </listitem>
-      <listitem>
-      <para>via l'interface graphique avec le centre d'aide KDE :
-      <menuchoice>
-      <guimenu>Pages de manuels Unix</guimenu>
-      <guimenuitem>Section 1 Commandes utilisateur</guimenuitem>
-      <guimenuitem>dig</guimenuitem>
-      </menuchoice>.</para>
-      </listitem>
-    </itemizedlist>
+  <para>Pour aller plus loin dans l'étude du fonctionnement du service de noms
+  de domaines, il est conseillé de lire le support &url.sysadm-net.dns;.</para>
+</sect1>
 
-    <para>Pour aller plus loin dans l'étude du fonctionnement du service de
-    noms de domaines, il est conseillé de lire le support &url.sysadm-net.dns;.</para>
-  </sect1>
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.traceroute'>
+  <title>Service traceroute</title>
 
-  <sect1 xml:id='conf-intf-lan.tp'>
-    <title>Travaux pratiques</title>
+  <para>Si la commande <command>ping</command> du protocole
+  <acronym>ICMP</acronym> permet d'obtenir des informations l'état de l'hôte
+  destination, elle ne permet pas de tracer le chemin suivi par les paquets
+  <acronym>IP</acronym>. C'est justement l'obejctif du service
+  <application>traceroute</application> dont le principe est le suivant
+  :</para>
 
-  <sect2 xml:id='tp.observation'>
-    <title>Relevé des paramètres existants</title>
+  <itemizedlist>
+    <listitem>
+    <para>La source émet un premier message avec la valeur 1 dans le champ
+    <acronym>TTL</acronym> de l'en-tête <acronym>IP</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Le routeur qui reçoit ce message décrémente la valeur du champ
+    <acronym>TTL</acronym> de l'en-tête <acronym>IP</acronym> et obtient 0. Il
+    jette donc le message et émet un message <acronym>ICMP</acronym> à
+    destination de l'émetteur indiquant qu'il est impossible d'atteindre la
+    destination.</para> 
+    </listitem>
+    <listitem>
+    <para>La source émet un deuxième message avec la valeur 2 dans le champ
+    <acronym>TTL</acronym> de l'en-tête <acronym>IP</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Cette fois-ci, c'est le deuxième routeur qui décrémente la valeur du
+    champ <acronym>TTL</acronym> et obtient 0. C'est donc à lui d'émettre un
+    message <acronym>ICMP</acronym> indiquant qu'il est impossible d'atteindre
+    la destination.</para>
+    </listitem>
+    <listitem>
+    <para>Ainsi de suite avec les valeurs du champ <acronym>TTL</acronym> de
+    l'en-tête <acronym>IP</acronym> 3, 4, 5, etc.</para>
+    </listitem>
+  </itemizedlist>
 
-  <para>On suppose que chaque client dispose d'une interface déjà configurée
-  avec un accès à un réseau local Ethernet et à d'autres réseaux ; l'Internet
-  par exemple.</para>
+  <warning>
+    <para>Pour des raisons de sécurité, il peut être nécessaire de cacher le
+    chemin suivi par le trafic utilisateur. C'est la raison pour laquelle les
+    résultats obtenus varient énormément suivant les contextes d'interconnexion
+    réseau. Il devient de plus en plus difficile d'obtenir une information
+    correcte.</para>
+  </warning>
+
+  <para>Pour illustrer le fonctionnement du service, on peut utiliser la
+  commande <command>mtr</command> fournie par la paquet
+  <application>mtr-tiny</application>. Cette commande possède de nombreuses
+  options et fournit une présentation dynamique des résultats. Voici deux
+  exemples qui illustrent la «dispersion» des résultats :</para>
+
+  <variablelist>
+    <varlistentry>
+    <term>Exemple de rapport basé sur <acronym>ICMP echo</acronym></term>
+    <listitem>
+<screen><prompt>$</prompt> mtr -4 -c 10 --report www.nic.fr
+Start: Thu Jan 30 11:30:53 2014
+HOST: vm0                         Loss%   Snt   Last   Avg  Best  Wrst StDev
+  1.|-- 192.0.2.1                  0.0%    10    0.3   0.3   0.3   0.4   0.0
+  2.|-- gw.iut-tlse3.fr           90.0%    10    0.7   0.7   0.7   0.7   0.0
+  3.|-- rtr-toip1.cict.fr         90.0%    10    0.9   0.9   0.9   0.9   0.0
+  4.|-- 194.167.94.2              90.0%    10    0.9   0.9   0.9   0.9   0.0
+  5.|-- 194.199.11.2              90.0%    10    1.0   1.0   1.0   1.0   0.0
+  6.|-- te1-3-toulouse-rtr-021.no 90.0%    10    1.3   1.3   1.3   1.3   0.0
+  7.|-- te4-1-bordeaux-rtr-021.no 90.0%    10   18.7  18.7  18.7  18.7   0.0
+  8.|-- te1-2-clermont-rtr-021.no 90.0%    10   19.3  19.3  19.3  19.3   0.0
+  9.|-- 193.51.180.197            90.0%    10   17.1  17.1  17.1  17.1   0.0
+ 10.|-- 193.51.179.202            90.0%    10   12.3  12.3  12.3  12.3   0.0
+ 11.|-- 193.51.180.193            90.0%    10   22.1  22.1  22.1  22.1   0.0
+ 12.|-- ???                       100.0    10    0.0   0.0   0.0   0.0   0.0
+ 13.|-- ???                       100.0    10    0.0   0.0   0.0   0.0   0.0
+ 14.|-- ???                       100.0    10    0.0   0.0   0.0   0.0   0.0
+ 15.|-- ???                       100.0    10    0.0   0.0   0.0   0.0   0.0
+ 16.|-- web.nic.fr                 0.0%    10   20.0  19.9  19.8  20.1   0.0</screen>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry>
+    <term>Exemple de rapport basé sur <acronym>UDP</acronym></term>
+    <listitem>
+<screen><prompt>$</prompt> mtr -4 -u -c 10 --report www.nic.fr
+Start: Thu Jan 30 11:35:14 2014
+HOST: vm0                         Loss%   Snt   Last   Avg  Best  Wrst StDev
+  1.|-- 192.0.2.1                  0.0%    10    0.3   0.3   0.3   0.4   0.0
+  2.|-- gw.iut-tlse3.fr            0.0%    10    0.6   0.6   0.6   0.7   0.0
+  3.|-- rtr-toip1.cict.fr          0.0%    10    1.2   1.4   1.1   3.2   0.3
+  4.|-- 194.167.94.2               0.0%    10    1.2   1.1   1.0   1.2   0.0
+  5.|-- 194.199.11.2               0.0%    10    1.4   3.7   1.3  12.6   4.4
+  6.|-- ???                       100.0    10    0.0   0.0   0.0   0.0   0.0
+  7.|-- te4-1-bordeaux-rtr-021.no  0.0%    10   19.2  17.7  15.8  19.5   1.6
+  8.|-- te1-2-clermont-rtr-021.no  0.0%    10   19.4  19.4  19.3  19.7   0.0
+  9.|-- 193.51.180.197             0.0%    10   19.6  18.1  16.0  20.2   1.1
+ 10.|-- 193.51.179.202             0.0%    10   12.6  12.7  12.5  13.0   0.0
+ 11.|-- 193.51.180.193             0.0%    10   23.3  21.0  19.2  23.3   1.2
+ 12.|-- jaguar-network.sfinx.tm.f  0.0%    10   19.4  20.9  19.2  35.0   5.0
+ 13.|-- vl80.er01.par02.jaguar-ne  0.0%    10   19.6  19.4  19.2  19.6   0.0
+ 14.|-- cpe-et000652.cust.jaguar-  0.0%    10   20.2  20.3  20.0  21.8   0.5
+ 15.|-- ???                       100.0    10    0.0   0.0   0.0   0.0   0.0</screen>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>La comparaison entre les deux rapports montre que le protocole
+  <acronym>ICMP</acronym> subit un filtrage important relativement aux requêtes
+  <acronym>UDP</acronym>. Les très nombreuses attaques de type «déni de service
+  distribué» basées sur <acronym>ICMP</acronym> ont nécessité la mise en place
+  de protections qui entraînent quelques désagréments dans les tests de
+  fonctionnement des réseaux.</para>
+
+  <para>Pour aller plus loin dans les manipulations sur le tracé de route, il
+  existe d'autres outils intéressants tels que <command>tracepath</command>
+  fourni par le paquet <application>iputils-tracepath</application>.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.procfs'>
+  <title>Fonctions réseau du noyau Linux</title>
+
+  <para>Sur tous les systèmes, un certain nombre de paramètres sont actifs par
+  défaut sur les interfaces réseau. Avec le noyau Linux, ces paramètres sont
+  placés dans le système de fichiers virtuel <filename
+  class='directory'>/proc</filename>.</para>
+
+  <bridgehead xml:id='conf-intf-lan.dns.procfs.search' renderas='sect2'>Comment
+  visualiser les paramètres du noyau Linux pour une interface Ethernet
+  ?</bridgehead>
   
-  <!-- topologie du réseau TP : observation -->
-  <screen>&topologie.observation;</screen>
+  <para>Sur les systèmes GNU/Linux, la granularité du paramétrage du
+  sous-système réseau du noyau est très très fine. Il suffit de visualiser le
+  résultat des commandes comme <userinput><prompt>$</prompt> ls
+  /proc/sys/net/ipv4/</userinput> ou <userinput><prompt>#</prompt> sysctl -A
+  | grep net</userinput> pour le constater.</para>
+
+  <para>Sachant que le nom de l'interface Ethernet est '<option>eth0</option>',
+  on peut commencer par faire une recherche des répertoires relatifs à ce nom
+  d'interface.</para>
+
+<screen><prompt>$</prompt> find /proc/sys -type d -name '*eth0*'
+/proc/sys/net/ipv4/conf/eth0
+/proc/sys/net/ipv4/neigh/eth0
+/proc/sys/net/ipv6/conf/eth0
+/proc/sys/net/ipv6/neigh/eth0</screen>
+
+  <para>Ensuite, on peut consulter le contenu d'un répertoire identifié dans la
+  liste ci-dessus.</para>
+
+<screen><prompt>$</prompt> for param in `find /proc/sys/net/ipv4/conf/eth0 -type f`; do \
+echo $param = `cat $param`; \
+done
+/proc/sys/net/ipv4/conf/eth0/accept_local = 0
+<emphasis>/proc/sys/net/ipv4/conf/eth0/accept_redirects = 1</emphasis>
+/proc/sys/net/ipv4/conf/eth0/accept_source_route = 1
+/proc/sys/net/ipv4/conf/eth0/arp_accept = 0
+/proc/sys/net/ipv4/conf/eth0/arp_announce = 0
+/proc/sys/net/ipv4/conf/eth0/arp_filter = 0
+/proc/sys/net/ipv4/conf/eth0/arp_ignore = 0
+/proc/sys/net/ipv4/conf/eth0/arp_notify = 0
+/proc/sys/net/ipv4/conf/eth0/bootp_relay = 0
+/proc/sys/net/ipv4/conf/eth0/disable_policy = 0
+/proc/sys/net/ipv4/conf/eth0/disable_xfrm = 0
+/proc/sys/net/ipv4/conf/eth0/force_igmp_version = 0
+/proc/sys/net/ipv4/conf/eth0/forwarding = 0
+/proc/sys/net/ipv4/conf/eth0/igmpv2_unsolicited_report_interval = 10000
+/proc/sys/net/ipv4/conf/eth0/igmpv3_unsolicited_report_interval = 1000
+/proc/sys/net/ipv4/conf/eth0/log_martians = 0
+/proc/sys/net/ipv4/conf/eth0/mc_forwarding = 0
+/proc/sys/net/ipv4/conf/eth0/medium_id = 0
+/proc/sys/net/ipv4/conf/eth0/promote_secondaries = 0
+/proc/sys/net/ipv4/conf/eth0/proxy_arp = 0
+/proc/sys/net/ipv4/conf/eth0/proxy_arp_pvlan = 0
+/proc/sys/net/ipv4/conf/eth0/route_localnet = 0
+/proc/sys/net/ipv4/conf/eth0/rp_filter = 0
+/proc/sys/net/ipv4/conf/eth0/secure_redirects = 1
+/proc/sys/net/ipv4/conf/eth0/send_redirects = 1
+/proc/sys/net/ipv4/conf/eth0/shared_media = 1
+/proc/sys/net/ipv4/conf/eth0/src_valid_mark = 0
+/proc/sys/net/ipv4/conf/eth0/tag = 0</screen>
+
+  <para>La description de tous les paramètres relatifs à l'interface Ethernet
+  sort du cadre de ce document. Le but ici est de montrer que ces paramètres
+  existent, qu'ils sont accessibles et que l'on sait où les trouver dans
+  l'arborescence système.</para>
+
+  <bridgehead xml:id='conf-intf-lan.dns.procfs.change' renderas='sect2'>Comment
+  changer la valeur d'un paramètre ?</bridgehead>
+
+  <para>Pour changer les valeurs attribuées par défaut lors de l'initialisation
+  du système, il existe plusieurs solutions. Pour faire simple, on se limite à
+  l'utilisation de la commande <command>sysctl</command> fournie par le paquet
+  <application>procps</application>. Le fichier de configuration de l'outil est
+  : <filename>/etc/sysctl.conf</filename>. Si on édite ce fichier en modifiant
+  ou en ajoutant un paramètre et que l'on applique ensuite la commande
+  <userinput><prompt>#</prompt> sysctl -p</userinput>, tous les changement
+  seront effectifs immédiatement. Comme le fichier
+  <filename>/etc/sysctl.conf</filename> est conservé, les paramètres seront à
+  nouveau appliqués lors de l'initialisation du système. Voici un exemple très
+  simple dans lequel on modifie les deux paramètres relatifs aux messages de
+  redirection <acronym>ICMP</acronym> que l'on ne souhaite pas accepter pour
+  des raisons de sécurité.</para>
+
+  <para>On décommente les deux lignes du fichier avec le mot clé
+  '<option>accept_redirects</option>'. La partie modifiée du fichier est la
+  suivante :</para>
+
+<screen># Do not accept ICMP redirects (prevent MITM attacks)
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0</screen>
+
+  <para>Le résultat de l'appel à <command>sysctl</command> est :</para>
+
+<screen><prompt>#</prompt> sysctl -p
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0</screen>
+
+  <para>Les quelques paramètres des fonctions réseau du noyau Linux présentés
+  ici ne constituent qu'une infime partie. Le document &url.ipsysctl.tutorial;
+  présente l'ensemble des paramètres utilisables pour ajuster le fonctionnement
+  de la pile de protocoles <acronym>TCP/IP</acronym>.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.tp'>
+  <title>Travaux pratiques</title>
+
+  <para>Pour traiter les questions de cette section, on suppose que le poste
+  client dispose d'une interface Ethernet déjà configurée avec un accès à un
+  réseau local puis à l'Internet via une passerelle par défaut. La topologie
+  type est la suivante :</para>
+
+  <mediaobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/topologie-simple.png' format='PNG' width='9cm' scalefit='1'/>
+    </imageobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/topologie-simple.png' format='PNG' width='480px' scalefit='1'/>
+    </imageobject>
+  </mediaobject>
+ 
+  <bridgehead xml:id='conf-intf-lan.tp.intf' renderas='sect2'>Questions sur la
+  configuration de l'interface Ethernet</bridgehead>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
       <question>
-      <para>Quelle est la commande qui permet de visualiser la configuration
-      d'une ou plusieurs interfaces réseau ?</para>
+      <para>Quelle sont les informations disponibles sur le composant
+      contrôleur Ethernet et son pilote logiciel sur le système ?</para>
       </question>
       <answer>
-      <para>Voir <xref linkend='conf-intf-lan.network-layer'/>.</para>
-      </answer>
-    </qandaentry>
-    <qandaentry>
-      <question>
-      <para>Quelles sont les adresses de niveau liaison
-      (<acronym>MAC</acronym>) et de niveau réseau (<acronym>IP</acronym>) de
-      l'interface Ethernet ?</para>
-      </question>
-      <answer>
-      <para>Voir <xref linkend='conf-intf-lan.network-layer'/>.</para>
-      </answer>
-    </qandaentry>
-    <qandaentry>
-      <question>
-      <para>Quelles sont les indications données par la configuration qui
-      montrent que cette interface est active ?</para>
-      </question>
-      <answer>
-      <para>Voir <xref linkend='conf-intf-lan.network-layer'/>.</para>
+      <para>Utiliser les commandes présentées dans la <xref
+      linkend='conf-intf-lan.physical-layer'/> pour extraire la référence du
+      composant.</para>
       </answer>
     </qandaentry>
 
     <qandaentry>
       <question>
-      <para>Quel est le rôle des adresses <acronym>MAC</acronym> par rapport
-      aux adresses <acronym>IP</acronym> ?</para>
+      <para>Quelles sont les différentes adresses de l'interface Ethernet aux
+      niveaux liaison de données et réseau ? À quels fonction ou protocoles
+      sont associées ces adresses ?</para> 
       </question>
       <answer>
-      <para>Retrouver les fonctions de localisation des niveaux liaison et
-      réseau.</para>
+      <para>Utiliser les commandes de visualisation présentée dans la <xref
+      linkend='conf-intf-lan.link-layer'/> et la <xref
+      linkend='conf-intf-lan.network-layer'/>.</para>
       </answer>
     </qandaentry>
+
     <qandaentry>
       <question>
-      <para>Quelles indications sont fournies par le masque de réseau et
-      l'adresse de diffusion ?</para>
+      <para>Quelles sont les informations données par la configuration sur
+      l'état de l'interface ?</para>
       </question>
       <answer>
-      <para>Retrouver les «limites» de l'adressage logique et de l'adressage
-      matériel.</para>
+      <para>Reprendre les éléments du tableau des indicateurs d'états donné
+      dans la <xref linkend='conf-intf-lan.link-layer'/> et faire la
+      correspondance avec la configuration visualisée.</para>
       </answer>
     </qandaentry>
+  </qandaset>
+ 
+  <bridgehead xml:id='conf-intf-lan.tp.addressing' renderas='sect2'>Questions
+  sur les mécanismes d'adressage</bridgehead>
+
+  <qandaset defaultlabel='number'>
     <qandaentry>
       <question>
-      <para>Comment déduire l'adresse <acronym>IP</acronym> de l'interface de
-      la passerelle par défaut à partir des éléments précédents ?</para>
+      <para>Quelle est l'adresse du réseau <acronym>IP</acronym> auquel
+      l'interface Ethernet est raccordée ? Quelle est la plage des adresses
+      <acronym>IP</acronym> utilisables ? Quelle est l'adresse de diffusion de
+      ce réseau ?</para>
       </question>
       <answer>
-      <para>Généralement, il s'agit de la première adresse utile du réseau ou
-      sous-réseau auquel l'hôte est connecté.</para>
-      <para>Cette question sera à nouveau traitée dans la partie <link
-      linkend='conf-intf-lan.routage'>routage</link>.</para>
+      <para>Utiliser la commande proposée à la <xref
+      linkend='conf-intf-lan.network-layer'/> et le document
+      &url.adressage.ipv4; pour déterminer les bornes du réseau
+      <acronym>IP</acronym>.</para>
       </answer>
     </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Est-il possible de déduire l'adresse <acronym>IP</acronym> de la
+      passerelle par défaut à partir des informations fournies par la
+      configuration de l'interface ?</para>
+      </question>
+      <answer>
+      <para>Attention, même si des conventions font que l'on retrouve
+      fréquemment les adresses <acronym>IP</acronym> des passerelles en
+      première ou dernière position de l'espace d'adressage utile, il n'existe
+      aucune règle définie.</para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Quels sont les espaces de validité respectifs des adresses
+      <acronym>MAC</acronym> et <acronym>IP</acronym> ?</para>
+      </question>
+      <answer>
+      <para>Retrouver les informations dans la <xref
+      linkend='conf-intf-lan.link-layer'/> et la <xref
+      linkend='conf-intf-lan.network-layer'/>.</para>
+      </answer>
+    </qandaentry>
+
     <qandaentry>
       <question>
       <para>Comment visualiser la table de correspondance entre les adresses
-      <acronym>MAC</acronym> et <acronym>IP</acronym> connues de votre
-      station ?</para>
+      <acronym>MAC</acronym> et <acronym>IP</acronym> connues de l'interface
+      Ethernet ?</para>
       </question>
       <answer>
-      <para>Retrouver la commande à utiliser et observer l'évolution des
-      entrées de la table.</para>
+      <para>Utiliser la commande proposée dans la <xref
+      linkend='conf-intf-lan.arp'/>.</para>
       </answer>
     </qandaentry>
+
     <qandaentry>
       <question>
-      <para>Comment forcer l'ajout d'une entrée dans la table
-      <acronym>ARP</acronym> de votre station ?</para>
+      <para>Comment forcer l'ajout d'une nouvelle entrée dans la table des
+      voisins ? À quel réseau <acronym>IP</acronym> doivent appartenir les
+      adresses à tester ?</para>
       </question>
       <answer>
-      <para>Retrouver la commande à utiliser et visualiser le(s)
-      résultat(s).</para>
+      <para>Utiliser la commande proposée dans la <xref
+      linkend='conf-intf-lan.icmp'/> pour tester l'accessibilité d'une adresse
+      <acronym>IP</acronym>.</para>
       </answer>
     </qandaentry>
+
     <qandaentry>
       <question>
-      <para>Pourquoi des entrées apparaissent dans la table
-      <acronym>ARP</acronym> sans action particulière ?</para>
+      <para>Pourquoi des entrées apparaissent dans la table des voisins sans
+      action particulière ?</para>
       </question>
       <answer>
       <para>Essayer de repérer les stations du réseau local qui ont contacté
-      votre station.</para>
+      l'interface Ethernet.</para>
       </answer>
     </qandaentry>
+
     <qandaentry>
       <question>
-      <para>Pourquoi l'adresse <acronym>MAC</acronym> de la passerelle par
-      défaut est-elle «presque» toujours présente dans la table d'un poste
-      client ?</para>
+      <para>Est-il possible de déduire l'adresse <acronym>IP</acronym> de la
+      passerelle par défaut à partir des informations fournies par la
+      table des voisins ?</para>
       </question>
       <answer>
-      <para>Retrouver la fréquence à laquelle les entrées de la table
-      <acronym>ARP</acronym> sont rafraîchies. Cette fréquence est-elle
-      fixe ?</para>
+      <para>Retrouver l'entrée de la table des voisins sollicitée par le trafic
+      sortant vers l'Internet.</para>
       </answer>
     </qandaentry>
+
     <qandaentry>
       <question>
-      <para>Pourquoi l'adresse <acronym>MAC</acronym> de la passerelle par
-      défaut est-elle «rafraîchie» après un test de la commande
+      <para>Pourquoi l'entrée avec l'adresse <acronym>MAC</acronym> de la
+      passerelle par défaut est-elle «rafraîchie» après un test de la commande
       <command>ping</command> utilisant un nom d'hôte ?</para>
       </question>
       <answer>
-      <para>Revoir la configuration de la résolution des noms d'hôtes et
-      localiser le serveur de noms vers lequel toutes les requêtes
-      <acronym>DNS</acronym> sont dirigées.</para>
-      </answer>
-    </qandaentry>
-    <qandaentry>
-      <question>
-      <para>Comment vérifier que le serveur <acronym>DNS</acronym> indiqué dans
-      les fichiers de configuration prend bien en charge les requêtes émises
-      par votre station ?</para>
-      </question>
-      <answer>
-      <para>Retrouver la commande à utiliser, consulter les pages de manuels
-      correspondantes et repérer l'option qui permet de visualiser le détail
-      des échanges entre client et serveur <acronym>DNS</acronym>.</para>
+      <para>Revoir les tests présentés à la <xref
+      linkend='conf-intf-lan.icmp'/> et les éléments de configuration donnés à
+      la <xref linkend='conf-intf-lan.dns'/>.</para>
       </answer>
     </qandaentry>
   </qandaset>
-  </sect2>
-
-  <sect2 xml:id='tp.multi'>
-    <title>Reconfiguration de l'interface</title>
-
-  <para>Avec la configuration ci-dessous, il est possible de changer
-  l'adressage réseau des postes clients par groupes en utilisant le routage
-  inter VLAN.</para>
-  
-  <!-- topologie du réseau TP : multi-réseaux -->
-  <screen>&topologie.multi;</screen>
-
-  <para>Voici un exemple de plan d'adressage pour 4 groupes de
-  postes :</para>
-  
-  <!-- plan d'adressage multi-réseaux -->
-  <screen>&topologie.multi.addr;</screen>
-  
-  <para>Les adresses <acronym>IP</acronym> des sous-interfaces du routeur
-  <literal>fa0/0.2</literal> à <literal>fa0/0.5</literal> sont données à titre
-  indicatif. Elles peuvent être modifiées à volonté. Une fois les questions
-  précédentes traitées, il faut rebrasser la connexion du poste sur un des
-  groupes de prises du commutateur <citetitle>Switch2</citetitle>.</para>
+ 
+  <bridgehead xml:id='conf-intf-lan.tp.dns' renderas='sect2'>Questions
+  sur le service DNS</bridgehead>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
       <question>
-	<para>A partir de l'adresse de l'interface du routeur utilisée, quels
-	sont les paramètres de l'interface Ethernet du poste ?</para>
+      <para>Quelle est l'adresse <acronym>IP</acronym> du serveur
+      <acronym>DNS</acronym> indiquée dans le fichier de configuration du
+      client <acronym>DNS</acronym> ?</para>
       </question>
       <answer>
-	<para>Partant du rôle de l'interface du routeur pour le client,
-	déterminer les adresses : réseau, masque de réseau, passerelle par
-	défaut et diffusion. Il ne reste qu'à choisir une adresse pour le
-	poste.</para>
-	<para>Utiliser la commande <command>ifconfig</command> pour appliquer
-	ces paramètres.</para>
+      <para>Utiliser les informations données à la <xref
+      linkend='conf-intf-lan.dns'/>.</para>
       </answer>
     </qandaentry>
+
     <qandaentry>
       <question>
-	<para>Comment valider la connectivité vers l'Internet ?</para>
+      <para>Quelle est la commande à utiliser pour poser une requête
+      <acronym>DNS</acronym> individuelle ? Donner un exemple ?</para>
       </question>
       <answer>
-        <para>Reprendre la séquence des tests ICMP.</para>
+      <para>Utiliser les informations données à la <xref
+      linkend='conf-intf-lan.dns'/>.</para>
       </answer>
     </qandaentry>
   </qandaset>
-
-  <para>Arrivé à cette étape, les communications entre postes du même réseau
-  local sont possibles mais il manque un élément important pour gagner la
-  connectivité vers les autres réseaux : la passerelle par défaut qui doit
-  renseigner toutes les routes vers les autres réseaux
-  <acronym>IP</acronym>.</para>
-
-  <para>Cette passerelle par défaut apparaît dans la <emphasis>table de
-  routage</emphasis>. Même sur un poste client, une table de routage est
-  nécessaire ! C'est l'objet du point suivant.</para>
-  </sect2>
-</sect1>
-
-<sect1 xml:id='conf-intf-lan.routage'>
-  <title>Table de routage locale</title>
-  
-  <para>Le routage est un sujet à part entière auquel il faut consacrer
-  beaucoup de temps pour avoir une bonne compréhension des échanges entre
-  plusieurs réseaux. L'objectif de cette section est limité à l'observation des
-  routes connues de l'interface de l'hôte et à la détection de pannes.</para>
-
-  <sect2 xml:id='conf-intf-lan.route.command'>
-    <title>Commande <command>route</command></title>
-
-    <para>La commande <command>route</command>, tout comme
-    <command>ifconfig</command> sert à la fois à connaître l'état de la table
-    de routage de l'hôte et à configurer de nouvelles routes au besoin.</para>
-
-    <para>Cette commande n'a rien à voir avec le routage dynamique qui
-    fonctionne sur un routeur. Elle ne sert qu'à poser des routes statiques
-    entre interfaces.</para>
-    
-<screen># route -n
-Kernel IP routing table
-Destination     Gateway         Genmask         Flags<co xml:id='routeflag'/> Metric Ref    Use Iface<co xml:id='routeif'/>
-192.168.1.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0
-0.0.0.0         192.168.1.1     0.0.0.0         UG    0      0        0 eth0</screen>
-    <calloutlist>
-      <callout arearefs='routeflag'>
-      <para>Indicateurs d'état :</para>
-      <itemizedlist>
-        <listitem>
-        <para><abbrev>U</abbrev> : Up ; l'interface est active.</para>
-        </listitem>
-        <listitem>
-        <para><abbrev>H</abbrev> : Host ; désigne un hôte.</para>
-        </listitem>
-        <listitem>
-        <para><abbrev>G</abbrev> : Gateway ; C'est l'interface à partir de
-        laquelle on atteint les autres hôtes/réseaux.</para>
-        </listitem>
-      </itemizedlist>
-      </callout>
-      <callout arearefs='routeif'>
-	<para>Interface Ethernet baptisée <systemitem>eth0</systemitem> sur les
-	systèmes GNU/Linux.</para>
-      </callout>
-    </calloutlist>
-
-    <para>Pour obtenir la syntaxe de toutes les options disponibles, il faut
-    accéder aux pages de manuels Unix :</para>
-    <itemizedlist>
-      <listitem>
-      <para>via la console avec la commande <userinput>man
-      route</userinput>.</para>
-      </listitem>
-      <listitem>
-      <para>via l'interface graphique avec le centre d'aide
-      KDE :<menuchoice>
-      <guimenu>Pages de manuels Unix</guimenu>
-      <guimenuitem>Section 8 Administration système</guimenuitem>
-      <guimenuitem>route</guimenuitem>
-      </menuchoice>.</para>
-      </listitem>
-    </itemizedlist>
-  </sect2>
-
-  <sect2 xml:id='conf-intf-lan.traceroute'>
-    <title>Commande <command>traceroute</command></title>
-
-    <para><command>traceroute</command> renvoie les informations sur la route
-    suivie pour atteindre un hôte. Le résultat obtenu donne la liste des routeurs
-    traversés.</para>
-  
-<screen># traceroute www.nic.fr
-traceroute to rigolo.nic.fr (192.134.4.20), 30 hops max, 38 byte packets
- 1  toulouse-50-254-gw.dial.proxad.net (212.27.50.254)  24.806 ms  21.489 ms  21.530 ms
- 2  paris11-2-p1.routers.proxad.net (212.27.32.225)  43.597 ms  33.325 ms  33.270 ms
- 3  paris11-1-p1.routers.proxad.net (212.27.32.226)  149.188 ms  129.723 ms  147.430 ms
- 4  sfinx.routers.proxad.net (212.27.32.167)  126.530 ms  138.881 ms  126.858 ms
- 5  ri-renater.gix-paris.ft.net (194.68.129.34)  107.966 ms  132.974 ms  135.544 ms
- 6  nio-i.cssi.renater.fr (193.51.206.57)  144.283 ms  122.517 ms  127.308 ms
- 7  193.51.206.146 (193.51.206.146)  132.595 ms  145.998 ms  148.399 ms
- 8  stlambert1.rerif.ft.net (193.48.53.102)  124.040 ms  260.685 ms  108.853 ms
- 9  inria-rocquencourt-atm.rerif.ft.net (193.48.53.226)  38.604 ms  167.956 ms  143.657 ms
-10  rocq-gw.inria.fr (192.93.122.2)  151.084 ms  96.052 ms  100.700 ms
-11  nic-gw.inria.fr (192.93.1.112)  126.699 ms  153.840 ms *
-12  rigolo.nic.fr (192.134.4.20)  155.644 ms  150.290 ms  191.674 ms</screen>
-
-    <para>Dans l'exemple ci-dessus, l'hôte recherché a été trouvé. En cas de
-    défaut, cette commande est très utile pour repérer le routeur sur lequel se
-    situe le problème d'interconnexion.</para>
-
-    <para>Les tests <acronym>ICMP</acronym> effectués avec la commande
-    <command>ping</command> ne permettent pas de localiser le point de rupture
-    de la communication entre deux hôtes distants. La commande
-    <command>traceroute</command> identifie tous les équipements
-    d'interconnexion réseau traversés.</para>
-
-    <para>Le principe de ce tracé de route est le suivant :</para>
-    <itemizedlist>
-      <listitem>
-      <para>Émettre un premier message avec la valeur 1 dans le champ
-      <acronym>TTL</acronym> de l'en-tête <acronym>IP</acronym>.</para>
-      </listitem>
-      <listitem>
-      <para>L'équipement d'interconnexion qui reçoit ce message décrémente la
-      valeur du champ <acronym>TTL</acronym> de l'en-tête <acronym>IP</acronym>
-      et obtient 0. Il jette donc le message et émet un message
-      <acronym>ICMP</acronym> à destination de l'émetteur indiquant qu'il est
-      impossible d'atteindre la destination.</para> 
-      </listitem>
-      <listitem>
-      <para>Émettre un second message avec la valeur 2 dans le champ
-      <acronym>TTL</acronym> de l'en-tête <acronym>IP</acronym>.</para>
-      </listitem>
-      <listitem>
-      <para>Cette fois-ci, c'est le second équipement d'interconnexion qui
-      décrémentera la valeur pour obtenir 0. Ce sera donc à ce second
-      équipement d'émettre un message <acronym>ICMP</acronym> à destination de
-      l'émetteur.</para>
-      </listitem>
-      <listitem>
-      <para>Ainsi de suite avec les valeurs 3, 4, etc. Pour le champ
-      <acronym>TTL</acronym> de l'en-tête <acronym>IP</acronym>.</para>
-      </listitem>
-    </itemizedlist>
-
-    <para>L'utilisation de la commande <command>traceroute</command> est de
-    plus en plus limitée par les divers systèmes de filtrage réseau et pour
-    contrer le travail des outils automatisés dont l'objectif est de relever la
-    topologie d'un réseau à distance.</para>
-  
-    <para>La méthode la plus immédiate pour bloquer la commande
-    <command>traceroute</command> consiste à bloquer en entrée d'un périmètre
-    les ports UDP de la plage 33434 à 33600.</para>
-
-    <para>Pour autant, la fonction <command>traceroute</command> est très utile
-    pour qualifier la validité d'une communication. Pour essayer de contourner
-    les systèmes de filtrage, la commande <command>traceroute</command> offre
-    de nombreuses options telles que la possibilité de fixer les numéros des
-    ports source et destination ou la possibilité de choisir le protocole de
-    couche transport.</para>
-
-    <para>Voici un exemple élémentaire permettant de caractériser la différence
-    de fonctionnement entre les deux protocoles de couche transport.</para>
-
-    <itemizedlist>
-      <listitem>
-      <para>Utilisation classique du protocole <acronym>UDP</acronym> :</para>
-
-<screen># traceroute www.neuf.fr
-traceroute to www.neuf.fr (212.30.118.74), 30 hops max, 60 byte packets
-&lt;snipped&gt;
-
- 3  ge-2-1-0-0.nctou102.Toulouse.francetelecom.net (193.249.214.14)  58.498 ms  59.478 ms  60.458 ms
- 4  xe-3-1-3-0.nrpoi202.Poitiers.francetelecom.net (81.253.131.178)  68.446 ms  70.425 ms  73.405 ms
- 5  xe-0-1-0-0.ntaub102.Aubervilliers.francetelecom.net (193.251.126.202)  84.394 ms  87.372 ms  89.350 ms
- 6  81.253.181.158 (81.253.181.158)  91.335 ms  55.605 ms  55.921 ms
- 7  41-197-118-80.kaptech.net (80.118.197.41)  56.919 ms  55.929 ms  57.934 ms
- 8  242-193-118-80.kaptech.net (80.118.193.242)  198.938 ms  191.932 ms  190.931 ms
- 9  212.94.163.13 (212.94.163.13)  55.931 ms  55.923 ms  58.930 ms
-10  10.5.39-62.rev.gaoland.net (62.39.5.10)  57.936 ms  57.922 ms  55.933 ms
-11  Vlan4053.9velizy1-0-ro-t-3.9tel.net (213.203.124.181)  56.930 ms  56.934 ms  57.938 ms
-12  * * *
-13  * * *
-14  * * *
-15  * * *
-16  * * *
-17  * * *
-18  * * *
-19  * * *
-20  * * *
-21  * * *
-22  * * *
-23  * * *
-24  * * *
-25  * * *
-26  * * *
-27  * * *
-28  * * *
-29  * * *
-30  * * *</screen>
-      </listitem>
-      <listitem>
-      <para>Utilisation du protocole <acronym>TCP</acronym> :</para>
-
-<screen># # traceroute -T www.neuf.fr
-traceroute to www.neuf.fr (212.30.118.74), 30 hops max, 60 byte packets
-&lt;snipped&gt;
-
- 3  ge-2-1-0-0.nctou102.Toulouse.francetelecom.net (193.249.214.14)  55.474 ms  58.456 ms  60.440 ms
- 4  xe-3-1-2-0.nrpoi202.Poitiers.francetelecom.net (81.253.130.122)  70.428 ms  72.403 ms  74.391 ms
- 5  xe-0-1-0-0.ntaub102.Aubervilliers.francetelecom.net (193.251.126.202)  85.373 ms  87.352 ms  90.335 ms
- 6  81.253.181.130 (81.253.181.130)  93.317 ms  55.676 ms  55.927 ms
- 7  41-197-118-80.kaptech.net (80.118.197.41)  148.936 ms  139.944 ms  137.946 ms
- 8  242-193-118-80.kaptech.net (80.118.193.242)  58.945 ms  164.900 ms  163.940 ms
- 9  212.94.163.13 (212.94.163.13)  56.941 ms  55.938 ms  57.951 ms
-10  10.5.39-62.rev.gaoland.net (62.39.5.10)  55.949 ms  56.950 ms  55.942 ms
-11  Vlan4053.9velizy1-0-ro-t-3.9tel.net (213.203.124.181)  56.949 ms  56.969 ms  56.937 ms
-12  62.62.153.54 (62.62.153.54)  57.966 ms  56.963 ms  57.958 ms
-13  ilma.finnois.isp.9tel.net (212.30.118.74)  57.924 ms  56.989 ms  56.956 ms</screen>
-      </listitem>
-    </itemizedlist>
-
-    <para>Pour obtenir la syntaxe de toutes les options disponibles, il faut
-    accéder aux pages de manuels Unix :</para>
-    <itemizedlist>
-      <listitem>
-      <para>via la console avec la commande <userinput>man
-      traceroute</userinput>.</para>
-      </listitem>
-      <listitem>
-      <para>via l'interface graphique avec le centre d'aide
-      KDE :<menuchoice>
-      <guimenu>Pages de manuels Unix</guimenu>
-      <guimenuitem>Section 8 Administration système</guimenuitem>
-      <guimenuitem>traceroute</guimenuitem>
-      </menuchoice>.</para>
-      </listitem>
-    </itemizedlist>
-
-    <para>Il existe quantité d'outils qui permettent d'avancer plus loin dans
-    une utilisation plus subtile des valeurs du champ <acronym>TTL</acronym> de
-    l'en-tête <acronym>IP</acronym>. Une technique appelée
-    <wordasword>firewalking</wordasword> a connu son heure de gloire au début
-    des années 2000. De nos jours, les pare-feux et les serveurs mandataires
-    (<wordasword>proxy</wordasword>) manipulent ces valeurs de façon à masquer
-    le nombre réel de sauts pour atteindre les hôtes d'une
-    infrastructure.</para>
-</sect2>
-
-<sect2 xml:id='conf-intf-lan.tp.route'>
-  <title>Travaux pratiques</title>
+ 
+  <bridgehead xml:id='conf-intf-lan.tp.routing' renderas='sect2'>Questions
+  sur la table de routage</bridgehead>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
       <question>
-      <para>Comment repérer les paramètres de la passerelle par défaut dans
-      la table de routage de votre station ?</para>
+      <para>Combien y-a-t-il d'entrées dans la table de routage ? Quel est le
+      rôle de chacune de ces entrées ?</para>
       </question>
       <answer>
-      <para>Relever l'indicateur de passerelle puis l'adresse
-      <acronym>IP</acronym> et le masque réseau.</para>
+      <para>Reprendre l'exemple donné à la <xref
+      linkend='conf-intf-lan.routing'/> et faire la correspondance avec les
+      informations relevées.</para>
       </answer>
     </qandaentry>
+
+    <qandaentry>
+      <question>
+      <para>Comment identifier la passerelle par défaut dans
+      la table de routage ?</para>
+      </question>
+      <answer>
+      <para>Relever l'identifiant et/ou la valeur numérique du réseau de
+      destination pour cette entrée de la table de routage.</para>
+      </answer>
+    </qandaentry>
+
     <qandaentry>
       <question>
       <para>La passerelle par défaut peut-elle appartenir à un autre réseau
@@ -1702,248 +1906,45 @@ traceroute to www.neuf.fr (212.30.118.74), 30 hops max, 60 byte packets
       local.</para>
       </answer>
     </qandaentry>
-    <qandaentry>
-      <question>
-      <para>Quel est le rôle de la première entrée de la table de
-      routage ?</para>
-      </question>
-      <answer>
-      <para>Normalement, la détermination du chemin de communication vers les
-      hôtes du réseau local ne doit pas passer par la passerelle par
-      défaut. Compléter le raisonnement sur le mode de communication avec les
-      hôtes du réseau local.</para>
-      </answer>
-    </qandaentry>
-    <qandaentry>
-      <question>
-      <para>Reconstituer les étapes décrites lors de l'exécution de la commande
-      <command>traceroute</command> ?</para>
-      </question>
-      <answer>
-      <para>Identifier la station, la passerelle par défaut et les éventuels
-      routeurs en notant les équipements d'interconnexion traversés. Compléter
-      un schéma sous la forme indiquée ci-dessous :</para>
-<screen>  |.....  ---[TTL=1]-->|@IP:           |@IP:           |@IP:           |@IP:
-.------,~ ---[TTL=2]   | ---[TTL= ]    |               |               |
-| PC   |' ---[TTL=3]   | ---[TTL= ]    | ---[TTL= ]    |               |
-|Client|| ---[TTL= ]   | ---[TTL= ]    | ---[TTL= ]    | ---[TTL= ]    |
-\------ / ---[TTL= ]   | ---[TTL= ]    | ---[TTL= ]    | ---[TTL= ]    | ---[TTL= ]
- ======/  ...</screen>
-      </answer>
-    </qandaentry>
-    <qandaentry>
-      <question>
-	<para>Relativement à la question précédente, quelle est la
-	signification des différents champs de chaque ligne affichée par la
-	commande <command>traceroute</command> ?</para>
-      </question>
-      <answer>
-	<para>Utiliser les pages de manuels de la commande pour identifier les
-	champs.</para>
-      </answer>
-    </qandaentry>
-    <qandaentry>
-      <question>
-	<para>Dans quelles conditions peut-on obtenir des caractères '*' à la
-	place des champs usuels ?</para>
-      </question>
-      <answer>
-	<para>Toujours à partir des pages de manuels de la commande, identifier
-	les limites de l'utilisation de cette commande.</para>
-      </answer>
-    </qandaentry>
   </qandaset>
-</sect2>
-</sect1>
-
-<sect1 xml:id='conf-intf-lan.procfs'>
-  <title>Fonctions réseau d'une interface</title>
-
-  <para>Sur tous les systèmes, un certain nombre de paramètres sont actifs par
-  défaut sur les interfaces réseau. Avec le noyau Linux, ces paramètres sont
-  placés dans le système de fichiers virtuel <filename
-  class='directory'>/proc</filename>.</para>
-  
-  <sect2 xml:id='show_proc'>
-    <title>Comment visualiser les paramètres du noyau ?</title>
-  
-  <para>Dans le noyau Linux, la granularité du paramétrage de la pile de
-  protocoles TCP/IP est très fine. Aussi le nombre de paramètres est important.
-  Il suffit de visualiser le résultat des commandes <userinput>ls
-  /proc/sys/net/ipv4/</userinput> ou <userinput>sysctl -A |grep net</userinput>
-  pour le constater.</para>
-
-  <para>Voici un petit script appelé <filename>show_proc.sh</filename> qui
-  permet de visualiser les paramètres par protocole ou catégorie et leurs
-  valeurs :</para>
-
-<screen>#!/bin/bash
-
-for param in `find /proc/sys -type f -name "*$1*"`; do
- echo $param = `cat $param`
- done</screen>
-
-  <para>Dans le cas des réglages <acronym>ICMP</acronym> on obtient le résultat
-  suivant avec un noyau de distribution standard :</para>
-
-<screen># ./bin/show_proc.sh icmp
-/proc/sys/net/ipv4/netfilter/ip_conntrack_icmp_timeout = 30
-/proc/sys/net/ipv4/icmp_ratemask = 6168
-/proc/sys/net/ipv4/icmp_ratelimit = 1000
-/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses = 0
-/proc/sys/net/ipv4/icmp_echo_ignore_broadcasts = 0
-/proc/sys/net/ipv4/icmp_echo_ignore_all = 0</screen>
-  </sect2>
-
-  <sect2 xml:id='change_proc'>
-    <title>Comment changer les valeurs des paramètres ?</title>
-
-  <para>Pour changer les valeurs par défaut attribuées dans le noyau, il existe
-  au moins trois solutions :</para>
-
-  <itemizedlist>
-    <listitem>
-    <para>La première solution consiste à affecter les valeurs
-    individuellement. Prenons l'exemple célèbre de la fonction de routage des
-    paquets <acronym>IP</acronym> du noyau :</para>
-
-<screen>echo 1 > /proc/sys/net/ipv4/ip_forward</screen>
-    </listitem>
-    <listitem>
-    <para>La seconde solution utilise le fichier de configuration
-    <filename>/etc/sysctl.conf</filename> de la commande
-    <command>sysctl</command> appartenant au paquet
-    <application>procps</application>. Ce fichier de configuration n'est pas
-    limité aux fonctions réseau du noyau Linux comme le montre le résultat de
-    la commande <userinput>sysctl -A</userinput>. Voici un exemple très simple
-    de fichier <filename>/etc/sysctl.conf</filename> :</para>
-
-<screen># Activation de protection contre les mauvais messages d'erreurs ICMP
-net.ipv4.icmp_ignore_bogus_error_responses=1</screen>
-
-    <para>La commande <userinput>sysctl -p</userinput> active l'ensemble des
-    valeurs indiquées dans le fichier ce configuration. On obtient
-    alors :</para>
-
-<screen># ./bin/show_proc.sh icmp_ignore_bogus_error_responses
-/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses = 1</screen>
-
-    <para>Comme le fichier <filename>/etc/sysctl.conf</filename> est lu à
-    chaque démarrage du système, les valeurs des paramètres ajustés seront
-    reprises. Ce fichier de configuration est un moyen pratique de conserver
-    les paramètres personnels des fonctions réseau d'une interface.</para>
-    </listitem>
-    <listitem>
-    <para>La troisième solution est présentée dans la section
-    &url.securing-debian-howto;.</para>
-    </listitem>
-  </itemizedlist>
-  </sect2>
-
-  <sect2 xml:id='conf-intf-lan.sysctl'>
-    <title>Travaux pratiques</title>
-    
-    <para>Voici un exemple de fichier de configuration
-    <filename>/etc/sysctl.conf</filename> type :</para>
-<screen># Refuser la prise en charge des requêtes ARP pour d'autres hôtes
-net.ipv4.conf.all.proxy_arp = 0
-
-# Ignorer les mauvais messages d'erreurs ICMP
-net.ipv4.icmp_ignore_bogus_error_responses = 1
-
-# Ignorer les messages de diffusion ICMP
-net.ipv4.icmp_echo_ignore_broadcasts = 1
-
-# Journaliser les adresses sources falsifiées ou non routables
-net.ipv4.conf.all.log_martians = 1
-
-# Refuser les adresses sources falsifiées ou non routables
-net.ipv4.conf.all.rp_filter = 1
-
-# Refuser les messages ICMP redirect
-net.ipv4.conf.all.accept_redirects = 0
-
-net.ipv4.conf.all.send_redirects = 0
-
-# Refuser le routage source
-net.ipv4.conf.all.accept_source_route = 0</screen>
+ 
+  <bridgehead xml:id='conf-intf-lan.tp.mtr' renderas='sect2'>Questions
+  sur traceroute</bridgehead>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
-    <question>
-    <para>Quels sont les tests de communication ICMP à effectuer pour mettre en
-    évidence le résultat du paramètre
-    <literal>net.ipv4.icmp_echo_ignore_broadcasts = 1</literal> ?</para>
-    </question>
-    <answer>
-    <para>Retrouver l'adresse de diffusion du réseau local à utiliser avec la
-    commande <command>ping</command>.</para>
-    </answer>
+      <question>
+      <para>Quel est le rôle du service <application>traceroute</application>
+      relativement au protocole <acronym>ICMP</acronym> ?</para>
+      </question>
+      <answer>
+      <para>Relire la <xref linkend='conf-intf-lan.traceroute'/>.</para>
+      </answer>
     </qandaentry>
+
     <qandaentry>
-    <question>
-    <para>Quels sont les tests de communication ICMP à effectuer pour mettre en
-    évidence la journalisation des adresses falsifiées ?</para>
-    </question>
-    <answer>
-    <para>La commande <command>ping</command> ne permet pas de modifier
-    l'adresse source d'un message ICMP de type 8
-    (<literal>echo request</literal>). Il est donc nécessaire d'utiliser
-    un autre outil tel que <command>hping2</command>. Voici 2 exemples
-    d'utilisation de cette commande :</para>
-    <itemizedlist>
-    <listitem>
-    <para>Syntaxe équivalente à celle de la commande
-    <command>ping</command> :</para>
+      <question>
+      <para>À partir d'un exemple, donner pour chaque routeur traversé les
+      valeurs du champ <acronym>TTL</acronym> de l'en-tête
+      <acronym>IP</acronym>.</para>
+      </question>
+      <answer>
+      <para>Reprendre l'exemple donné dans la <xref
+      linkend='conf-intf-lan.traceroute'/> et faire la correspondance avec les
+      informations relevées.</para>
+      </answer>
+    </qandaentry>
 
-<screen># hping2 -n -c 4 -1 192.168.1.1
-HPING 192.168.1.1 (eth1 192.168.1.1): icmp mode set, 28 headers + 0 data bytes
-len=46 ip=192.168.1.1 ttl=64 xml:id=60429 icmp_seq=0 rtt=1.5 ms
-len=46 ip=192.168.1.1 ttl=64 xml:id=60430 icmp_seq=1 rtt=1.4 ms
-len=46 ip=192.168.1.1 ttl=64 xml:id=60431 icmp_seq=2 rtt=1.4 ms
-len=46 ip=192.168.1.1 ttl=64 xml:id=60432 icmp_seq=3 rtt=1.4 ms
-
---- 192.168.1.1 hping statistic ---
-4 packets transmitted, 4 packets received, 0% packet loss
-round-trip min/avg/max = 1.4/1.5/1.5 ms</screen>
-    </listitem>
-    <listitem>
-    <para>Syntaxe utilisant l'adresse source falsifiée
-    <literal>192.168.2.2</literal> :</para>
-
-<screen># hping2 -n -c 4 -1 -a 192.168.2.2 192.168.1.1
-HPING 192.168.1.1 (eth1 192.168.1.1): icmp mode set, 28 headers + 0 data bytes
-
---- 192.168.1.1 hping statistic ---
-4 packets transmitted, 0 packets received, 100% packet loss
-round-trip min/avg/max = 0.0/0.0/0.0 ms</screen>
-
-    <para>Résultat produit dans le journal système de l'hôte
-    <literal>192.168.1.1</literal> :</para>
-
-<screen>kernel: martian source 192.168.1.1 from 192.168.2.2, on dev eth0
-kernel: ll header: 00:04:75:fd:13:cd:00:0d:bc:ef:a6:8e:08:00
-kernel: martian source 192.168.1.1 from 192.168.2.2, on dev eth0
-kernel: ll header: 00:04:75:fd:13:cd:00:0d:bc:ef:a6:8e:08:00
-kernel: martian source 192.168.1.1 from 192.168.2.2, on dev eth0
-kernel: ll header: 00:04:75:fd:13:cd:00:0d:bc:ef:a6:8e:08:00
-kernel: martian source 192.168.1.1 from 192.168.2.2, on dev eth0
-kernel: ll header: 00:04:75:fd:13:cd:00:0d:bc:ef:a6:8e:08:00</screen>
-    </listitem>
-    </itemizedlist>
-    </answer>
+    <qandaentry>
+      <question>
+      <para>Dans quelles conditions les informations renvoyées par les routeurs
+      sont «incomplètes» ?</para>
+      </question>
+      <answer>
+      <para>Relire l'avertissement donné dans la <xref
+      linkend='conf-intf-lan.traceroute'/>.</para>
+      </answer>
     </qandaentry>
   </qandaset>
-  </sect2>
-
-  <sect2 xml:id='sysctl.tutorial'>
-    <title>Pour aller plus loin !</title>
-
-  <para>Les quelques paramètres des fonctions réseau du noyau Linux présentés
-  ci-avant ne constituent qu'une infime partie. Le document
-  &url.ipsysctl.tutorial; présente l'ensemble des paramètres utilisables pour
-  ajuster le fonctionnement de la pile de protocoles
-  <acronym>TCP/IP</acronym>.</para>
-  </sect2>
 </sect1>
 </article>
