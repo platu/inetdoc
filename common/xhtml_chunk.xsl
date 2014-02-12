@@ -42,6 +42,11 @@
                 encoding="utf-8"
                 indent="yes"/>
 
+    <!-- <?custom-linebreak?> inserts a line break at this point -->
+    <xsl:template match="processing-instruction('custom-linebreak')">
+      <br />
+    </xsl:template>
+
     <xsl:param name="chunker.output.encoding" select="'utf-8'" />
     <xsl:param name="chunker.output.indent" select="'yes'" />
 

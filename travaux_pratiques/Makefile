@@ -9,6 +9,7 @@ SUBDIRS = \
 	images \
 	infra.tp \
 	config.interface.lan \
+	dessine-moi-un-reseau \
 	config.interface.wlan \
 	intro.analyse \
 	sysadm-net.iscsi.qa \
@@ -47,6 +48,7 @@ XML_FILES = \
 	biblio-travaux_pratiques.xml \
 	infra.tp/$(ABSTRACT_FILE) \
 	config.interface.lan/$(ABSTRACT_FILE) \
+	dessine-moi-un-reseau/$(ABSTRACT_FILE) \
 	config.interface.wlan/$(ABSTRACT_FILE) \
 	intro.analyse/$(ABSTRACT_FILE) \
 	sysadm-net.iscsi.q/$(ABSTRACT_FILE) \
