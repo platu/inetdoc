@@ -126,6 +126,12 @@
       <xsl:attribute name="end-indent">0.0in</xsl:attribute>
     </xsl:attribute-set>
 
+    <xsl:template match="d:phrase[@role='darkred']">
+      <fo:inline color="darkred">
+        <xsl:apply-templates/>
+      </fo:inline>
+    </xsl:template>
+
 <!--###################################################
                    Custom Article Title Page
     ################################################### --> 
