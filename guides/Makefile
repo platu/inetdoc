@@ -17,6 +17,7 @@ SUBDIRS = \
 	amavisd-new \
 	squid-guard \
 	vm \
+	dynamips-dynagen \
 	linux.networking
 
 # Type(s) de traitement
@@ -32,6 +33,7 @@ XML_FILES = \
 	amavisd-new/$(ABSTRACT_FILE) \
 	squid-guard/$(ABSTRACT_FILE) \
 	vm/$(ABSTRACT_FILE) \
+	dynamips-dynagen/$(ABSTRACT_FILE) \
 	linux.networking/$(ABSTRACT_FILE)
 
 all: $(PROCESS)

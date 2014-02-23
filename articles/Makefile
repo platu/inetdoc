@@ -8,7 +8,6 @@ ABSTRACT_FILE = transform_output/abstract.xml
 SUBDIRS = \
 	images \
 	infosecconcepts \
-	dynamips-dynagen \
 	devmgmt \
 	ssh-ios \
 	modelisation \
@@ -29,7 +28,6 @@ PROCESS = subdirs xml2xhtml xml2pdf
 XML_FILES = \
 	biblio-articles.xml \
 	infosecconcepts/$(ABSTRACT_FILE) \
-	dynamips-dynagen/$(ABSTRACT_FILE) \
 	devmgmt/$(ABSTRACT_FILE) \
 	ssh-ios/$(ABSTRACT_FILE) \
 	modelisation/$(ABSTRACT_FILE) \
