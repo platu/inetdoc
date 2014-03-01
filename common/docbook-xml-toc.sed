@@ -7,7 +7,7 @@ s/<b>//
 s/<\/b>//
 s/<strong>//
 s/<\/strong>//
-/<dl>/d
+/<dl.*>/d
 /<\/dl>/d
 /<dd>/d
 /<\/dd>/d
