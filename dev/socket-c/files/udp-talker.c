@@ -87,7 +87,7 @@ int main()
         printf("Message traité : %s\n", msg);
       }
       else {
-        puts("** Le serveur n'a répondu dans la seconde.");
+        puts("Pas de réponse dans la seconde.");
       }
     }
     // Invite de commande pour l'utilisateur et lecture des caractères jusqu'à la
