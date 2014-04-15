@@ -11,5 +11,5 @@ all: $(PROCESS) lartc.html
 
 include $(MAIN_DIR)/common/Makefile.Rules
 
-lartc.html: index.html
+lartc.html: $(MAIN_DIR)/guides/lartc/index.html
 	ln -s $< $@

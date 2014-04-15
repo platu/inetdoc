@@ -22,6 +22,9 @@ XML_FILES = \
 	inetdoc.urls.xml \
 	rfc.urls.xml
 
-all: $(PROCESS)
+all: $(PROCESS) infra.tp.adressage.html
 
 include $(MAIN_DIR)/common/Makefile.Rules
+
+infra.tp.adressage.html: $(MAIN_DIR)/travaux_pratiques/infra.tp/infra.tp.vlan2IPaddressing.html
+	ln -s $< $@

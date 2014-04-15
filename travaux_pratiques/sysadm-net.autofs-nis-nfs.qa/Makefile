@@ -27,7 +27,7 @@ QANDASET_FILES = \
 	$(OUTPUT)/qandaset-nis-client-libc.xml \
 	$(OUTPUT)/qandaset-nfs-common-package.xml
 
-qandasets: $(QANDASET_FILES) $(XML_FILES)
+qandasets: symlink $(QANDASET_FILES) $(XML_FILES)
 
 $(OUTPUT)/qandaset-nis-server.xml: ../sysadm-net.nis.qa/sysadm-net.nis.qa.xml
 	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
