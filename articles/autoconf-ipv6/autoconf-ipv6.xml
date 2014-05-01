@@ -20,6 +20,10 @@
 <!ENTITY url.ovs
    '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://openvswitch.org/">
    <citetitle>Open vSwitch</citetitle></link>'>
+
+<!ENTITY url.bug658254
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=658254">
+   <citetitle>rdnssd does not support DNSSL</citetitle></link>'>
 ]>
 
 <article xml:lang='fr' xml:id='autoconf-ipv6'>
@@ -270,7 +274,7 @@
   GNU/Linux</citetitle> et des postes clients qui utilisent le même système.
   Les fonctions de commutation des trames Ethernet et de gestion des
   <glossterm linkend='vlan'><acronym>VLANs</acronym></glossterm> sont assurées
-  par &url.ovs;. Bref, un classique du site &url.inetdoc;!</para>
+  par &url.ovs;. Bref, un classique du site &url.inetdoc; !</para>
   </listitem>
   </varlistentry>
 
@@ -495,6 +499,66 @@ interface eth1.20
     </callout>
   </calloutlist>
 
+  <para>Le document <acronym>RFC6106</acronym> spécifie un autre attribut :
+  <acronym>DNSSL</acronym> ou <wordasword>DNS Search List</wordasword>. Cet
+  attribut sert à annoncer la liste des suffixes <acronym>DNS</acronym> à
+  utiliser par défaut pour les requêtes utilisant des noms d'hôtes incomplets.
+  Malheureusement, au moment de la rédaction de ces lignes l'attribut
+  <acronym>DNSSL</acronym> n'est pas supporté côté client sur la distribution
+  <citetitle>Debian GNU/Linux</citetitle>. Voir le rapport de bug
+  &url.bug658254;.</para>
+</section>
+
+<section xml:id='autoconf-ipv6.client-side'>
+  <title>Autoconfiguration côté client</title>
+
+  <para>Le poste client doit être configuré pour exploiter correctement les
+  annonces émises par le routeur dans un domaine de diffusion donné. On débute
+  avec la configuration de base de l'interface réseau du client et on complète
+  la liste des outils pour que le <wordasword>resolver</wordasword> <glossterm
+  linkend='dns'><acronym>DNS</acronym></glossterm> fonctionne
+  correctement.</para>
+
+  <para>De façon classique, le fichier
+  <filename>/etc/network/interfaces</filename> de l'hôte client se présente
+  comme suit.</para>
+
+<screen><prompt>etu@vm21:~$</prompt> cat /etc/network/interfaces
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto eth0
+iface eth0 inet dhcp
+iface eth0 inet6 auto</screen>
+
+  <para>On voit ici que l'interface Ethernet <option>eth0</option> a été
+  configurée pour obtenir sa configuration «automatiquement». Le résultat de
+  l'autoconfiguration <acronym>IPv6</acronym> apparaît dans la liste des
+  adresses et la table de routage du poste client.</para>
+
+<screen><prompt>etu@vm21:~$</prompt> ip addr ls
+1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether ba:ad:00:ca:fe:15 brd ff:ff:ff:ff:ff:ff
+    <emphasis>inet6 2OO1:db8:feb2:14:b8ad:ff:feca:fe15/64 scope global dynamic</emphasis>
+       valid_lft 85946sec preferred_lft 13946sec
+    <emphasis>inet6 fe80::b8ad:ff:feca:fe15/64 scope link</emphasis>
+       valid_lft forever preferred_lft forever</screen>
+
+<screen><prompt>etu@vm21:~$</prompt> ip -6 route ls
+2OO1:db8:feb2:14::/64 dev eth0  proto kernel  metric 256  expires 86141sec
+fe80::/64 dev eth0  proto kernel  metric 256 
+default via fe80::dcad:ff:febe:ef14 dev eth0  proto ra  metric 1024  expires 1541sec</screen>
 </section>
 
 <section xml:id='autoconf-ipv6.conclusion'>
