@@ -16,6 +16,7 @@ SUBDIRS = \
 	ethernet \
 	pppoe \
 	adressage.ipv4 \
+	autoconf-ipv6 \
 	ospf-migration \
 	ospf-triangle-multiple-default \
 	lan-segmentation \
@@ -36,6 +37,7 @@ XML_FILES = \
 	ethernet/$(ABSTRACT_FILE) \
 	pppoe/$(ABSTRACT_FILE) \
 	adressage.ipv4/$(ABSTRACT_FILE) \
+	autoconf-ipv6/$(ABSTRACT_FILE) \
 	ospf-migration/$(ABSTRACT_FILE) \
 	ospf-triangle-multiple-default/$(ABSTRACT_FILE) \
 	lan-segmentation/$(ABSTRACT_FILE) \

@@ -85,9 +85,9 @@
     <xsl:param name="use.extensions" select="1" />
     <xsl:param name="callouts.extension" select="1" />
     <xsl:param name="textinsert.extension" select="1" />
-    <xsl:param name="tablecolumns.extension" select="0" />
+    <xsl:param name="tablecolumns.extension" select="1" />
     <xsl:param name="callout.extensions" select ="1" />
-    <xsl:param name="graphicsize.extension" select="0" />
+    <xsl:param name="graphicsize.extension" select="1" />
 
 <!--###################################################
                       Table Of Contents
@@ -139,7 +139,7 @@
     <xsl:param name="callout.graphics" select="1" />
     <xsl:param name="callout.graphics.path">&callout_gfx_path;</xsl:param>
     <xsl:param name="callout.graphics.number.limit" select="15" />
-    <xsl:param name="callout.icon.size" select="7" />
+    <xsl:param name="callout.icon.size" select="8" />
     
     <!-- Place callout marks at this column in annotated areas -->
     <xsl:param name="callout.defaultcolumn">90</xsl:param>
@@ -188,5 +188,8 @@
           </xsl:if>
       </b><br/>
     </xsl:template>
+
+    <!-- Glossary properties -->
+    <xsl:param name="glossentry.show.acronym">yes</xsl:param>
     
 </xsl:stylesheet>

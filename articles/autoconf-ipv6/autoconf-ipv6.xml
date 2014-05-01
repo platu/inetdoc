@@ -1,0 +1,614 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author                 SYSTEM "author.xml">
+<!ENTITY legal                  SYSTEM "legal.xml">
+
+<!-- rfcs -->
+<!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
+
+<!-- urls -->
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.sixxs
+	'<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.sixxs.net/">
+	<citetitle>IPv6 Deployment &amp; Tunnel Broker</citetitle></link>'>
+
+<!ENTITY url.ovs
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://openvswitch.org/">
+   <citetitle>Open vSwitch</citetitle></link>'>
+]>
+
+<article xml:lang='fr' xml:id='autoconf-ipv6'>
+<info>
+  <title>Autoconfiguration IPv6</title>
+
+  &author;
+  <abstract>
+  <para>À l'heure où les objets connectés à Internet se multiplient, il est
+  probable que le service d'autoconfiguration <acronym>IPv6</acronym> sans état
+  soit enfin utilisé à grande échelle. Ce document propose un exemple de mise
+  en œuvre de l'autoconfiguration entre un routeur et les hôtes de deux réseaux
+  locaux distincts. Le but est d'utiliser au maximum le principe des échanges
+  d'informations réseau <wordasword>stateless</wordasword>. En plus de
+  l'attribution des des paramètres réseau usuels d'un hôte client, on ajoute le
+  service <wordasword>multicast Domain Name System</wordasword>
+  (<acronym>mDNS</acronym>) qui suit aussi le même principe et permet de
+  contacter un hôte réseau par le nom qu'il annonce.</para>
+  </abstract>
+  <keywordset>
+    <keyword>inetdoc</keyword>
+    <keyword>autoconf</keyword>
+    <keyword>ipv6</keyword>
+    <keyword>mdns</keyword>
+    <keyword>stateful</keyword>
+    <keyword>stateless</keyword>
+    <keyword>resolvconf</keyword>
+    <keyword>rdnssd</keyword>
+  </keywordset>
+</info>
+
+<section xml:id='autoconf-ipv6.legal.meta'>
+  &legal;
+  <bridgehead xml:id='autoconf-ipv6.meta'
+  renderas='sect2'>Méta-information</bridgehead>
+
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+</section>
+
+<section xml:id='autoconf-ipv6.context'>
+  <title>Préambule : <wordasword>Stateful</wordasword> versus
+  <wordasword>Stateless</wordasword></title>
+
+  <para>Les deux termes <wordasword>stateful</wordasword> et
+  <wordasword>stateless</wordasword> font partie du jargon réseau depuis de
+  nombreuses années. Mais que viennent-ils donc faire ici ? Ils sont en fait si
+  lourds de sens qu'ils méritent quelques éclaircissements quant à leur
+  utilisation dans les communications réseau.</para>
+
+  <variablelist>
+  <varlistentry>
+  <term><wordasword>Stateful</wordasword></term>
+  <listitem>
+  <para>En première approximation, on peut assimiler le terme
+  <wordasword>Stateful</wordasword> à un mode de communication avec un
+  mécanisme de suivi d'état. Ce mécanisme est implanté sur un équipement qui
+  assure la correspondance entre les flux sortants et entrants qui le
+  traversent. La mémorisation des adresses présentes dans les en-têtes des
+  différents protocoles permet de construire des tables de correspondances des
+  flux réseaux. De très nombreux services, historiquement liés au protocole
+  <acronym>IPv4</acronym>, sont basés sur ces mécanismes de suivi
+  d'état : attribution des paramètres réseaux d'un hôte
+  (<glossterm linkend='dhcp'><acronym>DHCP</acronym></glossterm>), traduction
+  d'adresse (<glossterm linkend='nat'><acronym>NAT</acronym></glossterm>),
+  pare-feux, balance de charge, redirecteurs, service mandataire
+  (<wordasword>proxy</wordasword>), etc.</para>
+
+  <para>Le défaut de ce mode de communication le plus souvent évoqué est
+  relatif à la nécessité d'un point d'enregistrement unique pour tous les flux.
+  On parle alors du fameux <wordasword>Single Point Of Failure</wordasword> ou
+  <acronym>SPOF</acronym>. En effet, si l'équipement
+  <wordasword>Stateful</wordasword> unique est défaillant ou si il subit un
+  déni de service, tous les flux réseaux seront bloqués. Pour pallier à ce
+  défaut, les fonctions des services <wordasword>Stateful</wordasword> ont été
+  étendues : les pare-feux peuvent partager leurs tables de suivi d'état, les
+  serveurs <glossterm linkend='dhcp'><acronym>DHCP</acronym></glossterm>
+  peuvent partager l'état des baux délivrés aux postes clients, etc.</para>
+
+  <para>Le propos de ce document est de remettre en question l'enregistrement
+  de l'état des flux réseau. Dans un Internet qui contient plus d'objets
+  connectés que de dispositifs manipulés directement par des humains, il
+  devient illusoire de chercher à identifier, référencer et enregistrer les
+  paramètres de toutes les interfaces de tous les hôtes raccordés au
+  réseau. On peut voir cette mise en cause du mode de communication
+  <wordasword>Stateful</wordasword> comme un retour aux origines de l'Internet
+  ; un réseau à commutation de paquets dans lequel tout hôte est susceptible de
+  communiquer avec n'importe quel autre hôte.</para>
+  </listitem>
+  </varlistentry>
+
+  <varlistentry>
+  <term><wordasword>Stateless</wordasword></term>
+  <listitem>
+  <para>Si les mécanismes de suivi d'état au niveau des couches transport,
+  réseau et liaison sont remis en question, il sera toujours nécessaire de
+  s'authentifier auprès d'un service pour identifier la source et la
+  destination d'un flux d'informations. Dans les démonstrations ou les
+  publicités sur les objets connectés, les capteurs transmettent leurs
+  informations directement sur les réseaux sociaux. Avec ces exemples,
+  l'identification et/ou l'authentification se fait au niveau application et
+  non au niveau liaison avec l'enregistrement de l'adresse
+  <glossterm linkend='mac'><acronym>MAC</acronym></glossterm> de l'interface
+  réseau dans un serveur <glossterm
+  linkend='dns'><acronym>DHCP</acronym></glossterm>.</para>
+
+  <para>Avec l'abandon de l'enregistrement des paramètres réseau des couches
+  basses liées à la transmission de l'information, on autorise une plus grande
+  dynamique dans les communications réseau. Le nombre des hôtes présents dans
+  les domaines de diffusion peut varier librement et on déplace les fonctions
+  d'enregistrement (identification, authentification, etc.) vers la couche
+  application liée au traitement de l'information.</para>
+  </listitem>
+  </varlistentry>
+  </variablelist>
+
+  <para>On peut légitimement se demander pourquoi l'autoconfiguration n'a pas
+  connu plus de succès dans les années précédentes. En effet, le document
+  &url.rfc4862; date de 2007. Quelques arguments peuvent être avancés sans
+  tenir compte de la lenteur dans l'adoption du protocole
+  <acronym>IPv6</acronym>.</para>
+
+  <variablelist>
+  <varlistentry>
+  <term>Modèle périmétrique</term>
+  <listitem>
+  <para>Pendant très longtemps, la bonne pratique voulait que l'on cherche à
+  découper les réseaux en périmètres fonctionnels. À l'intérieur d'un périmètre
+  on est sensé avoir une connaissance exhaustive des flux et des hôtes en
+  présence. Dans cette optique, les services <wordasword>Stateful</wordasword>
+  ont été naturellement mis en avant. Ils sont le point de passage obligé qui
+  garantit que seules les fonctions assignées au périmètre sont
+  présentes.</para>
+
+  <para>Même si ce modèle a encore de beaux jours devant lui, il est sûr qu'il
+  va falloir évoluer dans le mode de conception des architectures. Côté Parc,
+  le nombre et la nature des hôtes croît sans cesse. Avec cette croissance,
+  l'idée même de la liste exhaustive des hôtes autorisés s'envole. Même en
+  connectant les services <glossterm
+  linkend='dns'><acronym>DNS</acronym></glossterm> et <glossterm
+  linkend='dhcp'><acronym>DHCP</acronym></glossterm> statiques à l'aide
+  d'applications spécifiques, il devient difficile de suivre la dynamique du
+  nombre d'hôtes. Côté infrastructure, la virtualisation apporte aussi une
+  dynamique inconnue jusqu'alors. Les outils de gestion intégrée des
+  hyperviseurs permettent l'ajout et la suppression d'instances de serveurs
+  virtuels très rapidement. Là encore, les outils classiques d'enregistrement
+  manuel des entrées ne suivent pas la cadence.</para>
+
+  <para>Face à ce manque de réactivité du réseau, la bonne pratique de
+  conception a évolué et on parle de plus en plus souvent de
+  «<glossterm linkend='vlan'><acronym>VLANs</acronym></glossterm> d'étage»
+  montrant ainsi que l'étendue du domaine de diffusion prévaut sur le découpage
+  fonctionnel. Cependant, l'enregistrement des paramètres d'interface réseau
+  perdure même s'il est sérieusement bousculé par les modes du style
+  <wordasword>Bring Your Own Device</wordasword> ou <acronym>BYOD</acronym>.
+  Dans de nombreux contextes professionnels, le contrôleur de domaine constitue
+  encore le point d'enregistrement ultime, alors que dans le même temps, de
+  plus en plus de flux transitent vers le <wordasword>Cloud</wordasword>. Ce
+  fameux <wordasword>Cloud</wordasword> est aujourd'hui le principal «opposant»
+  au modèle périmétrique.</para>
+  </listitem>
+  </varlistentry>
+
+  <varlistentry>
+  <term>Autoconfiguration incomplète</term>
+  <listitem>
+  <para>L'autoconfiguration, telle qu'elle est présentée dans le document
+  <acronym>RFC4862</acronym> ne couvre pas la même liste d'attributs qu'un
+  service <glossterm linkend='dhcp'><acronym>DHCP</acronym></glossterm>
+  basique. L'absence de configuration du <wordasword>resolver</wordasword>
+  <glossterm linkend='dns'><acronym>DNS</acronym></glossterm> a cruellement
+  fait défaut dans l'adoption de cette solution. En effet, tout dispositif
+  raccordé à un réseau a nécessairement besoin d'utiliser des noms pour
+  identifier les hôtes à contacter. L'autoconfiguration strictement limitée à
+  la couche réseau s'est avérée bloquante dans les usages. Le fait qu'il faille
+  ajouter un programme supplémentaire dans la couche application est un frein
+  important dans la mesure où il génère un surcoût d'administration.</para>
+
+  <para>Un nouveau document, &url.rfc6106;, est venu compléter la liste des
+  attributs «propulsés» par le service d'autoconfiguration avec la désignation
+  du ou des serveurs <glossterm
+  linkend='dns'><acronym>DNS</acronym></glossterm>. Il date de 2010 et son
+  adoption n'a pas été aussi rapide qu'escompté. À titre d'exemple, il semble
+  que la fonction ne soit disponible que dans la version XE du système IOS de
+  <trademark>Cisco</trademark> au moment de la rédaction de ces lignes.</para>
+  
+  <para>Les fonctions du document <acronym>RFC6106</acronym> sont utilisées
+  dans la maquette présentée dans les sections suivantes. Elles font clairement
+  apparaître la nécessité d'une configuration aux deux extrémités en
+  communication. Les mêmes échanges de paquets <glossterm
+  linkend='ra'><acronym>RA</acronym></glossterm> (<wordasword>Router
+  Advertisements</wordasword>) sont utilisés pour passer les paramètres mais
+  une application spécifique doit appliquer la configuration du
+  <wordasword>resolver</wordasword> <glossterm
+  linkend='dns'><acronym>DNS</acronym></glossterm>.</para> 
+  </listitem>
+  </varlistentry>
+  </variablelist>
+</section>
+
+<?custom-pagebreak?>
+<section xml:id='autoconf-ipv6.lab'>
+  <title>Présentation de la maquette</title>
+
+  <para>Dans le but d'illustrer l'autoconfiguration <acronym>IPv6</acronym>, on
+  doit chercher à reproduire un contexte réaliste. Ici, la maquette propose un
+  routeur <acronym>IPv6</acronym> qui dessert deux domaines de diffusion
+  (<glossterm linkend='vlan'><acronym>VLANs</acronym></glossterm>) dans
+  lesquels on trouve des postes clients qui reçoivent les annonces.</para>
+
+  <mediaobject xml:id='adressage-ipv6.lab.diagram'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/ipv6-stateless-autoconf-lab.png' width='17cm' scalefit='1'/>
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/ipv6-stateless-autoconf-lab.png' width='640px' scalefit='1'/>
+    </imageobject>
+    <textobject>
+    <phrase>Maquette autoconfiguration IPv6</phrase>
+    </textobject>
+  </mediaobject>
+
+  <variablelist>
+  <varlistentry>
+  <term>Accès Internet</term>
+  <listitem>
+  <para>L'accès au réseau public se fait via un tunnel fourni par le service
+  <citetitle>SixXS</citetitle> (&url.sixxs;). Ce service gratuit a pour but de
+  promouvoir l'utilisation du protocole <acronym>IPv6</acronym>. Il constitue
+  une opportunité fantastique pour apprendre et surtout pratiquer sur
+  l'interconnexion de réseaux <acronym>IPv6</acronym> avant de passer à
+  l'exploitation réelle.</para>
+
+  <para>Dans l'exemple traité ici, les 32 premiers bits de tous les préfixes
+  <acronym>IPv6</acronym> ont été corrigés avec le préfixe <systemitem
+  class='ipaddress'>2001:db8</systemitem> dédié à la documentation. En réalité,
+  on utilise des réseaux appartenant à un préfixe <systemitem
+  class='ipaddress'>/48</systemitem> gracieusement fourni par
+  <citetitle>SixXS</citetitle>. Ainsi, les possibilités d'interconnexion et de
+  configuration sont quasi infinies.</para>
+
+  <para>Le tunnel d'accès à l'Internet débouche sur un système hôte à partir
+  duquel on virtualise une instance de routeur <citetitle>Debian
+  GNU/Linux</citetitle> et des postes clients qui utilisent le même système.
+  Les fonctions de commutation des trames Ethernet et de gestion des
+  <glossterm linkend='vlan'><acronym>VLANs</acronym></glossterm> sont assurées
+  par &url.ovs;. Bref, un classique du site &url.inetdoc;!</para>
+  </listitem>
+  </varlistentry>
+
+  <varlistentry>
+  <term>Routeur <systemitem>IPv6-rtr</systemitem></term>
+  <listitem>
+  <para>Cette instance de machine virtuelle assure le routage statique entre le
+  <glossterm linkend='vlan'><acronym>VLAN</acronym></glossterm> de raccordement
+  au système hôte et les deux autres <glossterm
+  linkend='vlan'><acronym>VLANs</acronym></glossterm> sur lesquels les hôtes
+  utilisent l'autoconfiguration <acronym>IPv6</acronym>.</para>
+  
+  <para>Bien sûr, la fonction de routage <acronym>IPv6</acronym> doit être
+  active sur ce système. Dans ce but un fichier <filename>ipv6.conf</filename>
+  spécifique a été placé dans le répertoire <filename
+  class='directory'>/etc/sysctl.d/</filename>. Dans ce fichier, on trouve en
+  premier l'activation de la fonction de routage du noyau puis la désactivation
+  de l'autoconfiguration pour toutes les interfaces du système. Le routeur de
+  la maquette présentée doit uniquement publier les informations
+  d'autoconfiguration.</para> 
+
+<screen><prompt>etu@IPv6-rtr:~$</prompt> cat /etc/sysctl.d/ipv6.conf 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~é
+net.ipv6.conf.default.forwarding = 1
+#
+net.ipv6.conf.default.autoconf = 0
+net.ipv6.conf.default.accept_ra = 0
+net.ipv6.conf.default.accept_ra_defrtr = 0
+net.ipv6.conf.default.accept_ra_rtr_pref = 0
+net.ipv6.conf.default.accept_ra_pinfo = 0
+net.ipv6.conf.default.accept_source_route = 0
+net.ipv6.conf.default.accept_redirects = 0
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~é
+net.ipv6.conf.all.forwarding = 1
+#
+net.ipv6.conf.all.autoconf = 0
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.all.accept_ra_defrtr = 0
+net.ipv6.conf.all.accept_ra_rtr_pref = 0
+net.ipv6.conf.all.accept_ra_pinfo = 0
+net.ipv6.conf.all.accept_source_route = 0
+net.ipv6.conf.all.accept_redirects = 0</screen>
+
+  <para>Voici une copie de la table de routage qui fait apparaître les 3
+  réseaux représentés sur le schéma.</para> 
+
+<screen><prompt>etu@IPv6-rtr:~$</prompt> ip -6 route ls
+<emphasis>2OO1:db8:feb2:2::/64 dev eth0  proto kernel  metric 256
+2OO1:db8:feb2:a::/64 dev eth1.10  proto kernel  metric 256
+2OO1:db8:feb2:14::/64 dev eth1.20  proto kernel  metric 256</emphasis>
+fe80::/64 dev eth0  proto kernel  metric 256
+fe80::/64 dev eth1  proto kernel  metric 256
+fe80::/64 dev eth1.10  proto kernel  metric 256
+fe80::/64 dev eth1.20  proto kernel  metric 256
+<emphasis>default via 2OO1:db8:feb2:2::1 dev eth0  metric 1024</emphasis></screen>
+
+  <para>Le fichier de configuration principal des interfaces réseau se présente
+  de la façon suivante. Les adresses des interfaces sont statiques et définies
+  dans ce fichier.</para>
+
+<screen><prompt>etu@IPv6-rtr:~$</prompt> cat /etc/network/interfaces
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto eth0
+iface eth0 inet6 static
+        address 2OO1:db8:feb2:2::2/64
+        gateway 2OO1:db8:feb2:2::1
+        dns-nameservers 2OO1:db8:feb2:2::1 2001:4860:4860::8888<co xml:id='dns-nameservers'/>
+
+auto eth1
+iface eth1 inet6 manual
+        up echo 0 > /proc/sys/net/ipv6/conf/eth1/forwarding<co xml:id='eth1-forwarding'/>
+
+auto eth1.10
+iface eth1.10 inet6 static
+        hwaddress de:ad:00:be:ef:0a<co xml:id='eth1.10-mac'/>
+        address 2OO1:db8:feb2:a::1/64
+        vlan-raw-device eth1
+
+auto eth1.20
+iface eth1.20 inet6 static
+        hwaddress de:ad:00:be:ef:14<co xml:id='eth1.20-mac'/>
+        address 2OO1:db8:feb2:14::1/64
+        vlan-raw-device eth1</screen>
+
+  <calloutlist>
+    <callout arearefs='dns-nameservers'>
+    <para>La configuration du <wordasword>resolver</wordasword> <glossterm
+    linkend='dns'><acronym>DNS</acronym></glossterm> est directement fournie
+    avec la configuration des interfaces. Les informations fournies avec la
+    directive <option>dns-nameservers</option> sont exploitées par le paquet
+    <package>resolvconf</package>. Le rôle de ce paquet, spécifique à la
+    distribution <citetitle>Debian GNU/Linux</citetitle>, est d'arbitrer les
+    accès au fichier <filename>/etc/resolv.conf</filename>. Dans le cas
+    présent, la seule source est le fichier
+    <filename>/etc/network/interfaces</filename> alors que dans le cas d'un
+    hôte mobile avec ou sans double pile <acronym>IPv4</acronym> &amp;
+    <acronym>IPv6</acronym>, plusieurs programmes sont susceptibles de modifier
+    la configuration du <wordasword>resolver</wordasword>. Le recours au paquet
+    <package>resolvconf</package> est notamment nécessaire dans le cas des
+    postes clients.</para>
+
+    <para>La deux adresses <acronym>IPv6</acronym> données en paramètres
+    correspondent au système hôte sur lequel le logiciel
+    <application>bind9</application> est exécuté et à un serveur
+    <acronym>DNS</acronym> public de <trademark>Google</trademark>.</para>
+    </callout>
+
+    <callout arearefs='eth1-forwarding'>
+    <para>Le protocole <acronym>IPv6</acronym> introduit une condition
+    spécifique dans la configuration du <glossterm linkend='vlan'>routage
+    inter-VLAN</glossterm>. Avec l'attribution automatique d'une adresse
+    <acronym>IPv6</acronym> de type lien local (préfixe <systemitem
+    class='ipaddress'>fe80::/10</systemitem>), l'interface principale d'un
+    <glossterm linkend='trunk'><wordasword>trunk</wordasword></glossterm> peut
+    participer au processus de routage. La directive du fichier de
+    configuration empêche le routage des trames sans étiquette de <glossterm
+    linkend='vlan'><acronym>VLAN</acronym></glossterm> sur la base de l'adresse
+    de lien local de l'interface <option>eth1</option>.</para>
+    </callout>
+
+    <callout arearefs='eth1.10-mac eth1.20-mac'>
+    <para>De façon à distinguer les adresses de passerelles par défaut des deux
+    <glossterm linkend='vlan'><acronym>VLANs</acronym></glossterm>, on fixe
+    manuellement les adresses <glossterm
+    linkend='mac'><acronym>MAC</acronym></glossterm> des deux sous-interfaces.
+    On peut très bien se passer de cette «manœuvre» sachant que la portée ou la
+    visibilité d'une adresse <acronym>MAC</acronym> est limitée à un domaine de
+    diffusion unique. On perd cependant en lisibilité puisque, sans ce
+    changement d'adresse <acronym>MAC</acronym>, plusieurs
+    <acronym>VLANs</acronym> utilisent la même adresse <acronym>IPv6</acronym>
+    de lien local comme passerelle par défaut. Ici, on utilise un jeu de mot
+    hexadécimal très connu (<wordasword>dead beef</wordasword>) suivi du numéro
+    de <acronym>VLAN</acronym> pour distinguer les interfaces du routeur qui
+    servent de passerelle par défaut aux hôtes raccordés aux
+    <acronym>VLANs</acronym>.</para>
+   </callout>
+  </calloutlist>
+  </listitem>
+  </varlistentry>
+  </variablelist>
+
+  <para>Une fois la partie routage statique en place, on peut passer à la
+  présentation de l'autoconfiguration côté routeur puis côté client.</para>
+</section>
+
+<section xml:id='autoconf-ipv6.router-side'>
+  <title>Autoconfiguration côté routeur</title>
+
+  <para>Le routeur est responsable de la publication des paramètres de
+  configuration des hôtes clients raccordés aux deux <glossterm
+  linkend='vlan'><acronym>VLANs</acronym></glossterm> de la maquette. Il existe
+  plusieurs logiciels pour assurer cette fonction. Au moment de la rédaction de
+  ces lignes, seul le paquet <package>radvd</package> supporte la publication
+  des paramètres <glossterm linkend='dns'><acronym>DNS</acronym></glossterm>
+  définis dans le document &url.rfc6106;. On a vu dans la <xref
+  linkend='autoconf-ipv6.context'/> que pour que l'autoconfiguration
+  <acronym>IPv6</acronym> soit une solution satisfaisante, il faut qu'elle
+  couvre la même liste d'attributs de base qu'un service
+  <acronym>DHCP</acronym> classique.</para>
+
+  <para>La configuration du paquet <package>radvd</package> se résume au
+  fichier <filename>/etc/radvd.conf</filename> dont voici une copie. On
+  identifie facilement les deux sections <parameter>interface</parameter> qui
+  correspondent aux deux <glossterm
+  linkend='vlan'><acronym>VLANs</acronym></glossterm> desservis par le
+  routeur ainsi que les préfixes <acronym>IPv6</acronym> associés.</para>
+
+<screen><prompt>etu@IPv6-rtr:~$</prompt> cat /etc/radvd.conf 
+interface eth1.10
+{
+   AdvSendAdvert on; <co xml:id='advsendadvert'/>
+   prefix 2OO1:db8:feb2:a::/64 <co xml:id='prefix'/>
+   { };
+
+   RDNSS 2OO1:db8:feb2:2::1 <co xml:id='rdnss'/>
+   { };
+
+   RDNSS 2001:4860:4860::8888
+   { };
+};
+
+interface eth1.20
+{
+   AdvSendAdvert on;
+   prefix 2OO1:db8:feb2:14::/64
+   { };
+
+   RDNSS 2OO1:db8:feb2:2::1
+   { };
+
+   RDNSS 2001:4860:4860::8888
+   { };
+};</screen>
+
+  <calloutlist>
+    <callout arearefs='advsendadvert'>
+    <para>L'option <option>AdvSendAdvert</option> doit être positionnée à la
+    valeur <option>on</option> pour que les annonces soient publiées.</para>
+    </callout>
+
+    <callout arearefs='prefix'>
+    <para>La directive <option>prefix</option>, comme son nom l'indique,
+    désigne le réseau <acronym>IPv6</acronym> annoncé dans le domaine de
+    diffusion. L'espace vide entre les accolades indique que l'on s'appuie sur
+    les valeurs par défaut de la configuration de
+    <package>radvd</package>.</para>
+    </callout>
+
+    <callout arearefs='rdnss'>
+    <para>Les directives <option>RDNSS</option> désignent les adresses des
+    serveurs <glossterm linkend='dns'><acronym>DNS</acronym></glossterm> à
+    annoncer aux postes clients. L'acronyme <acronym>RDNSS</acronym> correspond
+    à <wordasword>Recursive DNS server</wordasword>. Ce sont ces attributs qui
+    ont été introduits dans le document <acronym>RFC6106</acronym>.</para>
+    </callout>
+  </calloutlist>
+
+</section>
+
+<section xml:id='autoconf-ipv6.conclusion'>
+  <title>Pour conclure</title>
+
+  <para>Voilà ! On dispose maintenant d'une maquette de validation de
+  l'autoconfiguration <acronym>IPv6</acronym> avec un service
+  <wordasword>multicast</wordasword> <acronym>DNS</acronym></para>
+</section>
+
+<?custom-pagebreak?>
+<glossary xml:id='autoconf-ipv6.glossary'>
+  <title>Glossaire</title>
+
+  <glossentry xml:id='dhcp'>
+    <glossterm>Dynamic Host Control Protocol</glossterm>
+    <acronym>DHCP</acronym>
+    <glossdef>
+    <para>Ce service attribue automatiquement les paramètres de configuration à
+    une interface réseau qui en fait la demande : adresse
+    <acronym>IP</acronym>, passerelle par défaut et
+    <wordasword>resolver</wordasword> <glossterm
+    linkend='dns'><acronym>DNS</acronym></glossterm>. L'adresse <glossterm
+    linkend='mac'><acronym>MAC</acronym></glossterm> de l'interface est la clé
+    d'enregistrement des paramètres attribués. En effet, l'adresse <glossterm
+    linkend='mac'><acronym>MAC</acronym></glossterm> d'une interface est la
+    seule «identité» dont l'hôte dispose au moment de la requête de
+    configuration réseau.</para>
+    </glossdef>
+  </glossentry>
+
+  <glossentry xml:id='dns'>
+    <glossterm>Domain Name System</glossterm>
+    <acronym>DNS</acronym>
+    <glossdef>
+    <para>Le principe de base du service de résolution des noms de domaines est
+    d'associer un nom à une adresse <acronym>IP</acronym>. Il repose sur un
+    enregistrement des <acronym>Resource Records</acronym>
+    (<acronym>RRs</acronym>) qui constituent une base de données.</para>
+    </glossdef>
+  </glossentry>
+
+  <glossentry xml:id='mac'>
+    <glossterm>Media Access Control address</glossterm>
+    <acronym>MAC</acronym>
+    <glossdef>
+    <para>L'adresse <acronym>MAC</acronym> est un identifiant unique affecté à
+    une interface réseau. Elle est utilisée dans les trames du niveau liaison
+    de données de la modélisation pour repérer un hôte dans un réseau local de
+    diffusion. Elle sert aussi d'identifiant dans l'attribution des paramètres
+    de configuration réseau d'une interface.</para>
+    </glossdef>
+  </glossentry>
+
+  <glossentry xml:id='nat'>
+    <glossterm>Native Address Translation</glossterm>
+    <acronym>NAT</acronym>
+    <glossdef>
+    <para>La traduction d'adresses a été introduite pour prévenir la pénurie
+    des adresses <acronym>IPv4</acronym>. Ce mécanisme permet d'associer un
+    groupe d'adresses dites privées à une ou plusieurs adresses publiques. Le
+    passage d'un groupe d'adresses à une seule adresse visible de l'Internet
+    utilise une table d'enregistrement des flux réseau. Il s'agit d'un exemple
+    caractéristique de service <wordasword>Stateful</wordasword>. Si cette
+    technique a été massivement utilisée, elle entraîne une rupture dans le
+    principe des réseaux à commutation de paquets <acronym>IP</acronym> qui
+    supposent que n'importe quel hôte soit susceptible de contacter n'importe
+    quel autre hôte.</para>
+    </glossdef>
+  </glossentry>
+
+  <glossentry xml:id='ra'>
+    <glossterm>Router Advertisements</glossterm>
+    <acronym>RA</acronym>
+    <glossdef>
+    <para>Les annonces de paramètres d'autoconfiguration des interfaces des
+    hôtes raccordés au réseau par les routeurs font partie du protocole décrit
+    dans le document &url.rfc4861;. Dans ces annonces, on trouve le préfixe
+    réseau, la passerelle par défaut ainsi que l'adresse du ou des serveurs
+    <acronym>DNS</acronym>.</para>
+    </glossdef>
+  </glossentry>
+
+  <glossentry xml:id='slaac'>
+    <glossterm>IPv6 Stateless Address Autoconfiguration</glossterm>
+    <acronym>SLAAC</acronym>
+    <glossdef>
+    <para>L'acronyme <acronym>SLAAC</acronym> fait référence à
+    l'autoconfiguration <acronym>IPv6</acronym> décrite dans le document
+    &url.rfc4862;.</para>
+    </glossdef>
+  </glossentry>
+
+  <glossentry xml:id='trunk'>
+    <glossterm>Interface trunk</glossterm>
+    <glossdef>
+    <para>Une interface réseau en mode <wordasword>trunk</wordasword> est un
+    port physique qui véhicule le trafic de plusieurs réseaux locaux distincts
+    appelés <glossterm
+    linkend='vlan'><acronym>VLANs</acronym></glossterm>.</para>
+    </glossdef>
+  </glossentry>
+
+  <glossentry xml:id='vlan'>
+    <glossterm>Virtual Local Area Network</glossterm>
+    <acronym>VLAN</acronym>
+    <glossdef>
+    <para>Un <acronym>VLAN</acronym> est un domaine de diffusion distribué
+    entre les équipements de commutation de trames Ethernet. Dans le contexte
+    de ce document, les <acronym>VLANs</acronym> sont utilisés pour découper 3
+    réseaux locaux distincts. Parmi ces réseaux, deux sont utilisés pour
+    l'autoconfiguration <acronym>IPv6</acronym>. Pour plus d'informations sur
+    le sujet, voir le document &url.inter-vlan-routing;.</para>
+    </glossdef>
+  </glossentry>
+</glossary>
+</article>

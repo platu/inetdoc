@@ -578,21 +578,21 @@ up into multiple documents.
 		font-family="{$title.fontset}"
 		font-weight="bold">
         <xsl:call-template name="component.title">
-          <xsl:with-param name="node" select="ancestor-or-self::bibliography[1]"/>
+          <xsl:with-param name="node" select="ancestor-or-self::d:bibliography[1]"/>
         </xsl:call-template>
       </fo:block>
       <xsl:choose>
-        <xsl:when test="bibliographyinfo/subtitle">
-          <xsl:apply-templates mode="bibliography.titlepage.recto.auto.mode" select="bibliographyinfo/subtitle"/>
+        <xsl:when test="d:bibliographyinfo/d:subtitle">
+          <xsl:apply-templates mode="bibliography.titlepage.recto.auto.mode" select="d:bibliographyinfo/d:subtitle"/>
         </xsl:when>
         <xsl:when test="docinfo/subtitle">
-          <xsl:apply-templates mode="bibliography.titlepage.recto.auto.mode" select="docinfo/subtitle"/>
+          <xsl:apply-templates mode="bibliography.titlepage.recto.auto.mode" select="d:docinfo/d:subtitle"/>
         </xsl:when>
         <xsl:when test="subtitle">
-          <xsl:apply-templates mode="bibliography.titlepage.recto.auto.mode" select="subtitle"/>
+          <xsl:apply-templates mode="bibliography.titlepage.recto.auto.mode" select="d:subtitle"/>
         </xsl:when>
         <xsl:when test="bibliodiv/title">
-          <xsl:apply-templates mode="bibliography.titlepage.recto.auto.mode" select="bibliodiv/title"/>
+          <xsl:apply-templates mode="bibliography.titlepage.recto.auto.mode" select="d:bibliodiv/d:title"/>
         </xsl:when>
       </xsl:choose>
     </xsl:template>
@@ -608,6 +608,34 @@ up into multiple documents.
           <xsl:with-param name="node" select="ancestor-or-self::bibliodiv[1]"/>
         </xsl:call-template>
       </fo:block>
+    </xsl:template>
+    
+    <!-- Glossary title size -->
+    <xsl:template name="glossary.titlepage.recto">
+      <fo:block xmlns:fo="http://www.w3.org/1999/XSL/Format"
+                xsl:use-attribute-sets="glossary.titlepage.recto.style"
+		margin-left="{$title.margin.left}"
+		font-size="{$body.font.master * 1.25}pt"
+		font-family="{$title.fontset}"
+                font-weight="bold">
+        <xsl:call-template name="component.title">
+          <xsl:with-param name="node" select="ancestor-or-self::d:glossary[1]"/>
+        </xsl:call-template>
+      </fo:block>
+      <xsl:choose>
+        <xsl:when test="d:glossaryinfo/d:subtitle">
+          <xsl:apply-templates mode="glossary.titlepage.recto.auto.mode" select="d:glossaryinfo/d:subtitle"/>
+        </xsl:when>
+        <xsl:when test="docinfo/subtitle">
+          <xsl:apply-templates mode="glossary.titlepage.recto.auto.mode" select="d:docinfo/d:subtitle"/>
+        </xsl:when>
+        <xsl:when test="info/subtitle">
+          <xsl:apply-templates mode="glossary.titlepage.recto.auto.mode" select="d:info/d:subtitle"/>
+        </xsl:when>
+        <xsl:when test="subtitle">
+          <xsl:apply-templates mode="glossary.titlepage.recto.auto.mode" select="d:subtitle"/>
+        </xsl:when>
+      </xsl:choose>
     </xsl:template>
 
     <!-- Titles of formal objects (tables, examples, ...) -->
@@ -803,4 +831,16 @@ up into multiple documents.
         <xsl:attribute name="space-before.optimum">0.2em</xsl:attribute>
         <xsl:attribute name="space-before.maximum">0.3em</xsl:attribute>
     </xsl:attribute-set>
+
+    <!-- Glossary properties -->
+    <xsl:param name="glossentry.show.acronym">yes</xsl:param>
+
+    <xsl:template match="glossterm" mode="glossary.as.list">
+    <xsl:variable name="id">
+    <xsl:call-template name="object.id"/>
+    </xsl:variable>
+    <fo:block text-align="left">
+    <fo:inline id="{$id}"><xsl:apply-templates/></fo:inline>
+    </fo:block>
+    </xsl:template>
 </xsl:stylesheet>
