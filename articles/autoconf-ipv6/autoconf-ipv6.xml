@@ -251,7 +251,7 @@
   </mediaobject>
 
   <variablelist>
-  <varlistentry>
+  <varlistentry xml:id='sixxs'>
   <term>Accès Internet</term>
   <listitem>
   <para>L'accès au réseau public se fait via un tunnel fourni par le service
@@ -278,7 +278,7 @@
   </listitem>
   </varlistentry>
 
-  <varlistentry>
+  <varlistentry xml:id='ipv6-rtr'>
   <term>Routeur <systemitem>IPv6-rtr</systemitem></term>
   <listitem>
   <para>Cette instance de machine virtuelle assure le routage statique entre le
@@ -453,10 +453,10 @@ iface eth1.20 inet6 static
 interface eth1.10
 {
    AdvSendAdvert on; <co xml:id='advsendadvert'/>
-   prefix 2OO1:db8:feb2:a::/64 <co xml:id='prefix'/>
+   prefix 2OO1:db8:feb2:a::/64 <co xml:id='prefix-entry'/>
    { };
 
-   RDNSS 2OO1:db8:feb2:2::1 <co xml:id='rdnss'/>
+   RDNSS 2OO1:db8:feb2:2::1 <co xml:id='rdnss-entry'/>
    { };
 
    RDNSS 2001:4860:4860::8888
@@ -482,7 +482,7 @@ interface eth1.20
     valeur <option>on</option> pour que les annonces soient publiées.</para>
     </callout>
 
-    <callout arearefs='prefix'>
+    <callout arearefs='prefix-entry'>
     <para>La directive <option>prefix</option>, comme son nom l'indique,
     désigne le réseau <acronym>IPv6</acronym> annoncé dans le domaine de
     diffusion. L'espace vide entre les accolades indique que l'on s'appuie sur
@@ -490,7 +490,7 @@ interface eth1.20
     <package>radvd</package>.</para>
     </callout>
 
-    <callout arearefs='rdnss'>
+    <callout arearefs='rdnss-entry'>
     <para>Les directives <option>RDNSS</option> désignent les adresses des
     serveurs <glossterm linkend='dns'><acronym>DNS</acronym></glossterm> à
     annoncer aux postes clients. L'acronyme <acronym>RDNSS</acronym> correspond
@@ -509,6 +509,7 @@ interface eth1.20
   &url.bug658254;.</para>
 </section>
 
+<?custom-pagebreak?>
 <section xml:id='autoconf-ipv6.client-side'>
   <title>Autoconfiguration côté client</title>
 
@@ -541,6 +542,8 @@ iface eth0 inet6 auto</screen>
   l'autoconfiguration <acronym>IPv6</acronym> apparaît dans la liste des
   adresses et la table de routage du poste client.</para>
 
+  <informalexample xml:id='vm21.address-list'>
+  <bridgehead renderas='sect5'>Liste des adresses de l'hôte vm21</bridgehead>
 <screen><prompt>etu@vm21:~$</prompt> ip addr ls
 1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default 
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
@@ -554,11 +557,252 @@ iface eth0 inet6 auto</screen>
        valid_lft 85946sec preferred_lft 13946sec
     <emphasis>inet6 fe80::b8ad:ff:feca:fe15/64 scope link</emphasis>
        valid_lft forever preferred_lft forever</screen>
+  </informalexample>
 
+  <informalexample xml:id='vm21.routing-table'>
+  <bridgehead renderas='sect5'>Table de routage de l'hôte vm21</bridgehead>
 <screen><prompt>etu@vm21:~$</prompt> ip -6 route ls
-2OO1:db8:feb2:14::/64 dev eth0  proto kernel  metric 256  expires 86141sec
+<emphasis>2OO1:db8:feb2:14::/64</emphasis> dev eth0  proto kernel  metric 256  expires 86141sec
 fe80::/64 dev eth0  proto kernel  metric 256 
-default via fe80::dcad:ff:febe:ef14 dev eth0  proto ra  metric 1024  expires 1541sec</screen>
+default via <emphasis>fe80::dcad:ff:febe:ef14</emphasis> dev eth0  proto ra  metric 1024  expires 1541sec</screen>
+  </informalexample>
+
+  <para>Les deux copies d'écran ci-dessus permettent de donner quelques
+  explications sur la composition des adresses <acronym>IPv6</acronym> avec
+  l'autoconfiguration <glossterm
+  linkend='slaac'><acronym>SLAAC</acronym></glossterm>. Si on se réfère au
+  <link linkend='autoconf-ipv6.lab'>schéma de la maquette</link>, on voit que
+  le système <systemitem class='systemname'>vm21</systemitem> est un hôte du
+  <acronym>VLAN</acronym> 20 dont le préfixe réseau est <systemitem
+  class='ipaddress'>2OO1:db8:feb2:14::/64</systemitem> ; préfixe qui apparaît
+  en première ligne de la table de routage.</para> 
+
+  <para>Voyons comment les adresses de l'interface <option>eth0</option> de
+  l'hôte <systemitem class='systemname'>vm21</systemitem> ont été composées.
+  Une fois de plus, c'est l'adresse <glossterm
+  linkend='mac'><acronym>MAC</acronym></glossterm> qui constitue la clé de
+  composition des autres adresses. Dans cet exemple, l'adresse <systemitem
+  class='etheraddress'>ba:ad:00:ca:fe:15</systemitem> a été définie dans le
+  script de lancement du système virtuel (Voir &url.vm;).</para>
+
+  <para>Il s'agit d'une adresse de type <acronym>EUI48</acronym> comprenant 6
+  octets à partir de laquelle le système compose une adresse de type
+  <acronym>EUI64</acronym> avec 8 octets en insérant l'empreinte <systemitem
+  class='etheraddress'>ff:fe</systemitem> au milieu. Ce n'est pas tout, le bit
+  <acronym>U/L</acronym> de l'octet situé le plus à gauche passe de 1 à 0.
+  Ainsi l'adresse <acronym>MAC</acronym> de départ <systemitem
+  class='etheraddress'>ba:ad:00:ca:fe:15</systemitem> devient <systemitem
+  class='etheraddress'>b8:ad:ff:fe:ca:fe:15</systemitem>. Pour plus de détail
+  voir la section &url.inter-vlan-routing-mac-types; de l'article
+  &url.inter-vlan-routing;.</para>
+
+  <para>À la suite de ce traitement sur l'adresse <acronym>MAC</acronym>, deux
+  adresses <acronym>IPv6</acronym> sont construites.</para>
+
+  <variablelist>
+    <varlistentry>
+    <term><systemitem
+    class='ipaddress'>fe80::b8ad:ff:feca:fe15/64</systemitem></term>
+    <listitem>
+    <para>Cette adresse de type lien local utilise le préfixe <systemitem
+    class='ipaddress'>fe80::/10</systemitem>. L'adresse <acronym>MAC</acronym>
+    de type <acronym>EUI64</acronym> est placée à droite (bits de poids faible)
+    du préfixe de façon à composer une adresse sur 128 bits. Comme la mention
+    <wordasword>scope link</wordasword> de la copie d'écran l'indique, la
+    portée de cette adresse est limitée au <acronym>VLAN</acronym>, ou encore
+    au domaine de diffusion. Ces adresses sont très utiles pour joindre les
+    hôtes voisins appartenant au même réseau. Par exemple, il est possible de
+    contacter l'hôte <systemitem class='systemname'>vm20</systemitem> de la
+    façon suivante.</para>
+
+<screen><prompt>etu@vm21:~$</prompt> ping6 -c 2 fe80::b8ad:ff:feca:fe14%eth0
+PING fe80::b8ad:ff:feca:fe14%eth0(fe80::b8ad:ff:feca:fe14) 56 data bytes
+64 bytes from fe80::b8ad:ff:feca:fe14: icmp_seq=1 ttl=64 time=1.65 ms
+64 bytes from fe80::b8ad:ff:feca:fe14: icmp_seq=2 ttl=64 time=0.624 ms
+
+--- fe80::b8ad:ff:feca:fe14%eth0 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.624/1.141/1.658/0.517 ms</screen>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry>
+    <term><systemitem
+    class='ipaddress'>2OO1:db8:feb2:14:b8ad:ff:feca:fe15/64</systemitem></term>
+    <listitem>
+    <para>Cette adresse de type global utilise le préfixe <systemitem
+    class='ipaddress'>2OO1:db8:feb2:14::/64</systemitem> annoncé dans les
+    paquets <glossterm linkend='ra'><acronym>RAs</acronym></glossterm> émis par
+    le routeur. C'est le résultat du travail effectué par le paquet
+    <package>radvd</package> présenté dans la <xref
+    linkend='autoconf-ipv6.router-side'/>. Comme dans le cas de l'adresse de
+    type lien local, l'adresse <acronym>MAC</acronym> au format
+    <acronym>EUI64</acronym> est utilisée comme suffixe pour composer l'adresse
+    <acronym>IPv6</acronym> complète sur 128 bits. À la différence de l'adresse
+    précédente, la mention <wordasword>global dynamic</wordasword> indique que
+    cette adresse à une portée globale et qu'elle est utilisable depuis
+    n'importe quel autre réseau. À titre d'illustration, voici une copie
+    d'écran qui montre le résultat d'un <command>ping</command>
+    <acronym>IPv6</acronym> depuis le service en ligne
+    <citetitle>subnetonline.com</citetitle>.</para>
+
+    <mediaobject xml:id='subnetonline.screenshot'>
+      <imageobject role='fo'>
+      <imagedata format='PNG' fileref='images/subnetonline-ping6.png' width='12cm' scalefit='1'/>
+      </imageobject>
+      <imageobject role='html'>
+      <imagedata format='PNG' fileref='images/subnetonline-ping6.png' width='640px' scalefit='1'/>
+      </imageobject>
+      <textobject>
+      <phrase>Ping IPv6 depuis subnetonline.com</phrase>
+      </textobject>
+    </mediaobject>
+
+    <para>On remarque que l'adresse <acronym>IPv6</acronym> testée utilise le
+    préfixe <link linkend='sixxs'><citetitle>SixXS</citetitle></link> et non le
+    préfixe de documentation <systemitem
+    class='ipaddress'>2001:db8::/32</systemitem>.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Côté table de routage, la seule particularité vient du fait que la
+  passerelle par défaut est désignée par son adresse de type lien local et non
+  par son adresse globale statique : <systemitem
+  class='ipaddress'>fe80::dcad:ff:febe:ef14</systemitem>. C'est bien cette
+  adresse de type lien local qui est annoncée par le service
+  d'autoconfiguration dont la portée est justement limitée au domaine de
+  diffusion. C'est à ce niveau qu'intervient le mécanisme de sélection
+  d'adresse qui fait que les deux types d'adresses peuvent coexister. Ainsi, la
+  table des voisins sur le réseau local peut donner les résultats
+  suivants.</para>
+
+<screen><prompt>etu@vm21:~$</prompt> ip -6 neighbor ls
+<emphasis>fe80::dcad:ff:febe:ef14 dev eth0 lladdr de:ad:00:be:ef:14 router STALE</emphasis>
+<emphasis>2OO1:db8:feb2:14::1 dev eth0 lladdr de:ad:00:be:ef:14 router DELAY</emphasis>
+fe80::b8ad:ff:feca:fe14 dev eth0 lladdr ba:ad:00:ca:fe:14 STALE
+2OO1:db8:feb2:14:b8ad:ff:feca:fe14 dev eth0 lladdr ba:ad:00:ca:fe:14 STALE</screen>
+
+  <para>Les deux premières entrées de la table ci-dessus correspondent bien au
+  même hôte voisin : le routeur <systemitem
+  class='systemname'>IPv6-rtr</systemitem>.</para>
+</section>
+
+<?custom-pagebreak?>
+<section xml:id='autoconf-ipv6.rfc6106'>
+  <title><wordasword>Resolver</wordasword> DNS</title>
+
+  <para>Même si cette section fait formellement partie de <link
+  linkend='autoconf-ipv6.client-side'>l'autoconfiguration du poste
+  client</link>, on lui réserve un traitement particulier. Comme indiqué dans
+  la <xref linkend='autoconf-ipv6.context'/>, l'autoconfiguration
+  <acronym>IPv6</acronym>, telle qu'elle est présentée dans la section
+  précédente, se limite strictement à la couche réseau de la modélisation.
+  Relativement à un service <glossterm
+  linkend='dhcp'><acronym>DHCP</acronym></glossterm> classique, il manque la
+  désignation du serveur <glossterm
+  linkend='dns'><acronym>DNS</acronym></glossterm>. On se retrouve dans une
+  situation assez paradoxale. Un service d'autoconfiguration limité à la couche
+  réseau convient très bien aux équipements d'interconnexion réseau. Or, on
+  peut dire que jusqu'à présent, ces équipements ont des besoins limités dans
+  ce domaine. À l'opposé, les hôtes raccordés aux réseaux ont un grand besoin
+  du service d'autoconfiguration et ne peuvent pas se passer de la
+  configuration du <wordasword>resolver</wordasword> <acronym>DNS</acronym>. En
+  effet, la moindre communication réseau utilise les noms de domaines sur un
+  hôte et il est impossible d'initier cette communication si les programmes de
+  la couche application ne disposent pas d'un serveur <acronym>DNS</acronym> à
+  contacter.</para>
+
+  <para>Dans la <xref linkend='autoconf-ipv6.router-side'/>, le paquet
+  <package>radvd</package> a été configuré pour annoncer deux adresses de
+  serveur <acronym>DNS</acronym>. Il faut maintenant que ces annonces soient
+  exploitées côté client. Cette opération implique l'utilisation de deux
+  paquets.</para>
+
+  <variablelist>
+    <varlistentry>
+    <term><package>resolvconf</package></term>
+    <listitem>
+    <para>Le paquet <package>resolvconf</package> n'est pas lié à priori à
+    l'autoconfiguration <acronym>IPv6</acronym>. Son rôle est d'arbitrer les
+    accès au fichier <filename>/etc/resolv.conf</filename>. Les entrées placées
+    dans ce fichier sont utilisées par la bibliothèque standard dès qu'il est
+    question d'une opération sur un nom d'hôte. On peut citer l'exemple de
+    l'appel à <function>getaddrinfo()</function> présenté dans le document
+    &url.socket-c46;.</para>
+
+    <para>Historiquement, de nombreuses applications de configuration réseau
+    avaient la possibilité d'écrire dans le fichier
+    <filename>/etc/resolv.conf</filename> sans tenir compte de la
+    «concurrence». Le script <command>resolvconf</command> est appelé dès
+    qu'une interface réseau est activée ou désactivée. Il se charge alors
+    d'éditer le contenu du fichier de configuration si besoin.</para>
+
+    <para>Dans le cas présent, <command>resolvconf</command> est là pour
+    implanter les entrées de serveur <acronym>DNS</acronym> annoncées dans les
+    paquets <glossterm linkend='ra'><acronym>RAs</acronym></glossterm>.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry>
+    <term><package>rdnssd</package></term>
+    <listitem>
+    <para>Le démon <systemitem class='daemon'>rdnssd</systemitem> scrute les
+    annonces <glossterm linkend='rdnss'><acronym>RDNSS</acronym></glossterm> et
+    les traduit dans son propre fichier <filename>resolv.conf</filename>. Ce
+    fichier est ensuite traité par le script <command>resolvconf</command> de
+    façon à fournir au système un fichier
+    <filename>/etc/resolv.conf</filename>.</para>
+
+    <para>Dans le cas de la maquette, seul le protocole <acronym>IPv6</acronym>
+    est utilisé. Dans un cas de fonctionnement en double pile
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym>, le script
+    <command>resolvconf</command> veille à conserver les entrées des deux
+    protocoles pour respecter les choix des programmes de la couche
+    application.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Voici le résultat produit lorsque les deux paquets sont installés sur
+  le système.</para>
+
+<screen><prompt>etu@vm21:~$</prompt> cat /etc/resolv.conf 
+# Dynamic resolv.conf(5) file for glibc resolver(3) generated by resolvconf(8)
+#     DO NOT EDIT THIS FILE BY HAND -- YOUR CHANGES WILL BE OVERWRITTEN
+nameserver 2a01:240:feb2:2::1
+nameserver 2001:4860:4860::8888</screen>
+
+  <para>On retrouve bien les deux adresses <acronym>IPv6</acronym> définies
+  dans le fichier de configuration du démon <systemitem
+  class='daemon'>radvd</systemitem>.</para>
+
+  <para>On teste simplement l'utilisation de la bibliothèque standard à l'aide
+  de la commande <command>host</command> du paquet
+  <package>bind9-host</package>.</para>
+
+<screen><prompt>etu@vm21:~$</prompt> host www.nic.fr
+www.nic.fr is an alias for web01.nic.fr.
+web01.nic.fr has address 192.134.5.5
+web01.nic.fr has IPv6 address 2001:67c:2218:30::5</screen>
+</section>
+
+<?custom-pagebreak?>
+<section xml:id='autoconf-ipv6.mdns'>
+  <title>Multicast DNS</title>
+
+  <para>Une fois que l'autoconfiguration <acronym>IPv6</acronym> (<glossterm
+  linkend='slaac'><acronym>SLAAC</acronym></glossterm>) est en place, les hôtes
+  de la maquette sont capables de contacter n'importe quel autre hôte
+  <acronym>IPv6</acronym> sur l'Internet à partir de son nom enregistré dans le
+  service <glossterm linkend='dns'><acronym>DNS</acronym></glossterm>. Qu'en
+  est-il des hôtes voisins qui n'ont pas été enregistrés ? Est-il même
+  nécessaire de les enregistrer ?</para>
+
+  <para>Pour revenir au <link linkend='autoconf-ipv6.context'>préambule</link>
+  de ce document, l'objectif est d'aller au maximum des possibilités de
+  configuration sans enregistrement d'un état. C'est à ce niveau qu'intervient
+  le <citetitle>multicast DNS</citetitle></para>
 </section>
 
 <section xml:id='autoconf-ipv6.conclusion'>
@@ -639,6 +883,18 @@ default via fe80::dcad:ff:febe:ef14 dev eth0  proto ra  metric 1024  expires 154
     dans le document &url.rfc4861;. Dans ces annonces, on trouve le préfixe
     réseau, la passerelle par défaut ainsi que l'adresse du ou des serveurs
     <acronym>DNS</acronym>.</para>
+    </glossdef>
+  </glossentry>
+
+  <glossentry xml:id='rdnss'>
+    <glossterm>Recursive DNS Server</glossterm>
+    <acronym>RDNSS</acronym>
+    <glossdef>
+    <para>Les annonces <acronym>RDNSS</acronym> font partie des paramètres
+    d'autoconfiguration <acronym>IPv6</acronym>. Elles sont définies dans le
+    document &url.rfc6106;. Elles contiennent les adresses des serveurs
+    <acronym>DNS</acronym> que les hôtes doivent utiliser pour leurs requêtes
+    au service de noms de domaines.</para>
     </glossdef>
   </glossentry>
 
