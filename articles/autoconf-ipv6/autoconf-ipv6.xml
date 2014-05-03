@@ -805,7 +805,7 @@ web01.nic.fr has IPv6 address 2001:67c:2218:30::5</screen>
   service décrit dans le (long) document &url.rfc6762;. Il s'agit de mettre en
   œuvre un mécanisme de résolution des noms d'hôtes en l'absence
   d'infrastructure. Pour simplifier à l'extrême, le principe de fonctionnement
-  rassemble les points suivants :</para>
+  du service <acronym>mDNS</acronym> rassemble les points suivants :</para>
 
   <itemizedlist>
     <listitem>
@@ -837,6 +837,14 @@ web01.nic.fr has IPv6 address 2001:67c:2218:30::5</screen>
     <para>Chaque hôte détient et est responsable de ses propres
     enregistrements.</para>
     </listitem>
+
+    <listitem>
+    <para>Par défaut, la portée du service est limitée à un seul domaine de
+    diffusion ou <acronym>VLAN</acronym>. Par définition, le préfixe
+    <acronym>IPv6</acronym> <systemitem
+    class='ipaddress'>ff02::/16</systemitem> à pour portée le lien
+    local uniquement.</para> 
+    </listitem>
   </itemizedlist>
 
   <para>Voici un extrait d'analyse réseau qui illustre chacun des points
@@ -850,7 +858,7 @@ web01.nic.fr has IPv6 address 2001:67c:2218:30::5</screen>
     <para>Sur la première ligne, l'hôte <systemitem
     class='systemname'>vm21</systemitem> avec l'adresse <acronym>IPv6</acronym>
     <systemitem
-    class='ipaddress'>2a01:240:feb2:14:b8ad:ff:feca:fe15</systemitem> cherche à
+    class='ipaddress'>2OO1:db8:feb2:14:b8ad:ff:feca:fe15</systemitem> cherche à
     connaître l'adresse <acronym>IPv6</acronym> de l'hôte <systemitem
     class='systemname'>ipv6-rtr.local</systemitem>.</para>
     </listitem>
@@ -913,25 +921,97 @@ netgroup:       nis</screen>
     </listitem>
   </itemizedlist>
 
-  <para>Pour valider cette configuration, il est possible de faire le test
-  élémentaire suivant qui désigne l'hôte à contacter par son nom.</para>
+  <para>Pour valider cette configuration, on peut faire un test élémentaire qui
+  désigne l'hôte à contacter par son nom. Avec la commande
+  <command>ping6</command>, on obtient les résultats suivants :</para>
 
 <screen><prompt>etu@vm21:~$</prompt> ping6 -c 2 ipv6-rtr.local
-PING ipv6-rtr.local(IPv6-rtr.local) 56 data bytes
+PING <emphasis>ipv6-rtr.local(IPv6-rtr.local)</emphasis> 56 data bytes
 64 bytes from IPv6-rtr.local: icmp_seq=1 ttl=64 time=0.799 ms
 64 bytes from IPv6-rtr.local: icmp_seq=2 ttl=64 time=0.712 ms
 
 --- ipv6-rtr.local ping statistics ---
 2 packets transmitted, 2 received, 0% packet loss, time 1001ms
 rtt min/avg/max/mdev = 0.712/0.755/0.799/0.051 ms</screen>
+
+  <para>Ce test est effectué entre deux hôtes appartenant au même
+  <acronym>VLAN</acronym>. Les hôtes <systemitem
+  class='systemname'>vm21</systemitem> et <systemitem
+  class='systemname'>ipv6-rtr</systemitem> sont deux placés dans le
+  <acronym>VLAN</acronym> numéro <option>20</option>.</para>
+
+  <bridgehead renderas='sect2'>Routeur &amp; <wordasword>reflector</wordasword>
+  mDNS</bridgehead>
+
+  <para>La configuration du démon <application>avahi-daemon</application>
+  prévoit que celui-ci puisse jouer le rôle de concentrateur ou
+  <wordasword>reflector</wordasword>. Compte tenu de son rôle particulier, le
+  routeur peut collecter les enregistrements de tous les domaines de diffusion
+  qu'il dessert puis les rendre disponibles à l'ensemble des hôtes.</para>
+
+  <para>Pour activer la fonction <wordasword>reflector</wordasword>, il faut
+  éditer le fichier de configuration
+  <filename>/etc/avahi/avahi-daemon.conf</filename> et rechercher la section
+  correspondante. Voici un extrait du fichier avec l'option activée.</para>
+
+<screen>[reflector]
+enable-reflector=yes
+reflect-ipv=yes</screen>
+
+  <para>Une fois le démon redémarré, les hôtes des trois domaines de diffusion
+  sont accessibles les uns les autres. Il suffit de faire un test avec l'outil
+  <command>avahi-browse</command> fourni avec le paquet
+  <package>avahi-utils</package> toujours depuis l'hôte <systemitem
+  class='systemname'>vm21</systemitem>.</para>
+
+<screen><prompt>etu@vm21:~$</prompt> avahi-browse --all
++   eth0 IPv6 vm21 [ba:ad:00:ca:fe:15]           Workstation          local
++   eth0 IPv6 vm20 [ba:ad:00:ca:fe:14]           Workstation          local
++   eth0 IPv6 <emphasis>host</emphasis> [ae:d3:ca:81:db:7e]           Workstation          local
++   eth0 IPv6 IPv6-rtr [de:ad:00:be:ef:14]       Workstation          local
++   eth0 IPv6 <emphasis>vm10</emphasis> [ba:ad:00:ca:fe:0a]           Workstation          local
++   eth0 IPv6 IPv6-rtr [ba:ad:00:ca:fe:00]       Workstation          local
++   eth0 IPv6 IPv6-rtr [de:ad:00:be:ef:0a]       Workstation          local
++   eth0 IPv6 IPv6-rtr [ba:ad:00:ca:fe:01]       Workstation          local
+^CGot SIGINT, quitting</screen>
+
+  <para>Dans la liste ci-dessus, on repère les hôtes des autres
+  <acronym>VLANs</acronym>. On peut maintenant les contacter directement par
+  leur nom et le <acronym>TLD</acronym> <option>.local</option>.</para>
+
+<screen><prompt>etu@vm21:~$</prompt> ssh vm10.local
+The authenticity of host 'vm10.local (2OO1:db8:feb2:a:b8ad:ff:feca:fe0a)' can't be established.
+RSA key fingerprint is 4e:6e:27:b5:c1:89:94:2c:d6:6c:72:d8:7a:e0:d3:e7.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added 'vm10.local,2OO1:db8:feb2:a:b8ad:ff:feca:fe0a' (RSA) to the list of known hosts.
+etu@vm10.local's password: 
+Linux vm10 3.13-1-686-pae #1 SMP Debian 3.13.10-1 (2014-04-15) i686
+No mail.
+Last login: Fri May  2 13:51:37 2014 from ipv6-rtr.local
+<prompt>etu@vm10:~$</prompt></screen>
 </section>
 
 <section xml:id='autoconf-ipv6.conclusion'>
   <title>Pour conclure</title>
 
-  <para>Voilà ! On dispose maintenant d'une maquette de validation de
-  l'autoconfiguration <acronym>IPv6</acronym> avec un service
-  <wordasword>multicast</wordasword> <acronym>DNS</acronym></para>
+  <para>Voilà ! On dispose maintenant d'une maquette fonctionnelle avec :
+  autoconfiguration <acronym>IPv6</acronym> <acronym>SLAAC</acronym>,
+  <wordasword>resolver</wordasword> <acronym>DNS</acronym> et service
+  <wordasword>multicast</wordasword> <acronym>DNS</acronym>. Cette maquette est
+  une base qui doit permettre d'évaluer et développer de nouveaux services
+  applicatifs.</para>
+
+  <para>Ce document, même s'il est déjà trop long, met l'accent sur le
+  fonctionnement et fait l'impasse sur deux grands sujets au moins. Toutes les
+  annonces <glossterm linkend='ra'><acronym>RAs</acronym></glossterm>
+  s'appuient sur le protocole <acronym>NDP</acronym>, décrit dans le document
+  standard &url.rfc4861;, dont on ne parle pas. De la même façon, on ne donne
+  aucune information sur le format et les catégories d'adresses
+  <acronym>IPv6</acronym> utilisées. Ces deux points méritent que l'on s'y
+  attarde.</para>
+
+  <para>Une fois de plus dans le domaine des réseaux, il reste encore beaucoup
+  à découvrir et à apprendre !</para>
 </section>
 
 <?custom-pagebreak?>
