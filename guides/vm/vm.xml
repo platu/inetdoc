@@ -900,6 +900,57 @@ Mot de passe :
   </caption>
 </mediaobject>
 
+  <bridgehead xml:id='vm.optimisation.ext4' renderas='sect2'>Système de fichiers ext4</bridgehead>
+
+    <para>Il est possible d'optimiser les accès au système de fichiers
+    <citetitle>ext4</citetitle> sur un système virtualisé. Dans la mesure où
+    l'on n'accède pas à un véritable dispositif de stockage, certaines options
+    de montage peuvent être modifiées. Voici un extrait de fichier
+    <filename>/etc/fstab</filename> qui donne la liste des options de montage
+    de la racine du système de fichiers.</para>
+
+<screen><prompt>etu@vm0:~$</prompt> grep ext4 /etc/fstab
+/dev/mapper/vm0-root <emphasis>/  ext4   relatime,data=writeback,commit=6000,barrier=0,errors=remount-ro</emphasis> 0 1</screen>
+
+    <variablelist>
+      <varlistentry>
+      <term><option>relatime</option></term>
+      <listitem>
+      <para>Cette option assure le maintien des méta-données du système de
+      fichiers relatives aux accès. L'enregistrement <option>atime</option>
+      d'un fichier est écrit seulement si le le fichier a été modifié depuis la
+      dernière mise à jour de cet enregistrement (<option>mtime</option>) ou si
+      aucun accès au fichier n'a eu lieu pendant un certain temps.</para>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
+      <term><option>data=writeback</option></term>
+      <listitem>
+      <para>Le séquencement des données n'est pas préservé. Les données peuvent
+      être écrites dans le système de fichiers principal après que les
+      méta-données aient été enregistrées dans le journal.</para>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
+      <term><option>commit=6000</option></term>
+      <listitem>
+      <para>Cette option contrôle de la synchronisation des méta-données du
+      système de fichiers toutes les 6000 secondes.</para>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
+      <term><option>barrier=0</option></term>
+      <listitem>
+      <para>Cette option contrôle l'ordonnancement dans le cache du système de
+      fichiers. Sur une machine virtuelle, il n'est pas nécessaire d'exercer un
+      contrôle à ce niveau.</para> 
+      </listitem>
+      </varlistentry>
+    </variablelist>
+
   <bridgehead xml:id='vm.optimisation.ssh' renderas='sect2'>Accès SSH</bridgehead>
 
     <para>Pour administrer des systèmes à distance, le protocole
@@ -928,7 +979,6 @@ Mot de passe :
   UserKnownHostsFile=/dev/null</screen>
 </sect1>
 
-<?custom-pagebreak?>
 <sect1 xml:id="vm.storage">
   <title>Extension de la capacité de stockage avec LVM</title>
 
@@ -1246,7 +1296,7 @@ tmpfs                  403M       0  403M   0% /run/shm
   	
 <screen>-device virtio-net,netdev=net0,mac="$macaddress" \
   <emphasis>-netdev user</emphasis>,id=net0 \ <co xml:id='vm.network.user.example.user'/>
-  <emphasis>-redir tcp:5555::22</emphasis> \ <co xml:id='vm.network.user.example.ssh'/>
+  <emphasis>-redir tcp:$((5000 + $num))::22</emphasis> \ <co xml:id='vm.network.user.example.ssh'/>
 </screen>
 
   <calloutlist>
@@ -1256,15 +1306,19 @@ tmpfs                  403M       0  403M   0% /run/shm
     </callout>
     <callout arearefs='vm.network.user.example.ssh'>
     <para>L'option <option>-redir</option> assure la redirection des connexions
-    <acronym>TCP</acronym> sur le port 5555 du système hôte vers le port 22
-    (<acronym>SSH</acronym>) de la machine virtuelle.</para>
+    <acronym>TCP</acronym> vers le port 22 (<acronym>SSH</acronym>) de la
+    machine virtuelle. Le calcul du numéro de port se fait en additionnant 5000
+    avec le numéro de port <link
+    linkend='vm.instance.spice'><citetitle>SPICE</citetitle></link> donné lors
+    de l'exécution du script.</para>
     </callout>
   </calloutlist>
 
   <para>Une fois l'instance de système virtuel lancé, on ouvre une connexion
-  <acronym>SSH</acronym> depuis le système hôte.</para>
+  <acronym>SSH</acronym> depuis le système hôte en utilisant le port 5010 si on
+  a indiqué 10 lors de l'appel du script.</para>
 
-<screen><prompt>$</prompt> ssh -p 5555 etu@localhost
+<screen><prompt>$</prompt> ssh -p 5010 etu@localhost
 etu@localhost's password: 
 Linux vm0 3.2.0-4-amd64 #1 SMP Debian 3.2.51-1 x86_64
 

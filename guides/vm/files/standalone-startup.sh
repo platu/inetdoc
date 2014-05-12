@@ -12,7 +12,7 @@ shift
 if [[ -z "$vm" || -z "$memory" || -z "$num" ]]
 then
     echo "ERREUR : paramètre manquant"
-    echo "Utilisation : $0 <fichier image> <quantité mémoire en Mo> <numéro interface tap>"
+    echo "Utilisation : $0 <fichier image> <quantité mémoire en Mo> <numéro de port SPICE>"
     exit 1
 fi
 
@@ -54,5 +54,5 @@ ionice -c3 qemu-system-x86_64 \
   -soundhw hda \
   -device virtio-net,netdev=net0,mac="$macaddress" \
   -netdev user,id=net0 \
-  -redir tcp:5555::22 \
+  -redir tcp:$((5000 + $num))::22 \
   $*
