@@ -7,6 +7,6 @@ PROCESS = xml2xhtml xml2pdf
 
 XML_FILES = iptables-tutorial.xml
 
-all: $(PROCESS) $(wildcard images/*.png)
+all: $(PROCESS) $(wildcard images/*.png chapters/*.xml scripts/*)
 
 include $(MAIN_DIR)/common/Makefile.Rules
