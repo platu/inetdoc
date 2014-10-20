@@ -42,7 +42,7 @@ ionice -c3 qemu-system-x86_64 \
   -smp 2,cores=2 \
   -rtc base=localtime,clock=host \
   -boot order=c \
-  -drive if=none,id=drive0,aio=native,cache=none,format=raw,media=disk,file=$vm \
+  -drive if=none,id=drive0,aio=native,format=raw,media=disk,file=$vm \
   -device virtio-blk,drive=drive0,scsi=off,config-wce=off,x-data-plane=on \
   -k fr \
   -vga qxl \

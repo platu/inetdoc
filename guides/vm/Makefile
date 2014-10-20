@@ -14,7 +14,8 @@ XML_FILES = \
 	vm.xml \
         author.xml \
         legal.xml \
-	inetdoc.urls.xml
+	inetdoc.urls.xml \
+	$(wildcard files/*.sh)
 
 all: $(PROCESS)
 
