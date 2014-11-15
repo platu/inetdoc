@@ -55,7 +55,7 @@
     </xsl:template>
 
     <xsl:attribute-set name="xref.properties">
-      <xsl:attribute name="color">#af0228</xsl:attribute>
+      <xsl:attribute name="color">#cc0033</xsl:attribute>
     </xsl:attribute-set>
 
     <xsl:param name="qanda.inherit.numeration" select="0" />
@@ -77,10 +77,10 @@
                    Fonts & Styles
     ################################################### -->      
 
-    <xsl:param name="title.font.family">DejaVuSans</xsl:param>
-    <xsl:param name="body.font.family">DejaVuSerif</xsl:param>
-    <xsl:param name="monospace.font.family">DejaVuSansMono</xsl:param>
-    <xsl:param name="symbol.font.family">DejaVuSansMono</xsl:param>
+    <xsl:param name="title.font.family">SourceSansPro</xsl:param>
+    <xsl:param name="body.font.family">SourceSerifPro</xsl:param>
+    <xsl:param name="monospace.font.family">SourceCodePro</xsl:param>
+    <xsl:param name="symbol.font.family">SourceCodePro</xsl:param>
 
     <!-- Default Font size -->
     <xsl:param name="body.font.master">9</xsl:param>
@@ -140,21 +140,21 @@
       <fo:block>
         <fo:block background-color="#333" padding="3pt">
 	  <fo:block color="#fff" text-align="right"
-		    font-family="DejaVuSans-Bold" font-size="18pt"
-                    margin-right="10mm">
+		    font-family="SourceSansPro" font-size="18pt"
+                    font-weight="bold" margin-right="10mm">
             <xsl:value-of select="d:title|d:info/d:title" />
           </fo:block>
 
           <xsl:for-each select="d:info/*/d:author">
 	    <fo:block color="#eee" text-align="right"
-	              font-family="DejaVuSans-Bold" font-size="10pt"
-                      margin-right="10mm">
+	              font-family="SourceSansPro" font-size="10pt"
+                      font-weight="bold" margin-right="10mm">
               <xsl:value-of select="d:personname/d:firstname"/>
               <xsl:text> </xsl:text>
               <xsl:value-of select="d:personname/d:surname"/>
             </fo:block>
 	    <fo:block color="#ddd" text-align="right"
-		      font-family="DejaVuSans" font-size="9pt"
+		      font-family="SourceSansPro" font-size="9pt"
                       margin-right="10mm">
               <xsl:value-of select="d:affiliation/d:address/d:email"/> 
             </fo:block>
@@ -171,22 +171,23 @@
 
           <xsl:for-each select="d:info/*/d:editor">
 	    <fo:block color="#eee" text-align="right"
-	              font-family="DejaVuSans-Bold" font-size="10pt"
-                      margin-right="10mm">
+	              font-family="SourceSansPro" font-size="10pt"
+                      font-weight="bold" margin-right="10mm">
               <xsl:value-of select="d:personname/d:firstname"/>
               <xsl:text> </xsl:text>
               <xsl:value-of select="d:personname/d:surname"/>
             </fo:block>
 	    <fo:block color="#ddd" text-align="right"
-		      font-family="DejaVuSans" font-size="9pt"
+		      font-family="SourceSansPro" font-size="9pt"
                       margin-right="10mm">
               <xsl:value-of select="d:affiliation/d:address/d:email"/> 
             </fo:block>
           </xsl:for-each>
         </fo:block>
 
-	<fo:block color="#fff" background-color="#af0228" text-align="left"
-                  font-size="9pt" font-weight="bold" font-style="italic" padding="3pt">
+	<fo:block color="#fff" background-color="#cc0033" text-align="left"
+		  font-family="SourceSansPro" font-size="9pt"
+		  font-weight="bold" font-style="italic" padding="3pt">
           <xsl:text>http://www.inetdoc.net</xsl:text>
         </fo:block>
 
@@ -208,21 +209,21 @@
       <fo:block>
         <fo:block background-color="#333" padding="3pt">
 	  <fo:block color="#fff" text-align="right"
-		    font-family="DejaVuSans-Bold" font-size="18pt"
+		    font-family="SourceSansPro-Bold" font-size="18pt"
                     margin-right="10mm" margin-bottom="5pt">
             <xsl:value-of select="d:title|d:info/d:title" />
           </fo:block>
 
           <xsl:for-each select="//d:author">
 	    <fo:block color="#eee" text-align="right"
-	              font-family="DejaVuSans-Bold" font-size="10pt"
+	              font-family="SourceSansPro-Bold" font-size="10pt"
                       margin-right="10mm">
               <xsl:value-of select="d:personname/d:firstname"/>
               <xsl:text> </xsl:text>
               <xsl:value-of select="d:personname/d:surname"/>
             </fo:block>
 	    <fo:block color="#ddd" text-align="right"
-		      font-family="DejaVuSans" font-size="9pt"
+		      font-family="SourceSansPro" font-size="9pt"
                       margin-right="10mm">
               <xsl:value-of select="d:affiliation/d:address/d:email"/> 
             </fo:block>
@@ -239,21 +240,21 @@
 
           <xsl:for-each select="//d:editor">
 	    <fo:block color="#eee" text-align="right"
-	              font-family="DejaVuSans-Bold" font-size="10pt"
+	              font-family="SourceSansPro-Bold" font-size="10pt"
                       margin-right="10mm">
               <xsl:value-of select="d:personname/d:firstname"/>
               <xsl:text> </xsl:text>
               <xsl:value-of select="d:personname/d:surname"/>
             </fo:block>
 	    <fo:block color="#ddd" text-align="right"
-		      font-family="DejaVuSans" font-size="9pt"
+		      font-family="SourceSansPro" font-size="9pt"
                       margin-right="10mm">
               <xsl:value-of select="d:affiliation/d:address/d:email"/> 
             </fo:block>
           </xsl:for-each>
         </fo:block>
 
-	<fo:block color="#fff" background-color="#af0228" text-align="left"
+	<fo:block color="#fff" background-color="#cc0033" text-align="left"
                   font-size="9pt" font-weight="bold" font-style="italic" padding="3pt"
 		  margin-bottom="9pt">
           <xsl:text>http://www.inetdoc.net</xsl:text>
@@ -479,13 +480,13 @@
 
     <!-- Chapter -->
     <xsl:template match="d:title" mode="chapter.titlepage.recto.auto.mode">
-        <fo:block font-family="DejaVuSans-Bold" font-size="12pt" color="#af0228">
+        <fo:block font-family="SourceSansPro-Bold" font-size="12pt" color="#cc0033">
             <xsl:text>CHAPITRE </xsl:text>
             <xsl:call-template name="chapnum"/>
         </fo:block>
 	<fo:block background-color="#333" padding="3pt">
            <fo:block color="#fff" text-align="right"
-                      font-family="DejaVuSans-Bold" font-size="15pt"
+                      font-family="SourceSansPro-Bold" font-size="15pt"
                       margin-right="10mm" margin-bottom="5pt">
                <xsl:value-of select="ancestor-or-self::d:title"/>
            </fo:block>
@@ -529,6 +530,7 @@ up into multiple documents.
             <xsl:value-of select="$body.font.master * 1.25"/>
             <xsl:text>pt</xsl:text>
         </xsl:attribute>
+	<xsl:attribute name="border-bottom-style">solid</xsl:attribute>
     </xsl:attribute-set>
 
     <!-- Sections 1, 2 and 3 titles have a small bump factor and padding -->    

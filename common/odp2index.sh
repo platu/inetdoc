@@ -14,7 +14,7 @@ cat >> "$2" <<-EOF
 <div id='presentation'>
 EOF
 
-for file in `ls $1-*[0-9].png`; do \
+for file in $(ls $1-*[0-9].png); do \
 cat >> "$2" <<-EOF
 <a href='`basename $file .png`.html'>
 <img src='`basename $file .png`.idx.png' width='200'
