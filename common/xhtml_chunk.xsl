@@ -58,7 +58,7 @@
 
     <xsl:param name="table.borders.with.css" select="0" />
     <xsl:param name="table.frame.border.style" select="'solid'" />
-    <xsl:param name="default.table.width" select="'100%'" />
+    <xsl:param name="default.table.width" select="0" />
 
     <xsl:param name="qanda.inherit.numeration" select="0" />
     <xsl:param name="qanda.defaultlabel">number</xsl:param>
@@ -153,7 +153,7 @@
     <xsl:param name="admon.graphics.path">&admon_gfx_path;</xsl:param>
     <xsl:param name="admon.graphics.extension" select="'.png'"></xsl:param>
     <xsl:param name="admon.style">
-      <xsl:text>margin-left: 0; margin-right: 3em;</xsl:text>
+      <xsl:text>margin-left:0;margin-right:1em;</xsl:text>
     </xsl:param>
 
 <!--###################################################
