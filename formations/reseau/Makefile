@@ -22,6 +22,7 @@ XML_FILES = \
 	lan-segmentation.abstract.xml \
 	adressage.ipv4.abstract.xml \
 	config.interface.lan.abstract.xml \
+	dessine.moi.un.reseau.abstract.xml \
 	intro.analyse.abstract.xml \
 	socket-c.abstract.xml \
         author.xml \
@@ -45,6 +46,9 @@ adressage.ipv4.abstract.xml: $(MAIN_DIR)/articles/adressage.ipv4/$(ABSTRACT_FILE
 	ln -s $< $@
 
 config.interface.lan.abstract.xml: $(MAIN_DIR)/travaux_pratiques/config.interface.lan/$(ABSTRACT_FILE)
+	ln -s $< $@
+
+dessine.moi.un.reseau.abstract.xml: $(MAIN_DIR)/travaux_pratiques/dessine-moi-un-reseau/$(ABSTRACT_FILE)
 	ln -s $< $@
 
 intro.analyse.abstract.xml: $(MAIN_DIR)/travaux_pratiques/intro.analyse/$(ABSTRACT_FILE)
