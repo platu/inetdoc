@@ -97,5 +97,5 @@ int main()
 
   close(socketDescriptor);
 
-  return 0;
+  return EXIT_SUCCESS;
 }
