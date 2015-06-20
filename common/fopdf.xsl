@@ -20,9 +20,9 @@
 
 <!DOCTYPE xsl:stylesheet [
   <!-- The below path is defined by the docbook-xsl-ns Debian package -->
-  <!ENTITY db_xsl_path        "/usr/local/share/xml/docbook/stylesheet/docbook-xsl-ns/">
-  <!ENTITY callout_gfx_path   "&db_xsl_path;images/callouts/">
-  <!ENTITY admon_gfx_path     "&db_xsl_path;images/">
+  <!ENTITY db_xsl_path        "/usr/share/xml/docbook/stylesheet/docbook-xsl-ns">
+  <!ENTITY callout_gfx_path   "&db_xsl_path;/images/callouts/">
+  <!ENTITY admon_gfx_path     "&db_xsl_path;/images/">
   <!ENTITY img_src_path       "/home/phil/inetdoc/images/">
 ]>
 
