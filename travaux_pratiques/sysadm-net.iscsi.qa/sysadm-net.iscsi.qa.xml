@@ -1986,92 +1986,43 @@ fichiers : complété
   virtuels. Les fichiers de type <filename>.qed</filename> sont des images
   compressées faciles à transférer.</para>
 
-<screen>mkdir -p ~/vm/iscsi
-cd ~/vm/iscsi
-
-cp ../vm0-debian-testing-amd64-base.qed vm-target.qed
-cp ../vm0-debian-testing-amd64-base.qed vm-1stInitiator.qed
-cp ../vm0-debian-testing-amd64-base.qed vm-2ndInitiator.qed</screen>
+<screen><prompt>$</prompt> mkdir -p ~/vm/iscsi
+<prompt>$</prompt> cd ~/vm/iscsi
+<prompt>$</prompt> ionice -c 3 cp ../vm0-debian-testing-i386-base.raw target.raw
+<prompt>$</prompt> ionice -c 3 cp ../vm0-debian-testing-i386-base.raw initiator1.raw
+<prompt>$</prompt> ionice -c 3 cp ../vm0-debian-testing-i386-base.raw initiator2.raw</screen>
 
   <para>On crée ensuite les fichiers correspondant aux unités de stockage
   supplémentaires.</para>
 
-<screen>qemu-img create -f qed target-disk.qed 80G
-qemu-img create -f qed initiator-1.disk.qed 32G
-qemu-img create -f qed initiator-2.disk.qed 32G</screen>
+<screen><prompt>$</prompt> dd if=/dev/null of=target.disk bs=1 seek=72G
+<prompt>$</prompt> dd if=/dev/null of=initiator1.disk bs=1 seek=32G
+<prompt>$</prompt> dd if=/dev/null of=initiator2.disk bs=1 seek=32G</screen>
 
   <para>Enfin, il ne reste qu'à mettre en place le script de lancement de ces
   trois systèmes avec leurs unités de stockages respectives.</para>
 
 <screen>#!/bin/bash
 
-./ovs-startup.sh vm-target.qed 2048 0 \
-     -drive file=target-disk.qed,if=virtio,boot=off
+../scripts/ovs-startup.sh target.raw 4096 0 \
+        -drive if=none,id=storagevol0,aio=native,cache.direct=on,format=raw,media=disk,file=target.disk \
+        -device virtio-blk,drive=storagevol0,scsi=off,config-wce=off,x-data-plane=on
 
-./ovs-startup.sh vm-1stInitiator.qed 512 1 \
-     -drive file=initiator-1.disk.qed,if=virtio,boot=off 
+../scripts/ovs-startup.sh initiator1.raw 1024 1 \
+        -drive if=none,id=initiator1addon,aio=native,cache.direct=on,format=raw,media=disk,file=initiator1.disk \
+        -device virtio-blk,drive=initiator1addon,scsi=off,config-wce=off,x-data-plane=on
 
-./ovs-startup.sh vm-2ndInitiator.qed 512 2 \
-     -drive file=initiator-2.disk.qed,if=virtio,boot=off</screen>
+../scripts/ovs-startup.sh initiator2.raw 1024 2 \
+        -drive if=none,id=initiator2addon,aio=native,cache.direct=on,format=raw,media=disk,file=initiator2.disk \
+        -device virtio-blk,drive=initiator2addon,scsi=off,config-wce=off,x-data-plane=on</screen>
 
   <para>Ce script fait lui-même appel au script commun
   <filename>ovs-startup.sh</filename> qui sert à initialiser une instance de
   machine virtuelle en utilisant comme paramètres le nom du fichier image, la
-  quantité de <acronym>RAM</acronym> et l'interface réseau virtuelle
-  <acronym>tap</acronym>.</para>
+  quantité de <acronym>RAM</acronym> et le cordon de brassage virtuel
+  <acronym>tap</acronym>. Le code source du script est disponible à la page
+  &url.vm.startup.sh;.</para>
 
-<programlisting>#!/bin/bash
-
-RedOnBlack='\E[31m'
-
-vm=$1
-shift
-memory=$1
-shift
-tapnum=$1
-shift
-
-if [[ -z "$vm" || -z "$memory" || -z "$tapnum" ]]
-then
-    echo "ERREUR : paramètre manquant"
-    echo "Utilisation : $0 &lt;fichier image> &lt;quantité mémoire en Mo> &lt;numéro interface tap>"
-    exit 1
-fi
-
-if (( $memory &lt; 128 ))
-then
-    echo "ERREUR : quantité de mémoire RAM insuffisante"
-    echo "La quantité de mémoire en Mo doit être supérieure ou égale à 128"
-    exit 1
-fi
-
-macaddress="ba:ad:00:ca:fe:$tapnum"
-
-echo -e "$RedOnBlack"
-echo "~> Machine virtuelle : $vm"
-echo "~> Port SPICE        : $((5900 + $tapnum))"
-echo "~> Mémoire RAM       : $memory"
-echo "~> Adresse MAC       : $macaddress"
-tput sgr0
-
-kvm \
-  -daemonize \
-  -name $vm \
-  -m $memory \
-  -rtc base=localtime,clock=host \
-  -boot order=c \
-  -drive file=$vm,if=virtio,media=disk \
-  -k fr \
-  -vga qxl \
-  -spice port=$((5900 + $tapnum)),addr=127.0.0.1,disable-ticketing \
-  -device virtio-serial-pci \
-  -device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
-  -chardev spicevmc,id=spicechannel0,name=vdagent \
-  -usb -usbdevice tablet \
-  -soundhw es1370 \
-  -net tap,vlan=0,ifname=tap$tapnum,script=no \
-  -net nic,vlan=0,model=virtio,macaddr=$macaddress \
-  $*</programlisting>
 </sect1>
 
 <sect1 xml:id='sysadm-net.iscsi.qa.bench'>
