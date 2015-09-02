@@ -942,7 +942,9 @@ tmpfs                  403M     0  403M   0% /run/shm
   <title>Configuration du système initiator</title>
 
   <para>Dans cette partie, on prépare le système auquel on a attribué le rôle
-  <wordasword>initiator</wordasword>.</para>
+  <wordasword>initiator</wordasword>. Ce système est celui qui utilise le
+  volume de stockage mis à disposition sur le réseau par le rôle
+  <wordasword>target</wordasword>.</para>
 
   <sect2 xml:id='sysadm-net.iscsi.qa.package'>
     <title>Sélection du paquet et lancement du service</title>
@@ -1062,18 +1064,18 @@ root      3488  0.0  0.6   5480  3280 ?        S&lt;Ls 16:28   0:00 /usr/sbin/is
     <question>
       <para><phrase>Quelle est la commande principale du rôle
       <wordasword>initiator</wordasword> qui permet de tester la connectivité
-      <acronym>iSCSCI</acronym> ?</phrase></para>
+      <acronym>iSCSI</acronym> ?</phrase></para>
 
       <para>Consulter la liste des fichiers du paquet
       <systemitem>open-iscsi</systemitem>.</para>
     </question>
     <answer>
       <para>En consultant la liste donnée ci-dessus, on ne relève qu'un
-      seul outil binaire : la commande <command>iscsiadm</command>.</para>
+      seul outil exécutable : la commande <command>iscsiadm</command>.</para>
     </answer>
     </qandaentry>
 
-    <qandaentry>
+    <qandaentry xml:id='sysadm-net.iscsi.qa.tests.discovery'>
     <question>
       <para><phrase>Quelles sont les options de découverte proposées avec cette
       commande ? Donner un exemple fournissant l'identifiant de l'unité de
@@ -1086,8 +1088,74 @@ root      3488  0.0  0.6   5480  3280 ?        S&lt;Ls 16:28   0:00 /usr/sbin/is
     <para>À partir du poste <wordasword>initator</wordasword> numéro 1, le seul
     volume de stockage visible est :</para>
 
-<screen><prompt>#</prompt> iscsiadm -m discovery --type sendtargets --portal=198.51.100.2:3260
-198.51.100.2:3260,1 iqn.2012-09.lab.stri:initiator-1.disk</screen>
+<screen><prompt>#</prompt> iscsiadm -m discovery --type sendtargets --portal=192.0.2.12:3260
+192.0.2.12:3260,1 iqn.2003-01.org.linux-iscsi.vm0.i686:sn.1b49d1997f22
+[2OO1:db8:feb2:2:b8ad:ff:feca:fe00]:3260,1 iqn.2003-01.org.linux-iscsi.vm0.i686:sn.1b49d1997f22
+192.0.2.12:3260,1 iqn.2003-01.org.linux-iscsi.target.i686:sn.637018090566
+[2OO1:db8:feb2:2:b8ad:ff:feca:fe00]:3260,1 iqn.2003-01.org.linux-iscsi.target.i686:sn.637018090566</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+      <para><phrase>Quel est l'identifiant à communiquer ou à paramétrer pour
+      le système <wordasword>initiator</wordasword> soit reconnu côté système
+      <wordasword>target</wordasword> ?</phrase></para>
+
+      <para>Rechercher les informations relatives au nommage
+      <acronym>iSCSI</acronym> dans les outils et les fichiers fournis avec le
+      paquet de gestion du rôle <wordasword>initiator</wordasword>.</para>
+    </question>
+    <answer>
+      <para>Le filtrage de la liste des fichiers fournis avec le paquet
+      <application>open-iscsi</application> donne le résultat suivant.</para>
+
+<screen><prompt>#</prompt> dpkg -L open-iscsi | grep name
+/etc/iscsi/initiatorname.iscsi
+/usr/share/man/man8/iscsi-iname.8.gz
+/usr/sbin/iscsi-iname</screen>
+
+      <itemizedlist>
+      <listitem>
+      <para>Le fichier <filename>/etc/iscsi/initiatorname.iscsi</filename>
+      contient l'identifiant du système à communiquer au système
+      <wordasword>target</wordasword> pour que celui-ci l'associe dans la
+      rubrique des listes de contrôle d'accès : <option>acls</option>.</para>
+
+      <para>Dans le contexte de ces travaux pratiques, on se contente de
+      relever l'identifiant généré automatiquement lors de l'installation du
+      paquet et de l'implanter dans la liste de contrôle d'accès créée avec
+      <application>targetcli</application> sur le système
+      <wordasword>target</wordasword>.</para>
+
+      <para>Côté <wordasword>initiator</wordasword>, on lit l'identifiant
+      <acronym>iqn</acronym></para>
+
+<screen><prompt>#</prompt> grep -v ^# /etc/iscsi/initiatorname.iscsi 
+InitiatorName=<emphasis>iqn.1993-08.org.debian:01:9d11913c78ac</emphasis></screen>
+
+      <para>Côté <wordasword>target</wordasword>, on créé la liste de contrôle
+      d'accès qui associe l'unité logique <acronym>SCSI</acronym> au système
+      <wordasword>initiator</wordasword>.</para>
+
+<screen>/iscsi/iqn.20...18090566/tpg1> ls
+o- tpg1 ................................................................ [enabled]
+  o- acls ................................................................ [1 ACL]
+  | o- <emphasis>iqn.1993-08.org.debian:01:9d11913c78ac</emphasis> ..................... [1 Mapped LUN]
+  |   o- mapped_lun0 ................................................. [lun0 (rw)]
+  o- luns ................................................................ [1 LUN]
+  | o- lun0 ....................................... [iblock/initiator1 (/dev/vdb)]
+  o- portals ......................................................... [2 Portals]
+    o- 192.0.2.12:3260 ....................................... [OK, iser disabled]
+    o- 2OO1:db8:feb2:2:b8ad:ff:feca:fe00:3260 ................ [OK, iser disabled]</screen>
+      </listitem>
+      <listitem>
+      <para>La commande <command>iscsi-iname</command> sert à générer un nouvel
+      identifiant conforme au forat <acronym>iqn</acronym>. Elle permet de
+      fournir un nouvel identifiant compatible avec la nomenclature de
+      l'infrastructure de stockage d'un opérateur.</para>
+      </listitem>
+      </itemizedlist>
     </answer>
     </qandaentry>
 
@@ -1101,15 +1169,26 @@ root      3488  0.0  0.6   5480  3280 ?        S&lt;Ls 16:28   0:00 /usr/sbin/is
       précédemment.</para>
     </question>
     <answer>
-<screen><prompt>#</prompt> iscsiadm -m node -T iqn.2012-09.lab.stri:initiator-1.disk -p 198.51.100.2 -l
-Logging in \
- to [iface: default, \
-     target: iqn.2012-09.lab.stri:initiator-1.disk, \
-     portal: 198.51.100.2,3260] (multiple)
-Login \
-  to [iface: default, \
-      target: iqn.2012-09.lab.stri:initiator-1.disk, \
-      portal: 198.51.100.2,3260] <emphasis>successful</emphasis>.</screen>
+<screen><prompt>#</prompt> iscsiadm -m node -T iqn.2003-01.org.linux-iscsi.target.i686:sn.1b49d1997f22 -p 192.0.2.12 -l
+Logging in to [iface: default, target: iqn.2003-01.org.linux-iscsi.target.i686:sn.1b49d1997f22, portal: 192.0.2.12,3260] (multiple)
+iscsiadm: Could not login to [iface: default, target: iqn.2003-01.org.linux-iscsi.target.i686:sn.1b49d1997f22, portal: 192.0.2.12,3260].
+iscsiadm: <emphasis>initiator reported error (24 - iSCSI login failed due to authorization failure)</emphasis>
+iscsiadm: Could not log into all portals</screen>
+
+      <para>Dans l'exemple ci-dessus, la connexion sans authentification a
+      échoué faute d'autorisations côté rôle
+      <wordasword>target</wordasword>. Comme nous sommes dans un contexte de
+      travaux pratiques, il faut paramétrer deux attributs spécifiques :
+      <option>authentication=0</option> et
+      <option>demo_mode_write_protect=0</option>.</para>
+
+<screen># iscsiadm -m node -T iqn.2003-01.org.linux-iscsi.target.i686:sn.637018090566 -p 192.0.2.12 -l                              
+Logging in to [iface: default, target: iqn.2003-01.org.linux-iscsi.target.i686:sn.637018090566, portal: 192.0.2.12,3260] (multiple)
+Login to [iface: default, target: iqn.2003-01.org.linux-iscsi.target.i686:sn.637018090566, portal: 192.0.2.12,3260] <emphasis>successful</emphasis>.</screen>
+       
+       <para>La connexion est maintenant établie et le volume de stockage
+       réseau est disponible sous forme d'unité logique
+       <acronym>SCSI</acronym>.</para>
     </answer>
     </qandaentry>
 
@@ -1125,23 +1204,17 @@ Login \
       <filename>/var/log/syslog</filename>.</para>
 
 <screen><prompt>#</prompt> egrep '(sd|scsi)' /var/log/syslog
-kernel:  iscsi: registered transport (tcp)
-kernel:  iscsi: registered transport (iser)
-iscsid: iSCSI logger with pid=3487 started!
-iscsid: iSCSI daemon with pid=3488 started!
-kernel:  scsi2 : iSCSI Initiator over TCP/IP
-kernel:  scsi 2:0:0:0: Direct-Access     IET      VIRTUAL-DISK     0    PQ: 0 ANSI: 4
-kernel:  scsi 2:0:0:0: Attached scsi generic sg1 type 0
-kernel:  sd 2:0:0:0: [sda] 67108864 512-byte logical blocks: (34.3 GB/32.0 GiB)
-kernel:  sd 2:0:0:0: [sda] Write Protect is off
-kernel:  sd 2:0:0:0: [sda] Mode Sense: 77 00 00 08
-kernel:  sd 2:0:0:0: [sda] Write cache: disabled, \
-                           read cache: enabled, doesn't support DPO or FUA
-kernel:   sda: unknown partition table
-kernel:  sd 2:0:0:0: [sda] Attached SCSI disk
-iscsid: Connection1:0 \
-  to [target: iqn.2012-09.lab.stri:initiator-1.disk, portal: 198.51.100.2,3260] \
-  through [iface: default] is operational now</screen>
+initiator1 kernel: [18614.778860] scsi host8: iSCSI Initiator over TCP/IP
+initiator1 kernel: [18615.035238] scsi 8:0:0:0: Direct-Access     LIO-ORG  IBLOCK           4.0  PQ: 0 ANSI: 5
+initiator1 kernel: [18615.038358] scsi 8:0:0:0: Attached scsi generic sg1 type 0
+initiator1 kernel: [18615.067546] sd 8:0:0:0: [sda] 150994944 512-byte logical blocks: (77.3 GB/72.0 GiB)
+initiator1 kernel: [18615.070885] sd 8:0:0:0: [sda] Write Protect is off
+initiator1 kernel: [18615.070893] sd 8:0:0:0: [sda] Mode Sense: 43 00 10 08
+initiator1 kernel: [18615.071854] sd 8:0:0:0: [sda] Write cache: enabled, read cache: enabled, supports DPO and FUA
+initiator1 kernel: [18615.117019]  sda:
+initiator1 kernel: [18615.120840] sd 8:0:0:0: [sda] Attached SCSI disk
+initiator1 iscsid: Connection3:0 to [target: iqn.2003-01.org.linux-iscsi.target.i686:sn.637018090566, \
+                                 portal: 192.0.2.12,3260] through [iface: default] is operational now</screen>
     </answer>
     </qandaentry>
 
@@ -1159,13 +1232,13 @@ iscsid: Connection1:0 \
       class='directory'>/dev/</filename>. En reprenant l'exemple ci-dessus, on
       obtient :</para>
 
-<screen>ll /dev/[v,s]d*
-brw-rw---T 1 root disk   8,  0 sept.  6 16:43 <emphasis>/dev/sda</emphasis>
-brw-rw---T 1 root disk 254,  0 sept.  5 22:10 /dev/vda
-brw-rw---T 1 root disk 254,  1 sept.  5 22:10 /dev/vda1
-brw-rw---T 1 root disk 254,  2 sept.  5 22:10 /dev/vda2
-brw-rw---T 1 root disk 254,  5 sept.  5 22:10 /dev/vda5
-brw-rw---T 1 root disk 254, 16 sept.  5 22:10 /dev/vdb</screen>
+<screen><prompt>#</prompt> ls -lA /dev/[v,s]d*
+brw-rw---- 1 root disk   8,  0 sept.  1 14:38 <emphasis>/dev/sda</emphasis>
+brw-rw---- 1 root disk 254,  0 sept.  1 11:28 /dev/vda
+brw-rw---- 1 root disk 254,  1 sept.  1 11:28 /dev/vda1
+brw-rw---- 1 root disk 254,  2 sept.  1 11:28 /dev/vda2
+brw-rw---- 1 root disk 254,  5 sept.  1 11:28 /dev/vda5
+brw-rw---- 1 root disk 254, 16 sept.  1 11:28 /dev/vdb</screen>
 
      <para>L'entrée <filename>/dev/sda</filename> correspond à l'unité de
      disque <acronym>iSCSI</acronym>. Le volume de stockage est donc bien vu de
@@ -1178,7 +1251,7 @@ brw-rw---T 1 root disk 254, 16 sept.  5 22:10 /dev/vdb</screen>
   </sect2>
 
   <sect2 xml:id='sysadm-net.iscsi.qa.automatic'>
-    <title>Configuration système</title>
+    <title>Configuration système permanente</title>
 
   <para>Une fois la connexion à la ressource <acronym>iSCSI</acronym> testée,
   on peut passer à la configuration système de façon à retrouver le volume de
@@ -1227,6 +1300,58 @@ brw-rw---T 1 root disk 254, 16 sept.  5 22:10 /dev/vdb</screen>
     </answer>
     </qandaentry>
 
+    <qandaentry>
+    <question>
+    <para><phrase>Comment connaître l'état et la liste d'une session
+    <acronym>iSCSI</acronym> active ?</phrase></para>
+
+    <para>Consulter les pages de manuels de la commande de configuration du
+    rôle <wordasword>initiator</wordasword> :
+    <command>iscsiadm</command>.</para>
+    </question>
+    <answer>
+    <para>Il existe un mode <option>session</option> dédié aux manipulations
+    sur les sessions. La commande de test la plus simple est la
+    suivante.</para>
+
+<screen><prompt>#</prompt> iscsiadm -m session
+tcp: [3] 192.0.2.12:3260,1 iqn.2003-01.org.linux-iscsi.target.i686:sn.637018090566 (non-flash)
+tcp: [4] [2OO1:db8:feb2:2:b8ad:ff:feca:fe00]:3260,1 iqn.2003-01.org.linux-iscsi.target.i686:sn.637018090566 (non-flash)</screen>
+
+    <para>La copie d'écran ci-dessus indique deux sessions actives. Si la liste
+    est vide, il n'y a pas de session <acronym>iSCSI</acronym> en cours.</para>
+
+    <para>Il est possible d'obtenir davantage d'informations sur les paramètres
+    de session en cours à l'aide de l'option <option>-P</option> suivie d'un
+    numéro désignant le niveau de détail attendu. Par exemple, la commande
+    <literal>iscsiadm -m session -P 3</literal> affiche les paramètres sur les
+    interfaces réseau utilisées, etc.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment effacer les informations sur les systèmes
+    <wordasword>target</wordasword> déjà découverts en cas de problème de
+    configuration ?</phrase></para>
+
+    <para>Consulter les pages de manuels de la commande de configuration du
+    rôle <wordasword>initiator</wordasword> :
+    <command>iscsiadm</command>.</para>
+    </question>
+    <answer>
+    <para>Toutes les manipulations sur les systèmes
+    <wordasword>target</wordasword> découverts dépendent du mode
+    <option>discovery</option> et l'opération à utiliser est
+    <option>delete</option>.</para>
+
+<screen><prompt>#</prompt> iscsiadm -m discovery -p 192.0.2.12 -o delete</screen>
+
+    <para>Il suffit ensuite de reprendre la découverte décrite à la question
+    <xref linkend='sysadm-net.iscsi.qa.tests.discovery' />.</para>
+    </answer>
+    </qandaentry>
+
     <qandaentry xml:id='sysadm-net.iscsi.qa.auth'>
     <question>
     <para><phrase>Comment authentifier la connexion entre les systèmes
@@ -1237,17 +1362,6 @@ brw-rw---T 1 root disk 254, 16 sept.  5 22:10 /dev/vdb</screen>
     les paramètres relatifs à l'authentification. Pour atteindre un meilleur
     niveau de sécurité, on souhaite mettre en place une authentification
     mutuelle des deux extrémités en communication.</para>
-
-<warning>
-  <para>La gestion des erreurs d'authentification entre les systèmes
-  <wordasword>initiator</wordasword> et <wordasword>target</wordasword> peut
-  s'avérer délicate. Il est préférable d'avoir validé la communication entre
-  les deux rôles avant de passer à l'authentification. Si cette
-  authentification échoue, il faut arrêter le service sur le système
-  <wordasword>initiator</wordasword> et supprimer tous les répertoires et
-  fichiers relatifs à l'enregistrement du système
-  <wordasword>target</wordasword> avant de reprendre les tests.</para>
-</warning>
     </question>
     <answer>
     <para>Le mécanisme d'authentification le plus communément utilisé dans le
@@ -1512,7 +1626,7 @@ o- / ................................................... [...]
 
 <screen>/> cd iscsi/
 /iscsi> create
-<emphasis>Created target iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e.</emphasis>
+<emphasis>Created target iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e.</emphasis>
 Selected TPG Tag 1.
 Created TPG 1.</screen>
 
@@ -1521,7 +1635,7 @@ Created TPG 1.</screen>
 
 <screen>/iscsi> ls
 o- iscsi .................................................... [1 Target]
-  o- iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e ...... [1 TPG]
+  o- iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e ...... [1 TPG]
     o- tpg1 .................................................. [enabled]
       o- acls ................................................. [0 ACLs]
       o- luns ................................................. [0 LUNs]
@@ -1538,7 +1652,7 @@ o- iscsi .................................................... [1 Target]
       le dépôt des volumes de stockage.</para>
       </formalpara>
 
-<screen>/iscsi> cd iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e/tpg1/
+<screen>/iscsi> cd iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e/tpg1/
 /iscsi/iqn.20...6efd0f2e/tpg1> <emphasis>luns/ create /backstores/iblock/initiator1</emphasis>
 Selected LUN 0.
 Created LUN 0.
@@ -1562,7 +1676,7 @@ o- tpg1 ............................................ [enabled]
 
 <screen>/iscsi/iqn.20...6efd0f2e/tpg1> portals/ create 192.0.2.12 3260
 <emphasis>Created network portal 192.0.2.12:3260.</emphasis>
-/iscsi/iqn.20...6efd0f2e/tpg1> portals/ create create 2OO1:db8:feb2:2:b8ad:ff:feca:fe00 3260
+/iscsi/iqn.20...6efd0f2e/tpg1> portals/ create 2OO1:db8:feb2:2:b8ad:ff:feca:fe00 3260
 <emphasis>Created network portal 2OO1:db8:feb2:2:b8ad:ff:feca:fe00:3260.</emphasis>
 /iscsi/iqn.20.../tpg1/portals> ls
 o- portals ................................................. [2 Portals]
@@ -1586,8 +1700,8 @@ LISTEN      0      256       2OO1:db8:feb2:2:b8ad:ff:feca:fe00:3260            :
       la fonction de découverte.</para> 
 
 <screen><prompt>root@initiator1:~#</prompt> iscsiadm -m discovery --type sendtargets --portal=192.0.2.12:3260
-192.0.2.12:3260,1 iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e
-[2a01:240:feb2:2:b8ad:ff:feca:fe00]:3260,1 iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e</screen>
+192.0.2.12:3260,1 iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e
+[2OO1:db8:feb2:2:b8ad:ff:feca:fe00]:3260,1 iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e</screen>
       </listitem>
       <listitem>
       <formalpara>
@@ -1599,9 +1713,9 @@ LISTEN      0      256       2OO1:db8:feb2:2:b8ad:ff:feca:fe00:3260            :
       message suivant.</para>
       </formalpara>
 
-<screen><prompt>root@initiator1:~#</prompt> iscsiadm -m node -T iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e -p 192.0.2.12 -l
-Logging in to [iface: default, target: iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e, portal: 192.0.2.12,3260] (multiple)
-iscsiadm: Could not login to [iface: default, target: iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e, portal: 192.0.2.12,3260].
+<screen><prompt>root@initiator1:~#</prompt> iscsiadm -m node -T iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e -p 192.0.2.12 -l
+Logging in to [iface: default, target: iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e, portal: 192.0.2.12,3260] (multiple)
+iscsiadm: Could not login to [iface: default, target: iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e, portal: 192.0.2.12,3260].
 iscsiadm: initiator reported error (24 - <emphasis>iSCSI login failed due to authorization failure</emphasis>)
 iscsiadm: Could not log into all portals</screen>
 
@@ -1628,7 +1742,7 @@ o- tpg1 ...................................................... [enabled]
   | o- lun0 ............................. [iblock/initiator1 (/dev/vdb)]
   o- portals ............................................... [2 Portals]
     o- 192.0.2.12:3260 ............................. [OK, iser disabled]
-    o- 2a01:240:feb2:2:b8ad:ff:feca:fe00:3260 ...... [OK, iser disabled]</screen>
+    o- 2OO1:db8:feb2:2:b8ad:ff:feca:fe00:3260 ...... [OK, iser disabled]</screen>
 
       <para>Ce n'est pas terminé ! Par défaut, une cible
       <acronym>iSCSI</acronym> n'est accessible qu'après authentification. Il
@@ -1642,9 +1756,9 @@ Parameter demo_mode_write_protect is now '0'.</screen>
       <para>Finalement, le volume de stockage est mis à disposition de l'hôte
       <wordasword>initiator</wordasword>.</para>
 
-<screen>root@initiator1:~# iscsiadm -m node -T iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e -p 192.0.2.12 -l
-Logging in to [iface: default, target: iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e, portal: 192.0.2.12,3260] (multiple)
-<emphasis>Login to [iface: default, target: iqn.2003-01.org.linux-iscsi.vm0.i686:sn.bf156efd0f2e, portal: 192.0.2.12,3260] successful.</emphasis></screen>
+<screen><prompt>root@initiator1:~#</prompt> iscsiadm -m node -T iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e -p 192.0.2.12 -l
+Logging in to [iface: default, target: iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e, portal: 192.0.2.12,3260] (multiple)
+<emphasis>Login to [iface: default, target: iqn.2003-01.org.linux-iscsi.target.i686:sn.bf156efd0f2e, portal: 192.0.2.12,3260] successful.</emphasis></screen>
       </listitem>
     </orderedlist>
     </answer>
