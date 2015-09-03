@@ -56,7 +56,7 @@
     
     <xsl:param name="suppress.header.navigation" select="0" />
 
-    <xsl:param name="table.borders.with.css" select="1" />
+    <xsl:param name="table.borders.with.css" select="0" />
     <xsl:param name="table.frame.border.style" select="'solid'" />
     <xsl:param name="default.table.width">100%</xsl:param>
 
