@@ -5,11 +5,20 @@
 <!ENTITY author                 SYSTEM "author.xml">
 <!ENTITY legal                  SYSTEM "legal.xml">
 
-<!ENTITY topologie      SYSTEM "topologie.txt">
+<!ENTITY tap-create		SYSTEM "scripts/tap-create.sh">
+<!ENTITY pppoe-startup		SYSTEM "scripts/pppoe-startup.sh">
+<!ENTITY hub-interfaces		SYSTEM "scripts/hub-interfaces">
+<!ENTITY pppoe-server-options	SYSTEM "scripts/pppoe-server-options">
+<!ENTITY spoke-interfaces	SYSTEM "scripts/spoke-interfaces">
+<!ENTITY spoke-dsl-provider	SYSTEM "scripts/spoke-dsl-provider">
 
 <!-- urls -->
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
+
+<!-- openvswitch -->
+<!ENTITY url.ovs
+  "<link xmlns='http://docbook.org/ns/docbook' xlink:href='http://openvswitch.org'>Open vSwitch</link>">
 
 <!-- PPP -->
 <!ENTITY url.ppp
@@ -19,9 +28,15 @@
 <!ENTITY url.pppoe
   "<link xmlns='http://docbook.org/ns/docbook' xlink:href='http://en.wikipedia.org/wiki/Point-to-Point_Protocol_over_Ethernet'>PPPoE</link>">
 
+<!ENTITY url.pppoe-debian-wiki
+  "<link xmlns='http://docbook.org/ns/docbook' xlink:href='https://wiki.debian.org/fr/PPPoE'>PPPoE</link>">
+
 <!-- DSLAM -->
 <!ENTITY url.dslam
   "<link xmlns='http://docbook.org/ns/docbook' xlink:href='http://en.wikipedia.org/wiki/Digital_Subscriber_Line_Access_Multiplexer'>Digital subscriber line access multiplexer</link>">
+
+<!ENTITY url.bras
+  "<link xmlns='http://docbook.org/ns/docbook' xlink:href='https://upload.wikimedia.org/wikipedia/commons/d/d5/XDSL_Connectivity_Diagram_en.svg'>architecture des connexions xDSL</link>">
 ]>
 
 <article xml:lang='fr' xml:id='pppoe'>
@@ -30,13 +45,20 @@
 
   &author;
   <abstract>
-  <para>Exemple de modélisation d'un lien WAN entre deux instances de systèmes
-  virtualisés utilisant le protocole PPPoE.</para>
+  <para>Cet article est un exemple de modélisation d'un lien de réseau étendu
+  (<acronym>WAN</acronym>) utilisant le protocole <acronym>PPP</acronym>. La
+  modélisation s'appuie sur deux instances de systèmes virtualisés qui ne
+  disposent que d'interfaces Ethernet. On présente donc une implémentation
+  particulière du protocole <acronym>PPP</acronym> sur Ethernet :
+  <acronym>PPPoE</acronym>.</para>
   </abstract>
   <keywordset>
     <keyword>inetdoc</keyword>
     <keyword>Linux</keyword>
+    <keyword>openvswitch</keyword>
+    <keyword>KVM</keyword>
     <keyword>pppoe</keyword>
+    <keyword>qemu</keyword>
   </keywordset>
 </info>
 
@@ -54,30 +76,37 @@
   </section>
 </section>
 
+<?custom-pagebreak?>
 <section xml:id='pppoe.context'>
   <title>Le contexte</title>
 
-  <para>Dans la série de travaux pratiques sur le thème de l'&url.interco;
-  <acronym>LAN</acronym>/<acronym>WAN</acronym>, une séance est consacrée à
-  l'&url.interco.netfilter;. C'est typiquement le genre de sujet qui mérite que
-  l'on y revienne plusieurs fois. Or, le fait d'avoir construit le support de
-  travaux pratiques à partir d'une topologie type utilisant un lien
-  <acronym>WAN</acronym> est pénalisant si on veut retravailler sur le support
-  en dehors de la salle dédiée.</para>
+  <para>Dans la série de travaux pratiques sur le thème de l'&url.interco;,
+  plusieurs supports utilisent des liaisons de réseaux étendus
+  (<acronym>WAN</acronym>) avec le protocole <acronym>PPP</acronym>. Ces sujets
+  de travaux pratiques méritent d'être revus plusieurs fois et les équipements
+  matériels dédiés ne sont pas toujours disponibles. L'objectif de cet article
+  est donc de proposer une modélisation de topologie type mettant œuvre le
+  protocole <acronym>PPP</acronym>.</para>
 
-  <screen width='70'>&topologie;</screen>
+  <mediaobject>
+  <imageobject>
+    <imagedata fileref='images/pppoe-context.png' format='PNG' contentwidth='14cm' width='15cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>Topologie WAN avec PPP</phrase>
+  </textobject>
+  <caption>
+    <para><link xlink:href='images/pppoe-context.png'>Topologie WAN avec PPP</link></para>
+  </caption>
+  </mediaobject>
 
-  <para>Voilà maintenant quelques temps que j'essaie de pousser les étudiants à
-  utiliser la virtualisation comme outil pédagogique de maquettage permettant
-  que reconstituer une architecture complète sur un seul système physique. Le
-  lien <acronym>WAN</acronym> constitue donc un écueil sur lequel il est un peu
-  trop facile de trébucher.</para>
-
-  <para>Fort heureusement, il existe une parade ! On peut très bien
-  utiliser le protocole &url.pppoe; sur un <acronym>VLAN</acronym> particulier
-  pour reproduire les caractéristiques d'une liaison <acronym>WAN</acronym>.
-  Relativement aux connexions physiques réelles, cette parade présente des
-  avantages et des inconvénients que l'on peut énoncer comme suit.</para>
+  <para>La virtualisation de la topologie proposée ci-dessus sur un unique
+  système hôte peut poser quelques soucis. Fort heureusement, il existe une
+  parade ! On peut très bien utiliser le protocole &url.pppoe; sur un domaine
+  de diffusion un peu particulier pour reproduire les caractéristiques d'une
+  liaison <acronym>WAN</acronym>. Relativement aux connexions physiques
+  réelles, cette parade présente des avantages et des inconvénients que l'on
+  peut énoncer comme suit.</para>
 
   <formalpara>
   <title>Les avantages</title>
@@ -100,138 +129,146 @@
   pédagogique le plus sensible. Si l'étude des liaisons <acronym>WAN</acronym>
   a encore un sens aujourd'hui, c'est justement de montrer qu'un autre format
   de trame existe : le format <link
-  xlink:href='http://en.wikipedia.org/wiki/HDLC'>HDLC</link>. Les étudiants actuels,
-  qui débutent dans le domaine des réseaux, n'envisagent pas qu'un réseau
-  puisse s'appuyer sur un autre format de trame qu'Ethernet. Dans leur
+  xlink:href='http://en.wikipedia.org/wiki/HDLC'>HDLC</link>. Souvent, les
+  étudiants qui débutent dans le domaine des réseaux, n'envisagent pas qu'un
+  réseau puisse s'appuyer sur un autre format de trame qu'Ethernet. Dans leur
   environnement immédiat, les réseaux filaires des campus universitaires sont
   tout Ethernet, les réseaux Wifi publics ou domestiques utilisent aussi des
   trames Ethernet, etc. L'utilisation du protocole <acronym>PPPoE</acronym>
-  présente donc un gros inconvénient puisque l'on retombe dans l'utilisation du
+  présente donc un inconvénient puisque l'on retombe dans l'utilisation du
   fameux format de trame Ethernet dont tous les champs sont prédéfinis et non
   paramétrables.</para>
   </formalpara>
 
-  <para>À ma connaissance, la solution de virtualisation <acronym>KVM</acronym>
-  de Linux ne permet pas d'établir simplement une liaison
-  <acronym>WAN</acronym> entre deux instances de machines virtuelles. En outre,
-  on dispose déjà d'un commutateur Ethernet complet avec le logiciel <link
-  xlink:href='http://vde.sourceforge.net/'>Virtual Distributed Ethernet</link>
-  (<acronym>vde</acronym>) présenté dans l'article &url.vm;. On s'appuie donc
-  sur l'architecture de virtualisation habituelle pour mettre en œuvre la
-  configuration ci-dessous.</para>
+  <para>L'autre contrainte est liée à la solution de virtualisation. Dans le
+  but d'illustrer un maximum de possibilités d'interconnexion réseau, on
+  s'appuie sur le guide &url.vm;. Dans la section suivante, on présente donc la
+  mise en œuvre de la topologie avec l'hyperviseur <acronym>KVM</acronym>
+  associé au commutateur &url.ovs;.</para>
 </section>
 
+<?custom-pagebreak?>
 <section xml:id='pppoe.topology'>
   <title>La topologie virtualisée</title>
 
-  <para>En reprenant l'exemple du support de travaux pratiques donné ci-dessus,
-  on définit un brassage équivalent sur le commutateur virtuel
-  <application>vde</application>.</para>
+  <para>Suite à la définition de topologie type donnée dans la section
+  précédente, voici un schéma représentant la virtualisation de cette
+  topologie. Il fait apparaître deux instances de machines virtuelles nommées
+  <citetitle>Hub</citetitle> et <citetitle>Spoke</citetitle> ainsi que les
+  commutateurs virtuels utilisés pour l'interconnexion entre réseaux.</para>
 
   <mediaobject>
   <imageobject>
-    <imagedata fileref='images/pppoe-lab.png' format='PNG' contentwidth='14cm' width='15cm'/>
+    <imagedata fileref='images/pppoe-virtualized.png' format='PNG' contentwidth='14cm' width='15cm'/>
   </imageobject>
   <textobject>
-    <phrase>Topologie de modélisation d'un lien WAN</phrase>
+    <phrase>Topologie de virtualisation d'un lien WAN</phrase>
   </textobject>
   <caption>
-    <para><link xlink:href='images/pppoe-lab.png'>Topologie de modélisation d'un lien
-    WAN</link></para>
+    <para><link xlink:href='images/pppoe-virtualized.png'>Topologie de
+    virtualisation d'un lien WAN</link></para>
   </caption>
   </mediaobject>
 
-  <table xml:id='WAN.addressing' frame='all' pgwide='1'>
-    <title>Brassage des connexions au commutateur
-    <application>vde</application></title>
-    <tgroup cols='4'>
-      <colspec colnum='1' colwidth='1*'/>
-      <colspec colnum='2' colwidth='1*'/>
-      <colspec colnum='3' colwidth='1*'/>
-      <colspec colnum='4' colwidth='5*'/>
-    <thead>
-      <row>
-      <entry align='left'>numéro de port</entry>
-      <entry>interface</entry>
-      <entry>système</entry>
-      <entry>fonction</entry>
-      </row>
-    </thead>
-    <tbody>
-      <row>
-      <entry>1</entry>
-      <entry>tap0</entry>
-      <entry>hôte</entry>
-      <entry>connexion entre le commutateur et le système hôte</entry>
-      </row>
-      <row>
-      <entry>2</entry>
-      <entry>eth0</entry>
-      <entry>hub0</entry>
-      <entry>connexion LAN du routeur Hub</entry>
-      </row>
-      <row>
-      <entry>3</entry>
-      <entry>eth1</entry>
-      <entry>hub0</entry>
-      <entry>connexion WAN point à point du routeur Hub vers le routeur Spoke</entry>
-      </row>
-      <row>
-      <entry>4</entry>
-      <entry>eth1</entry>
-      <entry>spoke0</entry>
-      <entry>connexion WAN point à point du routeur Spoke vers le routeur Hub</entry>
-      </row>
-      <row>
-      <entry>5</entry>
-      <entry>eth0</entry>
-      <entry>spoke0</entry>
-      <entry>connexion LAN du routeur Spoke</entry>
-      </row>
-    </tbody>
-    </tgroup>
-  </table>
+  <para>Le routeur <citetitle>Hub</citetitle> joue le rôle de concentrateur des
+  demandes d'accès émises par les routeurs distants : les
+  <citetitle>Spokes</citetitle>. Dans la maquette présentée ci-dessus, on
+  n'utilise qu'un seul routeur <citetitle>Spoke</citetitle> pour illustrer le
+  dialogue <acronym>PPP</acronym> sur un seul lien <acronym>WAN</acronym>. En
+  ajoutant, d'autres instances de machines virtuelles, il serait possible de
+  multiplier les routeurs <citetitle>Spokes</citetitle>.</para>
 
-  <para>Conformément au tableau de brassage ci-dessus, voici le fichier de
-  configuration du commutateur ainsi que le script de lancement des instances
-  de systèmes virtuels.</para>
+  <note>
+  <para>Dans l'&url.bras; le routeur <citetitle>Hub</citetitle> est aussi
+  appelé <wordasword>Broadband Remote Access Server</wordasword> ou
+  <acronym>BRAS</acronym>.</para>
+  </note>
 
-<screen width='70'>$ cat vde.conf 
-vlan/create 34
-port/setvlan 3 34
-port/setvlan 4 34</screen>
+  <bridgehead xml:id="packages" renderas='sect3'>Paquets et droits d'accès</bridgehead>
 
-  <para>Avec cette configuration, on se contente de créer le
-  <acronym>VLAN</acronym> numéro 34 puis de définir les ports 3 et 4 en mode
-  accès sur ce même <acronym>VLAN</acronym>. On modélise ainsi un canal de
-  communication point à point exclusif entre les interfaces
-  <option>eth1</option> des deux routeurs.</para>
+  <para>Avant de passer à la configuration de l'interconnexion, il faut
+  préparer le système hôte : installer les paquets nécessaires à la
+  virtualisation système et ouvrir les permissions d'accès.</para>
 
-<screen width='70'>$ cat pppoe.sh 
-#!/bin/bash
+  <itemizedlist>
+    <listitem>
+    <para>On commence par l'installation des paquets utiles après avoir vérifié
+    que le processeur du système hôte dispose bien des fonctions de
+    virtualisation.</para>
 
-../scripts/startup.sh <emphasis>hub0</emphasis>.raw 512 2 \
-  -net vde,vlan=2,sock=/var/run/vde2/tap0.ctl,port=3 \
-  -net nic,vlan=2,model=virtio,macaddr=66:00:00:00:00:3
+<screen><prompt>#</prompt> egrep '(vmx|svm)' /proc/cpuinfo</screen>
 
-../scripts/startup.sh <emphasis>spoke0</emphasis>.raw 512 5 \
-  -net vde,vlan=2,sock=/var/run/vde2/tap0.ctl,port=4 \
-  -net nic,vlan=2,model=virtio,macaddr=66:00:00:00:00:4</screen>
+<screen><prompt>#</prompt> aptitude install qemu-system-x86 openvswitch-switch</screen>
+    </listitem>
+    <listitem>
+    <para>On s'assure ensuite que l'utilisateur normal est bien membre des
+    groupes système associés à la virtualisation. Dans notre cas, on se
+    contente des groupes <option>sudo</option> et <option>kvm</option>. L'ajout
+    d'un utilisateur à un groupe système se fait à l'aide de la commande
+    suivante.</para>
+    
+<screen><prompt>#</prompt> adduser etu kvm</screen>
+    </listitem>
+  </itemizedlist>
 
-  <para>Le &url.vm.startup.sh; est décrit dans l'article &url.vm;. Ce code a
-  été complété de façon à ajouter une interface Ethernet à chaque instance de
-  machine virtuelle. Ces interfaces supplémentaires seront baptisées
-  <option>eth1</option> et serviront à la mise en œuvre du protocole
-  <acronym>PPPoE</acronym>. Les adresses <acronym>MAC</acronym> fantaisistes
-  sont choisies pour repérer plus facilement le lien point à point.</para>
+  <bridgehead xml:id="interconnection" renderas='sect3'>Commutateurs et cordons de brassage</bridgehead>
+
+  <para>Sur le schéma ci-dessus, on compte 4 cordons de brassage. À
+  chacun de ces cordons correspond une interface de type <option>tap</option>.
+  Voici une copie du script de création de ces cordons de brassage
+  virtuels.</para>
+
+<screen>&tap-create;</screen>
+
+  <para>Voici la syntaxe de création du commutateur
+  <option>wan-sw</option>. La création du commutateur <option>swd-host</option>
+  utiliserait la même syntaxe. Ce dernier commutateur fait partie de la
+  configuration permanente du système hôte puisqu'il est utilisé pour raccorder
+  celui-ci à l'Internet.</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-br wan-sw</screen>
+
+  <para>On passe maintenant au brassage des cordons sur les commutateurs.</para>
+
+  <itemizedlist>
+  <listitem>
+  <para>Commutateur <option>swd-host</option></para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-port <emphasis>swd-host tap0</emphasis> -- set port tap0 vlan_mode=access
+<prompt>$</prompt> sudo ovs-vsctl add-port <emphasis>swd-host tap2</emphasis> -- set port tap2 vlan_mode=access</screen>
+  </listitem>
+  <listitem>
+  <para>Commutateur <option>wan-sw</option></para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-port <emphasis>wan-sw tap1</emphasis> -- set port tap1 vlan_mode=access
+<prompt>$</prompt> sudo ovs-vsctl add-port <emphasis>wan-sw tap3</emphasis> -- set port tap3 vlan_mode=access</screen>
+  </listitem>
+  </itemizedlist>
+
+  <bridgehead xml:id="vm-instances" renderas='sect3'>Instances de systèmes virtuels</bridgehead>
+
+  <para>Le guide &url.vm; fournit le &url.vm.ovs-mode-startup.sh; qui sert au
+  lancement des instances de systèmes virtuels. Ce script ne décrit qu'une
+  interface réseau pour une instance de système virtuel. Il est donc nécessaire
+  de le compléter avec la description des interfaces supplémentaires.</para>
+
+<screen>&pppoe-startup;</screen>
+
+  <para>Il faut noter que sur la schéma proposé ci-dessus, l'interface
+  <option>eth0</option> du routeur <citetitle>Spoke</citetitle>, raccordée via
+  le cordon <option>tap2</option> devient inutile dès que la configuration du
+  lien <acronym>WAN</acronym> est en place. Cette interface est cependant
+  nécessaire pour accéder à la console du routeur <citetitle>Spoke</citetitle>
+  et installer les paquets manquants.</para>
 </section>
 
+<?custom-pagebreak?>
 <section xml:id='pppoe.config'>
   <title>La configuration PPPoE</title>
 
-  <para>Les deux protocoles &url.ppp; et &url.pppoe; ont un fonctionnement bien
-  distinct. Une session <acronym>PPPoe</acronym> doit être établie avant que
-  les échanges <acronym>PPP</acronym> ne débutent.</para>
+  <para>Les deux protocoles &url.ppp; et <acronym>PPPoe</acronym> se
+  distinguent par le fait qu'une session <acronym>PPPoe</acronym> doit être
+  établie avant que les échanges <acronym>PPP</acronym> ne débutent.</para>
 
   <para>Le caractère asymétrique du dialogue <acronym>PPPoE</acronym> a une
   influence importante sur la configuration des deux (systèmes|routeurs)
@@ -240,10 +277,11 @@ port/setvlan 4 34</screen>
   les requêtes du routeur <systemitem>Spoke</systemitem>. La configuration de
   ce routeur <systemitem>Spoke</systemitem> est très voisine de celle de
   n'importe quel client <acronym>PPP</acronym>. Il suffit juste de spécifier
-  l'utilisation du greffon <systemitem>pppoe</systemitem>.</para>
+  l'utilisation du greffon <systemitem>pppoe</systemitem> dans la
+  configuration.</para>
 
   <section xml:id='pppoe.config.hub'>
-    <title>Le <wordasword>Broadband Remote Access Server</wordasword> Hub</title>
+    <title>Le routeur Hub</title>
 
   <para>Par définition, un système <wordasword>Broadband Remote Access
   Server</wordasword> assure les fonctions suivantes :</para>
@@ -251,15 +289,14 @@ port/setvlan 4 34</screen>
   <itemizedlist>
     <listitem>
     <para>Agréger le trafic en provenance des équipements &url.dslam;
-    (<acronym>DSLAM</acronym>). En lieu et place du <acronym>DSLAM</acronym>,
-    nous utilisons un commutateur Ethernet sur lequel nous avons programmé un
-    <acronym>VLAN</acronym> spécifique ; le numéro
-    <option>34</option>.</para>
+    (<acronym>DSLAM</acronym>). Sur la maquette, nous utilisons le commutateur
+    <option>wan-sw</option> en lieu et place du
+    <acronym>DSLAM</acronym>.</para>
     </listitem>
     <listitem>
     <para>Fournir une connectivité de niveau 2 à travers des réseaux Ethernet ou ATM
     sur lesquels les sessions <acronym>PPP</acronym> sont établies. Cette
-    fonction est bien assurée par le routeur
+    fonction est bien assurée par l'interface <option>eth1</option> du routeur
     <systemitem>Hub</systemitem>.</para>
     </listitem>
     <listitem>
@@ -269,7 +306,7 @@ port/setvlan 4 34</screen>
     <listitem>
     <para>Fournir une connectivité de niveau 3 et un routage des paquets
     <acronym>IP</acronym> vers le fournisseur d'accès (et|ou)
-    l'Internet. Cette fonction est aussi bien assurée par le routeur
+    l'Internet. Cette fonction est aussi assurée par le routeur
     <systemitem>Hub</systemitem>.</para>
     </listitem>
   </itemizedlist>
@@ -280,7 +317,7 @@ port/setvlan 4 34</screen>
   liste des paquets Debian utiles. On détaille ensuite les fichiers de
   configuration correspondants.</para>
 
-<screen width='80'>etu@hub0:~$ aptitude search ~ippp
+<screen><prompt>$</prompt> aptitude search ~ippp
 i A ppp         - Point-to-Point Protocol (PPP) - daemon
 i   pppoe	- PPP over Ethernet driver</screen>
 
@@ -288,39 +325,23 @@ i   pppoe	- PPP over Ethernet driver</screen>
   <application>pppoe-server</application> qui permet de gérer le dialogue de
   gestion de session du protocole. Les outils fournis avec ce paquet sont une
   implémentation complète du protocole <acronym>PPPoE</acronym> dans l'espace
-  utilisateur. Ils ne s'appuient pas sur le code fourni avec le noyau
-  Linux.</para>
+  utilisateur.</para>
 
-<screen width='80'>etu@hub0:~$ dpkg -S `which pppoe-server`
+<screen><prompt>$</prompt> dpkg -S `which pppoe-server`
 pppoe: /usr/sbin/pppoe-server</screen>
 
   <para>Il est tout à fait possible d'utiliser cet outil directement à partir
   de la ligne de commande. Dans le cas présent, on souhaite retrouver la
   configuration d'une exécution à l'autre des instances de machines virtuelles.
   On essaie donc de paramétrer le serveur <acronym>PPPoE</acronym> dans les
-  fichiers de configuration usuels de la distribution. Voici une copie des deux
-  fichiers de configurations qui permettent de lancer le service à
-  minima.</para>
+  fichiers de configuration usuels de la distribution. Voici une liste des
+  fichiers de configuration qui permettent de lancer le service.</para>
 
   <itemizedlist>
     <listitem>
     <para>Le fichier <filename>/etc/network/interfaces</filename> :</para>
 
-<screen width='80'># This file describes the network interfaces available on your system
-# and how to activate them. For more information, see interfaces(5).
-
-# The loopback network interface
-auto lo
-iface lo inet loopback
-
-# The primary network interface
-allow-hotplug eth0
-iface eth0 inet dhcp
-
-auto eth1
-iface eth1 inet manual
-        pre-up ip link set eth1 up
-        post-up pppoe-server -I eth1</screen>
+<screen>&hub-interfaces;</screen>
 
     <para>La méthode de configuration de l'interface <option>eth1</option> est
     dite manuelle. Avec cette méthode aucun paramètre n'est requis. On donne
@@ -331,25 +352,63 @@ iface eth1 inet manual
     <listitem>
     <para>Le fichier <filename>/etc/ppp/pppoe-server-options</filename> :</para>
 
-<screen width='80'>debug
-noauth</screen>
+<screen>&pppoe-server-options;</screen>
 
     <para>La présence de ce fichier est obligatoire pour le fonctionnement de
     l'outil <application>pppoe-server</application>. Dans le cas présent, on se
-    contente du strict minimum. Le plan d'adressage <acronym>IP</acronym>
-    utilisé est celui proposé par défaut. Les informations sur les adresses
-    <acronym>IP</acronym> sont données dans les pages de manuels de l'outil.
-    L'adresse locale est <systemitem class='ipaddress'>10.0.0.1</systemitem> et
-    la première adresse distante attribuée est <systemitem
-    class='ipaddress'>10.67.15.1</systemitem>.</para>
+    utilise le jeu d'options suivant extrait des pages de manuels du démon
+    <systemitem>pppd</systemitem>.</para>
+
+    <itemizedlist>
+    <listitem>
+    <para><option>debug</option> : affichage des étapes d'établissement de
+    session dans les journaux système.</para>
+    </listitem>
+    <listitem>
+    <para><option>login</option> : référence de compte utilisateur à utiliser
+    lors de l'authentification du routeur <systemitem>spoke</systemitem>. Cette
+    option implique que le compte utilisateur existe sur le système et qu'il
+    soit présent dans le fichier
+    <filename>/etc/ppp/chap-secrets</filename>.</para>
+    </listitem>
+    <listitem>
+    <para><option>require-chap</option> : impose au routeur
+    <systemitem>spoke</systemitem> une authentification via le protocole
+    <acronym>CHAP</acronym> (<wordasword>Challenge Handshake Authentication
+    Protocol</wordasword>).</para>
+    </listitem>
+    <listitem>
+    <para><option>nodefaultroute</option> : préserve la route par défaut (accès
+    Internet) du routeur <systemitem>hub</systemitem>.</para>
+    </listitem>
+    <listitem>
+    <para><option>+ipv6</option> : active les protocoles
+    <acronym>IPv6CP</acronym> et <acronym>IPv6</acronym>.</para>
+    </listitem>
+    </itemizedlist>
+    </listitem>
+    <listitem>
+    <para>Le fichier <filename>/etc/ppp/chap-secrets</filename> :</para>
+
+<screen># Secrets for authentication using CHAP
+# client        server  secret                  IP addresses
+"hub"           *       "5up3r53cr3t"           *
+"spoke"         *       "5up3r53cr3t"           *</screen>
+
+    <para>Comme l'option <option>login</option> impose l'existence d'un compte
+    utilisateur pour référencer la ligne du fichier
+    <filename>chap-secrets</filename>, le moyen le plus simple est de créer un
+    compte local sur le routeur <systemitem>hub</systemitem>.</para>
+
+<screen><prompt>#</prompt> adduser --disabled-login spoke</screen>
     </listitem>
   </itemizedlist>
 
   <para>Une fois la session <acronym>PPPoE</acronym> établie, le seul travail
-  effectué par cet outil consiste à lancer le démon
-  <application>pppd</application> qui se charge de gérer ses propres
-  transactions aux niveaux <acronym>LCP</acronym> et
-  <acronym>IPCP</acronym>.</para>
+  effectué par l'outil <application>pppoe-server</application> consiste à
+  lancer le démon <application>pppd</application> qui se charge de gérer ses
+  propres transactions aux deux niveaux <acronym>LCP</acronym> et
+  <acronym>NCP</acronym>.</para>
   </section>
 
   <section xml:id='pppoe.config.spoke'>
@@ -361,8 +420,8 @@ noauth</screen>
   <systemitem>ppp</systemitem> et on poursuit avec les fichiers de
   configuration.</para>
 
-<screen width='80'>etu@spoke0:~$ aptitude search ~ippp
-i   ppp         - Point-to-Point Protocol (PPP) - daemon</screen>
+<screen><prompt>$</prompt> aptitude search ~ippp
+i   ppp       - protocole point à point (PPP) - démon</screen>
 
   <para>Le paquet <systemitem>ppp</systemitem>, en plus du code nécessaire à la
   gestion du dialogue <acronym>PPP</acronym>, contient un greffon
@@ -372,51 +431,42 @@ i   ppp         - Point-to-Point Protocol (PPP) - daemon</screen>
   <para>Comme avec l'autre routeur, il est possible d'exécuter le démon
   <acronym>PPP</acronym> avec l'ensemble de ses paramètres directement à la
   ligne de commande. On suit ici le même principe que pour le routeur
-  <systemitem>Hub</systemitem> : une configuration minimale sauvegardée
-  dans les fichiers de configuration du système.</para>
+  <systemitem>Hub</systemitem> : une configuration sauvegardée dans les
+  fichiers de configuration du système.</para>
 
   <itemizedlist>
     <listitem>
     <para>Le fichier <filename>/etc/network/interfaces</filename> :</para>
 
-<screen width='80'># This file describes the network interfaces available on your system
-# and how to activate them. For more information, see interfaces(5).
+<screen>&spoke-interfaces;</screen>
 
-# The loopback network interface
-auto lo
-iface lo inet loopback
+    <para>La définition de l'interface <option>ppp0</option> utilise la méthode
+    <option>ppp</option>. Avec cette méthode, on peut utiliser la directive
+    <option>provider</option> qui permet d'automatiser le lancement du démon
+    <acronym>PPP</acronym> avec les paramètres spécifiés dans le fichier
+    <filename>dsl-provider</filename>. Comme avec l'autre routeur, on fait
+    précéder le lancement du démon par l'activation de l'interface au niveau
+    liaison (couche 2).</para>
 
-# The primary network interface
-allow-hotplug eth0
-iface eth0 inet dhcp
-
-auto ppp0
-iface ppp0 inet ppp
-        pre-up ip link set eth1 up
-        provider dsl-provider</screen>
-
-    <para>La méthode de configuration de l'interface <option>ppp0</option>
-    utilisée est <option>ppp</option>. Avec cette méthode, on peut utiliser la
-    directive <option>provider</option> qui permet d'automatiser le lancement
-    du démon <acronym>PPP</acronym> avec les paramètres spécifiés dans le
-    fichier <filename>dsl-provider</filename>. Comme avec l'autre routeur, on
-    fait précéder le lancement du démon par l'activation de l'interface au
-    niveau liaison (couche 2).</para>
+    <para>Le fichier présenté est directement inspiré de la page du wiki
+    <citetitle>Debian</citetitle> &url.pppoe-debian-wiki;</para>
     </listitem>
     <listitem>
     <para>Le fichier <filename>/etc/ppp/peers/dsl-provider</filename> :</para>
 
-<screen width='80'>debug
-noauth
-plugin /usr/lib/pppd/2.4.5/rp-pppoe.so
-eth1
-noipdefault
-persist</screen>
+<screen>&spoke-dsl-provider;</screen>
 
     <para>C'est à ce niveau que l'on trouve l'appel au greffon
     <acronym>PPPoE</acronym>. Sa fonction est essentiellement l'utilisation de
     l'interface Ethernet <option>eth1</option> en lieu et place d'une interface
-    «série» classique.</para>
+    «série» classique. Le fichier présenté est directement inspiré du modèle
+    fourni avec la documentation du paquet <systemitem>ppp</systemitem> :
+    <filename>/usr/share/doc/ppp/examples/peers-pppoe</filename>.</para>
+
+    <para>Les options ajoutées : <option>debug</option> et
+    <option>+ipv6</option>, sont relatives au niveau des détails présents dans
+    les journaux systèmes et l'activation des protocoles associés à
+    <acronym>IPv6</acronym>.</para>
     </listitem>
   </itemizedlist>
   </section>
@@ -434,82 +484,94 @@ persist</screen>
     <varlistentry>
     <term>Au niveau commutation de trame</term>
     <listitem>
-    <para>Le commutateur <application>vde</application> dispose d'un
-    <wordasword>socket</wordasword> de gestion qui permet de le
-    programmer à partir du système hôte.</para>
+    <para>On affiche la table des adresses <acronym>MAC</acronym> connues du
+    commutateur <systemitem>wan-sw</systemitem> à partir de la console du
+    système hôte.</para>
 
-<screen width='80'>:~$ vdeterm /var/run/vde2/tap0.mgmt
-VDE switch V.2.2.3
-(C) Virtual Square Team (coord. R. Davoli) 2005,2006,2007 - GPLv2
-
-vde$ hash/print
-0000 DATA END WITH '.'
-Hash: 0010 Addr: 52:54:00:12:34:02 VLAN 0000 to port: 002  age 8 secs
-Hash: 0039 Addr: 66:00:00:00:00:04 VLAN 0034 to port: 004  age 1 secs
-Hash: 0054 Addr: 32:c6:fa:a5:d3:03 VLAN 0000 to port: 001  age 8 secs
-Hash: 0089 Addr: 66:00:00:00:00:03 VLAN 0034 to port: 003  age 1 secs
-.
-1000 Success</screen>
+<screen><prompt>$</prompt> sudo ovs-appctl fdb/show wan-sw
+ port  VLAN  MAC                Age
+    1     0  de:ad:be:ef:00:01    9
+    2     0  de:ad:be:ef:00:03    9</screen>
     
-    <para>On retrouve bien les adresses <acronym>MAC</acronym> fantaisistes
-    attribuées aux deux routeurs connectés sur les ports 3 et 4 ; lesquels
-    appartiennent au <acronym>VLAN</acronym> numéro 34.</para>
+    <para>On retrouve bien les adresses <acronym>MAC</acronym> «fantaisistes»
+    attribuées aux deux routeurs lors du lancement des machines
+    virtuelles. Voir <xref linkend='vm-instances' />.</para>
     </listitem>
     </varlistentry>
     <varlistentry>
-    <term>Au niveau du routeur <systemitem>Hub</systemitem></term>
+    <term>Au niveau du routeur Hub</term>
     <listitem>
     <itemizedlist>
     <listitem>
     <para>Les journaux système révèlent l'établissement de la session
     <acronym>PPPoE</acronym> suivie du lancement du démon
     <acronym>PPP</acronym> et des transactions <acronym>LCP</acronym> et
-    <acronym>IPCP</acronym>.</para>
+    <acronym>NCP</acronym> pour les deux protocoles de couche réseau
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
 
-<screen width='80'>hub0 pppoe-server[4606]: Session 3 created for client 66:00:00:00:00:04 (10.67.15.1) on eth1 using Service-Name ''
-hub0 pppd[4606]: pppd 2.4.5 started by root, uid 0
-hub0 pppd[4606]: using channel 3
-hub0 pppd[4606]: Using interface ppp0
-hub0 pppd[4606]: Connect: ppp0 &lt;--> /dev/pts/1
-hub0 pppd[4606]: sent [LCP ConfReq xml:id=0x1 &lt;magic 0xfff7c6e4>]
-hub0 pppd[4606]: rcvd [LCP ConfAck xml:id=0x1 &lt;magic 0xfff7c6e4>]
-hub0 pppd[4606]: rcvd [LCP ConfReq xml:id=0x1 &lt;mru 1492> &lt;magic 0xfd33ee29>]
-hub0 pppd[4606]: sent [LCP ConfAck xml:id=0x1 &lt;mru 1492> &lt;magic 0xfd33ee29>]
-hub0 pppd[4606]: sent [LCP EchoReq xml:id=0x0 magic=0xfff7c6e4]
-hub0 pppd[4606]: sent [IPCP ConfReq xml:id=0x1 &lt;addr 10.0.0.1>]
-hub0 pppd[4606]: rcvd [LCP EchoReq xml:id=0x0 magic=0xfd33ee29]
-hub0 pppd[4606]: sent [LCP EchoRep xml:id=0x0 magic=0xfff7c6e4]
-hub0 pppd[4606]: rcvd [LCP EchoRep xml:id=0x0 magic=0xfd33ee29]
-hub0 pppd[4606]: rcvd [IPCP ConfReq xml:id=0x1 &lt;addr 0.0.0.0>]
-hub0 pppd[4606]: sent [IPCP ConfNak xml:id=0x1 &lt;addr 10.67.15.1>]
-hub0 pppd[4606]: rcvd [IPCP ConfAck xml:id=0x1 &lt;addr 10.0.0.1>]
-hub0 pppd[4606]: rcvd [IPCP ConfReq xml:id=0x2 &lt;addr 10.67.15.1>]
-hub0 pppd[4606]: sent [IPCP ConfAck xml:id=0x2 &lt;addr 10.67.15.1>]
-hub0 pppd[4606]: local  IP address 10.0.0.1
-hub0 pppd[4606]: remote IP address 10.67.15.1
-hub0 pppd[4606]: Script /etc/ppp/ip-up started (pid 4611)
-hub0 pppd[4606]: Script /etc/ppp/ip-up finished (pid 4611), status = 0x0</screen>
+<screen>hub pppoe-server[106]: Session 1 created for client de:ad:be:ef:00:03 (203.0.113.10) on eth1 using Service-Name ''
+hub pppd[106]: pppd 2.4.6 started by etu, uid 0
+hub pppd[106]: using channel 4
+hub pppd[106]: Using interface ppp0
+hub pppd[106]: Connect: ppp0 &lt;--> /dev/pts/1
+hub pppd[106]: sent [LCP ConfReq id=0x1 &lt;auth chap MD5> &lt;magic 0xcd537d21>]
+hub pppd[106]: rcvd [LCP ConfAck id=0x1 &lt;auth chap MD5> &lt;magic 0xcd537d21>]
+hub pppd[106]: rcvd [LCP ConfReq id=0x1 &lt;mru 1492> &lt;magic 0xf9d3d6a1>]
+hub pppd[106]: sent [LCP ConfAck id=0x1 &lt;mru 1492> &lt;magic 0xf9d3d6a1>]
+hub pppd[106]: sent [LCP EchoReq id=0x0 magic=0xcd537d21]
+hub pppd[106]: sent [CHAP Challenge id=0xad &lt;d3ea7672130fd1d22b91cfbe6e1355da>, name = "hub"]
+hub pppd[106]: rcvd [LCP EchoReq id=0x0 magic=0xf9d3d6a1]
+hub pppd[106]: sent [LCP EchoRep id=0x0 magic=0xcd537d21]
+hub pppd[106]: rcvd [LCP EchoRep id=0x0 magic=0xf9d3d6a1]
+hub pppd[106]: rcvd [CHAP Response id=0xad &lt;d66b72abdc872fdba648a68009be6514>, name = "spoke"]
+hub pppd[106]: sent [CHAP Success id=0xad "Access granted"]
+hub pppd[106]: Initializing PAM (2) for user spoke
+hub pppd[106]: ---> PAM INIT Result = 0
+hub pppd[106]: Attempting PAM account checks
+hub pppd[106]: PAM Account OK for spoke
+hub pppd[106]: PAM Session opened for user spoke
+hub pppd[106]: user spoke logged in on tty  intf ppp0
+hub pppd[106]: local  LL address fe80::5c3a:77a1:aad1:a619
+hub pppd[106]: remote LL address fe80::b474:5671:fc2c:ddd8
+hub pppd[106]: local  IP address 203.0.113.1
+hub pppd[106]: remote IP address 203.0.113.10</screen>
     </listitem>
     <listitem>
     <para>Une entrée de la table de routage a bien été définie en fonction des
     éléments donnés ci-dessus.</para>
 
-<screen width='80'># ip route ls
-10.67.15.1 dev ppp0  proto kernel  scope link  src 10.0.0.1 
-192.0.2.0/27 dev eth0  proto kernel  scope link  src 192.0.2.3 
-default via 192.0.2.1 dev eth0</screen>
+<screen><prompt>#</prompt> ip route ls
+default via 192.0.2.1 dev eth0 
+192.0.2.0/26 dev eth0  proto kernel  scope link  src 192.0.2.10 
+203.0.113.10 <emphasis>dev ppp0</emphasis>  proto kernel  scope link  src 203.0.113.1</screen>
+
+	<para>Côté <acronym>IPv6</acronym>, l'activation de l'interface
+	<option>ppp0</option> a bien été prise en compte.</para>
+
+<screen><prompt>#</prompt> ip -6 route ls dev ppp0
+fe80::/10  metric 1  pref medium
+fe80::/10  proto kernel  metric 256  pref medium</screen>
     </listitem>
     <listitem>
-    <para>La liste des processus illustre l'enchaînement entre les différents
-    démons et les paramètres associés.</para>
+    <para>Pour identifier la liste des processus associés au démon
+    <systemitem>pppoe-server</systemitem>, on peut utiliser une commande du
+    type suivant.</para>
 
-<screen width='80'># ps axf | grep ppp | grep -v grep
-3642 ?    S      0:00 pppoe-server -I eth1
-4606 ?    Ss     0:00  \_ pppd pty /usr/sbin/pppoe -n -I eth1 \
-        -e 3:66:00:00:00:00:04 \
-	-S '' \
-        file /etc/ppp/pppoe-server-options \
-	10.0.0.1:10.67.15.1 \
+<screen><prompt>#</prompt> pstree -p $(pidof pppoe-server)
+pppoe-server(10628)───pppd(10692)───sh(10693)───pppoe(10695)</screen>
+    
+	<para>Un autre affichage donne la liste des arguments associés aux
+	démons. Le lancement du démon <systemitem>pppd</systemitem> via
+	<systemitem>pppoe-server</systemitem> impose une liste de paramètres autres
+	que ceux définis dans le fichier
+	<filename>/etc/ppp/pppoe-server-options</filename>.</para>
+
+<screen><prompt>#</prompt> ps -fwwp $(pgrep -d, ppp)
+UID        PID  PPID  C STIME TTY          TIME CMD
+root     10628     1  0 oct.10 ?       00:00:00 pppoe-server -I eth1 -C BRAS -L 203.0.113.1 -p /etc/ppp/ip-range
+root     10692 10628  0 oct.10 ?       00:00:00 pppd pty /usr/sbin/pppoe -n -I eth1 -e 1:de:ad:be:ef:00:03 -S '' \
+	file /etc/ppp/pppoe-server-options \
+	203.0.113.1:203.0.113.10 \
 	nodetach \
 	noaccomp \
 	nobsdcomp \
@@ -518,14 +580,13 @@ default via 192.0.2.1 dev eth0</screen>
 	novj \
 	novjccomp \
 	default-asyncmap
-4607 ?    S      0:00      \_ sh -c /usr/sbin/pppoe -n -I eth1 -e 3:66:00:00:00:00:04 -S ''
-4609 ?    S      0:00          \_ /usr/sbin/pppoe -n -I eth1 -e 3:66:00:00:00:00:04 -S</screen>
+nobody   10695 10693  0 oct.10 ?       00:00:00 /usr/sbin/pppoe -n -I eth1 -e 1:de:ad:be:ef:00:03 -S</screen>
     </listitem>
     </itemizedlist>
     </listitem>
     </varlistentry>
     <varlistentry>
-    <term>Au niveau du routeur <systemitem>Spoke</systemitem></term>
+    <term>Au niveau du routeur Spoke</term>
     <listitem>
     <itemizedlist>
     <listitem>
@@ -535,60 +596,86 @@ default via 192.0.2.1 dev eth0</screen>
     revanche, c'est le code fourni par le noyau Linux
     (<wordasword>kernel</wordasword>) qui est utilisé cette fois-ci.</para>
 
-<screen width='80'>spoke0 kernel: [   12.416903] PPP generic driver version 2.4.2
-spoke0 pppd[766]: Send PPPOE Discovery V1T1 PADI session 0x0 length 12
-spoke0 pppd[766]:  dst ff:ff:ff:ff:ff:ff  src 66:0:0:0:0:4
-spoke0 pppd[766]:  [service-name] [host-uniq  fe 02 00 00]
-spoke0 pppd[766]: Recv PPPOE Discovery V1T1 PADO session 0x0 length 44
-spoke0 pppd[766]:  dst 66:0:0:0:0:4  src 66:0:0:0:0:3
-spoke0 pppd[766]:  [AC-name hub0] [service-name] [AC-cookie  a6 b4 08 6c 46 1e 5c 8b 58 01 7e 98 1a 60 bd ac 03 03 00 00] [host-uniq  fe 02 00 00]
-spoke0 pppd[766]: Send PPPOE Discovery V1T1 PADR session 0x0 length 36
-spoke0 pppd[766]:  dst 66:0:0:0:0:3  src 66:0:0:0:0:4
-spoke0 pppd[766]:  [service-name] [host-uniq  fe 02 00 00] [AC-cookie  a6 b4 08 6c 46 1e 5c 8b 58 01 7e 98 1a 60 bd ac 03 03 00 00]
-spoke0 pppd[766]: Recv PPPOE Discovery V1T1 PADS session 0x1 length 12
-spoke0 pppd[766]:  dst 66:0:0:0:0:4  src 66:0:0:0:0:3
-spoke0 pppd[766]:  [service-name] [host-uniq  fe 02 00 00]
-spoke0 pppd[766]: PADS: Service-Name: ''
-spoke0 pppd[766]: PPP session is 1
-spoke0 pppd[766]: Connected to 66:00:00:00:00:03 via interface eth1
-spoke0 pppd[766]: using channel 1
-spoke0 pppd[766]: Using interface ppp0
-spoke0 pppd[766]: Connect: ppp0 &lt;--> eth1
-spoke0 pppd[766]: sent [LCP ConfReq xml:id=0x1 &lt;mru 1492> &lt;magic 0xad93aaff>]
-spoke0 pppd[766]: rcvd [LCP ConfReq xml:id=0x1 &lt;magic 0xc744a233>]
-spoke0 pppd[766]: sent [LCP ConfAck xml:id=0x1 &lt;magic 0xc744a233>]
-spoke0 pppd[766]: sent [LCP ConfReq xml:id=0x1 &lt;mru 1492> &lt;magic 0xad93aaff>]
-spoke0 pppd[766]: rcvd [LCP ConfAck xml:id=0x1 &lt;mru 1492> &lt;magic 0xad93aaff>]
-spoke0 pppd[766]: sent [LCP EchoReq xml:id=0x0 magic=0xad93aaff]
-spoke0 pppd[766]: peer from calling number 66:00:00:00:00:03 authorized
-spoke0 pppd[766]: sent [IPCP ConfReq xml:id=0x1 &lt;addr 0.0.0.0>]
-spoke0 pppd[766]: rcvd [LCP EchoReq xml:id=0x0 magic=0xc744a233]
-spoke0 pppd[766]: sent [LCP EchoRep xml:id=0x0 magic=0xad93aaff]
-spoke0 pppd[766]: rcvd [IPCP ConfReq xml:id=0x1 &lt;addr 10.0.0.1>]
-spoke0 pppd[766]: sent [IPCP ConfAck xml:id=0x1 &lt;addr 10.0.0.1>]
-spoke0 pppd[766]: rcvd [LCP EchoRep xml:id=0x0 magic=0xc744a233]
-spoke0 pppd[766]: rcvd [IPCP ConfNak xml:id=0x1 &lt;addr 10.67.15.1>]
-spoke0 pppd[766]: sent [IPCP ConfReq xml:id=0x2 &lt;addr 10.67.15.1>]
-spoke0 pppd[766]: rcvd [IPCP ConfAck xml:id=0x2 &lt;addr 10.67.15.1>]
-spoke0 pppd[766]: local  IP address 10.67.15.1
-spoke0 pppd[766]: remote IP address 10.0.0.1
-spoke0 pppd[766]: Script /etc/ppp/ip-up started (pid 1323)
-spoke0 pppd[766]: Script /etc/ppp/ip-up finished (pid 1323), status = 0x0</screen>
+<screen>spoke pppd[2211]: Plugin rp-pppoe.so loaded.
+spoke pppd[2218]: pppd 2.4.6 started by etu, uid 0
+spoke pppd[2218]: Failed to disconnect PPPoE socket: 114 Operation already in progress
+spoke pppd[2218]: Send PPPOE Discovery V1T1 PADI session 0x0 length 12
+spoke pppd[2218]:  dst ff:ff:ff:ff:ff:ff  src de:ad:be:ef:00:03
+spoke pppd[2218]:  [service-name] [host-uniq  aa 08 00 00]
+spoke pppd[2218]: Recv PPPOE Discovery V1T1 PADO session 0x0 length 44
+spoke pppd[2218]:  dst de:ad:be:ef:00:03  src de:ad:be:ef:00:01
+spoke pppd[2218]:  [AC-name BRAS] [service-name] [AC-cookie  4a f2 52 4d 60 60 27 c6 00 63 97 78 35 3b 93 03 1f 1f 00 00] [host-uniq  aa 08 00 00]
+spoke pppd[2218]: Send PPPOE Discovery V1T1 PADR session 0x0 length 36
+spoke pppd[2218]:  dst de:ad:be:ef:00:01  src de:ad:be:ef:00:03
+spoke pppd[2218]:  [service-name] [host-uniq  aa 08 00 00] [AC-cookie  4a f2 52 4d 60 60 27 c6 00 63 97 78 35 3b 93 03 1f 1f 00 00]
+spoke pppd[2218]: Recv PPPOE Discovery V1T1 PADS session 0x4 length 12
+spoke pppd[2218]:  dst de:ad:be:ef:00:03  src de:ad:be:ef:00:01
+spoke pppd[2218]:  [service-name] [host-uniq  aa 08 00 00]
+spoke pppd[2218]: PADS: Service-Name: ''
+spoke pppd[2218]: PPP session is 4
+spoke pppd[2218]: Connected to de:ad:be:ef:00:01 via interface eth1
+spoke pppd[2218]: using channel 4
+spoke pppd[2218]: Using interface ppp0
+spoke pppd[2218]: Connect: ppp0 &lt;--> eth1
+spoke pppd[2218]: sent [LCP ConfReq id=0x4 &lt;mru 1492> &lt;magic 0xf4de2406>]
+spoke pppd[5046]: rcvd [LCP ConfAck id=0x1 &lt;mru 1492> &lt;magic 0xf9d3d6a1>]
+spoke pppd[5046]: sent [LCP EchoReq id=0x0 magic=0xf9d3d6a1]
+spoke pppd[5046]: rcvd [LCP EchoReq id=0x0 magic=0xcd537d21]
+spoke pppd[5046]: sent [LCP EchoRep id=0x0 magic=0xf9d3d6a1]
+spoke pppd[5046]: rcvd [CHAP Challenge id=0xad &lt;d3ea7672130fd1d22b91cfbe6e1355da>, name = "hub"]
+spoke pppd[5046]: sent [CHAP Response id=0xad &lt;d66b72abdc872fdba648a68009be6514>, name = "spoke"]
+spoke pppd[5046]: rcvd [LCP EchoRep id=0x0 magic=0xcd537d21]
+spoke pppd[5046]: rcvd [CHAP Success id=0xad "Access granted"]
+spoke pppd[5046]: CHAP authentication succeeded: Access granted
+spoke pppd[5046]: CHAP authentication succeeded
+spoke pppd[5046]: peer from calling number DE:AD:BE:EF:00:01 authorized
+spoke pppd[5046]: sent [IPCP ConfReq id=0x1 &lt;addr 0.0.0.0> &lt;ms-dns1 0.0.0.0> &lt;ms-dns2 0.0.0.0>]
+spoke pppd[5046]: sent [IPV6CP ConfReq id=0x1 &lt;addr fe80::b474:5671:fc2c:ddd8>]
+spoke pppd[5046]: rcvd [IPCP ConfReq id=0x1 &lt;addr 203.0.113.1>]
+spoke pppd[5046]: sent [IPCP ConfAck id=0x1 &lt;addr 203.0.113.1>]
+spoke pppd[5046]: rcvd [IPV6CP ConfReq id=0x1 &lt;addr fe80::5c3a:77a1:aad1:a619>]
+spoke pppd[5046]: sent [IPV6CP ConfAck id=0x1 &lt;addr fe80::5c3a:77a1:aad1:a619>]
+spoke pppd[5046]: rcvd [IPCP ConfRej id=0x1 &lt;ms-dns1 0.0.0.0> &lt;ms-dns2 0.0.0.0>]
+spoke pppd[5046]: sent [IPCP ConfReq id=0x2 &lt;addr 0.0.0.0>]
+spoke pppd[5046]: rcvd [IPV6CP ConfAck id=0x1 &lt;addr fe80::b474:5671:fc2c:ddd8>]
+spoke pppd[5046]: local  LL address fe80::b474:5671:fc2c:ddd8
+spoke pppd[5046]: remote LL address fe80::5c3a:77a1:aad1:a619
+spoke pppd[5046]: Script /etc/ppp/ipv6-up started (pid 5112)
+spoke pppd[5046]: rcvd [IPCP ConfNak id=0x2 &lt;addr 203.0.113.10>]
+spoke pppd[5046]: sent [IPCP ConfReq id=0x3 &lt;addr 203.0.113.10>]
+spoke pppd[5046]: rcvd [IPCP ConfAck id=0x3 &lt;addr 203.0.113.10>]
+spoke pppd[5046]: <emphasis>not replacing default route to eth0 [192.0.2.1]</emphasis>
+spoke pppd[5046]: local  IP address 203.0.113.10
+spoke pppd[5046]: remote IP address 203.0.113.1
+spoke pppd[5046]: Script /etc/ppp/ip-up started (pid 5114)
+spoke pppd[5046]: Script /etc/ppp/ipv6-up finished (pid 5112), status = 0x0
+spoke pppd[5046]: Script /etc/ppp/ip-up finished (pid 5114), status = 0x0</screen>
     </listitem>
     <listitem>
-    <para>On retrouve une entrée symétrique dans la table de routage.</para>
+	<para>On retrouve une entrée symétrique dans la table de routage. Il faut
+	cependant noter que la route par défaut <acronym>IPv4</acronym> n'a pas été
+	remplacée par l'activation du lien <acronym>WAN</acronym>. C'est un
+	problème sur lequel il faut revenir par la suite.</para>
 
-<screen width='80'># ip route ls
-10.0.0.1 dev ppp0  proto kernel  scope link  src 10.67.15.1 
-192.0.2.0/27 dev eth0  proto kernel  scope link  src 192.0.2.6 
-default via 192.0.2.1 dev eth0</screen>
+<screen><prompt>#</prompt> ip route ls
+default via 192.0.2.1 dev eth0 
+192.0.2.0/26 dev eth0  proto kernel  scope link  src 192.0.2.11 
+203.0.113.1 <emphasis>dev ppp0</emphasis>  proto kernel  scope link  src 203.0.113.10</screen>
+
+	<para>Côté <acronym>IPv6</acronym>, l'activation de l'interface
+	<option>ppp0</option> a bien été prise en compte.</para>
+
+<screen><prompt>#</prompt> ip -6 route ls dev ppp0
+fe80::/10  metric 1  pref medium
+fe80::/10  proto kernel  metric 256  pref medium</screen>
     </listitem>
     <listitem>
     <para>Comme le noyau fournit l'essentiel du code, un seul processus est
     présent en espace utilisateur.</para>
 
-<screen width='80'># ps axf | grep ppp | grep -v grep
-  766 ?        S      0:00 /usr/sbin/pppd call dsl-provider</screen>
+<screen><prompt>#</prompt> ps -fwwp $(pgrep -d, ppp)
+UID        PID  PPID  C STIME TTY          TIME CMD
+root      5046     1  0 oct.10 ?       00:00:00 /usr/sbin/pppd call dsl-provider</screen>
     </listitem>
     </itemizedlist>
     </listitem>
@@ -596,17 +683,28 @@ default via 192.0.2.1 dev eth0</screen>
     <varlistentry>
     <term>Au niveau réseau</term>
     <listitem>
-    <para>Le traditionnel test <acronym>ICMP</acronym> confirme que la
-    connectivité réseau est effective.</para>
+	<para>Les tests traditionnels <acronym>ICMP</acronym> et
+	<acronym>ICMP6</acronym> confirment que les deux routeurs peuvent échanger
+	des paquets. Depuis le routeur <systemitem>spoke</systemitem>, on lance les
+	commandes suivantes.</para>
 
-<screen width='80'># ping -c 2 10.67.15.1
-PING 10.67.15.1 (10.67.15.1) 56(84) bytes of data.
-64 bytes from 10.67.15.1: icmp_req=1 ttl=64 time=6.65 ms
-64 bytes from 10.67.15.1: icmp_req=2 ttl=64 time=4.68 ms
+<screen><prompt>$</prompt> ping -c2 203.0.113.1
+PING 203.0.113.1 (203.0.113.1) 56(84) bytes of data.
+64 bytes from 203.0.113.1: icmp_seq=1 ttl=64 time=1.12 ms
+64 bytes from 203.0.113.1: icmp_seq=2 ttl=64 time=0.845 ms
 
---- 10.67.15.1 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1002ms
-rtt min/avg/max/mdev = 4.689/5.674/6.659/0.985 ms</screen>
+--- 203.0.113.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.845/0.987/1.129/0.142 ms</screen>
+
+<screen><prompt>$</prompt> ping6 -c2 fe80::5c3a:77a1:aad1:a619%ppp0
+PING fe80::5c3a:77a1:aad1:a619%ppp0(fe80::5c3a:77a1:aad1:a619) 56 data bytes
+64 bytes from fe80::5c3a:77a1:aad1:a619: icmp_seq=1 ttl=64 time=1.28 ms
+64 bytes from fe80::5c3a:77a1:aad1:a619: icmp_seq=2 ttl=64 time=0.808 ms
+
+--- fe80::5c3a:77a1:aad1:a619%ppp0 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.808/1.044/1.281/0.238 ms</screen>
     </listitem>
     </varlistentry>
   </variablelist>
@@ -619,12 +717,5 @@ rtt min/avg/max/mdev = 4.689/5.674/6.659/0.985 ms</screen>
   <acronym>WAN</acronym> point à point. Il ne reste plus qu'à l'exploiter avec
   les supports de travaux pratiques tels que la mise en œuvre de la
   &url.interco.ppp;, le &url.interco.netfilter; ou l'&url.interco.cs;.</para>
-
-  <para>Une question reste en suspens : est-il possible de configurer un
-  serveur <acronym>PPPoE</acronym> en s'appuyant sur le code fourni avec le
-  noyau Linux ? Je souhaiterais savoir si ce mode de fonctionnement est
-  envisageable. Je ne suis pas parvenu à trouver d'éléments le confirmant ou
-  l'infirmant. Si vous avez des informations à ce sujet, n'hésitez pas à m'en
-  faire part.</para>
 </section>
 </article>
