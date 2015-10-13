@@ -2,18 +2,21 @@
 <!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
         "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
 
-<!ENTITY author                 SYSTEM "author.xml">
-<!ENTITY legal                  SYSTEM "legal.xml">
+<!ENTITY author					SYSTEM "author.xml">
+<!ENTITY legal					SYSTEM "legal.xml">
 
-<!ENTITY tap-create		SYSTEM "scripts/tap-create.sh">
-<!ENTITY pppoe-startup		SYSTEM "scripts/pppoe-startup.sh">
-<!ENTITY hub-interfaces		SYSTEM "scripts/hub-interfaces">
+<!ENTITY tap-create				SYSTEM "scripts/tap-create.sh">
+<!ENTITY pppoe-startup			SYSTEM "scripts/pppoe-startup.sh">
+<!ENTITY hub-interfaces			SYSTEM "scripts/hub-interfaces">
 <!ENTITY pppoe-server-options	SYSTEM "scripts/pppoe-server-options">
-<!ENTITY spoke-interfaces	SYSTEM "scripts/spoke-interfaces">
-<!ENTITY spoke-dsl-provider	SYSTEM "scripts/spoke-dsl-provider">
+<!ENTITY spoke-interfaces		SYSTEM "scripts/spoke-interfaces">
+<!ENTITY spoke-dsl-provider		SYSTEM "scripts/spoke-dsl-provider">
+<!ENTITY hub-rules.v4			SYSTEM "scripts/hub-rules.v4">
+<!ENTITY hub-radvd.conf			SYSTEM "scripts/hub-radvd.conf">
+<!ENTITY hub-rules.v6			SYSTEM "scripts/hub-rules.v6">
 
 <!-- urls -->
-<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+<!ENTITY % inetdoc_urls			SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
 
 <!-- openvswitch -->
@@ -37,6 +40,10 @@
 
 <!ENTITY url.bras
   "<link xmlns='http://docbook.org/ns/docbook' xlink:href='https://upload.wikimedia.org/wikipedia/commons/d/d5/XDSL_Connectivity_Diagram_en.svg'>architecture des connexions xDSL</link>">
+
+<!-- IPv6 -->
+<!ENTITY url.ipv6-ula
+  "<link xmlns='http://docbook.org/ns/docbook' xlink:href='https://en.wikipedia.org/wiki/Unique_local_address'>Unique local address</link>">
 ]>
 
 <article xml:lang='fr' xml:id='pppoe'>
@@ -381,6 +388,10 @@ pppoe: /usr/sbin/pppoe-server</screen>
     <para><option>nodefaultroute</option> : préserve la route par défaut (accès
     Internet) du routeur <systemitem>hub</systemitem>.</para>
     </listitem>
+	<listitem>
+	<para><option>ms-dns</option> : publie l'adresse <acronym>IPv4</acronym> du
+	serveur <acronym>DNS</acronym> à utiliser.</para>
+	</listitem>
     <listitem>
     <para><option>+ipv6</option> : active les protocoles
     <acronym>IPv6CP</acronym> et <acronym>IPv6</acronym>.</para>
@@ -401,7 +412,16 @@ pppoe: /usr/sbin/pppoe-server</screen>
     compte local sur le routeur <systemitem>hub</systemitem>.</para>
 
 <screen><prompt>#</prompt> adduser --disabled-login spoke</screen>
-    </listitem>
+	</listitem>
+	<listitem>
+	<para>Le fichier <filename>/etc/ppp/ip-range</filename> :</para>
+
+<screen>203.0.113.10-100</screen>
+
+	<para>Ce fichier définit la liste des adresses <acronym>IPv4</acronym> que
+	le démon peut délivrer en fonction des demandes de connexion
+	<acronym>PPP</acronym>.</para>
+	</listitem>
   </itemizedlist>
 
   <para>Une fois la session <acronym>PPPoE</acronym> établie, le seul travail
@@ -509,7 +529,7 @@ i   ppp       - protocole point à point (PPP) - démon</screen>
     <acronym>NCP</acronym> pour les deux protocoles de couche réseau
     <acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
 
-<screen>hub pppoe-server[106]: Session 1 created for client de:ad:be:ef:00:03 (203.0.113.10) on eth1 using Service-Name ''
+<screen><?dbfo keep-together="auto" ?>hub pppoe-server[106]: Session 1 created for client de:ad:be:ef:00:03 (203.0.113.10) on eth1 using Service-Name ''
 hub pppd[106]: pppd 2.4.6 started by etu, uid 0
 hub pppd[106]: using channel 4
 hub pppd[106]: Using interface ppp0
@@ -596,7 +616,7 @@ nobody   10695 10693  0 oct.10 ?       00:00:00 /usr/sbin/pppoe -n -I eth1 -e 1:
     revanche, c'est le code fourni par le noyau Linux
     (<wordasword>kernel</wordasword>) qui est utilisé cette fois-ci.</para>
 
-<screen>spoke pppd[2211]: Plugin rp-pppoe.so loaded.
+<screen><?dbfo keep-together="auto" ?>spoke pppd[2211]: Plugin rp-pppoe.so loaded.
 spoke pppd[2218]: pppd 2.4.6 started by etu, uid 0
 spoke pppd[2218]: Failed to disconnect PPPoE socket: 114 Operation already in progress
 spoke pppd[2218]: Send PPPOE Discovery V1T1 PADI session 0x0 length 12
@@ -710,12 +730,229 @@ rtt min/avg/max/mdev = 0.808/1.044/1.281/0.238 ms</screen>
   </variablelist>
 </section>
 
-<section xml:id='pppoe.conclusion'>
-  <title>Pour conclure</title>
+<section xml:id='pppoe.routing'>
+	<title>Routage via le lien WAN</title>
 
-  <para>Voilà ! On dispose maintenant d'un modèle de liaison
-  <acronym>WAN</acronym> point à point. Il ne reste plus qu'à l'exploiter avec
-  les supports de travaux pratiques tels que la mise en œuvre de la
-  &url.interco.ppp;, le &url.interco.netfilter; ou l'&url.interco.cs;.</para>
+	<para>Après avoir testé les échanges de paquets sur le lien
+	<acronym>WAN</acronym> dans la section précédente, on se préoccupe maintenant
+	du routage depuis et vers le routeur <systemitem>spoke</systemitem> via ce
+	même lien.</para>
+
+	<bridgehead xml:id='pppoe.routing.disable-spoke-lan-autconfig'
+	renderas='sect3'>Désactivation de la configuration de l'interface LAN du
+	routeur Spoke</bridgehead>
+
+	<para>Dans les sections précédentes, l'interface <option>eth0</option> du
+	routeur <systemitem>spoke</systemitem> a servi à communiquer avec
+	l'Internet. On doit donc désactiver la configuration automatique de cette
+	interface aussi bien en <acronym>IPv4</acronym> qu'en
+	<acronym>IPv6</acronym>.</para>
+
+	<para>Voici un extrait du fichier
+	<filename>/etc/network/interfaces</filename> du routeur
+	<systemitem>spoke</systemitem> pour l'interface <option>eth0</option> sans
+	configuration automatique.</para>
+
+<screen>allow-hotplug eth0
+iface eth0 inet manual
+	up echo 0 > /proc/sys/net/ipv6/conf/$IFACE/forwarding
+	up echo 0 > /proc/sys/net/ipv6/conf/$IFACE/accept_ra
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down</screen>
+
+	<para>Cette solution permet de conserver un accès depuis le système hôte
+	via l'adresse <acronym>IPv6</acronym> de lien local.</para>
+
+	<para>Pour forcer l'application de la route par défaut via le protocole
+	<acronym>PPP</acronym>, on utilise les scripts système de manipulation des
+	interfaces.</para>
+
+<screen><prompt>#</prompt> ifdown dsl-provider
+<prompt>#</prompt> ifup dsl-provider</screen>
+
+	<para>La table de routage <acronym>IPv4</acronym> devient :</para>
+
+<screen><prompt>#</prompt> ip route ls
+default dev ppp0  scope link
+203.0.113.1 dev ppp0  proto kernel  scope link  src 203.0.113.11</screen>
+
+	<para>La table de routage <acronym>IPv6</acronym> reste inchangée tant que
+	le routeur <systemitem>hub</systemitem> ne dispose pas d'outil d'annonce
+	<acronym>SLAAC</acronym>.</para>
+
+	<bridgehead xml:id='pppoe.routing.enable-hub-routing'
+	renderas='sect3'>Activation du routage IPv4 &amp; IPv6 sur le routeur
+	Hub</bridgehead>
+
+	<para>Si on respecte la règle de configuration adoptée dans les sections
+	précédentes, on utilise les fichiers système pour configurer le routage.
+	Ici, c'est le fichier <filename>/etc/sysctl.conf</filename> qui nous
+	intéresse. Voici la liste des options de configuration utilisées. Dans la
+	copie d'écran ci-dessous, on a supprimé les commentaires et les lignes
+	vides.</para>
+
+<screen><prompt>#</prompt> egrep -v '(^#|^$)' /etc/sysctl.conf
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv4.conf.all.log_martians = 1</screen>
+
+	<para>Ces options sont appliquées à l'aide de la commande
+	<userinput><prompt>#</prompt> <command>sysctl</command>
+	-p</userinput>.</para>
+
+	<bridgehead xml:id='pppoe.routing.enable-hub-ipv4-snat'
+	renderas='sect3'>Traduction d'adresses IPv4 sur le routeur Hub</bridgehead>
+
+	<para>Le démon <systemitem>pppd</systemitem> du routeur
+	<systemitem>hub</systemitem> délivre des adresses <acronym>IPv4</acronym>
+	appartenant au préfixe <systemitem
+	class='ipaddress'>203.0.113.0/24</systemitem>. Ce préfixe de la famille
+	TESTNET est non routable sur l'Internet. On a donc recours à la traduction
+	d'adresses sources pour que le trafic du routeur
+	<systemitem>spoke</systemitem> soit correctement routé.</para>
+
+	<para>On utilise le paquet <application>ipatbles-persistent</application>
+	pour préserver les règles de traduction d'adresses d'un redémarrage système
+	à l'autre. Le fichier de sauvegarde est :
+	<filename>/etc/iptables/rules.v4</filename>.</para>
+
+<screen>&hub-rules.v4;</screen>
+
+	<para>Il suffit de consulter les compteurs associés aux règles de filtrage
+	pour valider leur fonctionnement.</para> 
+
+<screen><prompt>#</prompt> iptables -t nat -vL  POSTROUTING
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source     destination         
+   <emphasis>30  1800</emphasis> TCPMSS     tcp  --  any    eth0    anywhere   anywhere  tcp flags:FIN,SYN,RST,ACK/SYN tcpmss match 1400:1536 TCPMSS clamp to PMTU
+  <emphasis>256 26578</emphasis> MASQUERADE all  --  any    eth0    anywhere   anywhere</screen>
+
+	<bridgehead xml:id='pppoe.routing.ipv6-addressing'
+	renderas='sect3'>Adresses IPv6 ULA</bridgehead>
+
+	<para>Avec <acronym>IPv6</acronym>, les adresses dites &url.ipv6-ula; sont
+	l'équivalent des adresses privées <acronym>IPv4</acronym>. Ce document
+	constitue une bonne occasion d'illustrer leur utilisation.</para>
+
+	<para>Par définition, le préfixe réseau à utiliser est le : <systemitem
+	class='ipaddress'>fd00::/8</systemitem>. À ce préfixe il faut adjoindre 40
+	bits aléatoires pour obtenir un préfixe <systemitem
+	class='ipaddress'>/48</systemitem> qui constitue la base du plan
+	d'adressage.</para>
+
+	<para>On commence donc par générer une chaine de 40 bits aléatoires notée
+	en hexadécimal.</para>
+
+<screen><prompt>$</prompt> openssl rand -hex 5
+271684e79b</screen>
+
+	<para>Le préfixe réseau obtenu est le : <systemitem
+	class='ipaddress'>fd27:1684:e79b::/48</systemitem>. Pour adresser les
+	différents routeurs <systemitem>spoke</systemitem> potentiels, l'espace
+	d'adressage est ainsi de 2^16 liens <acronym>WAN</acronym> possibles. Les
+	16 bits réseau sont obtenus en faisant la différence entre 64 (le nombre de
+	bits de la partie hôte) et 48 (le nombre de bits de la partie
+	réseau). Puisque la maquette utilisée ne comprend qu'un seul lien
+	<acronym>WAN</acronym>, on utilise le premier préfixe réseau disponible
+	pour la suite des manipulations : <systemitem
+	class='ipaddress'>fd27:1684:e79b::/64</systemitem>.</para>
+
+	<para>Une fois le plan d'adressage défini, on passe à la configuration du
+	routeur <systemitem>hub</systemitem>.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Affectation d'une adresse <acronym>IPv6</acronym> à l'interface
+		<option>ppp0</option>.</para>
+
+<screen><prompt>#</prompt> ip -6 addr add fd27:1684:e79b::1/64 dev ppp0</screen>
+	</listitem>
+	<listitem>
+		<para>Configuration du démon <application>radvd</application> pour
+		annoncer le préfixe réseau ainsi que le
+		<wordasword>resolver</wordasword> <acronym>DNS</acronym> en direction
+		du routeur <systemitem>spoke</systemitem>.</para>
+
+<screen>&hub-radvd.conf;</screen>
+	</listitem>
+	</itemizedlist>
+
+	<para>Ces deux étapes de configuration doivent normalement être réalisées
+	lors de l'établissement du lien <acronym>WAN</acronym> via le démon
+	<application>pppd</application>. On peut donc placer deux scripts dans le
+	répertoire <filename class='directory'>/etc/ppp/ipv6-up.d/</filename>.
+	Ainsi, dès que l'interface <option>pppX</option> est activée, on effectue
+	automatiquement les opérations de configuration spécifiques à IPv6.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Ajout automatique de l'adresse <acronym>IPv6</acronym> de la
+		famille &url.ipv6-ula; à l'interface <acronym>PPP</acronym>. Voici le
+		script <filename>/etc/ppp/ipv6-up.d/ipv6-ula-address</filename></para>
+
+		<programlisting><?dbfo keep-together="auto" ?><xi:include
+		href='scripts/hub-ipv6-ula-address' parse='text'
+		xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+	</listitem>
+	<listitem>
+		<para>Le démon <application>radvd</application> est conçu pour réagir
+		dynamiquement aux activations/désactivations d'interfaces et au
+		modifications de son fichier de configuration :
+		<filename>/etc/radvd.conf</filename>. Voici le script qui permet de
+		compléter dynamiquement la configuration en fonction de l'activation
+		d'une interface <acronym>PPP</acronym> :
+		<filename>/etc/ppp/ipv6-up.d/radvd-conf-update</filename>.</para>
+
+		<programlisting><?dbfo keep-together="auto" ?><xi:include
+		href='scripts/hub-radvd-conf-update' parse='text'
+		xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+	</listitem>
+	</itemizedlist>
+
+	<bridgehead xml:id='pppoe.routing.enable-hub-ipv6-snat'
+	renderas='sect3'>Traduction d'adresses IPv6 sur le routeur Hub</bridgehead>
+
+	<para>On reprend ici la même démarche que pour le protocole
+	<acronym>IPv4</acronym> avec l'utilisation du paquet
+	<application>ipatbles-persistent</application> et la sauvegarde des règles
+	de filtrage dans le fichier
+	<filename>/etc/iptables/rules.v6</filename>.</para>
+
+<screen>&hub-rules.v6;</screen>
+
+	<para>Comme avec le routage des paquets <acronym>IPv4</acronym>, les
+	compteurs servent à qualifier l'utilisation des règles de filtrage.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Sur le routeur <systemitem>spoke</systemitem>, on lance le
+		chargement d'une page web.</para>
+
+<screen><prompt>$</prompt> wget -q -6 -O /dev/null http://inetdoc.net</screen>
+	</listitem>
+	<listitem>
+		<para>Sur le routeur <systemitem>hub</systemitem>, on relève les
+		compteurs des règles de la table <option>nat</option>.</para>
+
+<screen><prompt>#</prompt> ip6tables -t nat -vnL POSTROUTING
+Chain POSTROUTING (policy ACCEPT 13 packets, 2149 bytes)
+ pkts bytes target     prot opt in     out     source    destination
+    <emphasis>8   640</emphasis> TCPMSS     tcp      *      eth0    ::/0      ::/0     tcp flags:0x17/0x02 tcpmss match 1400:1536 TCPMSS clamp to PMTU
+   <emphasis>14  1312</emphasis> SNAT       all      *      eth0    fd00::/8  ::/0     to:2OO1:db8:fe00:8175:b8ad:ff:feca:fe00</screen>
+	</listitem>
+	</itemizedlist>
+</section>
+
+<section xml:id='pppoe.conclusion'>
+	<title>Pour conclure</title>
+
+	<para>Voilà ! On dispose maintenant d'un modèle de liaison
+	<acronym>WAN</acronym> point à point. Il ne reste plus qu'à l'exploiter avec
+	les supports de travaux pratiques tels que la mise en œuvre de la
+	&url.interco.ppp;, le &url.interco.netfilter; ou l'&url.interco.cs;.</para>
 </section>
 </article>

@@ -12,8 +12,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	pppoe.xml \
-        author.xml \
-        legal.xml \
+	author.xml \
+	legal.xml \
 	inetdoc.urls.xml
 
 all: $(PROCESS)
