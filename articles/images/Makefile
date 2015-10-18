@@ -6,7 +6,8 @@ endif
 PROCESS = symlink
 
 SYMLINKS = \
-        $(MAIN_DIR)/images/thumbs/thumb*.png
+        $(MAIN_DIR)/images/thumbs/thumb*.png \
+        $(MAIN_DIR)/articles/inter-vlan-routing-openvswitch/images/ovs-image.jpg
 
 all: $(PROCESS)
 

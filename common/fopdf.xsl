@@ -83,7 +83,7 @@
     <xsl:param name="symbol.font.family">SourceCodePro</xsl:param>
 
     <!-- Default Font size -->
-    <xsl:param name="body.font.master">9</xsl:param>
+    <xsl:param name="body.font.master">11</xsl:param>
 
     <!-- Line height in body text -->
     <xsl:param name="line-height">1.15</xsl:param>

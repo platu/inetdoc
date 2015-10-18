@@ -1,0 +1,243 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY phl			SYSTEM "author.xml">
+<!ENTITY legal 			SYSTEM "legal.xml">
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.ovs
+	'<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://openvswitch.org/">
+	<citetitle>Open vSwitch</citetitle></link>'>
+
+<!ENTITY url.cam
+	'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/Content-addressable_memory">
+	<citetitle>Content-addressable memory</citetitle></link>'>
+
+<!ENTITY url.ieee802.1q.standard
+	'<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://standards.ieee.org/getieee802/download/802.1Q-1998.pdf">
+	<citetitle>IEEE 802.1Q Standard</citetitle></link>'>
+]>
+
+<article xml:lang='fr' xml:id='inter-vlan-routing-openvswitch'>
+<info>
+	<title>Routage inter-VLAN avec Open vSwitch</title>
+
+	&phl;
+	<abstract>
+	<para>
+		<informaltable frame='none' pgwide='1'>
+		<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+		<colspec colwidth='5*'/>
+		<colspec colwidth='200px'/>
+		<tbody>
+		<row>
+		<entry valign='top'>
+			<para>L'usage des commutateurs virtuels se développe très
+			rapidement avec l'augmentation tout aussi rapide du nombre
+			d'instances de machines virtuelles ou de conteneurs hébergés sur un
+			même système hôte physique. En fait, les besoins en commutation de
+			circuits et de paquets sont toujours présents que l'on utilise des
+			équipements physiques ou des systèmes virtuels. Cet article
+			présente une maquette réduite au strict minimum qui permet
+			d'illustrer l'utilisation du commutateur virtuel <citetitle>Open
+			vSwitch</citetitle> dans uni contexte de routage inter-VLAN. Le
+			parti pris des manipulations est de reproduire à l'identique les
+			opérations que l'on réaliserait sur des équipements réels.</para>
+		</entry>
+		<entry>
+			<inlinemediaobject>
+			<imageobject role='html'>
+			<imagedata fileref='images/ovs-image.jpg' format='JPG' width='200px' scalefit='1'/>
+			</imageobject>
+			<imageobject role='fo'>
+			<imagedata fileref='images/ovs-image.jpg' format='JPG' width='4cm' scalefit='1'/>
+			</imageobject>
+			</inlinemediaobject>
+		</entry>
+		</row>
+		</tbody>
+		</tgroup>
+		</informaltable>
+	</para>
+	</abstract>
+	<keywordset>
+		<keyword>8021q</keyword>
+		<keyword>dot1q</keyword>
+		<keyword>frame</keyword>
+		<keyword>openvswitch</keyword>
+		<keyword>route</keyword>
+		<keyword>routage</keyword>
+		<keyword>routing</keyword>
+		<keyword>tag</keyword>
+		<keyword>trunk</keyword>
+		<keyword>switching</keyword>
+		<keyword>vlan</keyword>
+	</keywordset>
+</info>
+
+<section xml:id='inter-vlan-routing-openvswitch.legal.meta'>
+	&legal;
+	<section xml:id='inter-vlan-routing-openvswitch.meta'>
+		<title>Méta-information</title>
+    
+	<para>Cet article est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+	XML sur un système <link
+	xlink:href="http://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+	format PDF : <link
+	xlink:href="http://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+	</section>
+</section>
+
+<?custom-pagebreak?>
+<section xml:id='inter-vlan-routing-openvswitch.context'>
+	<title>Le contexte : la maquette et les topologies types</title>
+
+	<para>Comme annoncé en introduction, on cherche à illustrer les fonctions
+	réseau classiques de commutation de circuits et de paquets. Par définition,
+	la commutation de circuits est le propre d'un commutateur tandis que la
+	commutation de paquets est le propre d'un routeur. Sur des équipements
+	réels, un routeur se distingue d'un commutateur par l'électronique de ses
+	interfaces. Non seulement cette électronique sert à l'interconnexion entre
+	réseaux hétérogènes mais elle offre aussi des fonctions de qualité de
+	service (<acronym>QoS</acronym>) plus sophistiquées. L'électronique d'un
+	commutateur permet de constituer un très grand nombre de circuits
+	<wordasword>full-duplex</wordasword> entre interfaces Ethernet. Si un
+	commutateur assure la fonction de routage, celle-ci revient à
+	interconnecter des réseaux homogènes puisque toutes ses interfaces sont de
+	type Ethernet.</para>
+
+	<para>Toujours sur des équipements réels modernes, la commutation de
+	paquets et la commutation de circuits se font grâce à des composants qui
+	manipulent un type de mémoire particulier appelé &url.cam;. Ces composants
+	permettent d'accélérer considérablement la transmission des données en
+	utilisant un algorithme de hachage des informations contenues dans les
+	en-têtes de trames et de paquets. Plutôt que suivre le processus de
+	désencapsulation normal qui consiste à analyser tous les champs des
+	en-têtes de chaque couche, on se contente de comparer des valeurs binaires
+	calculées à partir du flux réseau entrant et d'un flux antérieur. Si un
+	flux arrive sur une interface avec les mêmes propriétés qu'un flux
+	antérieur (adresses <acronym>MAC</acronym>, étiquette
+	<acronym>IEEE802.1Q</acronym>, adresses <acronym>IP</acronym>, etc.) pour
+	lequel la décision de commutation a déjà été prise, il n'est pas nécessaire
+	de reprendre l'examen des en-têtes.</para>
+
+	<para>Dans un contexte de virtualisation, les besoins sont exactement les
+	mêmes. Si le système hôte ne dispose pas (encore) de mémoire
+	<acronym>TCAM</acronym>, il est tout à fait possible d'utiliser les mêmes
+	algorithmes de hachage dans le sous-système réseau du noyau pour atteindre
+	le même objectif d'accélération des transmissions entre interfaces. C'est
+	ici qu'il faut mettre un bémol, la comparaison des résultats de hachage et
+	la transmission ne se font plus à la «vitesse du silicium» du composant
+	spécialisé mais à la vitesse d'accès à la mémoire vive
+	(<acronym>RAM</acronym>) et aux interfaces réseau du système hôte. Or, une
+	interface réseau de serveur aussi performante soit elle, ne pourra garantir
+	un très grand nombre de circuits <wordasword>full-duplex</wordasword>.
+	C'est là que se situe le goulot d'étranglement dans les transmissions
+	réseau entre le monde virtuel et le monde réel.</para>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata format='PNG' fileref='images/ovs-vm.png' width='15cm' scalefit='1' />
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata format='PNG' fileref='images/ovs-vm.png' width='640px' scalefit='1' />
+	</imageobject>
+	</mediaobject>
+
+	<para>Le rôle du commutateur virtuel &url.ovs; est justement de gérer les
+	commutations de circuits et de paquets en coopération avec le sous-système
+	réseau du noyau Linux du système hôte. Ses performances dépendent donc
+	directement des composants disponibles sur le système hôte. Dans le
+	contexte de cet article, il présente un avantage indéniable, il se manipule
+	exactement comme un commutateur réel. Voyons les schémas de topologies
+	types étudiées.</para>
+
+	<para>Dans le premier exemple, la fonction de routage (commutation de
+	paquets) est assurée directement par le système hôte.</para>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata format='PNG' fileref='images/inter-vlan-routing-ovs-host.png' width='15cm' scalefit='1' />
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata format='PNG' fileref='images/inter-vlan-routing-ovs-host.png' width='640px' scalefit='1' />
+	</imageobject>
+	</mediaobject>
+
+	<para>Dans le second exemple, la fonction de routage (commutation de
+	paquets) est assurée par une instance de système virtuel. De plus, on
+	illustre la cascade (<wordasword>stacking</wordasword>) entre commutateurs
+	virtuels.</para>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata format='PNG' fileref='images/inter-vlan-routing-ovs-internal.png' width='15cm' scalefit='1' />
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata format='PNG' fileref='images/inter-vlan-routing-ovs-internal.png' width='640px' scalefit='1' />
+	</imageobject>
+	</mediaobject>
+</section>
+
+<?custom-pagebreak?>
+<section xml:id='inter-vlan-routing-openvswitch.ovs-host'>
+	<title>Routage inter-VLAN dans le système hôte</title>
+
+  <para>On a vu qu'un réseau local (<acronym>LAN</acronym>) est défini par un
+  domaine de diffusion dans lequel tous les hôtes reçoivent les messages de
+  diffusion émis par n'importe quel autre hôte du réseau. Par définition, un
+  réseau local est délimité par une interface d'équipement de niveau 3 du
+  modèle <acronym>OSI</acronym> (couche réseau).</para>
+
+</section>
+
+<section xml:id='inter-vlan-routing-openvswitch.references'>
+	<title>Applications pratiques</title>
+
+	<para>Le routage inter-VLAN est utilisé plusieurs niveaux dans les
+	documents du site &url.inetdoc;.</para>
+
+	<variablelist>
+	<varlistentry>
+	<term><citetitle>Architecture réseau des travaux pratiques</citetitle></term>
+	<listitem>
+		<para>Le support &url.infra.tp; présente la topologie physique de
+		l'infrastructure de travaux pratiques avec la &url.infra.tp.cabling;
+		ainsi que les configurations par défaut des équipements. On y trouve
+		aussi le plan d'adressage <acronym>IP</acronym> utilisé avec les autres
+		supports de travaux	pratiques, le plan de numérotations des
+		<acronym>VLAN</acronym>s et les affectations des groupes de ports des
+		commutateurs.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><citetitle>Introduction au routage inter-VLAN</citetitle></term>
+	<listitem>
+		<para>Le support de travaux pratiques &url.interco.inter-vlan; est une
+		introduction aux opérations de configuration. Il est basé sur une
+		séparation entre la fonction de routage au niveau réseau assurée par un
+		système GNU/Linux et la fonction de commutation des trames au niveau
+		liaison assurée par un commutateur Cisco.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><citetitle>Introduction au routage dynamique avec OSPF</citetitle></term>
+	<listitem>
+		<para>Le support de travaux pratique &url.interco.ospf; est une
+		excellente occasion de caractériser l'indépendance entre topologie
+		logique et topologie physique. En effet, la topologie physique est de
+		type étoile puisque l'on utilise des connexions filaires cuivre
+		Ethernet alors que la topologie logique est de type triangle grâce à
+		l'utilisation des <acronym>VLAN</acronym>s.</para>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+</section>
+</article>

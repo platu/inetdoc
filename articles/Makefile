@@ -21,6 +21,7 @@ SUBDIRS = \
 	ospf-triangle-multiple-default \
 	lan-segmentation \
 	inter-vlan-routing \
+	inter-vlan-routing-openvswitch \
 	site2site-ipsecvpn
 
 # Type(s) de traitement
