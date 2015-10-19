@@ -16,6 +16,10 @@
 	'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/Content-addressable_memory">
 	<citetitle>Content-addressable memory</citetitle></link>'>
 
+<!ENTITY url.svi
+	'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/Switch_virtual_interface">
+	<citetitle>Switch virtual interface</citetitle></link>'>
+
 <!ENTITY url.ieee802.1q.standard
 	'<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://standards.ieee.org/getieee802/download/802.1Q-1998.pdf">
 	<citetitle>IEEE 802.1Q Standard</citetitle></link>'>
@@ -41,9 +45,9 @@
 			même système hôte physique. En fait, les besoins en commutation de
 			circuits et de paquets sont toujours présents que l'on utilise des
 			équipements physiques ou des systèmes virtuels. Cet article
-			présente une maquette réduite au strict minimum qui permet
+			présente deux maquettes réduites au strict minimum qui permettent
 			d'illustrer l'utilisation du commutateur virtuel <citetitle>Open
-			vSwitch</citetitle> dans uni contexte de routage inter-VLAN. Le
+			vSwitch</citetitle> dans un contexte de routage inter-VLAN. Le
 			parti pris des manipulations est de reproduire à l'identique les
 			opérations que l'on réaliserait sur des équipements réels.</para>
 		</entry>
@@ -160,7 +164,7 @@
 	<para>Dans le premier exemple, la fonction de routage (commutation de
 	paquets) est assurée directement par le système hôte.</para>
 
-	<mediaobject>
+	<mediaobject xml:id='inter-vlan-routing-openvswitch.context.mockup1'>
 	<imageobject role='fo'>
 		<imagedata format='PNG' fileref='images/inter-vlan-routing-ovs-host.png' width='15cm' scalefit='1' />
 	</imageobject>
@@ -174,7 +178,7 @@
 	illustre la cascade (<wordasword>stacking</wordasword>) entre commutateurs
 	virtuels.</para>
 
-	<mediaobject>
+	<mediaobject xml:id='inter-vlan-routing-openvswitch.context.mockup2'>
 	<imageobject role='fo'>
 		<imagedata format='PNG' fileref='images/inter-vlan-routing-ovs-internal.png' width='15cm' scalefit='1' />
 	</imageobject>
@@ -188,12 +192,121 @@
 <section xml:id='inter-vlan-routing-openvswitch.ovs-host'>
 	<title>Routage inter-VLAN dans le système hôte</title>
 
-  <para>On a vu qu'un réseau local (<acronym>LAN</acronym>) est défini par un
-  domaine de diffusion dans lequel tous les hôtes reçoivent les messages de
-  diffusion émis par n'importe quel autre hôte du réseau. Par définition, un
-  réseau local est délimité par une interface d'équipement de niveau 3 du
-  modèle <acronym>OSI</acronym> (couche réseau).</para>
+	<para>Dans ce premier exemple, toutes les décisions d'acheminement du
+	trafic sont prises dans le sous-système réseau du système hôte. Au niveau
+	commutation de circuits et de paquets, c'est &url.ovs; qui joue le rôle le
+	plus important. Si on se réfère au <link
+	linkend='inter-vlan-routing-openvswitch.context.mockup1'>Schéma de la
+	topologie</link>, l'essentiel de la configuration porte sur le commutateur
+	<systemitem>swd-host</systemitem>. Voyons par quelles étapes il faut
+	passer.</para>
 
+	<bridgehead xml:id='inter-vlan-routing-openvswitch.ovs-host.install'
+	renderas='sect3'>Installation et configuration des outils</bridgehead>
+
+	<para>Il faut d'abord préparer le système hôte : installer les paquets
+	nécessaires à la virtualisation système, à la commutation et au routage et
+	permettre à l'utilisateur normal de réaliser les manipulations.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>On commence par l'installation des paquets utiles après avoir
+		vérifié que le processeur du système hôte dispose bien des fonctions de
+		virtualisation.</para>
+
+<screen><prompt>#</prompt> egrep '(vmx|svm)' /proc/cpuinfo</screen>
+
+<screen><prompt>#</prompt> aptitude install qemu-system-x86 openvswitch-switch</screen>
+	</listitem>
+	<listitem>
+		<para>On s'assure ensuite que l'utilisateur normal est bien membre des
+		groupes système associés à la virtualisation. Dans notre cas, on se
+		contente des groupes <option>sudo</option> et <option>kvm</option>.
+		L'ajout d'un utilisateur à un groupe système se fait à l'aide de la
+		commande suivante.</para>
+    
+<screen><prompt>#</prompt> adduser etu kvm</screen>
+	</listitem>
+	</itemizedlist>
+
+	<bridgehead xml:id='inter-vlan-routing-openvswitch.ovs-host.tap-switch'
+	renderas='sect3'>Commutateur et cordons de brassage</bridgehead>
+
+	<para>Une fois que les paquets nécessaires à la configuration sont
+	installés, on peut passer au changement de configuration de l'interface
+	réseau. On désactive l'interface <option>eth0</option> avant de l'associer
+	au commutateur.</para>
+
+	<orderedlist>
+	<listitem>
+		<para>Désactivation de l'interface physique du système hôte.</para>
+
+<screen><prompt>$</prompt> sudo ifdown eth0</screen>
+	</listitem>
+	<listitem>
+		<para>Création du commutateur <systemitem>swd-host</systemitem>.</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-br swd-host</screen>
+	</listitem>
+	<listitem>
+		<para>Brassage de l'interface physique du systeème hôte sur le
+		commutateur <systemitem>swd-host</systemitem>.</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-port swd-host eth0</screen>
+
+		<para>Activation de l'interface physique au niveau liaison.</para>
+
+<screen><prompt>$</prompt> sudo ip link set dev eth0 up</screen>
+	</listitem>
+	<listitem>
+		<para>Création de l'interface logicielle de routage (&url.svi;) propre
+		au système hôte.</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-port swd-host vlan1 -- set interface vlan1 type=internal
+<prompt>$</prompt> sudo ovs-vsctl set port vlan1 vlan_mode=native-untagged</screen>
+
+		<para>La dernière instruction associe l'interface au
+		<acronym>VLAN</acronym> natif d'une interface en mode
+		<wordasword>trunk</wordasword>. Toutes les trames sans étiquette
+		<acronym>IEEE802.1Q</acronym> circulant dans un
+		<wordasword>trunk</wordasword> appartiennent au <acronym>VLAN</acronym>
+		natif.</para>
+	</listitem>
+	<listitem>
+		<para>Configuration réseau de l'interface logicielle du système hôte.</para>
+
+<screen><prompt>$</prompt> ip addr ls dev vlan1
+4: vlan1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default 
+    link/ether 4a:cb:5b:38:d2:c2 brd ff:ff:ff:ff:ff:ff
+    inet 192.0.2.7/26 brd 192.0.2.31 scope global vlan30
+       valid_lft forever preferred_lft forever
+    inet6 2OO1:db8:fe00:8175:48cb:5bff:fe38:d2c2/64 scope global mngtmpaddr dynamic 
+       valid_lft 85994sec preferred_lft 13994sec
+    inet6 fe80::48cb:5bff:fe38:d2c2/64 scope link 
+       valid_lft forever preferred_lft forever</screen>
+
+		<para>Tous les éléments d'adressage réseau correspondent à la
+		configuration précédemment appliquée à l'interface physique
+		<option>eth0</option> du système hôte.</para>
+	</listitem>
+	<listitem>
+		<para>Création et «activation» des deux cordons de brassage associés
+		aux instances de machines virtuelles.</para>
+
+<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap0 group kvm
+<prompt>$</prompt> sudo ip link set dev tap0 up
+<prompt>$</prompt> sudo ip tuntap add mode tap dev tap1 group kvm
+<prompt>$</prompt> sudo ip link set dev tap1 up</screen>
+	</listitem>
+	<listitem>
+		<para>Raccordement des cordons de brassage au commutateur.</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-port swd-host tap0 tag=10
+<prompt>$</prompt> sudo ovs-vsctl set port tap0 vlan_mode=access
+<prompt>$</prompt> sudo ovs-vsctl add-port swd-host tap1 tag=20
+<prompt>$</prompt> sudo ovs-vsctl set port tap1 vlan_mode=access</screen>
+	</listitem>
+	</orderedlist>
 </section>
 
 <section xml:id='inter-vlan-routing-openvswitch.references'>
