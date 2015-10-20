@@ -1,0 +1,52 @@
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+allow-ovs swd-host
+iface swd-host inet manual
+	ovs_type OVSBridge
+	ovs_ports eth0 vlan1
+
+allow-swd-host eth0
+iface eth0 inet manual
+	pre-up ip link set txqueuelen 10000 dev $IFACE
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+	ovs_bridge swd-host
+	ovs_type OVSPort
+
+allow-swd-host vlan1
+iface vlan1 inet static
+	address 192.0.2.40/26
+	gateway 192.0.2.1
+	ovs_type OVSIntPort
+	ovs_bridge swd-host
+
+iface vlan1 inet6 static
+	address 2a01:240:fe00:8175::28/64
+	gateway 2a01:240:fe00:8175::1
+
+
+allow-swd-host tap0
+iface tap0 inet manual
+	pre-up ip tuntap add mode tap dev $IFACE group kvm
+	pre-up ip link set txqueuelen 10000 dev $IFACE
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+	down ip tuntap del mode tap dev $IFACE
+	ovs_bridge swd-host
+	ovs_type OVSPort
+	ovs_options tag=10
+	ovs_extra set port $IFACE vlan_mode=access
+
+allow-swd-host tap1
+iface tap1 inet manual
+	pre-up ip tuntap add mode tap dev $IFACE group kvm
+	pre-up ip link set txqueuelen 10000 dev $IFACE
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+	down ip tuntap del mode tap dev $IFACE
+	ovs_bridge swd-host
+	ovs_type OVSPort
+	ovs_options tag=20
+	ovs_extra set port $IFACE vlan_mode=access
