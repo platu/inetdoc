@@ -14,7 +14,8 @@ XML_FILES = \
 	pppoe.xml \
 	author.xml \
 	legal.xml \
-	inetdoc.urls.xml
+	inetdoc.urls.xml \
+	$(wildcard scripts/*)
 
 all: $(PROCESS)
 
