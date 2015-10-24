@@ -204,8 +204,8 @@
 	<systemitem>swd-host</systemitem>. Voyons par quelles étapes il faut
 	passer.</para>
 
-	<bridgehead xml:id='inter-vlan-routing-openvswitch.ovs-host.install'
-	renderas='sect3'>Installation et configuration des outils</bridgehead>
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.install'>
+		<title>Installation et configuration des outils</title>
 
 	<para>Il faut d'abord préparer le système hôte : installer les paquets
 	nécessaires à la virtualisation système, à la commutation et au routage et
@@ -231,13 +231,13 @@
 <screen><prompt>#</prompt> adduser etu kvm</screen>
 	</listitem>
 	</itemizedlist>
+	</section>
 
-	<bridgehead xml:id='inter-vlan-routing-openvswitch.ovs-host.addressing'
-	renderas='sect3'>Plan d'adressage</bridgehead>
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.addressing'>
+		<title>Plan d'adressage</title>
   
-	<table xml:id='sample.perimeter.addressing' frame='all' pgwide='1'>
-		<title>Plan d'adressage des périmètres</title>
-
+	<table xml:id='mockup1.perimeter.addressing' frame='all' pgwide='1'>
+		<title>plan d'adressage des périmètres</title>
 	<tgroup cols='4'>
 	<colspec colnum='1' colwidth='1*'/>
 	<colspec colnum='2' colwidth='1*'/>
@@ -301,9 +301,10 @@
 	Enfin, on utilise les numéros de <acronym>VLAN</acronym>s pour obtenir les
 	préfixes réseau sur 64 bits.</para>
 	</note>
+	</section>
 
-	<bridgehead xml:id='inter-vlan-routing-openvswitch.ovs-host.tap-switch'
-	renderas='sect3'>Commutateur et cordons de brassage</bridgehead>
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.tap-switch'>
+		<title>Commutateur et cordons de brassage</title>
 
 	<para>Une fois que les paquets nécessaires à la configuration sont
 	installés, on peut passer au changement de configuration de l'interface
@@ -349,9 +350,10 @@
 <prompt>$</prompt> sudo ovs-vsctl set port tap1 vlan_mode=access</screen>
 	</listitem>
 	</orderedlist>
+	</section>
 
-	<bridgehead xml:id='inter-vlan-routing-openvswitch.ovs-host.svi'
-	renderas='sect3'>Interfaces de type SVI</bridgehead>
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.svi'>
+		<title>Création des interfaces de type SVI</title>
 
 	<para>Une fois la partie commutation de circuits en place, on s'intéresse
 	maintenant au routage des paquets dans le sous-système réseau du système
@@ -408,10 +410,37 @@
 <prompt>$</prompt> sudo ip link set dev vlan20 up</screen>
 	</listitem>
 	</orderedlist>
+	</section>
 
-	<bridgehead xml:id='inter-vlan-routing-openvswitch.ovs-host.autoconf'
-	renderas='sect3'>Autoconfiguration des hôtes des VLANs Orange et
-	Vert</bridgehead>
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.router'>
+		<title>Activation du routage sur le système hôte</title>
+
+	<para>Sur un système GNU/Linux, la fonction de routage est contrôlée par
+	les paramètres du sous-système réseau du noyau. Le fichier principal de
+	configuration des paramètres des sous-systèmes du noyau est :
+	<filename>/etc/systcl</filename>. Voici la liste des paramètres à appliquer
+	pour activer le routage <acronym>IPv4</acronym> et le routage
+	<acronym>IPv6</acronym>.</para>
+
+<screen><prompt>#</prompt> egrep -v '(^#|^$)' /etc/sysctl.conf 
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+net.ipv4.conf.all.log_martians=1</screen>
+
+	<para>Cette liste de paramètres n'est effective qu'après utilisation de
+	l'instruction <userinput><prompt>#</prompt> sysctl -p</userinput>.</para>
+
+	<para>Il est aussi possible le manipuler les paramètres individuellement à
+	partir de la console à l'aide de commandes du type suivant :</para>
+
+<screen><prompt>#</prompt> echo 1 > /proc/sys/net/ipv4/ip_forward
+<prompt>#</prompt> echo 1 > /proc/sys/net/ipv6/conf/all/forwarding</screen>
+	</section>
+
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.autoconf'>
+		<title>Autoconfiguration des hôtes des VLANs Orange et Vert</title>
 
 	<para>Pour la partie <acronym>IPv4</acronym>, on fait appel à un démon
 	<application>DHCP</application> sur le système hôte. On place ce démon en
@@ -439,15 +468,22 @@ INTERFACES="vlan10 vlan20"</screen>
 
 	<para>Pour la partie <acronym>IPv6</acronym>, on fait appel au paquet
 	<application>radvd</application> pour l'autoconfiguration des hôtes en mode
-	<acronym>SLAAC</acronym> (Document &url.rfc4862;). Voici une copie du
-	fichier <filename>/etc/radvd.conf</filename> du système hôte.</para>
+	<acronym>SLAAC</acronym> (Document &url.rfc4862;). On vérifie que le paquet
+	est bien installé :</para>
+
+<screen><prompt>#</prompt> aptitude search ~iradvd
+i   radvd                - Démon d'information de routeur</screen>
+
+	<para>Voici ensuite une copie du fichier
+	<filename>/etc/radvd.conf</filename> du système hôte.</para>
 
 	<screen><?dbfo keep-together="auto" ?><xi:include
 	href='files/host-radvd.conf' parse='text'
 	xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	</section>
 
-	<bridgehead xml:id='inter-vlan-routing-openvswitch.ovs-host.routing'
-	renderas='sect3'>Tables de routage du système hôte</bridgehead>
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.routing'>
+		<title>Affichage des tables de routage du système hôte</title>
 
 	<para>Les tables de routage font apparaître les correspondances entre les
 	préfixes réseau définis plus haut et les interfaces configurées sur le
@@ -474,10 +510,10 @@ fe80::/64 dev vlan20  proto kernel  metric 256  pref medium
 fe80::/64 dev tap0  proto kernel  metric 256  pref medium
 fe80::/64 dev tap1  proto kernel  metric 256  pref medium
 <emphasis>default via 2001:db8:fe00:8175::1 dev vlan1</emphasis>  metric 1024  pref medium</screen>
+	</section>
 
-	<bridgehead xml:id='inter-vlan-routing-openvswitch.ovs-host.snat'
-	renderas='sect3'>Traduction d'adresses source sur le système
-	hôte</bridgehead>
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.snat'>
+		<title>Traduction d'adresses source sur le système hôte</title>
 
 	<para>Les <acronym>VLAN</acronym>s Orange et Vert utilsent des préfixes
 	réseau non routables sur l'Internet. On a donc recours à un artifice
@@ -510,10 +546,11 @@ Chain POSTROUTING (policy ACCEPT 10 packets, 975 bytes)
 Chain POSTROUTING (policy ACCEPT 117 packets, 11199 bytes)
  pkts bytes target     prot opt in     out     source       destination         
    94  7520 TCPMSS     tcp      *      *       ::/0         ::/0         tcp flags:0x17/0x02 tcpmss match 1400:1536 TCPMSS clamp to PMTU
-   12  1112 SNAT       all      *      vlan1   fd00::/8     ::/0         to:2a01:240:fe00:8175::1d</screen>
+   12  1112 SNAT       all      *      vlan1   fd00::/8     ::/0         to:2001:db8:fe00:8175::1d</screen>
+	</section>
 
-	<bridgehead xml:id='inter-vlan-routing-openvswitch.ovs-host.tests'
-	renderas='sect3'>Tests d'interconnexion entre réseaux</bridgehead>
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.vm-run'>
+		<title>Lancement des systèmes virtuels</title>
 
 	<para>On lance deux instances de systèmes virtuels dans chacun des deux
 	<acronym>VLAN</acronym>s Orange et Vert à l'aide du script suivant :</para>
@@ -552,6 +589,10 @@ Chain POSTROUTING (policy ACCEPT 117 packets, 11199 bytes)
     6    20  ee:8f:84:8e:cb:a8    3
     1     0  de:56:80:40:1d:ed    0
     2     0  42:d9:5d:6c:89:d8    0</screen>
+	</section>
+
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.tests'>
+		<title>Tests d'interconnexion entre réseaux</title>
 
 	<para>Depuis le système virtuel dans le <acronym>VLAN</acronym> Orange, on
 	effectue une série de tests <acronym>ICMP</acronym> et
@@ -630,6 +671,494 @@ TCP window size:  320 KByte
 [  3]  0.0-30.0 sec  6.06 GBytes  1.74 Gbits/sec</screen>
 	</listitem>
 	</itemizedlist>
+	</section>
+</section>
+
+<?custom-pagebreak?>
+<section xml:id='inter-vlan-routing-openvswitch.ovs-vm'>
+	<title>Routage inter-VLAN dans un système virtuel</title>
+
+	<para>Dans ce second exemple, toutes les décisions d'acheminement du
+	trafic sont prises dans le sous-système réseau d'une instance de système
+	virtuel. Au niveau commutation de circuits, &url.ovs; joue le rôle
+	important, tandis qu'au niveau commutation de paquets, la table de routage
+	du sous-système réseau du routeur virtuel pointe vers les interfaces des
+	différents <acronym>VLAN</acronym>s. Si on se réfère au <link
+	linkend='inter-vlan-routing-openvswitch.context.mockup2'>Schéma de la
+	topologie</link>, le travail de configuration porte sur les commutateurs
+	<systemitem>swd-host</systemitem>, <systemitem>sw-lab</systemitem> et sur
+	une nouvelle instance de système virtuel. Voyons par quelles étapes il faut
+	passer.</para>
+
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.install'>
+		<title>Installation et configuration des outils</title>
+
+	<para>La toute première étape, relative à l'installation et à la
+	configuration des outils sur le système hôte est <link
+	linkend='inter-vlan-routing-openvswitch.ovs-host.install'>identique à la
+	section précédente</link>. On peut donc passer directement au plan
+	d'adressage.</para>
+	</section>
+
+	<section xml:id='inter-vlan-routing-openvswitch.vm-host.addressing'>
+		<title>Plan d'adressage</title>
+
+	<para>On utilise à nouveau les mêmes préfixes réseau que ceux choisis pour
+	la <link linkend='mockup1.perimeter.addressing'>première
+	maquette</link>.</para>
+
+	<para>On ajoute dans le tableau ci-dessous le routeur virtuel dont les
+	interfaces servent à acheminer le trafic entre les réseaux de la
+	maquette.</para>
+  
+	<table xml:id='mockup2.perimeter.addressing' frame='all' pgwide='1'>
+		<title>plan d'adressage des périmètres</title>
+	<tgroup cols='4'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='1*'/>
+	<colspec colnum='3' colwidth='1*'/>
+	<colspec colnum='4' colwidth='3*'/>
+	<thead>
+	<row>
+		<entry>Nom</entry>
+		<entry>VLAN</entry>
+		<entry>Interface</entry>
+		<entry>Préfixe réseau IP</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+		<entry morerows='1' valign='middle'><citetitle>Système hôte</citetitle></entry>
+		<entry morerows='1' valign='middle'>trunk</entry>
+		<entry morerows='1' valign='middle'>vlan1</entry>
+		<entry><systemitem class='ipaddress'>192.0.2.0/26</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:db8:fe00:8175::/64</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle'><citetitle>Routeur virtuel</citetitle></entry>
+		<entry morerows='1' valign='middle'>trunk</entry>
+		<entry morerows='1' valign='middle'>eth0</entry>
+		<entry><systemitem class='ipaddress'>192.0.2.0/26</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:db8:fe00:8175::/64</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle'><citetitle>Orange</citetitle></entry>
+		<entry morerows='1' valign='middle'>10</entry>
+		<entry morerows='1' valign='middle'>eth0.10</entry>
+		<entry><systemitem class='ipaddress'>198.51.100.0/24</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>fd6e:c073:b4a3:a::/64</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle'><citetitle>Vert</citetitle></entry>
+		<entry morerows='1' valign='middle'>20</entry>
+		<entry morerows='1' valign='middle'>eth0.20</entry>
+		<entry><systemitem class='ipaddress'>203.0.113.0/24</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>fd6e:c073:b4a3:14::/64</systemitem></entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</table>
+	</section>
+
+	<section xml:id='inter-vlan-routing-openvswitch.vm-host.tap-switch'>
+		<title>Commutateurs et cordons de brassage</title>
+
+	<para>Relativement à la configuration de la première maquette, une partie
+	de la configuration du commutateur <systemitem>swd-host</systemitem> est
+	conservée. L'interface <option>vlan1</option> reste l'interface prinicpale
+	du système hôte. C'est elle qui permet d'acheminer le trafic des machines
+	virtuelles vers l'Internet.</para>
+
+	<para>En revanche, les cordons de brassage doivent tous être raccordés à
+	un nouveau commutateur appelé <systemitem>sw-lab</systemitem>. Ce
+	commutateur est lui-même cascadé au commutateur principal du système hôte
+	<systemitem>swd-host</systemitem>.</para>
+
+	<orderedlist>
+	<listitem>
+		<para>Rappel de la configuration du commutateur principal du système
+		hôte.</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl show 
+0fb1e80b-37cf-4dce-9a19-17b9fb989610
+    Bridge swd-host
+        Port "eth0"
+            Interface "eth0"
+        Port "vlan1"
+            Interface "vlan1"
+                type: internal
+        Port swd-host
+            Interface swd-host
+                type: internal
+    ovs_version: "2.3.0"</screen>
+	</listitem>
+	<listitem>
+		<para>Création du nouveau commutateur
+		<systemitem>sw-lab</systemitem>.</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-br sw-lab</screen>
+	</listitem>
+	<listitem>
+		<para>Mise en place de la cascade (<wordasword>stacking</wordasword>)
+		entre les deux commutateurs.</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-port swd-host <emphasis>patch2sw-lab</emphasis> -- set interface patch2sw-lab type=patch options:<emphasis>peer=patch2swd-host</emphasis>
+<prompt>$</prompt> sudo ovs-vsctl add-port sw-lab <emphasis>patch2swd-host</emphasis> -- set interface patch2swd-host type=patch options:<emphasis>peer=patch2sw-lab</emphasis></screen>
+
+		<para>Visualisation du résultat.</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl show
+0fb1e80b-37cf-4dce-9a19-17b9fb989610
+    Bridge sw-lab
+        Port "<emphasis>patch2swd-host</emphasis>"
+            Interface "patch2swd-host"
+                type: patch
+                options: {peer="<emphasis>patch2sw-lab</emphasis>"}
+        Port sw-lab
+            Interface sw-lab
+                type: internal
+    Bridge swd-host
+        Port "eth0"
+            Interface "eth0"
+        Port "vlan1"
+            Interface "vlan1"
+                type: internal
+        Port swd-host
+            Interface swd-host
+                type: internal
+        Port "patch2sw-lab"
+            Interface "<emphasis>patch2sw-lab</emphasis>"
+                type: patch
+                options: {peer="<emphasis>patch2swd-host</emphasis>"}
+    ovs_version: "2.3.0"</screen>
+	</listitem>
+	<listitem>
+		<para>Création et activation des cordons de brassage des
+		<acronym>VLAN</acronym>s Orange et Vert. Les ports sur lesquels ces
+		cordons sont raccordés sont placés en mode accès.</para>
+
+		<para><acronym>VLAN</acronym> Orange :</para>
+
+<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap0 group kvm
+<prompt>$</prompt> sudo ip link set txqueuelen 10000 dev tap0
+<prompt>$</prompt> sudo ip link set dev tap0 up
+<prompt>$</prompt> sudo ovs-vsctl add-port sw-lab tap0 tag=10
+<prompt>$</prompt> sudo ovs-vsctl set port tap0 <emphasis>vlan_mode=access</emphasis></screen>
+
+		<para><acronym>VLAN</acronym> Vert :</para>
+
+<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap1 group kvm
+<prompt>$</prompt> sudo ip link set txqueuelen 10000 dev tap1
+<prompt>$</prompt> sudo ip link set dev tap1 up
+<prompt>$</prompt> sudo ovs-vsctl add-port sw-lab tap1 tag=20
+<prompt>$</prompt> sudo ovs-vsctl set port tap1 <emphasis>vlan_mode=access</emphasis></screen>
+	</listitem>
+	<listitem>
+		<para>Création et activation du cordon de brassage vers le routeur
+		virtuel. Le port du commutateur <systemitem>sw-lab</systemitem> sur
+		lequel il est raccordé est configuré en mode
+		<wordasword>trunk</wordasword>. Le commutateur accepte de traiter des
+		trames avec les étiquettes <acronym>IEEE802.1Q</acronym> dans ce
+		mode.</para>
+
+<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap2 group kvm
+<prompt>$</prompt> sudo ip link set txqueuelen 10000 dev tap2
+<prompt>$</prompt> sudo ip link set dev tap2 up
+<prompt>$</prompt> sudo ovs-vsctl add-port sw-lab tap2
+<prompt>$</prompt> sudo ovs-vsctl set port tap2 <emphasis>vlan_mode=trunk</emphasis></screen>
+	</listitem>
+	</orderedlist>
+	</section>
+
+	<section xml:id='inter-vlan-routing-openvswitch.vm-host.launch'>
+		<title>Lancement des systèmes virtuels</title>
+
+	<para>Comme le routage du trafic se fait dans une instance de machine
+	virtuelle, il faut lancer les instances dès maintenant avant de configurer
+	les interfaces réseau. Cette opération se fait à l'aide du script suivant
+	:</para>
+
+<screen>#!/bin/bash
+
+../scripts/ovs-startup.sh orange.qed 1024 0
+../scripts/ovs-startup.sh green.qed 1024 1
+../scripts/ovs-startup.sh red.qed 1024 2</screen>
+
+	<para>Le code du &url.vm.ovs-mode-startup.sh; est donné dans le guide
+	&url.vm;.</para>
+
+	<para>D'après le <link
+	linkend='inter-vlan-routing-openvswitch.context.mockup2'>schéma de la
+	topologie</link>, la seule instance de machine virtuelle joignable depuis
+	le système hôte est le routeur (avec le fichier image
+	<option>red.qed</option>) dont l'adresse <acronym>MAC</acronym> est
+	<systemitem class='etheraddress'>ba:ad:ca:fe:00:02</systemitem>. On peut le
+	vérifier en	visualisant les tables	<acronym>CAM</acronym> des deux
+	commutateurs puis la table du voisinage réseau du système hôte.</para>
+
+<screen><prompt>$</prompt> sudo ovs-appctl fdb/show swd-host
+ port  VLAN  MAC                Age
+    8    10  ba:ad:ca:fe:00:00  221
+    8    20  ba:ad:ca:fe:00:01   34
+    8     0  <emphasis>ba:ad:ca:fe:00:02</emphasis>   13
+    1     0  de:56:80:40:1d:ed    0
+    2     0  42:d9:5d:6c:89:d8    0</screen>
+
+<screen><prompt>$</prompt> sudo ovs-appctl fdb/show sw-lab
+ port  VLAN  MAC                Age
+    3    20  ba:ad:ca:fe:00:01   51
+    1     0  de:56:80:40:1d:ed   31
+    1     0  42:d9:5d:6c:89:d8   30
+    4     0  <emphasis>ba:ad:ca:fe:00:02</emphasis>   30
+    2    10  ba:ad:ca:fe:00:00    4</screen>
+
+	<para>L'affichage des deux tables <acronym>CAM</acronym> montre que la base
+	de données des <acronym>VLAN</acronym>s est bien partagée entre
+	commutateurs. La fonction de commutation de circuits est donc bien
+	assurée.</para>
+
+<screen><prompt>$</prompt> ip neighbor ls 
+192.0.2.1 dev <emphasis>vlan1</emphasis> lladdr de:56:80:40:1d:ed STALE
+2001:db8:fe00:8175:21c:23ff:fed2:d105 dev <emphasis>vlan1</emphasis> lladdr 00:1c:23:d2:d1:05 STALE
+fe80::dc56:80ff:fe40:1ded dev <emphasis>vlan1</emphasis> lladdr de:56:80:40:1d:ed router DELAY
+2001:db8:fe00:8175::1 dev <emphasis>vlan1</emphasis> lladdr de:56:80:40:1d:ed router REACHABLE
+<emphasis>fe80::b8ad:caff:fefe:2</emphasis> dev <emphasis>vlan1</emphasis> lladdr <emphasis>ba:ad:ca:fe:00:02</emphasis> STALE</screen>
+
+	<para>L'affichage de la table du voisinage réseau du système hôte montre
+	que seule l'interface <option>vlan1</option> est concernée et que seul le
+	routeur virtuel est joignable.</para>
+
+	<para>Pour accéder au routeur virtuel, on utilise l'adresse
+	<acronym>IPv6</acronym> de lien local avec le protocole
+	<acronym>SSH</acronym>. Cette adresse est indépendante de la configuration
+	des interfaces de l'instance de système virtuel. Elle est configurée
+	automatiquement dès que l'interface est active.</para>
+
+<screen><prompt>$</prompt> ssh etu@fe80::b8ad:caff:fefe:2%vlan1
+Warning: Permanently added 'fe80::b8ad:caff:fefe:2%vlan1' (RSA) to the list of known hosts.
+etu@fe80::b8ad:caff:fefe:2%vlan1's password: 
+No mail.
+Last login: Sat Oct 24 09:44:54 2015 from fe80::40d9:5dff:fe6c:89d8%eth0</screen>
+	</section>	
+
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.rtr'>
+		<title>Création des interfaces de routage inter-VLAN</title>
+
+	<para>Une fois la partie commutation de circuits en place, on s'intéresse
+	maintenant au routage des paquets dans le sous-système réseau du routeur
+	virtuel. On utilise ici des sous-interfaces auxquelles on associe les
+	étiquettes <acronym>IEEE802.1Q</acronym>.</para>
+
+	<orderedlist>
+	<listitem>
+		<para>On commence par la configuration de l'interface
+		<option>eth0</option> à laquelle correspond le <acronym>VLAN</acronym>
+		natif. On rappelle ici que le <acronym>VLAN</acronym> natif est celui
+		auquel appartiennent toutes les trames Ethernet sans étiquette
+		<acronym>IEEE802.1Q</acronym> qui circulent dans un
+		<wordasword>trunk</wordasword>. Or, on a vu ci-dessus que le canal de
+		communication entre le commutateur <systemitem>swd-host</systemitem> du
+		système hôte et le routeur virtuel est justement en mode
+		<wordasword>trunk</wordasword>. Voici un extrait du fichier
+		<filename>/etc/network/interfaces</filename> du routeur virtuel.</para>
+
+<screen># The primary network interface
+allow-hotplug eth0
+iface eth0 inet static
+	address 192.0.2.28/26
+	gateway 192.0.2.1
+	dns-nameservers 192.0.2.1
+
+iface eth0 inet6 static
+	address 2001:db8:fe00:8175::1c/64
+	gateway 2001:db8:fe00:8175::1 
+	dns-nameservers 2001:db8:fe00:8175::1</screen>
+	</listitem>
+	<listitem>
+		<para>Pour le <acronym>VLAN</acronym> Orange, on commence par créer la
+		sous-interface <option>eth0.10</option> avant de lui affecter ses
+		adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+
+		<para>La commande manuelle de création de sous-interface est la
+		suivante :</para>
+
+<screen><prompt>#</prompt> ip link add link eth0 name <emphasis>eth0.10</emphasis> type vlan <emphasis>id 10</emphasis></screen>
+
+		<para>Il est aussi possible de placer directement les paramètres de
+		configuration dans le fichier
+		<filename>/etc/network/interfaces</filename> et de faire appel aux
+		commandes <command>ifup</command> et <command>ifdown</command> ensuite.
+		Voici l'extrait du fichier de configuration correspondant.</para>
+
+<screen>auto eth0.10
+iface eth0.10 inet static
+	hwaddress <emphasis>ba:ad:ca:fe:0a:02</emphasis>
+	address 198.51.100.1/24
+
+iface eth0.10 inet6 static
+	address fd6e:c073:b4a3:a::1/64</screen>
+
+		<para>L'activation de la sous-interface produit le résultat suivtant
+		:</para>
+
+<screen><prompt>root@red-rtr:~#</prompt> ifup eth0.10
+Waiting for DAD... Done
+<prompt>root@red-rtr:~#</prompt> ip addr ls dev eth0.10
+3: eth0.10@eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default 
+    link/ether <emphasis>ba:ad:ca:fe:0a:02</emphasis> brd ff:ff:ff:ff:ff:ff
+    inet 198.51.100.1/24 brd 198.51.100.255 scope global eth0.10
+       valid_lft forever preferred_lft forever
+    inet6 fd6e:c073:b4a3:a::1/64 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::b8ad:caff:fefe:2/64 scope link 
+       valid_lft forever preferred_lft forever</screen>
+
+		<note>
+		<para>On a fixé manuellement l'adresse <acronym>MAC</acronym> de la
+		sous-interface dans le but de l'identifier plus facilement par la suite
+		lors des échanges avec les autres systèmes virtuels.</para>
+		</note>
+	</listitem>
+	<listitem>
+		<para>On procède exactement de la même façon pour le
+		<acronym>VLAN</acronym> Vert que pour le <acronym>VLAN</acronym>
+		Orange.</para>
+
+		<para>La commande manuelle de création de sous-interface est la
+		suivante :</para>
+
+<screen><prompt>#</prompt> ip link add link eth0 name <emphasis>eth0.20</emphasis> type vlan <emphasis>id 20</emphasis></screen>
+
+		<para>Voici l'extrait du fichier de configuration
+		<filename>/etc/network/interfaces</filename> pour la sous-interface
+		<option>eth0.20</option>.</para>
+
+<screen>auto eth0.20
+iface eth0.20 inet static
+	hwaddress ba:ad:ca:fe:14:02
+	address 203.0.113.1/24
+
+iface eth0.20 inet6 static
+	address fd6e:c073:b4a3:14::1/64</screen>
+
+		<para>L'activation de la sous-interface produit le résultat suivtant
+		:</para>
+
+<screen><prompt>root@red-rtr:~#</prompt> ifup eth0.20
+Waiting for DAD... Done
+<prompt>root@red-rtr:~#</prompt> ip addr ls dev eth0.20
+4: eth0.20@eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default 
+    link/ether ba:ad:ca:fe:14:02 brd ff:ff:ff:ff:ff:ff
+    inet 203.0.113.1/24 brd 203.0.113.255 scope global eth0.20
+       valid_lft forever preferred_lft forever
+    inet6 fd6e:c073:b4a3:14::1/64 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::b8ad:caff:fefe:2/64 scope link 
+       valid_lft forever preferred_lft forever</screen>
+	</listitem>
+	</orderedlist>
+	</section>
+
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.router'>
+		<title>Activation du routage sur le routeur virtuel</title>
+
+	<para>Cette section est <link
+	linkend='inter-vlan-routing-openvswitch.ovs-host.router'>identique à celle
+	sur la première maquette</link>.</para>
+
+	<para>On reprend ici la liste des paramètres du fichier
+	<filename>/etc/systcl</filename> pour activer le routage
+	<acronym>IPv4</acronym> ainsi que le routage
+	<acronym>IPv6</acronym>.</para>
+
+<screen><prompt>#</prompt> egrep -v '(^#|^$)' /etc/sysctl.conf 
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+net.ipv4.conf.all.log_martians=1</screen>
+
+	<para>Cette liste de paramètres n'est effective qu'après utilisation de
+	l'instruction <userinput><prompt>#</prompt> sysctl -p</userinput>.</para>
+	</section>
+
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.autoconf'>
+		<title>Autoconfiguration des hôtes des VLANs Orange et Vert</title>
+
+	<para>Pour la partie <acronym>IPv4</acronym>, on fait appel à un démon
+	<application>DHCP</application> sur le routeur virtuel. On place ce démon en
+	écoute sur les deux sous-interfaces <option>eth0.10</option> et
+	<option>eth0.20</option>.</para>
+
+	<para>Après avoir installé le paquet du serveur <acronym>DHCP</acronym>, on
+	restreint son usage aux deux <acronym>VLAN</acronym>s de la
+	maquette en éditant le fichier
+	<filename>/etc/default/isc-dhcp-server</filename>. On obtient les résultats
+	suivants.</para>
+
+<screen><prompt>#</prompt> aptitude search ~idhcp-server
+i   isc-dhcp-server      - ISC DHCP server for automatic IP address assignment
+
+<prompt>#</prompt> egrep -v '(^#|^$)' /etc/default/isc-dhcp-server 
+INTERFACES="eth0.10 eth0.20"</screen>
+
+	<para>Côté configuration, on applique les éléments suivants dans le fichier
+	<filename>/etc/dhcp/dhcpd.conf</filename>.</para>
+
+	<screen><?dbfo keep-together="auto" ?><xi:include
+	href='files/host-dhcpd.conf' parse='text'
+	xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+
+	<para>Pour la partie <acronym>IPv6</acronym>, on fait appel au paquet
+	<application>radvd</application> pour l'autoconfiguration des hôtes en mode
+	<acronym>SLAAC</acronym> (Document &url.rfc4862;). On vérifie que le paquet
+	est bien installé.</para>
+
+<screen><prompt>#</prompt> aptitude search ~iradvd
+i   radvd                - Démon d'information de routeur</screen>
+
+	<para>Voici ensuite une copie du fichier
+	<filename>/etc/radvd.conf</filename> du routeur virtuel.</para>
+
+	<screen><?dbfo keep-together="auto" ?><xi:include
+	href='files/red-rtr-radvd.conf' parse='text'
+	xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	</section>
+
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.routing'>
+		<title>Affichage des tables de routage du routeur virtuel</title>
+
+	<para>Les tables de routage font apparaître les correspondances entre les
+	préfixes réseau définis plus haut et les interfaces configurées sur
+	l'instance de routeur virtuel.</para>
+
+	<para>La table de routage <acronym>IPv4</acronym> est :</para>
+
+<screen><prompt>$</prompt> ip route ls
+<emphasis>default via 192.0.2.1 dev eth0</emphasis> 
+<emphasis>192.0.2.0/26 dev eth0</emphasis>  proto kernel  scope link  src 192.0.2.29 
+<emphasis>198.51.100.0/24 dev eth0.10</emphasis>  proto kernel  scope link  src 198.51.100.1 
+<emphasis>203.0.113.0/24 dev eth0.20</emphasis>  proto kernel  scope link  src 203.0.113.1</screen>
+
+	<para>La table de routage <acronym>IPv6</acronym> est :</para>
+
+<screen><prompt>$</prompt> ip -6 route ls
+<emphasis>2001:db8:fe00:8175::/64 dev eth0</emphasis>  proto kernel  metric 256  pref medium
+<emphasis>fd6e:c073:b4a3:a::/64 dev eth0.10</emphasis>  proto kernel  metric 256  pref medium
+<emphasis>fd6e:c073:b4a3:14::/64 dev eth0.20</emphasis>  proto kernel  metric 256  pref medium
+fe80::/64 dev eth0  proto kernel  metric 256  pref medium
+fe80::/64 dev eth0.20  proto kernel  metric 256  pref medium
+fe80::/64 dev eth0.10  proto kernel  metric 256  pref medium
+<emphasis>default via 2001:db8:fe00:8175::1 dev eth0</emphasis>  metric 1024  pref medium</screen>
+	</section>
 </section>
 
 <section xml:id='inter-vlan-routing-openvswitch.references'>
