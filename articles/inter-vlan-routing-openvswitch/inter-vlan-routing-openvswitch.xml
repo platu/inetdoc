@@ -1159,6 +1159,117 @@ fe80::/64 dev eth0.20  proto kernel  metric 256  pref medium
 fe80::/64 dev eth0.10  proto kernel  metric 256  pref medium
 <emphasis>default via 2001:db8:fe00:8175::1 dev eth0</emphasis>  metric 1024  pref medium</screen>
 	</section>
+
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.snat'>
+		<title>Traduction d'adresses source sur le routeur virtuel</title>
+
+	<para>Relativement à la première maquette sur laquelle la traduction des
+	adresses source a lieu sur le système hôte, seule l'interface
+	change.</para>
+
+	<para>Les <acronym>VLAN</acronym>s Orange et Vert utilisent les mêmes
+	préfixes réseau non routables sur l'Internet.</para>
+
+	<para>Voici une copie des fichiers de règles pour les deux protocoles de
+	couche réseau : <acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+
+	<screen><?dbfo keep-together="auto" ?><xi:include
+	href='files/red-rtr-rules.v4' parse='text'
+	xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+
+	<screen><?dbfo keep-together="auto" ?><xi:include
+	href='files/red-rtr-rules.v6' parse='text'
+	xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+
+	<para>Il faut à nouveau «surveiller» les compteurs associés à
+	chaque règle pour en mesurer l'utilisation. À partir des deux jeux de
+	règles donnés ci-dessus, on obtient les résultats suivants.</para>
+
+<screen><prompt>#</prompt> iptables -t nat -vnL POSTROUTING
+Chain POSTROUTING (policy ACCEPT 2 packets, 96 bytes)
+ pkts bytes target     prot opt in     out     source     destination         
+    8   448 TCPMSS     tcp  --  *      *       0.0.0.0/0  0.0.0.0/0    tcp flags:0x17/0x02 tcpmss match 1400:1536 TCPMSS clamp to PMTU
+  237 15186 SNAT       all  --  *      eth0    0.0.0.0/0  0.0.0.0/0    to:192.0.2.28</screen>
+
+<screen><prompt>#</prompt> ip6tables -t nat -vnL POSTROUTING
+Chain POSTROUTING (policy ACCEPT 136 packets, 11260 bytes)
+ pkts bytes target     prot opt in     out     source     destination         
+   46  3680 TCPMSS     tcp      *      *       ::/0       ::/0         tcp flags:0x17/0x02 tcpmss match 1400:1536 TCPMSS clamp to PMTU
+    3   251 SNAT       all      *      eth0    fd00::/8   ::/0         to:2a01:240:fe00:8175::1c</screen>
+	</section>
+
+	<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.tests'>
+		<title>Tests d'interconnexion entre réseaux</title>
+
+	<para>Les résultats des tests d'interconnexion réseau entre les
+	<acronym>VLAN</acronym>s Orange et Vert ainsi que vers l'Internet sont
+	<link linkend='inter-vlan-routing-openvswitch.ovs-vm.tests'>identiques à
+	ceux obtenus avec la première maquette</link>. Il est donc inutile de
+	reproduire les mêmes copies d'écran ici.</para>
+
+	<para>En revanche, les tests de performances diffèrent. Les performances
+	son nettement moins bonnes, même après une tentative d'optimisation de la
+	configuration des interfaces réseau.</para>
+
+	<orderedlist>
+	<listitem>
+		<para>Sur le routeur virtuel :</para>
+
+<screen><prompt>#</prompt> ip link set dev eth0 txqueuelen 10000
+<prompt>#</prompt> ip link set dev eth0.10 txqueuelen 10000
+<prompt>#</prompt> ip link set dev eth0.20 txqueuelen 10000
+<prompt>#</prompt> tc qdisc add dev eth0.20 root pfifo_fast
+<prompt>#</prompt> tc qdisc add dev eth0.10 root pfifo_fast</screen>
+	</listitem>
+	<listitem>
+		<para>Sur l'instance de système virtuel du <acronym>VLAN</acronym>
+		Orange :</para>
+
+<screen><prompt>#</prompt> ip link set dev eth0 txqueuelen 10000</screen>
+	</listitem>
+	<listitem>
+		<para>Sur l'instance de système virtuel du <acronym>VLAN</acronym>
+		Vert :</para>
+
+<screen><prompt>#</prompt> ip link set dev eth0 txqueuelen 10000</screen>
+	</listitem>
+	</orderedlist>
+
+	<para>Voici un échantillon de mesures <application>iperf</application>
+	entre les deux <acronym>VLAN</acronym>s Orange et Vert.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Serveur côté <acronym>VLAN</acronym> Vert :</para>
+
+<screen><prompt>etu@green-clnt:~$</prompt> iperf -w 320k -V -s
+------------------------------------------------------------
+Server listening on TCP port 5001
+TCP window size:  320 KByte
+------------------------------------------------------------
+[  4] local fd6e:c073:b4a3:14:b8ad:caff:fefe:1 port 5001 connected with fd6e:c073:b4a3:a:b8ad:caff:fefe:0 port 37210
+[ ID] Interval       Transfer     Bandwidth
+[  4]  0.0-30.0 sec  2.98 GBytes   852 Mbits/sec</screen>
+	</listitem>
+	<listitem>
+		<para>Client côté <acronym>VLAN</acronym> Orange : </para>
+
+<screen><prompt>etu@orange-clnt:~$</prompt> iperf -w 320k -P 8 -i 2 -t 30 -V -c fd6e:c073:b4a3:14:b8ad:caff:fefe:1
+------------------------------------------------------------
+Client connecting to fd6e:c073:b4a3:14:b8ad:caff:fefe:1, TCP port 5001
+TCP window size:  320 KByte
+------------------------------------------------------------
+[  3] local fd6e:c073:b4a3:a:b8ad:caff:fefe:0 port 37210 connected with fd6e:c073:b4a3:14:b8ad:caff:fefe:1 port 5001
+[ ID] Interval       Transfer     Bandwidth
+&lt;snip/>
+[  3]  0.0-30.0 sec  2.98 GBytes   853 Mbits/sec</screen>
+	</listitem>
+	</itemizedlist>
+
+	<para>Il apparaît clairement que le routage dans le sous-système réseau du
+	système hôte est nettement plus performant que le routage dans une instance
+	de système virtuel.</para>
+	</section>
 </section>
 
 <section xml:id='inter-vlan-routing-openvswitch.references'>
