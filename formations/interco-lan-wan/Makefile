@@ -4,13 +4,17 @@ endif
 
 ABSTRACT_FILE = transform_output/abstract.xml
 
+# Liste des répertoires à traiter à partir de ce niveau
+SUBDIRS = \
+	images
+
 # Type(s) de traitement
-PROCESS = symlink xml2xhtml xml2pdf
+PROCESS = symlink subdirs xml2xhtml xml2pdf
 
 SYMLINKS = \
-        $(MAIN_DIR)/common/authorgroup.xml \
-        $(MAIN_DIR)/common/legalgroup.xml \
-        $(MAIN_DIR)/common/inetdoc.urls.xml
+	$(MAIN_DIR)/common/authorgroup.xml \
+	$(MAIN_DIR)/common/legalgroup.xml \
+	$(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
 	interco-lan-wan.xml \
@@ -22,9 +26,10 @@ XML_FILES = \
 	tp5.abstract.xml \
 	tp6.abstract.xml \
 	tp7.abstract.xml \
-        authorgroup.xml \
-        legalgroup.xml \
-        inetdoc.urls.xml
+	authorgroup.xml \
+	legalgroup.xml \
+	inetdoc.urls.xml \
+	$(wildcard images/*)
 
 all: $(PROCESS)
 
