@@ -10,7 +10,8 @@ SYMLINKS = \
 	$(MAIN_DIR)/travaux_pratiques/sysadm-net.iscsi.qa/images/targetcli.png \
 	$(MAIN_DIR)/travaux_pratiques/sysadm-net.ldap.qa/images/ldap-tree.png \
 	$(MAIN_DIR)/travaux_pratiques/sysadm-net.autofs-ldap-nfs.qa/images/ldap-automount.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.ospf.qa/images/interco.ospf.physical-topology.png
+	$(MAIN_DIR)/travaux_pratiques/interco.ospf.qa/images/interco.ospf.physical-topology.png \
+	$(MAIN_DIR)/articles/inter-vlan-routing-openvswitch/images/ovs-vm.png
 
 all: $(PROCESS)
 
