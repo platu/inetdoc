@@ -42,7 +42,8 @@
     <!-- Alignement du texte a gauche
     <xsl:param name="alignment">start</xsl:param>-->
     <xsl:param name="hyphenate">false</xsl:param>
-    <xsl:param name="ulink.footnotes" select="1" />
+    <xsl:param name="ulink.show" select="0" />
+    <xsl:param name="ulink.footnotes" select="0" />
 
     <!-- <?custom-pagebreak?> inserts a page break at this point -->
     <xsl:template match="processing-instruction('custom-pagebreak')">
@@ -55,7 +56,7 @@
     </xsl:template>
 
     <xsl:attribute-set name="xref.properties">
-      <xsl:attribute name="color">#cc0033</xsl:attribute>
+      <xsl:attribute name="color">#d03</xsl:attribute>
     </xsl:attribute-set>
 
     <xsl:param name="qanda.inherit.numeration" select="0" />
