@@ -45,9 +45,9 @@ ionice -c3 qemu-system-x86_64 \
 	-balloon virtio \
 	-smp 2,cores=2 \
 	-rtc base=localtime,clock=host \
-	-boot order=c \
-	-drive if=none,id=drive0,aio=native,cache=directsync,format=$image_format,media=disk,file=$vm \
-	-device virtio-blk,drive=drive0,scsi=off,config-wce=off,x-data-plane=on \
+	-boot order=c,menu=on \
+	-drive if=none,id=drive0,aio=native,cache.direct=on,format=$image_format,media=disk,file=$vm \
+	-device virtio-blk,drive=drive0,scsi=off,config-wce=off \
 	-k fr \
 	-vga qxl \
 	-spice port=$((5900 + $tapnum)),addr=localhost,disable-ticketing \
