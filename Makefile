@@ -13,8 +13,11 @@ SUBDIRS = \
 	formations
 
 # Type(s) de traitement
-PROCESS = subdirs 
+PROCESS = subdirs /var/www/tp
 
 all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
+
+/var/www/tp:
+	cd /var/www && ln -s travaux_pratiques tp
