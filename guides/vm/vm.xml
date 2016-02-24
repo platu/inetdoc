@@ -67,34 +67,33 @@
 
 <article xmlns="http://docbook.org/ns/docbook" xml:id='vm' xml:lang='fr'>
 <info>
-  <title>Virtualisation système et enseignement</title>
+	<title>Virtualisation système et enseignement</title>
 
-  &phl;
-  <abstract>
-    <para>Ce guide est à la fois un retour d'expérience et une proposition
-    d'utilisation de la virtualisation de systèmes d'interconnexion réseau dans
-    les enseignements pratiques. L'objectif est de mettre l'accent sur
-    l'identification des fonctions réseau usuelles dans la virtualisation. Dans
-    ce but, on présente la configuration des outils directement depuis
-    l'interface en ligne de commande sans faire appel à une solution de
-    virtualisation intégrée.</para>
-  </abstract>
-  <keywordset>
-    <keyword>Linux</keyword>
-    <keyword>Debian</keyword>
-    <keyword>enseignement</keyword>
-    <keyword>KVM</keyword>
-    <keyword>QEMU</keyword>
-    <keyword>switch</keyword>
-    <keyword>Travaux pratiques</keyword>
-    <keyword>tap</keyword>
-    <keyword>openvswitch</keyword>
-  </keywordset>
+	&phl;
+	<abstract>
+	<para>Ce guide est à la fois un retour d'expérience et une présentation de
+	la virtualisation de systèmes d'interconnexion réseau dans les
+	enseignements pratiques. L'objectif est de mettre l'accent sur
+	l'identification des fonctions réseau usuelles dans la virtualisation. Dans
+	ce but, on présente la configuration des outils directement depuis
+	l'interface en ligne de commande sans faire appel à une solution de
+	virtualisation intégrée.</para>
+	</abstract>
+	<keywordset>
+	<keyword>Debian</keyword>
+	<keyword>enseignement</keyword>
+	<keyword>KVM</keyword>
+	<keyword>Qemu</keyword>
+	<keyword>switch</keyword>
+	<keyword>Travaux pratiques</keyword>
+	<keyword>tap</keyword>
+	<keyword>openvswitch</keyword>
+	</keywordset>
 </info>
 
 <sect1 xml:id='vm.legal.meta'>
-  &legal;
-  <bridgehead xml:id='vm.meta' renderas='sect2'>Méta-information</bridgehead>
+	&legal;
+	<bridgehead xml:id='vm.meta' renderas='sect2'>Méta-information</bridgehead>
 
   <para>Cet article est écrit avec <link
   xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
@@ -467,133 +466,120 @@ virtio                 13058  5 virtio_blk,virtio_net,virtio_pci,virtio_balloon,
 
 <?custom-pagebreak?>
 <sect1 xml:id="vm.instance">
-  <title>Création d'une machine virtuelle</title>
+	<title>Création d'une machine virtuelle</title>
 
 <note xml:id='vm.instance.directory'>
-  <para>Toutes les opérations présentées dans cette section utilisent le
-  répertoire utilisateur <filename class='directory'>~/vm/</filename> dans
-  lequel sont stockées les images de disques virtuels.</para>
+	<para>Toutes les opérations présentées dans cette section utilisent le
+	répertoire utilisateur <filename class='directory'>~/vm/</filename> dans
+	lequel sont stockées les images de systèmes virtuels.</para>
 </note>
 
-  <bridgehead xml:id='vm.instance.tools' renderas='sect2'>Outils
-  nécessaires</bridgehead>
+	<bridgehead xml:id='vm.instance.tools' renderas='sect2'>Outils nécessaires</bridgehead>
 
-  <para>Sachant que les modules de virtualisation appartenant au noyau Linux
-  sont chargés en mémoire, il faut maintenant connaître la liste des outils
-  nécessaires à la création des instances de machines virtuelles.</para>
-
-  <para>Les paquets associés à la gestion des images de machines virtuelles
-  sont les suivants.</para>
+	<para>Sachant que les modules de virtualisation appartenant au noyau Linux
+	sont chargés en mémoire, il faut maintenant connaître la liste des outils
+	nécessaires à la création et au lancement des instances de machines
+	virtuelles. Les paquets associés à la gestion des images de machines
+	virtuelles sont les suivants :</para>
 
 <screen><prompt>$</prompt> aptitude search ~iqemu
-i A ipxe-qemu          - PXE boot firmware - ROM images for qemu
-i A qemu-keymaps       - cartes de clavier pour QEMU
-i   qemu-kvm           - QEMU Full virtualization on x86 hardware (transitional package)
-i A qemu-system-common - QEMU full system emulation binaries (common files)
-i   <emphasis>qemu-system-x86</emphasis>    - QEMU full system emulation binaries (x86)
-i   qemu-user          - binaires d'émulation pour QEMU en mode utilisateur
-i   qemu-utils         - QEMU utilities</screen>
+i A ipxe-qemu                 - PXE boot firmware - ROM images for qemu
+i A qemu-system-common        - QEMU full system emulation binaries (common files)
+i   <emphasis>qemu-system-x86</emphasis>           - QEMU full system emulation binaries (x86) 
+i   qemu-user                 - QEMU user mode emulation binaries
+i A qemu-user-binfmt          - QEMU user mode binfmt registration for qemu-user
+i   qemu-utils                - QEMU utilities</screen>
 
-  <para>Le paquet <package>qemu-system-x86</package> correspond au processus
-  d'émulation d'architecture x86 avec le support des extensions matérielles :
-  <citetitle><trademark>Intel VT</trademark></citetitle> et
-  <citetitle><trademark>AMD SVM</trademark></citetitle>. Il contient aussi
-  contient les éléments d'émulation des périphériques de carte mère pour cette
-  architecture : contrôleur PCI, carte vidéo, carte réseau, carte son,
-  etc.</para>
+	<para>Le paquet <package>qemu-system-x86</package> correspond au processus
+	d'émulation d'architecture x86 avec le support des extensions matérielles :
+	<citetitle><trademark>Intel VT</trademark></citetitle> et
+	<citetitle><trademark>AMD SVM</trademark></citetitle>. Il fournit aussi les
+	éléments de description des périphériques de carte mère pour cette
+	architecture : contrôleur PCI, carte vidéo, carte réseau, carte son,
+	etc.</para>
 
-  <bridgehead xml:id='vm.instance.install' renderas='sect2'>Installation d'une
-  machine virtuelle</bridgehead>
+	<bridgehead xml:id='vm.instance.install' renderas='sect2'>Installation
+	d'une machine virtuelle</bridgehead>
 
-  <para>On commence par créer une image de disque virtuel qui servira de
-  support au système de fichiers de la nouvelle instance de système
-  d'exploitation.</para>
+	<para>On commence par créer un fichier image de disque virtuel qui servira
+	de support au système de fichiers de la nouvelle instance de système
+	d'exploitation.</para>
 
-<screen><prompt>:~/vm$</prompt> qemu-img create vm0-debian-stable-amd64.raw -f raw 60G
-Formatting 'vm0-debian-stable-amd64.raw', fmt=raw size=64424509440
+<screen><prompt>:~/vm$</prompt> qemu-img create -f raw vm0-debian-stable-amd64.raw 80G
+Formatting 'vm0-debian-stable-amd64.raw', fmt=raw size=85899345920
 
 <prompt>:~/vm$</prompt> du -hs vm0-debian-stable-amd64.raw
 0       vm0-debian-stable-amd64.raw</screen>
 
-  <para>Le format d'image créé à l'aide de l'instruction ci-dessus est baptisé
-  <option>raw</option>. Il s'agit d'un format brut, utilisé par défaut, sur
-  lequel seuls les secteurs écrits entraînent une réservation d'espace si le
-  système de fichiers supporte un tel mode de fonctionnement. Ce choix de
-  format peut être modifié par la suite puisqu'il est toujours possible de
-  convertir une image d'un format à un autre après coup.</para>
+	<para>Le format d'image créé à l'aide de l'instruction ci-dessus est
+	baptisé <option>raw</option>. Il s'agit d'un format brut, utilisé par
+	défaut, sur lequel seuls les secteurs écrits entraînent une réservation
+	d'espace. Ce choix de format peut être modifié par la suite puisqu'il est
+	toujours possible de convertir une image d'un format à un autre après
+	coup.</para>
 
-  <para>On utilise cette image disque pour lancer le processus d'installation
-  de la machine virtuelle.</para>
+	<para>On utilise cette image disque pour lancer le processus d'installation
+	de la machine virtuelle.</para>
 
-<screen><prompt>:~/vm$</prompt> ./scripts/standalone-startup.sh vm0-debian-stable-amd64.raw 512 0 \ <co xml:id='vm.instance.install.script'/>
-  -drive if=ide,id=drive1,media=cdrom,file=iso.images/debian-7.3.0-amd64-netinst.iso \ <co xml:id='vm.instance.install.cd'/>
-  -device ide-cd,drive=drive1 \
-  -boot once=d
+<screen><prompt>:~/vm$</prompt> ./scripts/iso-install-startup.sh \
+vm0-debian-stable-amd64.raw \
+~/iso.images/debian-8.3.0-amd64-netinst.iso \
+512 \
+0
 
 ~> Machine virtuelle : vm0-debian-stable-amd64.raw
 ~> Port SPICE        : 5900
-~> Mémoire RAM       : 512
-~> Adresse MAC       : ba:ad:00:ca:fe:00</screen>
+~> Mémoire RAM       : 8192
+~> Adresse MAC       : ba:ad:ca:fe:00:00</screen>
 
-  <calloutlist>
-    <callout arearefs='vm.instance.install.script'>
-    <para>On lance l'instance de machine virtuelle à l'aide du script
-    <command>standalone-startup.sh</command> donné en annexe <xref
-    linkend='vm.appendix-user-network'/>. Ce script impose au moins 3
-    paramètres.</para>
+	<para>Pour l'installation du système d'exploitation de la machine
+	virtuelle, on utilise le script <command>iso-install-startup.sh</command>
+	donné en annexe <xref linkend='vm.appendix-iso-install-startup'/>. Ce
+	script impose au moins quatre paramètres.</para>
 
-    <itemizedlist>
-      <listitem>
-      <para>Le fichier image de la machine virtuelle. Dans l'exemple ci-dessus,
-      le fichier <filename>vm0-debian-stable-amd64.raw</filename> est
-      utilisé.</para>
-      </listitem>
-      <listitem>
-      <para>La quantité de <acronym>RAM</acronym> allouée à la machine
-      virtuelle. 512Mo dans l'exemple.</para>
-      </listitem>
-      <listitem>
-      <para>Le numéro du port d'accès à l'écran de la machine virtuelle via le
-      protocole <application>SPICE</application>. Ici la valeur
-      <option>0</option> conduit à l'utilisation du port numéro
-      <option>5900</option>.</para>
-      </listitem>
-    </itemizedlist>
-    </callout>
+	<orderedlist>
+	<listitem>
+		<para>Le fichier image de la machine virtuelle :
+		<filename>vm0-debian-stable-amd64.raw</filename> dans l'exemple
+		ci-dessus.</para>
+	</listitem>
+	<listitem>
+		<para>Le fichier au format <option>iso</option> correspondant au média
+		d'installation. Dans l'exemple, il s'agit de l'image
+		<option>netinst</option> de la version <citetitle>Jessie</citetitle> du
+		système Debian GNU/Linux.</para>
+	</listitem>
+	<listitem>
+		<para>La quantité de <acronym>RAM</acronym> allouée à la machine
+		virtuelle : 512Mo dans l'exemple.</para>
+	</listitem>
+	<listitem>
+		<para>Le numéro du port d'accès à l'écran de la machine virtuelle via
+		le protocole <application>SPICE</application>. Ici la valeur
+		<option>0</option> conduit à l'utilisation du port numéro
+		<option>5900</option>.</para>
+	</listitem>
+	</orderedlist>
 
-    <callout arearefs='vm.instance.install.cd'>
-    <para>En plus des 3 paramètres imposés, on donne les éléments nécessaires
-    à l'utilisation du média d'installation. On définit donc un périphérique de
-    stockage supplémentaire : un lecteur de <acronym>CDROM</acronym> connecté
-    sur un bus <acronym>IDE</acronym>. Ce périphérique est repéré par
-    l'étiquette <option>drive1</option>.</para>
+	<para>Après l'initialisation de la machine virtuelle, le processus
+	d'installation classique démarre.</para>
 
-    <para>On applique aussi une nouvelle valeur à l'option
-    <option>boot</option> en indiquant que le système de la machine doit se
-    lancer une seule fois à partir du lecteur <option>d</option> : le lecteur
-    de <acronym>CDROM</acronym>.</para>
-    </callout>
-  </calloutlist>
-
-  <para>Après l'initialisation de la machine virtuelle, le processus
-  d'installation classique démarre.</para>
-
-<mediaobject xml:id='vm.instance.debian0'>
-  <imageobject role='html'>
-    <imagedata fileref="images/debian0.png" format="PNG" width='480px' scalefit='1'/>
-  </imageobject>
-  <imageobject role='fo'>
-    <imagedata fileref="images/debian0.png" format="PNG" width='9cm' scalefit='1'/>
-  </imageobject>
-  <textobject>
-    <phrase>Écran installation Debian GNU/Linux</phrase>
-  </textobject>
-  <caption>
-    <para><link xmlns="http://docbook.org/ns/docbook"
-    xlink:href="http://www.inetdoc.net/guides/vm/images/debian0.png">Écran
-    installation Debian GNU/Linux - vue complète</link></para>
-  </caption>
-</mediaobject>
+	<mediaobject xml:id='vm.instance.debian0'>
+	<imageobject role='html'>
+		<imagedata fileref="images/spicec-debian-install.jpg" format="JPG" width='480px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+		<imagedata fileref="images/spicec-debian-install.jpg" format="JPG" width='9cm' scalefit='1'/>
+	</imageobject>
+	<textobject>
+		<phrase>Écran d'installation Debian GNU/Linux</phrase>
+	</textobject>
+	<caption>
+		<para><link xmlns="http://docbook.org/ns/docbook"
+		xlink:href="http://www.inetdoc.net/guides/vm/images/spicec-debian-install.jpg">Écran
+		d'installation Debian GNU/Linux - vue complète</link></para>
+	</caption>
+	</mediaobject>
 
   <bridgehead xml:id='vm.instance.spice' renderas='sect2'>Utilisation de
   SPICE</bridgehead>
@@ -1930,6 +1916,22 @@ xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
 
 <programlisting xml:id='vm.appendix.diff-img.sh'><xi:include
 href='files/diff-img.sh' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
+	</section>
+  
+	<section xml:id='vm.appendix-iso-install-startup'>
+		<title>Installation d'un système sur machine virtuelle</title>
+
+	<para>Le script <function>iso-install-startup.sh</function> reprend le code
+	du <xref linkend='vm.appendix-user-network'/> avec la description d'un
+	lecteur de DVD pour que l'on puisse lancer une isntallation système sur une
+	image vierge. Ce script n'est utile que pour la création d'un nouveau
+	<wordasword>master</wordasword>.</para>
+
+	<para>Accès : &url.github.iso-install-startup.sh;</para>
+
+<programlisting xml:id='vm.appendix.iso-install-startup.sh'><xi:include
+href='files/iso-install-startup.sh' parse='text'
 xmlns:xi='http://www.w3.org/2001/XInclude'/></programlisting>
 	</section>
 </appendix>
