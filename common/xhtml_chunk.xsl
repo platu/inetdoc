@@ -2,7 +2,7 @@
 <!-- 
 
     This is the XSL customization stylesheet file for the documents
-    published on the http://www.inetdoc.net website.
+    published on the https://www.inetdoc.net website.
 
     It took christian.bauer(at)bluemars.de days to figure out this stuff and
     fix most of the obvious bugs in the DocBook XSL distribution, So as the
