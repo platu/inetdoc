@@ -3,7 +3,7 @@
 <!--
 
     This is the XSL FO customization stylesheet file for the documents
-    published on the http://www.inetdoc.net website.
+    published on the https://www.inetdoc.net website.
     It defines a custom titlepage and parameters for PDF printable output.
 
     It took christian.bauer(at)bluemars.de days to figure out this stuff and
@@ -189,7 +189,7 @@
 	<fo:block color="#fff" background-color="#cc0033" text-align="left"
 		  font-family="SourceSansPro" font-size="9pt"
 		  font-weight="bold" font-style="italic" padding="3pt">
-          <xsl:text>http://www.inetdoc.net</xsl:text>
+          <xsl:text>https://www.inetdoc.net</xsl:text>
         </fo:block>
 
         <xsl:choose>
@@ -258,7 +258,7 @@
 	<fo:block color="#fff" background-color="#cc0033" text-align="left"
                   font-size="9pt" font-weight="bold" font-style="italic" padding="3pt"
 		  margin-bottom="9pt">
-          <xsl:text>http://www.inetdoc.net</xsl:text>
+          <xsl:text>https://www.inetdoc.net</xsl:text>
         </fo:block>
 
         <xsl:choose>
