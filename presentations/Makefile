@@ -13,8 +13,8 @@ SUBDIRS = \
 	sysadm-base-4 \
 	sysadm-base-5 \
 	sysadm-base-6 \
-	stockage-reseau \
-	network-filesystems
+	net-storage \
+	net-filesystems-object-storage
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
