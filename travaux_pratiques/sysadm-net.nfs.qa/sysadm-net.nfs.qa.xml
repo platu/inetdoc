@@ -195,12 +195,11 @@
 
   <para>Les identifiants d'utilisateur et de groupe
   (<option>uid</option>/<option>gid</option>) sont représentés par des chaînes
-  de caractères. Un nouveau service, baptisé <systemitem
-  class='daemon'>idmapd</systemitem>, est utilisé sur le serveur
-  <emphasis>et</emphasis> le client pour faire les correspondances entre les
-  valeurs numériques locales et les chaînes de caractères. Ces nouvelles
-  correspondances permettent d'utiliser de nouveaux contrôles d'accès
-  indépendants entre clients et serveurs.</para>
+  de caractères. Un service, baptisé <systemitem
+  class='daemon'>idmapd</systemitem>, est utilisé sur le serveur pour faire les
+  correspondances entre les valeurs numériques locales et les chaînes de
+  caractères. Ces correspondances permettent d'utiliser de nouveaux contrôles
+  d'accès indépendants entre clients et serveurs.</para>
 
   <para>Les serveurs maintiennent un pseudo système de fichiers qui assure la
   cohérence du système de nommage avec les clients. Ainsi, un objet est nommé
@@ -577,67 +576,30 @@ p   nfswatch           - Program to monitor NFS traffic for the console</screen>
 
 <screen><prompt>#</prompt> dpkg -L nfs-common | grep bin
 /sbin
-/sbin/showmount
-/sbin/rpc.statd
 /sbin/mount.nfs
+/sbin/osd_login
+/sbin/rpc.statd
+/sbin/showmount
 /sbin/sm-notify
 /usr/sbin
-/usr/sbin/nfsiostat
+/usr/sbin/blkmapd
 /usr/sbin/gss_clnt_send_err
 /usr/sbin/gss_destroy_creds
-/usr/sbin/rpcdebug
-/usr/sbin/rpc.idmapd
 /usr/sbin/mountstats
-/usr/sbin/start-statd
-/usr/sbin/rpc.gssd
+/usr/sbin/nfsidmap
+/usr/sbin/nfsiostat
 /usr/sbin/nfsstat
+/usr/sbin/rpc.gssd
+/usr/sbin/rpc.idmapd
+/usr/sbin/rpc.svcgssd
+/usr/sbin/rpcdebug
+/usr/sbin/start-statd
+/sbin/mount.nfs4
 /sbin/umount.nfs
-/sbin/umount.nfs4
-/sbin/mount.nfs4</screen>
+/sbin/umount.nfs4</screen>
 
       <para>Dans cette liste on trouve les commandes de montage, de démontage
       et de suivi d'état du système de fichiers réseau.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quels sont les différents moyens qui permettent
-      d'identifier l'ouverture du nouveau service suite à l'installation du
-      paquet ?</phrase></para>
-
-      <para>Passer en revue les commandes qui listent les processus, les
-      sockets (unix|inet) ouverts en écoute et les appels
-      <acronym>RPC</acronym>.</para>
-      </question>
-      <answer>
-      <para>La liste des processus actifs sur le système donne les informations
-      suivantes.</para>
-
-<screen><prompt>#</prompt> ps aux | grep [r]pc
-root      1988  0.0  0.1  18772   972 ?   Ss   Apr13   0:00 /sbin/rpcbind -w
-statd     2763  0.0  0.2  22948  1128 ?   Ss   00:40   0:00 <emphasis>/sbin/rpc.statd</emphasis>
-root      2769  0.0  0.0      0     0 ?   S&lt;   00:40   0:00 [rpciod]
-root      2778  0.0  0.0  31352   436 ?   Ss   00:40   0:00 <emphasis>/usr/sbin/rpc.idmapd</emphasis></screen>
-
-      <para>Dans cette liste, on identifie les processus
-      <systemitem>rpc.statd</systemitem> et
-      <systemitem>rpc.idmapd</systemitem>.</para>
-
-      <para>Le premier est un démon qui implémente le protocole
-      <acronym>NSM</acronym> (<wordasword>Network Status Monitor</wordasword>).
-      Ce protocole est chargé de la gestion de l'état des verrous lors des
-      échanges réseau.</para>
-
-      <para>Le second est chargé de faire la correspondance entre les
-      identifiants numériques des utilisateurs
-      (<option>uid</option>|<option>gid</option>) et les noms qui
-      correspondent.</para>
-
-      <para>Pour en savoir plus sur les relations entre
-      <systemitem>rpc.idmapd</systemitem> et les autres fonctions ou
-      bibliothèques du système, on peut utiliser une commande du type
-      <userinput><prompt>#</prompt> lsof | grep rpc\.id</userinput>.</para>
       </answer>
     </qandaentry>
 
@@ -676,88 +638,6 @@ root      2778  0.0  0.0  31352   436 ?   Ss   00:40   0:00 <emphasis>/usr/sbin/
 <screen><prompt>$</prompt> tshark -i eth0 -w /var/tmp/rpcinfo.pcap not port 22
 10 ^C
 <prompt>$</prompt> chmod 644 /var/tmp/rpcinfo.pcap</screen>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quel fichier de configuration faut-il éditer pour
-      privilégier l'utilisation de la version 4 du protocole
-      <acronym>NFS</acronym> ?</phrase></para>
-
-      <para>Rechercher le répertoire commun à l'ensemble des services du
-      système dans lequel on trouve les fichiers de paramétrage de ces
-      services. Une fois le répertoire identifié, on doit y trouver un fichier
-      portant le nom du paquet <systemitem>nfs-common</systemitem>.</para>
-      </question>
-      <answer>
-      <para>En amont des scripts de démarrage responsables de l'initialisation
-      des services sur un système GNU/Linux
-      (<wordasword>runlevels</wordasword>), le répertoire <filename
-      class='directory'>/etc/default</filename> contient des fichiers texte qui
-      servent à positionner des variables d'environnement. Ces variables
-      précisent les conditions dans lesquelles un service doit être
-      exécuté.</para>
-
-<screen><prompt>#</prompt> find /etc -type f -name nfs-common
-/etc/default/nfs-common
-/etc/init.d/nfs-common</screen>
-      </answer>
-    </qandaentry>
-
-    <qandaentry xml:id='sysadm-net.nfs.common.statd.default'>
-      <question>
-      <para><phrase>Quels sont les paramètres à éditer pour privilégier
-      l'utilisation de la version 4 du protocole NFS ? Éditez le fichier de
-      configuration en conséquence et relancez le service</phrase></para>
-
-      <para>Rechercher dans les différences entre les versions du protocole
-      <acronym>NFS</acronym> les éléments sur les échanges
-      <wordasword>stateless</wordasword> et
-      <wordasword>stateful</wordasword>.</para>
-      </question>
-      <answer>
-      <para>Voici un <wordasword>patch</wordasword> des modifications apportées
-      au fichier <filename>/etc/default/nfs-common</filename>.</para>
-
-<screen># diff -uBb nfs-common.dist nfs-common
---- nfs-common.dist     2011-04-14 10:50:16.000000000 +0200
-+++ nfs-common  2011-04-14 10:51:33.000000000 +0200
-@@ -3,7 +3,7 @@
- # for the NEED_ options are "yes" and "no".
-
- # Do you want to start the statd daemon? It is not needed for NFSv4.
--NEED_STATD=
-+NEED_STATD=no
-
- # Options for rpc.statd.
- #   Should rpc.statd listen on a specific port? This is especially useful
-@@ -13,7 +13,7 @@
- STATDOPTS=
-
- # Do you want to start the idmapd daemon? It is only needed for NFSv4.
--NEED_IDMAPD=
-+NEED_IDMAPD=yes
-
- # Do you want to start the gssd daemon? It is required for Kerberos mounts.
- NEED_GSSD=</screen>
-
-      <para>Les choix effectués ici permettent de désactiver le processus
-      <systemitem>rpc.statd</systemitem> et d'activer le processus
-      <systemitem>rpc.idmapd</systemitem>.</para>
-
-      <para>Une fois le fichier édité, il est nécessaire de redémarrer le
-      service pour que les changements de configuration soient pris en
-      compte.</para>
-
-<screen><prompt>#</prompt> /etc/init.d/nfs-common stop
-Stopping NFS common utilities: idmapd.
-<prompt>#</prompt> killall rpc.statd
-<prompt>#</prompt> /etc/init.d/nfs-common start
-Starting NFS common utilities: idmapd.
-<prompt>#</prompt> rpcinfo -s
-program version(s) netid(s)                         service     owner
- 100000  2,3,4     local,udp,tcp,udp6,tcp6          portmapper  superuser</screen>
       </answer>
     </qandaentry>
   </qandaset>
