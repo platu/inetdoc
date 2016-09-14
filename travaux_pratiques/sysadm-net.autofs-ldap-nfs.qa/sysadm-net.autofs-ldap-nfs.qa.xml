@@ -506,58 +506,64 @@ v   nfs-server</screen>
       </answer>
     </qandaentry>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Comment créer automatiquement l'arborescence d'un
-      utilisateur qui n'existe que dans l'annuaire <acronym>LDAP</acronym>
-      ?</phrase></para>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment créer automatiquement l'arborescence d'un utilisateur
+	qui n'existe que dans l'annuaire <acronym>LDAP</acronym> ?</phrase></para>
 
-      <para>Rechercher les fonctions de création automatique de répertoire
-      utilisateur dans la liste des modules <acronym>PAM</acronym>.</para>
+	<para>Rechercher les fonctions de création automatique de répertoire
+	utilisateur dans la liste des paquets de la distribution.</para>
 
-<warning>
-  <para>Cette opération se déroule en plusieurs étapes dans la mesure où il est
-  impossible de créer un répertoire utilisateur directement depuis le
-  client.</para>
+	<warning>
+	<para>Cette opération se déroule en plusieurs étapes dans la mesure où il
+	est impossible de créer un répertoire utilisateur sur le serveur
+	directement depuis le client.</para>
 
-  <orderedlist>
-  <listitem>
-    <para>Activer l'appel au module <acronym>PAM</acronym> de création de
-    répertoire utilisateur sur le serveur <acronym>NFSv4</acronym>.</para>
-  </listitem>
-  <listitem>
-    <para>Effectuer une première connexion directe sur le serveur, via
-    <acronym>SSH</acronym> par exemple, permet de réaliser l'opération de
-    création de l'arborescence initiale.</para>
-  </listitem>
-  <listitem>
-    <para>Toute nouvelle connexion sur un client <acronym>NFSv4</acronym>
-    utilise l'arborescence utilisateur créée lors de l'étape précédente.</para>
-  </listitem>
-  </orderedlist>
-</warning>
-      </question>
-      <answer>
-      <para>Sur le serveur on complète le fichier commun de gestion de session
-      : <filename>/etc/pam.d/common-session</filename>.</para>
+	<orderedlist>
+	<listitem>
+	<para>Activer sur le client l'appel au module de création de répertoire
+	utilisateur sur le serveur <acronym>NFSv4</acronym>.</para>
+	</listitem>
+	<listitem>
+	<para>Toute nouvelle connexion depuis un client <acronym>NFSv4</acronym>
+	utilise l'arborescence utilisateur créée lors de la première
+	connexion.</para>
+	</listitem>
+	</orderedlist>
+	</warning>
+	</question>
+	<answer>
+	<para>Sur le client, on ajoute le paquet
+	<application>oddjob-mkhomedir</application> puis on complète le fichier
+	commun de gestion de session :
+	<filename>/etc/pam.d/common-session</filename>.</para>
+
+<screen><prompt>$</prompt> aptitude search mkhomedir
+v   libpam-mkhomedir   -
+p   oddjob-mkhomedir   - Oddjob helper which creates and populates home directories
+
+&lt;snip>
+<prompt>#</prompt> aptitude install oddjob-mkhomedir
+&lt;snip>
+
+<prompt>#</prompt> systemctl status oddjobd
+&lt;snip></screen>
 
 <screen><prompt>#</prompt> grep -v ^# /etc/pam.d/common-session
-
 session [default=1]                     pam_permit.so
 session requisite                       pam_deny.so
 session required                        pam_permit.so
-<emphasis>session required                        pam_mkhomedir.so</emphasis>
-session required                        pam_unix.so
-session optional                        pam_ldap.so
-session optional                        pam_ck_connector.so nox11</screen>
-      </answer>
-    </qandaentry>
-    </qandadiv>
-  </qandaset>
+<emphasis>session optional        pam_oddjob_mkhomedir.so skel=/etc/skel/ umask=0022</emphasis>
+session required        pam_unix.so 
+session optional        pam_systemd.so</screen>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+	</qandaset>
 </sect1>
 
 <sect1 xml:id='sysadm-net.autofs-ldap-nfs.autofs-ldap'>
-  <title>Configuration de l'automontage avec le service LDAP</title>
+	<title>Configuration de l'automontage avec le service LDAP</title>
 
   <para>Le principe de l'automontage veut que le montage d'une arborescence de
   système de fichiers réseau se fasse automatiquement et uniquement à
