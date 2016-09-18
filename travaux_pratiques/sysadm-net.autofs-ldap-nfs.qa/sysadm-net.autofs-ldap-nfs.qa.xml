@@ -290,253 +290,182 @@
 </sect1>
 
 <sect1 xml:id='sysadm-net.autofs-ldap-nfs.nfs'>
-  <title>Mise en œuvre de l'exportation NFS</title>
+	<title>Mise en œuvre de l'exportation NFS</title>
 
-  <para>Cette partie reprend les étapes décrites dans le support
-  &url.sysadm-net.nfs;. Après avoir traité la partie commune de la
-  configuration <acronym>NFS</acronym>, il s'agit d'installer le paquet
-  correspondant au serveur <acronym>NFS</acronym> et de créer l'arborescence
-  des comptes utilisateurs à exporter avec le bon contexte de nommage.</para>
+	<para>Cette partie reprend les étapes décrites dans le support
+	&url.sysadm-net.nfs;. Après avoir traité la partie commune de la
+	configuration <acronym>NFS</acronym>, il s'agit d'installer le paquet
+	correspondant au serveur <acronym>NFS</acronym> et de créer l'arborescence
+	des comptes utilisateurs à exporter avec le bon contexte de nommage.</para>
 
-  <qandaset>
-    <qandadiv>
-    <qandaentry>
-      <question>
-      <para><phrase>Comment installer et valider les services commun au client
-      et au serveur NFS ?</phrase></para>
+	<qandaset>
+	<qandadiv>
+	<qandaentry>
+		<question>
+		<para><phrase>Comment installer et valider les services commun au
+		client et au serveur <acronym>NFS</acronym> ?</phrase></para>
 
-      <para>Rechercher et installer le paquet puis contrôler la liste des
-      processus et des numéros de port ouverts.</para>
-      </question>
-      <answer>
-      <para>On reprend ici les questions de la partie
-      <link xmlns="http://docbook.org/ns/docbook"
-      xlink:href="&NFS-root;/sysadm-net.nfs.common.html#sysadm-net.nfs.synthese.nfs-common-package">Gestion
-      des paquets NFS</link></para>
+		<para>Rechercher et installer le paquet puis contrôler la liste des
+		processus et des numéros de port ouverts.</para>
+		</question>
+		<answer>
+		<para>On reprend ici les questions de la partie <link
+		xmlns="http://docbook.org/ns/docbook"
+		xlink:href="&NFS-root;/sysadm-net.nfs.common.html#sysadm-net.nfs.synthese.nfs-common-package">Gestion
+		des paquets NFS</link></para>
 
-      <itemizedlist>
-        <listitem>
-	<para>Identification du paquet à installer.</para>
+		<itemizedlist>
+		<listitem>
+		<para>Identification du paquet à installer.</para>
 
 <screen><prompt>#</prompt> aptitude search ^nfs
 v   nfs-client         -
-p   <emphasis>nfs-common</emphasis>         - NFS support files common to client and server
-p   nfs-kernel-server  - support for NFS kernel server
+p   <emphasis>nfs-common</emphasis>         - fichiers de prise en charge NFS communs au client et au serveur
+p   nfs-kernel-server  - gestion du serveur NFS du noyau
 v   nfs-server         -
 p   nfs4-acl-tools     - Commandline and GUI ACL utilities for the NFSv4 client
+p   nfstrace           - NFS tracing/monitoring/capturing/analyzing tool
+p   nfstrace-doc       - NFS tracing/monitoring/capturing/analyzing tool (documentation)
 p   nfswatch           - Program to monitor NFS traffic for the console</screen>
-	</listitem>
-	<listitem>
-	<para>Identification des processus actifs après installation du
-	paquet.</para>
+		</listitem>
+		<listitem>
+		<para>Identification des processus actifs après installation du	paquet.</para>
 
 <screen><prompt>#</prompt> ps aux | grep [r]pc
-root      1988  0.0  0.1  18772   972 ?   Ss   Apr13   0:00 /sbin/rpcbind -w
-statd     2763  0.0  0.2  22948  1128 ?   Ss   00:40   0:00 <emphasis>/sbin/rpc.statd</emphasis>
-root      2769  0.0  0.0      0     0 ?   S&lt;   00:40   0:00 [rpciod]
-root      2778  0.0  0.0  31352   436 ?   Ss   00:40   0:00 <emphasis>/usr/sbin/rpc.idmapd</emphasis></screen>
-	</listitem>
-      </itemizedlist>
-      </answer>
-    </qandaentry>
+root      4876  0.0  0.0   6872  3180 ?        Ss   20:18   0:00 /sbin/rpcbind -f -w</screen>
+		</listitem>
+		</itemizedlist>
+		</answer>
+	</qandaentry>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles modifications faut il apporter au fichier de
-      configuration des services NFS communs pour privilégier l'utilisation de
-      la version 4 du protocole ?</phrase></para>
+	<qandaentry>
+		<question>
+		<para><phrase>Comment installer et configurer le paquet relatif à
+		l'exportation d'une arborescence avec le protocole
+		<acronym>NFS</acronym> ?</phrase></para>
+		</question>
+		<answer>
+		<para>On reprend ici les questions de la partie <link
+		xmlns="http://docbook.org/ns/docbook"
+		xlink:href="&NFS-root;/sysadm-net.nfs.server.html">Configuration du
+		serveur NFS</link></para>
 
-      <para>Identifier le fichier de configuration et les paramètres (in)utiles
-      pour NFSv4</para>
-      </question>
-      <answer>
-      <para>Après avoir repéré le fichier
-      <filename>/etc/default/nfs-common</filename>, on reprend la question sur
-      <link xmlns="http://docbook.org/ns/docbook"
-      xlink:href="&NFS-root;/sysadm-net.nfs.common.html#sysadm-net.nfs.common.statd.default">les
-      paramètres à éditer pour privilégier l'utilisation de la version 4 du
-      protocole NFS</link>.  On utilise le <wordasword>patch</wordasword> qui
-      désactive le lancement du processus <systemitem
-      class='daemon'>rpc.statd</systemitem> et impose le lancement du processus
-      <systemitem class='daemon'>rpc.idmapd</systemitem>.</para>
-
-<screen><prompt>#</prompt> diff -uBb nfs-common.dist nfs-common
---- nfs-common.dist     2011-04-14 10:50:16.000000000 +0200
-+++ nfs-common  2011-04-14 10:51:33.000000000 +0200
-@@ -3,7 +3,7 @@
- # for the NEED_ options are "yes" and "no".
-
- # Do you want to start the statd daemon? It is not needed for NFSv4.
--NEED_STATD=
-+NEED_STATD=no
-
- # Options for rpc.statd.
- #   Should rpc.statd listen on a specific port? This is especially useful
-@@ -13,7 +13,7 @@
- STATDOPTS=
-
- # Do you want to start the idmapd daemon? It is only needed for NFSv4.
--NEED_IDMAPD=
-+NEED_IDMAPD=yes
-
- # Do you want to start the gssd daemon? It is required for Kerberos mounts.
- NEED_GSSD=</screen>
-
-      <para>Pour appliquer le patch, les instructions sont les
-      suivantes.</para>
-
-<screen><prompt>#</prompt> service nfs-common stop
-[ ok ] Stopping NFS common utilities: idmapd statd.
-<prompt>#</prompt> cd /etc/default/
-<prompt>#</prompt> <emphasis>patch -p0 &lt;/home/etu/nfs-common.patch</emphasis>
-patching file nfs-common
-<prompt>#</prompt> cat nfs-common 
-# If you do not set values for the NEED_ options, they will be attempted
-# autodetected; this should be sufficient for most people. Valid alternatives
-# for the NEED_ options are "yes" and "no".
-
-# Do you want to start the statd daemon? It is not needed for NFSv4.
-NEED_STATD=no
-
-# Options for rpc.statd.
-#   Should rpc.statd listen on a specific port? This is especially useful
-#   when you have a port-based firewall. To use a fixed port, set this
-#   this variable to a statd argument like: "--port 4000 --outgoing-port 4001".
-#   For more information, see rpc.statd(8) or http://wiki.debian.org/SecuringNFS
-STATDOPTS=
-
-# Do you want to start the idmapd daemon? It is only needed for NFSv4.
-NEED_IDMAPD=yes
-
-# Do you want to start the gssd daemon? It is required for Kerberos mounts.
-NEED_GSSD=
-<prompt>#</prompt> service nfs-common start
-[ ok ] Starting NFS common utilities: idmapd.</screen>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Comment installer et configurer le paquet relatif à
-      l'exportation d'une arborescence avec le protocole NFS ?</phrase></para>
-      </question>
-      <answer>
-      <para>On reprend ici les questions de la partie <link
-      xmlns="http://docbook.org/ns/docbook"
-      xlink:href="&NFS-root;/sysadm-net.nfs.server.html">Configuration du
-      serveur NFS</link></para>
-
-      <itemizedlist>
-        <listitem>
-	<para>Identification du paquet à installer.</para>
+		<itemizedlist>
+		<listitem>
+		<para>Identification du paquet à installer.</para>
 
 <screen><prompt>#</prompt> aptitude search '?and(nfs, server)'
 p   <emphasis>nfs-kernel-server</emphasis>   - support for NFS kernel server
 v   nfs-server</screen>
-	</listitem>
-	<listitem>
-	<para>Création de l'arborescence d'exportation
-	<acronym>NFS</acronym>.</para>
+		</listitem>
+		<listitem>
+		<para>Création de l'arborescence
+		d'exportation<acronym>NFS</acronym>.</para>
 
 <screen><prompt>#</prompt> mkdir -p /home/exports/home</screen>
-	</listitem>
-	<listitem>
-	<para>Ajout des instructions d'exportation dans le fichier de
-	configuration du serveur <acronym>NFS</acronym> :
-	<filename>/etc/exports</filename>.</para>
+		</listitem>
+		<listitem>
+		<para>Ajout des instructions d'exportation dans le fichier de
+		configuration du serveur <acronym>NFS</acronym> :
+		<filename>/etc/exports</filename>.</para>
 
 <screen><prompt>#</prompt> grep -v ^# /etc/exports 
 /home/exports           198.51.100.0/24(rw,sync,fsid=0,crossmnt,no_subtree_check)
 /home/exports/home      198.51.100.0/24(rw,sync,no_subtree_check)</screen>
-	</listitem>
-      </itemizedlist>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Comment valider la configuration de l'exportation réalisée
-      par le serveur NFS ?</phrase></para>
-      </question>
-      <answer>
-      <para>On reprend la question sur la <link
-      xmlns="http://docbook.org/ns/docbook"
-      xlink:href="&NFS-root;/sysadm-net.nfs.client.html#sysadm-net.nfs.client.manual.exports">la
-      commande qui permet d'identifier l'arborescence disponible à
-      l'exportation</link>.</para>
-
-      <itemizedlist>
-        <listitem>
-	<para>Côté client, on utilise la commande <command>showmount</command>
-	suivie de l'option <option>-e</option> et de l'adresse
-	<acronym>IP</acronym> du serveur à interroger.</para>
-	</listitem>
-	<listitem>
-	<para>Côté serveur, on utilise la commande
-	<command>exportfs</command>.</para>
-	</listitem>
-      </itemizedlist>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quel est le montage local à mettre en place pour garantir
-      la cohérence du schéma de nommage entre les postes serveur et client
-      ?</phrase></para>
-      </question>
-      <answer>
-      <para>On reprend ici la question sur la <link
-      xmlns="http://docbook.org/ns/docbook"
-      xlink:href="&NFS-root;/sysadm-net.nfs.server.html#sysadm-net.nfs.server.local-mount">distinction
-      entre les versions 3 et 4 du protocole NFS</link> et sur le contexte de nommage.</para>
-
-      <itemizedlist>
-        <listitem>
-	<para>Création de la racine commune entre client et serveur.</para>
-
-<screen><prompt>#</prompt> mkdir /ahome</screen>
-	</listitem>
-	<listitem>
-	<para>Montage local entre racine commune et arborescence exportée.</para>
-
-<screen><prompt>#</prompt> mount --bind /home/exports/home /ahome</screen>
-	</listitem>
-      </itemizedlist>
-      </answer>
-    </qandaentry>
+		</listitem>
+		</itemizedlist>
+		</answer>
+	</qandaentry>
 
 	<qandaentry>
-	<question>
-	<para><phrase>Comment créer automatiquement l'arborescence d'un utilisateur
-	qui n'existe que dans l'annuaire <acronym>LDAP</acronym> ?</phrase></para>
+		<question>
+		<para><phrase>Comment valider la configuration de l'exportation
+		réalisée par le serveur <acronym>NFS</acronym> ?</phrase></para>
+		</question>
+		<answer>
+		<para>On reprend la question sur la <link
+		xmlns="http://docbook.org/ns/docbook"
+		xlink:href="&NFS-root;/sysadm-net.nfs.client.html#sysadm-net.nfs.client.manual.exports">la
+		commande qui permet d'identifier l'arborescence disponible à
+		l'exportation</link>.</para>
 
-	<para>Rechercher les fonctions de création automatique de répertoire
-	utilisateur dans la liste des paquets de la distribution.</para>
+		<itemizedlist>
+		<listitem>
+		<para>Côté client, on utilise la commande
+		<command>showmount</command>suivie de l'option <option>-e</option> et
+		de l'adresse <acronym>IP</acronym> du serveur à interroger.</para>
+		</listitem>
+		<listitem>
+		<para>Côté serveur, on utilise la commande
+		<command>exportfs</command>.</para>
+		</listitem>
+		</itemizedlist>
+		</answer>
+	</qandaentry>
 
-	<warning>
-	<para>Cette opération se déroule en plusieurs étapes dans la mesure où il
-	est impossible de créer un répertoire utilisateur sur le serveur
-	directement depuis le client.</para>
+	<qandaentry>
+		<question>
+		<para><phrase>Quel est le montage local à mettre en place pour garantir
+		la cohérence du schéma de nommage entre les postes serveur et client
+		?</phrase></para>
+		</question>
+		<answer>
+		<para>On reprend ici la question sur la <link
+		xmlns="http://docbook.org/ns/docbook"
+		xlink:href="&NFS-root;/sysadm-net.nfs.server.html#sysadm-net.nfs.server.local-mount">distinction
+		entre les versions 3 et 4 du protocole NFS</link> et sur le contexte de
+		nommage.</para>
 
-	<orderedlist>
-	<listitem>
-	<para>Activer sur le client l'appel au module de création de répertoire
-	utilisateur sur le serveur <acronym>NFSv4</acronym>.</para>
-	</listitem>
-	<listitem>
-	<para>Toute nouvelle connexion depuis un client <acronym>NFSv4</acronym>
-	utilise l'arborescence utilisateur créée lors de la première
-	connexion.</para>
-	</listitem>
-	</orderedlist>
-	</warning>
-	</question>
-	<answer>
-	<para>Sur le client, on ajoute le paquet
-	<application>oddjob-mkhomedir</application> puis on complète le fichier
-	commun de gestion de session :
-	<filename>/etc/pam.d/common-session</filename>.</para>
+		<itemizedlist>
+		<listitem>
+		<para>Création de la racine commune entre client et serveur.</para>
+
+<screen><prompt>#</prompt> mkdir /ahome</screen>
+		</listitem>
+		<listitem>
+		<para>Montage local entre racine commune et arborescence
+		exportée.</para>
+
+<screen><prompt>#</prompt> mount --bind /home/exports/home /ahome</screen>
+		</listitem>
+		</itemizedlist>
+		</answer>
+	</qandaentry>
+
+	<qandaentry>
+		<question>
+		<para><phrase>Comment créer automatiquement l'arborescence d'un
+		utilisateur	qui n'existe que dans l'annuaire <acronym>LDAP</acronym>
+		?</phrase></para>
+
+		<para>Rechercher les fonctions de création automatique de répertoire
+		utilisateur dans la liste des paquets de la distribution.</para>
+
+		<warning>
+		<para>Cette opération se déroule en plusieurs étapes dans la mesure où
+		il est impossible de créer un répertoire utilisateur sur le serveur
+		directement depuis le client.</para>
+
+		<orderedlist>
+		<listitem>
+		<para>Activer sur le serveur <acronym>NFSv4</acronym> l'appel au module
+		de création de répertoire utilisateur.</para>
+		</listitem>
+		<listitem>
+		<para>Toute nouvelle connexion depuis un client
+		<acronym>NFSv4</acronym> utilise l'arborescence utilisateur créée lors
+		de la première connexion.</para>
+		</listitem>
+		</orderedlist>
+		</warning>
+		</question>
+		<answer>
+		<orderedlist>
+		<listitem>
+		<para>Sur le serveur, on ajoute le paquet
+		<application>oddjob-mkhomedir</application> puis on complète le fichier
+		commun de gestion de session :
+		<filename>/etc/pam.d/common-session</filename>.</para>
 
 <screen><prompt>$</prompt> aptitude search mkhomedir
 v   libpam-mkhomedir   -
@@ -556,7 +485,41 @@ session required                        pam_permit.so
 <emphasis>session optional        pam_oddjob_mkhomedir.so skel=/etc/skel/ umask=0022</emphasis>
 session required        pam_unix.so 
 session optional        pam_systemd.so</screen>
-	</answer>
+		</listitem>
+		<listitem>
+		<para>Depuis un autre hôte, on provoque la création du répertoire
+		utilisateur sur le serveur.</para>
+
+<screen><prompt>$</prompt> ssh padme@fe80::b8ad:caff:fefe:0%vlan2
+Warning: Permanently added 'fe80::b8ad:caff:fefe:0%vlan2' (ECDSA) to the list of known hosts.
+padme@fe80::b8ad:caff:fefe:0%vlan2's password: 
+<emphasis>Creating home directory for padme.</emphasis>
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+<prompt>padme@server:~$</prompt> pwd
+<emphasis>/ahome/padme</emphasis>
+padme@server:~$</screen>
+
+		<para>Enfin, on lance une nouvelle connexion sur un client
+		<acronym>NFS</acronym> de façon à tester l'automontage du répertoire
+		utilisateur.</para>
+
+<screen><prompt>$</prompt> ssh padme@fe80::b8ad:caff:fefe:1%vlan2
+Warning: Permanently added 'fe80::b8ad:caff:fefe:1%vlan2' (RSA) to the list of known hosts.
+padme@fe80::b8ad:caff:fefe:1%vlan2's password: 
+Last login: Sun Sep 18 20:33:38 2016 from fe80::3413:59ff:fe55:23e4%eth0
+padme@client1:~$ mount | grep nfs
+<emphasis>198.51.100.2://home/padme on /ahome/padme type nfs4</emphasis> &lt;snip>
+<prompt>padme@client1:~$</prompt> pwd
+<emphasis>/ahome/padme</emphasis></screen>
+		</listitem>
+		</orderedlist>
+		</answer>
 	</qandaentry>
 	</qandadiv>
 	</qandaset>
@@ -855,168 +818,126 @@ adding new entry "cn=*,ou=auto.home,ou=automount,dc=lab,dc=stri"</screen>
 </sect1>
 
 <sect1 xml:id='sysadm-net.autofs-ldap-nfs.clnt'>
-  <title>Accès aux ressources LDAP &amp; NFS depuis le client</title>
+	<title>Accès aux ressources LDAP &amp; NFS depuis le client</title>
   
-  <para>Dans cette section, on suppose que l'annuaire <acronym>LDAP</acronym>
-  du poste serveur est disponible et accessible. Dans un premier temps, on
-  configure le poste client pour qu'il obtienne de façon transparente les
-  informations sur les comptes utilisateurs desservis par l'annuaire. Dans un
-  second temps, on complète sa configuration pour qu'il obtienne, toujours de
-  façon transparente les informations sur le système de fichiers réseau.</para>
+	<para>Dans cette section, on suppose que l'annuaire <acronym>LDAP</acronym>
+	du poste serveur est complet et accessible. Dans un premier temps, on
+	configure le poste client pour qu'il obtienne de façon transparente les
+	informations sur les comptes utilisateurs desservis par l'annuaire. Dans un
+	second temps, on complète sa configuration pour qu'il obtienne, toujours de
+	façon transparente les informations sur le système de fichiers
+	réseau.</para>
 
-  <para>Cette partie reprend les étapes décrites dans la section 
-  <link xmlns="http://docbook.org/ns/docbook"
-  xlink:href="&LDAP-root;/sysadm-net.ldap.clnt.html#sysadm-net.ldap.clnt.nss">Configuration
-  <wordasword>Name Service Switch</wordasword></link> du support
-  &url.sysadm-net.ldap;.</para>
+	<para>Cette partie reprend les étapes décrites dans la section <link
+	xmlns="http://docbook.org/ns/docbook"
+	xlink:href="&LDAP-root;/sysadm-net.ldap.clnt.html#sysadm-net.ldap.clnt.nss">Configuration
+	<wordasword>Name Service Switch</wordasword></link> du support
+	&url.sysadm-net.ldap;.</para>
 
-  <sect2 xml:id='sysadm-net.autofs-ldap-nfs.clnt.ldap'>
-    <title>Configuration LDAP</title>
+<sect2 xml:id='sysadm-net.autofs-ldap-nfs.clnt.ldap'>
+	<title>Configuration LDAP</title>
 
-  <qandaset>
-    <qandadiv>
-    <qandaentry>
-    <question>
-    <para><phrase>Quels sont les paquets de bibliothèques
-    <acronym>LDAP</acronym> relatifs au mécanisme <wordasword>Name Service
-    Switch</wordasword> et au gestionnaire d'authentification
-    <acronym>PAM</acronym> ?</phrase></para>
+	<qandaset>
+	<qandadiv>
+		<qandaentry>
+		<question>
+		<para><phrase>Quels sont les paquets de bibliothèques
+		<acronym>LDAP</acronym> relatifs au mécanisme <wordasword>Name Service
+		Switch</wordasword> et au gestionnaire d'authentification
+		<acronym>PAM</acronym> ?</phrase></para>
 
-    <para>Rechercher la liste des paquets dont le nom débute par
-    <literal>libnss</literal>.</para>
-    </question>
-    <answer>
-    <para>Les deux paquets utiles sont : <systemitem>libnss-ldap</systemitem>
-    et <systemitem>libpam-ldap</systemitem></para>
-    </answer>
-    </qandaentry>
+		<para>Rechercher la liste des paquets dont le nom débute par
+		<literal>libnss</literal>.</para>
+		</question>
+		<answer>
+		<para>Les deux paquets utiles sont :
+		<systemitem>libnss-ldapd</systemitem> et
+		<systemitem>libpam-ldap</systemitem></para>
+		</answer>
+		</qandaentry>
 
-    <qandaentry>
-    <question>
-    <para><phrase>Quelles sont les étapes de la configuration des paquets de
-    bibliothèques NSS et PAM  ?</phrase></para>
+		<qandaentry>
+		<question>
+		<para><phrase>Quelles sont les étapes de la configuration des paquets
+		de bibliothèques <acronym>NSS</acronym> et <acronym>PAM</acronym>
+		?</phrase></para>
 
-    <para>Lors de l'installation des deux paquets, on passe par une série de
-    menus debconf.</para>
-    </question>
-    <answer>
-    <para>Voici un récapitulatif des réponses.</para>
+		<para>Lors de l'installation des deux paquets, on passe par une série
+		de menus debconf.</para>
+		</question>
+		<answer>
+		<para>Voici un récapitulatif des réponses.</para>
 
-    <para>Pour le paquet <systemitem>libnss-ldap</systemitem> :</para>
+		<para>Pour le paquet <systemitem>libnss-ldapd</systemitem>, on donne la
+		liste des services de nom à configurer :</para>
+
+		<itemizedlist>
+		<listitem>
+		<para><literal>passwd</literal></para>
+		</listitem>
+		<listitem>
+		<para><literal>group</literal></para>
+		</listitem>
+		<listitem>
+		<para><literal>shadow</literal></para>
+		</listitem>
+		</itemizedlist>
+
+		<para>Pour le paquet <systemitem>nslcd</systemitem>, on donne les
+		paramètres pour contacter le serveur <acronym>LDAP</acronym>.</para>
     
-    <itemizedlist>
-      <listitem>
-      <para>URI d'accès au serveur LDAP : ldap://198.51.100.2</para>
-      </listitem>
-      <listitem>
-      <para>Nom distinctif de la base de recherche : dc=lab,dc=stri</para>
-      </listitem>
-      <listitem>
-      <para>Version du protocole LDAP : 3</para>
-      </listitem>
-      <listitem>
-      <para>La base LDAP demande-t-elle une identification ? non</para>
-      </listitem>
-      <listitem>
-      <para>Privilèges LDAP spécifiques pour le superutilisateur ? oui</para>
-      </listitem>
-      <listitem>
-      <para>Rendre le fichier de configuration lisible et modifiable uniquement par son propriétaire ? oui</para>
-      </listitem>
-      <listitem>
-      <para>Compte LDAP pour le superutilisateur (« root ») : cn=admin,dc=lab,dc=stri</para>
-      </listitem>
-      <listitem>
-      <para>Mot de passe du compte du superutilisateur LDAP : *****</para>
-      </listitem>
-      <listitem>
-      <para>Le fichier nsswitch.conf n'est pas géré automatiquement !</para>
-      </listitem>
-    </itemizedlist>
-
-    <para>Pour le paquet <systemitem>libpam-ldap</systemitem> :</para>
-    
-    <itemizedlist>
-      <listitem>
-      <para>Identifiant uniforme de ressource (« URI ») d'accès au serveur LDAP : ldap://198.51.100.2</para>
-      </listitem>
-      <listitem>
-      <para>Nom distinctif (DN) de la base de recherche : dc=lab,dc=stri</para>
-      </listitem>
-      <listitem>
-      <para>Version de LDAP à utiliser : 3</para>
-      </listitem>
-      <listitem>
-      <para>Donner les privilèges de superutilisateur local au compte administrateur LDAP ? oui</para>
-      </listitem>
-      <listitem>
-      <para>La base de données LDAP demande-t-elle une identification ? non</para>
-      </listitem>
-      <listitem>
-      <para>Compte de l'administrateur LDAP : cn=admin,dc=lab,dc=stri</para>
-      </listitem>
-      <listitem>
-      <para>Mot de passe du compte de l'administrateur LDAP : *****</para>
-      </listitem>
-      <listitem>
-      <para>Algorithme de chiffrement à utiliser localement pour les mots de passe : Chiffré</para>
-      </listitem>
-      <listitem>
-      <para>Profils PAM à activer : Unix authentication + LDAP Authentication</para>
-      </listitem>
-    </itemizedlist>
-    </answer>
+		<itemizedlist>
+		<listitem>
+		<para>URI du serveur LDAP : ldap://198.51.100.2</para>
+		</listitem>
+		<listitem>
+		<para>Base de recherche du serveur LDAP : dc=lab,dc=stri</para>
+		</listitem>
+		<listitem>
+		<para>Authentification LDAP : aucune</para>
+		</listitem>
+		<listitem>
+		<para>La base LDAP demande-t-elle une identification ? non</para>
+		</listitem>
+		<listitem>
+		<para>Faut-il utiliser StartTLS ? non</para>
+		</listitem>
+		</itemizedlist>
+		</answer>
     </qandaentry>
 
     <qandaentry>
-    <question>
-    <para><phrase>Quelles sont les modifications à apporter au fichier de
-    configuration /etc/nsswitch.conf pour activer l'accès aux ressources de
-    l'annuaire <acronym>LDAP</acronym> ?</phrase></para>
+		<question>
+		<para><phrase>Comment valider la configuration de l'accès à l'annuaire <acronym>LDAP</acronym> ?</phrase></para>
 
-    <para>Rechercher la syntaxe permettant de lancer des recherches dans
-    l'annuaire en plus des fichiers locaux au système.</para>
-    </question>
-    <answer>
-    <para>Il faut remplacer <option>compat</option> par <option>compat
-    ldap</option> pour chaque catégorie concernée.</para>
+		<para>Rechercher une commande permettant d'effectuer un appel système
+		au bibliothèques standard <systemitem>libc</systemitem>.</para>
+		</question>
+		<answer>
+		<para>On qualifie le mécanisme <wordasword>Name Service
+		Switch</wordasword> à l'aide de la commande
+		<command>getent</command>.</para>
 
-<screen><prompt>#</prompt> sed -i 's/compat/&amp; ldap/g' /etc/nsswitch.conf</screen>
-    </answer>
-    </qandaentry>
-
-    <qandaentry>
-    <question>
-    <para><phrase>Comment valider la configuration de l'accès à l'annuaire
-    <acronym>LDAP</acronym> ?</phrase></para>
-
-    <para>Rechercher une commande permettant d'effectuer un appel système au
-    bibliothèques standard <systemitem>libc</systemitem>.</para>
-    </question>
-    <answer>
-    <para>On qualifie le mécanisme <wordasword>Name Service Switch</wordasword>
-    à l'aide de la commande <command>getent</command>.</para>
-
-<screen><prompt>#</prompt> getent passwd
+<screen><prompt>$</prompt> getent passwd
 root:x:0:0:root:/root:/bin/bash
-&lt;snipped/>
-etu:x:1000:1000:Etudiant,,,:/home/etu:/bin/bash
+&lt;snip>
+nslcd:x:111:117:nslcd name service LDAP connection daemon,,,:/var/run/nslcd/:/bin/false
 padme:x:10000:10000:Padme Amidala Skywalker:/ahome/padme:/bin/bash
 anakin:x:10001:10001:Anakin Skywalker:/ahome/anakin:/bin/bash
 leia:x:10002:10002:Leia Organa:/ahome/leia:/bin/bash
 luke:x:10003:10003:Luke Skywalker:/ahome/luke:/bin/bash</screen>
 
-    <para>On qualifie l'authentication <acronym>PAM</acronym> à l'aide de la
-    commande <command>su</command>.</para>
+		<para>On qualifie l'authentication <acronym>PAM</acronym> à l'aide de
+		la commande <command>su</command>.</para>
 
 <screen><prompt>$</prompt> su luke
 Mot de passe : 
 :/home/etu$</screen>
-    </answer>
-    </qandaentry>
-    </qandadiv>
-  </qandaset>
-  </sect2>
+		</answer>
+	</qandaentry>
+	</qandadiv>
+	</qandaset>
+</sect2>
 
   <sect2 xml:id='sysadm-net.autofs-ldap-nfs.clnt.autofs-nfs'>
     <title>Configuration NFS avec automontage</title>
