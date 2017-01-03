@@ -45,6 +45,8 @@ ionice -c3 qemu-system-x86_64 \
 	-balloon virtio \
 	-smp 2,cores=2 \
 	-rtc base=localtime,clock=host \
+	-watchdog i6300esb \
+	-watchdog-action none \
 	-boot order=c,menu=on \
 	-drive if=none,id=drive0,aio=native,cache.direct=on,format=$image_format,media=disk,file=$vm \
 	-device virtio-blk,drive=drive0,scsi=off,config-wce=off \

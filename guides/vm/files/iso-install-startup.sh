@@ -47,6 +47,8 @@ ionice -c3 qemu-system-x86_64 \
 	-balloon virtio \
 	-smp 2,cores=2 \
 	-rtc base=localtime,clock=host \
+	-watchdog i6300esb \
+	-watchdog-action none \
 	-boot once=d,menu=on \
 	-device ahci,id=ahci0 \
 	-device ide-drive,bus=ahci0.0,drive=drive-sata0-0-0,id=sata0-0-0 \
