@@ -78,8 +78,8 @@
                    Fonts & Styles
     ################################################### -->      
 
-    <xsl:param name="title.font.family">SourceSansPro</xsl:param>
-    <xsl:param name="body.font.family">SourceSerifPro</xsl:param>
+    <xsl:param name="title.font.family">SourceSerifPro-Semibold</xsl:param>
+    <xsl:param name="body.font.family">SourceSansPro</xsl:param>
     <xsl:param name="monospace.font.family">SourceCodePro</xsl:param>
     <xsl:param name="symbol.font.family">SourceCodePro</xsl:param>
 
@@ -137,123 +137,114 @@
                    Custom Article Title Page
     ################################################### --> 
     
-    <xsl:template name="article.titlepage.recto">
-      <fo:block>
-        <fo:block background-color="#333" padding="3pt">
-	  <fo:block color="#fff" text-align="right"
-		    font-family="SourceSansPro" font-size="18pt"
-                    font-weight="bold" margin-right="10mm">
-            <xsl:value-of select="d:title|d:info/d:title" />
-          </fo:block>
+	<xsl:template name="article.titlepage.recto">
+	<fo:block>
+		<fo:block background-color="#333" padding="3pt">
+		<fo:block color="#fff" text-align="right"
+			font-family="SourceSansPro-Bold" font-weight="bold" font-size="18pt" margin-right="10mm">
+		<xsl:value-of select="d:title|d:info/d:title" />
+		</fo:block>
 
-          <xsl:for-each select="d:info/*/d:author">
-	    <fo:block color="#eee" text-align="right"
-	              font-family="SourceSansPro" font-size="10pt"
-                      font-weight="bold" margin-right="10mm">
-              <xsl:value-of select="d:personname/d:firstname"/>
-              <xsl:text> </xsl:text>
-              <xsl:value-of select="d:personname/d:surname"/>
-            </fo:block>
-	    <fo:block color="#ddd" text-align="right"
-		      font-family="SourceSansPro" font-size="9pt"
-                      margin-right="10mm">
-              <xsl:value-of select="d:affiliation/d:address/d:email"/> 
-            </fo:block>
-          </xsl:for-each>
+		<xsl:for-each select="d:info/*/d:author">
+		<fo:block color="#eee" text-align="right"
+			font-family="SourceSansPro-Bold" font-size="10pt"
+			font-weight="bold" margin-right="10mm">
+		<xsl:value-of select="d:personname/d:firstname"/>
+		<xsl:text> </xsl:text>
+		<xsl:value-of select="d:personname/d:surname"/>
+		</fo:block>
+		<fo:block color="#ddd" text-align="right"
+			font-family="SourceSansPro-Regular" font-style="normal" font-size="9pt" margin-right="10mm">
+		<xsl:value-of select="d:affiliation/d:address/d:email"/> 
+		</fo:block>
+		</xsl:for-each>
 
-          <xsl:choose>
-            <xsl:when test="d:info/*/d:editor|d:info/d:editor">
-              <fo:block color="#ddd" text-align="right" 
-                        font-style="italic" margin-right="50mm">
-                <xsl:text>Publié par :</xsl:text>
-              </fo:block>
-            </xsl:when>
-          </xsl:choose>
+		<xsl:choose>
+		<xsl:when test="d:info/*/d:editor|d:info/d:editor">
+		<fo:block color="#ddd" text-align="right" 
+			font-family="SourceSansPro-Italic" font-style="italic" margin-right="50mm">
+		<xsl:text>Publié par :</xsl:text>
+		</fo:block>
+		</xsl:when>
+		</xsl:choose>
 
-          <xsl:for-each select="d:info/*/d:editor">
-	    <fo:block color="#eee" text-align="right"
-	              font-family="SourceSansPro" font-size="10pt"
-                      font-weight="bold" margin-right="10mm">
-              <xsl:value-of select="d:personname/d:firstname"/>
-              <xsl:text> </xsl:text>
-              <xsl:value-of select="d:personname/d:surname"/>
-            </fo:block>
-	    <fo:block color="#ddd" text-align="right"
-		      font-family="SourceSansPro" font-size="9pt"
-                      margin-right="10mm">
-              <xsl:value-of select="d:affiliation/d:address/d:email"/> 
-            </fo:block>
-          </xsl:for-each>
-        </fo:block>
+		<xsl:for-each select="d:info/*/d:editor">
+		<fo:block color="#eee" text-align="right"
+			font-family="SourceSansProi-Bold" font-weight="bold" font-size="10pt" margin-right="10mm">
+		<xsl:value-of select="d:personname/d:firstname"/>
+		<xsl:text> </xsl:text>
+		<xsl:value-of select="d:personname/d:surname"/>
+		</fo:block>
+		<fo:block color="#ddd" text-align="right"
+		font-family="SourceSansPro" font-size="9pt"
+			margin-right="10mm">
+		<xsl:value-of select="d:affiliation/d:address/d:email"/> 
+		</fo:block>
+		</xsl:for-each>
+		</fo:block>
 
-	<fo:block color="#fff" background-color="#cc0033" text-align="left"
-		  font-family="SourceSansPro" font-size="9pt"
-		  font-weight="bold" font-style="italic" padding="3pt">
-          <xsl:text>https://www.inetdoc.net</xsl:text>
-        </fo:block>
+		<fo:block color="#fff" background-color="#cc0033" text-align="left"
+		font-family="SourceSansPro-Italic" font-style="italic" font-size="9pt" padding="3pt">
+		<xsl:text>https://www.inetdoc.net</xsl:text>
+		</fo:block>
 
-        <xsl:choose>
-          <xsl:when test="*/d:abstract">
-            <fo:block color="#333">
-	      <xsl:apply-templates mode="article.titlepage.recto.auto.mode" select="d:info/d:abstract"/>
-            </fo:block>
-          </xsl:when>
-        </xsl:choose>
-      </fo:block>
-    </xsl:template>
+		<xsl:choose>
+		<xsl:when test="*/d:abstract">
+		<fo:block color="#333">
+		<xsl:apply-templates mode="article.titlepage.recto.auto.mode" select="d:info/d:abstract"/>
+		</fo:block>
+		</xsl:when>
+		</xsl:choose>
+	</fo:block>
+	</xsl:template>
 
 <!--###################################################
                    Custom Book Title Page
     ################################################### --> 
 
-    <xsl:template name="book.titlepage.recto">
-      <fo:block>
-        <fo:block background-color="#333" padding="3pt">
-	  <fo:block color="#fff" text-align="right"
-		    font-family="SourceSansPro-Bold" font-size="18pt"
-                    margin-right="10mm" margin-bottom="5pt">
-            <xsl:value-of select="d:title|d:info/d:title" />
-          </fo:block>
+	<xsl:template name="book.titlepage.recto">
+	<fo:block>
+		<fo:block background-color="#333" padding="3pt">
+		<fo:block color="#fff" text-align="right"
+		    font-family="SourceSansPro-Bold" font-weight="bold" font-size="18pt" margin-right="10mm" margin-bottom="5pt">
+		<xsl:value-of select="d:title|d:info/d:title" />
+		</fo:block>
 
-          <xsl:for-each select="//d:author">
-	    <fo:block color="#eee" text-align="right"
-	              font-family="SourceSansPro-Bold" font-size="10pt"
-                      margin-right="10mm">
-              <xsl:value-of select="d:personname/d:firstname"/>
-              <xsl:text> </xsl:text>
-              <xsl:value-of select="d:personname/d:surname"/>
-            </fo:block>
-	    <fo:block color="#ddd" text-align="right"
-		      font-family="SourceSansPro" font-size="9pt"
-                      margin-right="10mm">
-              <xsl:value-of select="d:affiliation/d:address/d:email"/> 
-            </fo:block>
-          </xsl:for-each>
+		<xsl:for-each select="//d:author">
+		<fo:block color="#eee" text-align="right"
+			font-family="SourceSansPro" font-style="normal" font-size="10pt" margin-right="10mm">
+		<xsl:value-of select="d:personname/d:firstname"/>
+		<xsl:text> </xsl:text>
+		<xsl:value-of select="d:personname/d:surname"/>
+		</fo:block>
+		<fo:block color="#ddd" text-align="right"
+			font-family="SourceSansPro" font-size="9pt" margin-right="10mm">
+		<xsl:value-of select="d:affiliation/d:address/d:email"/> 
+		</fo:block>
+		</xsl:for-each>
 
-          <xsl:choose>
-            <xsl:when test="//d:editor">
-              <fo:block color="#ddd" text-align="right" 
-                        font-style="italic" margin-right="50mm">
-                <xsl:text>Publié par :</xsl:text>
-              </fo:block>
-            </xsl:when>
-          </xsl:choose>
+		<xsl:choose>
+		<xsl:when test="//d:editor">
+		<fo:block color="#ddd" text-align="right" 
+			font-family="SourceSansPro-Italic" font-style="italic" margin-right="50mm">
+		<xsl:text>Publié par :</xsl:text>
+		</fo:block>
+		</xsl:when>
+		</xsl:choose>
 
-          <xsl:for-each select="//d:editor">
-	    <fo:block color="#eee" text-align="right"
-	              font-family="SourceSansPro-Bold" font-size="10pt"
-                      margin-right="10mm">
-              <xsl:value-of select="d:personname/d:firstname"/>
-              <xsl:text> </xsl:text>
-              <xsl:value-of select="d:personname/d:surname"/>
-            </fo:block>
-	    <fo:block color="#ddd" text-align="right"
-		      font-family="SourceSansPro" font-size="9pt"
-                      margin-right="10mm">
-              <xsl:value-of select="d:affiliation/d:address/d:email"/> 
-            </fo:block>
-          </xsl:for-each>
-        </fo:block>
+		<xsl:for-each select="//d:editor">
+		<fo:block color="#eee" text-align="right"
+			font-family="SourceSansPro" font-size="10pt" margin-right="10mm">
+		<xsl:value-of select="d:personname/d:firstname"/>
+		<xsl:text> </xsl:text>
+		<xsl:value-of select="d:personname/d:surname"/>
+		</fo:block>
+		<fo:block color="#ddd" text-align="right"
+			font-family="SourceSansPro" font-size="9pt" margin-right="10mm">
+		<xsl:value-of select="d:affiliation/d:address/d:email"/> 
+		</fo:block>
+		</xsl:for-each>
+		</fo:block>
 
 	<fo:block color="#fff" background-color="#cc0033" text-align="left"
                   font-size="9pt" font-weight="bold" font-style="italic" padding="3pt"
