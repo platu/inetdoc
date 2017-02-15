@@ -29,7 +29,7 @@ PROCESS = subdirs xml2xhtml xml2pdf
 
 XML_FILES = \
 	biblio-articles.xml \
-	$(wildcard images/*.png) \
+	$(wildcard images/*.png images/*.svg) \
 	infosecconcepts/$(ABSTRACT_FILE) \
 	devmgmt/$(ABSTRACT_FILE) \
 	ssh-ios/$(ABSTRACT_FILE) \
