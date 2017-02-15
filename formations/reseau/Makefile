@@ -25,9 +25,10 @@ XML_FILES = \
 	dessine.moi.un.reseau.abstract.xml \
 	intro.analyse.abstract.xml \
 	socket-c.abstract.xml \
-        author.xml \
-        legal.xml \
-        inetdoc.urls.xml
+	author.xml \
+	legal.xml \
+	inetdoc.urls.xml \
+	$(wildcard images/*.svg images/*.png)
 
 all: $(PROCESS)
 
