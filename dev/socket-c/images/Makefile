@@ -14,8 +14,3 @@ SYMLINKS = \
 all: $(PROCESS) $(SVGTARGET) $(PNGTARGET)
 
 include $(MAIN_DIR)/common/Makefile.Rules
-
-#%.png: %.svg
-#	soffice --headless --convert-to png:"draw_png_Export" $(addsuffix .odg,$(basename $<))
-#	convert $(addsuffix .png,$(basename $<)) -trim +repage -bordercolor white -border 5x5 $@.tmp
-#	mv $@.tmp $@
