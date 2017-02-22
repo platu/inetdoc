@@ -9,11 +9,9 @@ STYLESHEET		:= inetdoc
 PAGEMENUITEM	:= $(subst $(MAIN_DIR),,$(CWD))
 PAGEMENUCAT		:= $(firstword $(shell echo $(PAGEMENUITEM)| sed 's/\// /g'))
 
-TIDY	:= /usr/bin/tidy -q -xml -asxhtml -utf8
-FOP		:= ~/SVN/fop/trunk/fop/fop -l fr -c $(MAIN_DIR)/common/fop.xconf
-#FOP		:= ~/SVN/fop/fop-1_1/fop -l fr -dpi 150 -c $(MAIN_DIR)/common/fop.xconf
-# fop -c ../../common/fop.xconf -xsl ../../common/fopdf.xsl -xml iptables-tutorial.xml -pdf /home/phil/inetdoc/pdf/iptables-tutorial.pdf
-
+TIDY			:= /usr/bin/tidy -q -xml -asxhtml -utf8
+FOP				:= ~/SVN/fop/trunk/fop/fop -l fr -c $(MAIN_DIR)/common/fop.xconf
+LIBREOFFICE		:= $(shell which libreoffice)
 
 XSLT_STYLESHEET	:= $(MAIN_DIR)/common/xhtml_chunk.xsl
 
@@ -86,14 +84,14 @@ $(STYLESHEET).css: $(MAIN_DIR)/styles/$(STYLESHEET).css
 #*---------------------------------------------------------------------------*/
 
 %.svg: %.odg
-	libreoffice --headless --convert-to svg:draw_svg_Export $<
-#	convert $@ -trim +repage -bordercolor white -border 5x5 $@.tmp
-#	mv $@.tmp $@
+	@if [ -z $(LIBREOFFICE) ]; then echo 'libreoffice indisponible'; exit 1; fi
+	@$(LIBREOFFICE) --headless --convert-to svg:draw_svg_Export $<
 
 %.png: %.odg
-	libreoffice --headless --convert-to png:draw_png_Export $<
-	convert $@ -trim +repage -bordercolor white -border 5x5 $@.tmp
-	mv $@.tmp $@
+	@if [ -z $(LIBREOFFICE) ]; then echo 'libreoffice indisponible'; exit 1; fi
+	@$(LIBREOFFICE) --headless --convert-to png:draw_png_Export $<
+	@convert $@ -trim +repage -bordercolor white -border 5x5 $@.new
+	@mv $@.new $@
 
 #/*--------------------------------------------------------------------------
 #* Traitement des fichiers sources DocBook XML
@@ -196,8 +194,6 @@ endif
 
 ifeq (odp, $(findstring odp,$(PROCESS)))
 
-libreoffice	:= $(shell which libreoffice)
-
 OUTPUT		:= transform_output
 
 ifndef ODP_FILES
@@ -228,9 +224,9 @@ $(MAIN_DIR)/odp/$(BASENAME).odp: $(BASENAME).odp
 	cp $< $@
 
 $(MAIN_DIR)/pdf/%.pdf: %.odp
-	@if [ -z $(libreoffice) ]; then echo 'libreoffice indisponible'; exit 1; fi
+	@if [ -z $(LIBREOFFICE) ]; then echo 'libreoffice indisponible'; exit 1; fi
 	# Génération du fichier imprimable PDF
-	@$(libreoffice) --headless --invisible --convert-to pdf --outdir $(MAIN_DIR)/pdf $?
+	@$(LIBREOFFICE) --headless --invisible --convert-to pdf --outdir $(MAIN_DIR)/pdf $?
 
 $(OUTPUT)/$(BASENAME)-00.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf
 	# Génération d'un fichier image par vue
