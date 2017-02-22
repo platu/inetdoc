@@ -2,12 +2,20 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
+SVGTARGET = $(addsuffix .svg,$(basename $(wildcard *.odg)))
+PNGTARGET = $(addsuffix .png,$(basename $(wildcard *.odg)))
+
 # Type(s) de traitement
 PROCESS = symlink
 
 SYMLINKS = \
-        $(MAIN_DIR)/images/thumbs/thumb009.png
+	$(MAIN_DIR)/images/thumbs/thumb009.png
 
-all: $(PROCESS)
+all: $(PROCESS) $(SVGTARGET) $(PNGTARGET)
 
 include $(MAIN_DIR)/common/Makefile.Rules
+
+#%.png: %.svg
+#	soffice --headless --convert-to png:"draw_png_Export" $(addsuffix .odg,$(basename $<))
+#	convert $(addsuffix .png,$(basename $<)) -trim +repage -bordercolor white -border 5x5 $@.tmp
+#	mv $@.tmp $@

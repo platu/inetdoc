@@ -24,7 +24,7 @@ XSLT_STYLESHEET	:= $(MAIN_DIR)/common/xhtml_chunk.xsl
 # PROCESS contient la directive 'subdirs' : parcours des sous-répertoires
 subdirs: $(SUBDIRS)
 	@for dir in $(SUBDIRS); do \
-	    	( cd $$dir && $(MAKE) ); \
+		( cd $$dir && $(MAKE) ); \
 	done
 
 # Les directives clean et subdirs_clean effacent des fichiers intermédiares.
@@ -33,8 +33,18 @@ subdirs: $(SUBDIRS)
 .PHONY: clean
 clean: subdirs_clean
 ifneq ($(CWD),$(MAIN_DIR))
-	@for file in `cat .gitignore | tr '\n' ' '`; do \
+	@for file in `grep "^!" .gitignore | tr '\n' ' ' | tr -d '!'`; do \
+		if [ -f $$file ]; then \
+			mv $$file $$file.orig ;\
+		fi ;\
+	done
+	@for file in `grep -v "^!" .gitignore | tr '\n' ' '`; do \
 		rm -rf $$file ;\
+	done
+	@for file in *.orig; do \
+		if [ -f $$file ]; then \
+			mv $$file `echo -n "$${file%.*}"` ;\
+		fi ;\
 	done
 endif
 
@@ -42,7 +52,7 @@ endif
 subdirs_clean:
 ifdef SUBDIRS
 	@for dir in $(SUBDIRS); do \
-	    	(cd $$dir && $(MAKE) clean); \
+		(cd $$dir && $(MAKE) clean); \
 	done
 endif
 
@@ -70,6 +80,20 @@ symlink:
 # La feuille de styles est éditée pour identifier la rubrique courante
 $(STYLESHEET).css: $(MAIN_DIR)/styles/$(STYLESHEET).css
 	@sed 's/.banner_menu #active/.banner_menu #$(PAGEMENUCAT)/' $< > $@
+
+#/*--------------------------------------------------------------------------
+#* Traitement des images LibreOffice Draw ODG
+#*---------------------------------------------------------------------------*/
+
+%.svg: %.odg
+	libreoffice --headless --convert-to svg:draw_svg_Export $<
+#	convert $@ -trim +repage -bordercolor white -border 5x5 $@.tmp
+#	mv $@.tmp $@
+
+%.png: %.odg
+	libreoffice --headless --convert-to png:draw_png_Export $<
+	convert $@ -trim +repage -bordercolor white -border 5x5 $@.tmp
+	mv $@.tmp $@
 
 #/*--------------------------------------------------------------------------
 #* Traitement des fichiers sources DocBook XML
