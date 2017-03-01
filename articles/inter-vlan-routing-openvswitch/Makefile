@@ -2,8 +2,12 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
+# Liste des répertoires à traiter à partir de ce niveau
+SUBDIRS = \
+	images
+
 # Type(s) de traitement
-PROCESS = symlink xml2xhtml xml2pdf
+PROCESS = subdirs symlink xml2xhtml xml2pdf
 
 SYMLINKS = \
 	$(MAIN_DIR)/common/author.xml \
@@ -17,7 +21,7 @@ XML_FILES = \
 	legal.xml \
 	inetdoc.urls.xml \
 	rfc.urls.xml \
-	$(wildcard images/*.png images/*.jpg) \
+	$(wildcard images/*.odg images/*.jpg) \
 	$(wildcard files/*)
 
 all: $(PROCESS)
