@@ -10,7 +10,8 @@ PROCESS = symlink
 
 SYMLINKS = \
 	$(MAIN_DIR)/images/thumbs/thumb004.png \
-	$(MAIN_DIR)/articles/modelisation/images/modelisation-osi.svg
+	$(MAIN_DIR)/articles/modelisation/images/modelisation-osi.svg \
+	$(MAIN_DIR)/articles/inter-vlan-routing/images/ieee8021q-frame.svg
 
 all: $(PROCESS) $(SVGTARGET) $(PNGTARGET)
 
