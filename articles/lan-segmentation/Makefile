@@ -11,7 +11,8 @@ PROCESS = subdirs symlink xml2xhtml xml2pdf
 
 SYMLINKS = \
 	$(MAIN_DIR)/common/author.xml \
-	$(MAIN_DIR)/common/legal.xml
+	$(MAIN_DIR)/common/legal.xml \
+	$(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
 	lan-segmentation.xml \
