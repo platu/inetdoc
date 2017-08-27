@@ -6,7 +6,7 @@ endif
 PROCESS = symlink
 
 SYMLINKS = \
-	$(wildcard $(MAIN_DIR)/travaux_pratiques/sysadm-net.iscsi.qa/files/*.txt) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/sysadm-net.iscsi.qa/files/*.sh) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/sysadm-net.nfs.qa/files/*.txt) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/sysadm-net.ldap.qa/files/*.txt) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/sysadm-net.autofs-ldap-nfs.qa/files/*.txt) \

@@ -15,7 +15,8 @@ XML_FILES = \
 	sysadm-net.iscsi.qa.xml \
 	author.xml \
 	legal.xml \
-	inetdoc.urls.xml
+	inetdoc.urls.xml \
+	files/*.sh
 
 all: $(PROCESS)
 
