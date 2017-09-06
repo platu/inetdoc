@@ -23,7 +23,7 @@ XML_FILES = \
 	$(OUTPUT)/chapter-sysadm-net.ldap.qa.xml \
 	$(OUTPUT)/chapter-sysadm-net.autofs-ldap-nfs.qa.xml \
 	$(OUTPUT)/chapter-sysadm-net.dns.qa.xml \
-	$(wildcard images/*.png)
+	$(wildcard images/*)
 
 CHAPTER_FILES = \
 	../sysadm-net.iscsi.qa/sysadm-net.iscsi.qa.xml \
