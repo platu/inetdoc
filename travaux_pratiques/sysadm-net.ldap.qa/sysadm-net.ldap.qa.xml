@@ -74,8 +74,8 @@
 <sect1 xml:id='sysadm-net.ldap.legal.meta'>
 	&legal;
 
-  <sect2 xml:id='sysadm-net.ldap.meta'>
-    <title>Méta-information</title>
+<sect2 xml:id='sysadm-net.ldap.meta'>
+	<title>Méta-information</title>
     
   <para>Ce document est écrit avec <link
   xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
@@ -386,7 +386,7 @@
       <para><literal>sn: etu1</literal></para>
     </entry>
     <entry>
-      <para><literal>person</literal></para>
+      <para><literal>inetOrgPerson</literal></para>
     </entry>
   </row>
   </tbody>
@@ -1351,7 +1351,7 @@ Re-enter new password:
 <screen><prompt>#</prompt> cat users.ldif 
 # Padmé Amidala
 dn: uid=padme,ou=people,dc=lab,dc=stri
-objectClass: person
+objectClass: inetOrgPerson
 objectClass: shadowAccount
 objectClass: posixAccount
 cn: Padme
@@ -1366,7 +1366,7 @@ gecos: Padme Amidala Skywalker
 
 # Anakin Skywalker
 dn: uid=anakin,ou=people,dc=lab,dc=stri
-objectClass: person
+objectClass: inetOrgPerson
 objectClass: shadowAccount
 objectClass: posixAccount
 cn: Anakin
@@ -1381,7 +1381,7 @@ gecos: Anakin Skywalker
 
 # Leia Organa Skywalker
 dn: uid=leia,ou=people,dc=lab,dc=stri
-objectClass: person
+objectClass: inetOrgPerson
 objectClass: shadowAccount
 objectClass: posixAccount
 cn: Leia
@@ -1396,7 +1396,7 @@ gecos: Leia Organa Skywalker
 
 # Luke Skywalker
 dn: uid=luke,ou=people,dc=lab,dc=stri
-objectClass: person
+objectClass: inetOrgPerson
 objectClass: shadowAccount
 objectClass: posixAccount
 cn: Luke
@@ -1432,269 +1432,45 @@ adding new entry "uid=luke,ou=people,dc=lab,dc=stri"</screen>
 	</qandadiv>
 </qandaset>
 </sect2>
-
-<sect2 xml:id='sysadm-net.ldap.srvr.admin'>
-	<title>Gestion de l'annuaire avec phpLDAPadmin</title>
-
-	<para>Après avoir vu quelques manipulations à base de fichiers
-		<acronym>LDIF</acronym> dans la section précédente, on se propose
-		maintenant d'introduire un outil de gestion d'annuaire avec une
-		interface de type service Internet. Le client Web
-		<citetitle>phpLDAPadmin</citetitle> est représentatif de cette
-		catégorie d'outil. Il ne peut pas se substituer  aux fichiers
-		<acronym>LDIF</acronym> pour les traitements en volume, mais il peut
-		très bien servir de console d'analyse et de support.</para>
-
-    <para>Dans cette section, on commence par installer l'outil avec le serveur
-    Web <citetitle>apache2</citetitle> et on configure un accès sécurisé
-    <acronym>SSL</acronym>. On ajoute un groupe d'utilisateurs baptisé
-    <option>StarWars</option> dans l'unité organisationnelle
-    <systemitem>groups</systemitem> et on visualise le schéma d'une entrée du
-    type <systemitem>posixAccount</systemitem>.</para>
-
-    <qandaset>
-      <qandadiv>
-      <qandaentry>
-      <question>
-      <para><phrase>Quel est le paquet à installer pour mettre en place le
-      client Web <citetitle>phpLDAPadmin</citetitle> ?</phrase></para>
-
-      <para>Rechercher le nom <option>phpldapadmin</option> dans la liste des
-      paquets de la distribution et installer ce paquet.</para>
-      </question>
-      <answer>
-      <para>Le résultat de la recherche est immédiat puisque le paquet du même
-      nom que celui de l'outil existe. On passe donc directement à
-      l'installation.</para>
-
-<screen><prompt>#</prompt> aptitude install phpldapadmin apache2-mpm-prefork</screen>
-
-<note>
-  <para>Alors que dans un contexte d'exploitation réelle, les réglages sur le
-  nombre d'instances de serveurs et sur les quantités de mémoire allouées au
-  fonctionnement des scripts <acronym>PHP</acronym> peuvent s'avérer
-  «délicats», dans un contexte de travaux pratiques on peut se contenter de
-  réduire l'occupation mémoire en limitant le nombre des instances du serveur
-  <citetitle>apache2</citetitle>.</para>
-
-<screen><prompt>#</prompt> sed -n '/&lt;IfModule mpm_prefork_module>/,/&lt;\/IfModule>/p' /etc/apache2/apache2.conf
-&lt;IfModule mpm_prefork_module>
-    StartServers          2
-    MinSpareServers       2
-    MaxSpareServers       5
-    MaxClients           50
-    MaxRequestsPerChild   0
-&lt;/IfModule></screen>
-</note>
-      </answer>
-      </qandaentry>
-
-      <qandaentry>
-      <question>
-      <para><phrase>Comment activer l'accès <acronym>SSL</acronym> au service
-      Web ?</phrase></para>
-
-      <para>Consulter les fichiers de documentation fournis avec le paquet
-      <citetitle>apache2</citetitle> et repérer les instructions d'activation
-      du service <acronym>SSL</acronym>.</para>
-      </question>
-      <answer>
-      <para>L'activation du module <option>ssl</option> informe directement sur
-      le fichier à consulter. On le visualise avec la commande
-      <userinput><prompt>#</prompt> zless
-      /usr/share/doc/apache2.2-common/README.Debian.gz</userinput>.</para>
-
-<screen><prompt>#</prompt> a2enmod ssl
-Enabling module ssl.
-See /usr/share/doc/apache2.2-common/README.Debian.gz on how to configure SSL
-  and create self-signed certificates.
-Run '/etc/init.d/apache2 restart' to activate new configuration!
-
-# a2ensite default-ssl
-Enabling site default-ssl.
-Run '/etc/init.d/apache2 reload' to activate new configuration!</screen>
-
-      <para>Après avoir accepté l'exception de sécurité relative à
-      l'utilisation d'un certificat auto signé, on accède à une page du type
-      suivant.</para>
-
-      <mediaobject>
-      <imageobject role="html">
-      <imagedata fileref='images/phpldapadmin-0.png' format='PNG' width='380px'/>
-      </imageobject>
-      <imageobject role="fo-fop">
-      <imagedata fileref='images/phpldapadmin-0.png' format='PNG' width='10cm'/>
-      </imageobject>
-      <textobject>
-      <phrase>Copie d'écran accès Web SSL</phrase>
-      </textobject>
-      <caption>
-      <para><link xmlns="http://docbook.org/ns/docbook" 
-      xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap.qa/images/phpldapadmin-0.png'>
-      Copie d'écran accès Web SSL - vue complète</link></para>
-      </caption>
-      </mediaobject>
-      </answer>
-      </qandaentry>
-
-      <qandaentry>
-      <question>
-      <para><phrase>Quel est le fichier de configuration du paquet
-      <systemitem>phpldapadmin</systemitem> qui contient la définition du
-      contexte de nommage (suffixe) ?</phrase></para>
-      
-      <para>Rechercher le répertoire contenant les fichiers de configuration du
-      paquet. Repérer le fichier contenant la définition du suffixe de
-      l'annuaire.</para>
-      </question>
-      <answer>
-      <para>Le répertoire qui contient les éléments de configuration du paquet
-      est nécessairement baptisé <filename
-      class='directory'>/etc/phpldapadmin</filename>. On recherche ensuite le
-      fichier contenant la définition de l'entrée <option>dc=</option>.</para>
-
-<screen><prompt>#</prompt> grep -rl 'dc=' /etc/phpldapadmin/*
-<emphasis>/etc/phpldapadmin/config.php</emphasis>
-/etc/phpldapadmin/templates/creation/sambaGroupMapping.xml</screen>
-      </answer>
-      </qandaentry>
-
-      <qandaentry>
-      <question>
-      <para><phrase>Quelles modifications apporter à ce fichier de
-      configuration pour utiliser le suffixe de travaux pratiques
-      ?</phrase></para>
-
-      <para>Rechercher les options de la commande <command>sed</command> qui
-      permettent de substituer <option>dc=example,dc=com</option> dans le
-      fichier de configuration du paquet
-      <systemitem>phpldapadmin</systemitem>.</para>
-      </question>
-      <answer>
-<screen><prompt>#</prompt> sed -i 's/dc=example,dc=com/dc=lab,dc=stri/g' /etc/phpldapadmin/config.php
-<prompt>#</prompt> /etc/init.d/apache2 reload</screen>
-
-      <para>Une fois le service Web redémarré, on peut se connecter à
-      l'annuaire avec le bon suffixe et visualiser les entrées de
-      l'annuaire.</para>
-
-      <mediaobject>
-      <imageobject role="html">
-      <imagedata fileref='images/phpldapadmin-1.png' format='PNG' width='420px'/>
-      </imageobject>
-      <imageobject role="fo-fop">
-      <imagedata fileref='images/phpldapadmin-1.png' format='PNG' width='12cm'/>
-      </imageobject>
-      <textobject>
-      <phrase>Copie d'écran suffixe et entrées</phrase>
-      </textobject>
-      <caption>
-      <para><link xmlns="http://docbook.org/ns/docbook" 
-      xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap.qa/images/phpldapadmin-1.png'>
-      Copie d'écran suffixe et entrées - vue complète</link></para>
-      </caption>
-      </mediaobject>
-      </answer>
-      </qandaentry>
-
-      <qandaentry>
-      <question>
-      <para><phrase>Comment ajouter un groupe <option>StarWars</option> dans
-      l'unité organisationnelle <option>groups</option> ?</phrase></para>
-      </question>
-      <answer>
-      <para>On sélectionne l'unité organisationnelle <option>groups</option> et
-      suit le lien <guimenu>Créer une sous-entrée</guimenu> pour ajouter le
-      groupe supplémentaire.</para>
-
-      <mediaobject>
-      <imageobject role="html">
-      <imagedata fileref='images/phpldapadmin-2.png' format='PNG' width='420px'/>
-      </imageobject>
-      <imageobject role="fo-fop">
-      <imagedata fileref='images/phpldapadmin-2.png' format='PNG' width='12cm'/>
-      </imageobject>
-      <textobject>
-      <phrase>Copie d'écran ajout d'un groupe</phrase>
-      </textobject>
-      <caption>
-      <para><link xmlns="http://docbook.org/ns/docbook" 
-      xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap.qa/images/phpldapadmin-2.png'>
-      Copie d'écran ajout d'un groupe - vue complète</link></para>
-      </caption>
-      </mediaobject>
-      </answer>
-      </qandaentry>
-
-      <qandaentry>
-      <question>
-      <para><phrase>Comment visualiser les attributs d'une entrée de type
-      <option>posixAccount</option> ?</phrase></para>
-      </question>
-      <answer>
-      <para>On sélectionne la catégorie <guimenu>schéma</guimenu> puis
-      <guimenuitem>Sauter vers un objectClass:</guimenuitem> avec l'option
-      <option>posixAccount</option>.</para>
-
-      <mediaobject>
-      <imageobject role="html">
-      <imagedata fileref='images/phpldapadmin-3.png' format='PNG' width='420px'/>
-      </imageobject>
-      <imageobject role="fo-fop">
-      <imagedata fileref='images/phpldapadmin-3.png' format='PNG' width='12cm'/>
-      </imageobject>
-      <textobject>
-      <phrase>Copie d'écran schéma de l'entrée posixAccount</phrase>
-      </textobject>
-      <caption>
-      <para><link xmlns="http://docbook.org/ns/docbook" 
-      xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap.qa/images/phpldapadmin-3.png'>
-      Copie d'écran schéma de l'entrée posixAccount - vue complète</link></para>
-      </caption>
-      </mediaobject>
-      </answer>
-      </qandaentry>
-      </qandadiv>
-    </qandaset>
-  </sect2>
 </sect1>
 
 <sect1 xml:id='sysadm-net.ldap.clnt'>
 	<title>Configuration de l'accès client au serveur LDAP</title>
 
 	<para>Dans cette section, on suppose qu'un annuaire <acronym>LDAP</acronym>
-	existe et qu'il contient des comptes utilisateurs. On se propose de
-	configurer un poste client pour qu'il obtienne de façon transparente les
-	informations sur les comptes utilisateurs desservis par l'annuaire.</para>
+		existe et qu'il contient des comptes utilisateurs. On se propose de
+		configurer un poste client pour qu'il obtienne de façon transparente
+		les informations sur les comptes utilisateurs desservis par
+		l'annuaire.</para>
 
 <sect2 xml:id='sysadm-net.ldap.clnt.query'>
 	<title>Interrogation à distance de l'annuaire LDAP</title>
 
 	<para>On reprend ici les requêtes de consultation des entrées de l'annuaire
-	vues dans la <xref linkend='sysadm-net.ldap.srvr.build'/>. Cette fois-ci
-	les requêtes sont émises depuis un hôte réseau différent du serveur
-	<acronym>LDAP</acronym>.</para>
+		vues dans la <xref linkend='sysadm-net.ldap.srvr.build'/>. Cette
+		fois-ci les requêtes sont émises depuis un hôte réseau différent du
+		serveur <acronym>LDAP</acronym>.</para>
 
-	<qandaset>
+<qandaset>
 	<qandadiv>
 	<qandaentry>
-		<question>
-		<para><phrase>Quel est le paquet qui fournit, entre autres, la commande
+	<question>
+	<para><phrase>Quel est le paquet qui fournit, entre autres, la commande
 		de consultation des entrées de l'annuaire ?</phrase></para>
 
-		<para>Interroger la base de données des paquets pour obtenir les
+	<para>Interroger la base de données des paquets pour obtenir les
 		informations demandées.</para>
-		</question>
-		<answer>
+	</question>
+	<answer>
 <screen><prompt>#</prompt> aptitude install ldap-utils</screen>
 
-		<para>Le paquet <systemitem>ldap-utils</systemitem> apparaît à la
-		question sur <link linkend='sysadm-net.ldap.srvr.q1-package'>la liste
-		des paquets relatifs au service</link> <acronym>LDAP</acronym>. Si on
+	<para>Le paquet <systemitem>ldap-utils</systemitem> apparaît à la question
+		sur <link linkend='sysadm-net.ldap.srvr.q1-package'>la liste des
+		paquets relatifs au service</link> <acronym>LDAP</acronym>. Si on
 		recherche les commandes présentes dans la liste des fichiers de ce
 		paquet, on obtient les informations suivantes.</para>
 
-<screen><prompt>#</prompt> dpkg -L ldap-utils | grep bin
+<screen><prompt>$</prompt> dpkg -L ldap-utils | grep bin
 /usr/bin
 /usr/bin/ldapmodrdn
 /usr/bin/ldappasswd
@@ -1707,27 +1483,27 @@ Run '/etc/init.d/apache2 reload' to activate new configuration!</screen>
 /usr/bin/ldapwhoami
 /usr/bin/ldapadd</screen>
 
-		<para>Une fois ce paquet installé, il est possible d'utiliser toutes
+	<para>Une fois ce paquet installé, il est possible d'utiliser toutes
 		les commandes disponibles pour manipuler les enregistrements de
 		l'annuaire.</para>
-		</answer>
+	</answer>
 	</qandaentry>
 
 	<qandaentry>
-		<question>
-		<para><phrase>Quelle est la syntaxe d'interrogation de l'annuaire qui
-		permet d'obtenir tous les attributs de l'enregistrement correspondant à
-		un utilisateur particulier ?</phrase></para>
-		</question>
-		<answer>
-		<para>On reprend la commande <command>ldapsearch</command> en
-		spécifiant un attribut <option>uid</option> particulier.</para>
+	<question>
+	<para><phrase>Quelle est la syntaxe d'interrogation de l'annuaire qui
+		permet d'obtenir tous les attributs de l'enregistrement
+		correspondant à un utilisateur particulier ?</phrase></para>
+	</question>
+	<answer>
+	<para>On reprend la commande <command>ldapsearch</command> en spécifiant un
+		attribut <option>uid</option> particulier.</para>
 
-<screen><prompt>#</prompt> ldapsearch -LLL -H ldap://198.51.100.2 \
-  -b dc=lab,dc=stri -D cn=admin,dc=lab,dc=stri -W uid=padme
-Enter LDAP Password: 
+<screen><prompt>#</prompt> ldapsearch -LLL -H ldap://192.0.2.12 \
+	-b dc=lab,dc=stri -D cn=admin,dc=lab,dc=stri -W uid=padme
+Enter LDAP Password:
 dn: uid=padme,ou=people,dc=lab,dc=stri
-objectClass: person
+objectClass: inetOrgPerson
 objectClass: shadowAccount
 objectClass: posixAccount
 cn: Padme
@@ -1737,38 +1513,38 @@ uidNumber: 10000
 gidNumber: 10000
 loginShell: /bin/bash
 homeDirectory: /ahome/padme
-userPassword:: e1NTSEF9YjF1dEdkWVJOM0p2R0tpVTVKcnBLRkx2TlRyWk9ETzg=
+userPassword:: e1NTSEF9THJQRnZjNllla1RHU0VZaU1lenhZeGNtRS8wWkUvOUw=
 gecos: Padme Amidala Skywalker</screen>
-		</answer>
+	</answer>
 	</qandaentry>
 
 	<qandaentry>
-		<question>
-		<para><phrase>Quelle est la syntaxe de la commande permettant de
-		changer le mot de passe de l'utilisateur dont on an affiché les
-		attributs à la question précédente ?</phrase></para>
-		</question>
-		<answer>
-		<para>On utilise la commande <command>ldappasswd</command> fournie par
-		le paquet <systemitem>ldap-utils</systemitem> comme dans le cas de la
+	<question>
+	<para><phrase>Quelle est la syntaxe de la commande permettant de changer le
+		mot de passe de l'utilisateur dont on an affiché les attributs à la
+		question précédente ?</phrase></para>
+	</question>
+	<answer>
+	<para>On utilise la commande <command>ldappasswd</command> fournie par le
+		paquet <systemitem>ldap-utils</systemitem> comme dans le cas de la
 		commande de recherche. Après consultation des pages de manuels, on
 		obtient la syntaxe suivante.</para>
 
-<screen><prompt>#</prompt> ldappasswd -x -H ldap://198.51.100.2 \
-  -D cn=admin,dc=lab,dc=stri -W -S uid=padme,ou=people,dc=lab,dc=stri
-New password: 
-Re-enter new password: 
+<screen><prompt>#</prompt> ldappasswd -x -H ldap://192.0.2.12 \
+	-D cn=admin,dc=lab,dc=stri -W -S uid=padme,ou=people,dc=lab,dc=stri
+New password:
+Re-enter new password:
 Enter LDAP Password:</screen>
 
-		<para>En posant exactement la même requête que dans la question
-		précédente, on peut vérifier que le mot de passe utilisateur a bien été
+	<para>En posant exactement la même requête que dans la question	précédente,
+		on peut vérifier que le mot de passe utilisateur a bien été
 		modifié.</para>
 
-<screen><prompt>#</prompt> ldapsearch -LLL -H ldap://198.51.100.2 \
-  -b dc=lab,dc=stri -D cn=admin,dc=lab,dc=stri -W uid=padme
-Enter LDAP Password: 
+<screen><prompt>#</prompt> ldapsearch -LLL -H ldap://192.0.2.12 \
+	-b dc=lab,dc=stri -D cn=admin,dc=lab,dc=stri -W uid=padme
+Enter LDAP Password:
 dn: uid=padme,ou=people,dc=lab,dc=stri
-objectClass: person
+objectClass: inetOrgPerson
 objectClass: shadowAccount
 objectClass: posixAccount
 cn: Padme
@@ -1779,12 +1555,12 @@ gidNumber: 10000
 loginShell: /bin/bash
 homeDirectory: /ahome/padme
 gecos: Padme Amidala Skywalker
-userPassword:: e1NTSEF9QWE5TUFrM0FWeCtPc05YU1NxNkh3dmRCL0ZMMm5Oc3A=</screen>
-		</answer>
+userPassword:: e1NTSEF9blZYUG9NTTNOdVdoZWFSOTBMZFBkY1lGZGRvSEVlTEY=</screen>
+	</answer>
 	</qandaentry>
 	</qandadiv>
-	</qandaset>
-	</sect2>
+</qandaset>
+</sect2>
 
 <sect2 xml:id='sysadm-net.ldap.clnt.nss'>
 	<title>Configuration <wordasword>Name Service Switch</wordasword></title>
@@ -2128,6 +1904,231 @@ Could not chdir to home directory /ahome/anakin: No such file or directory</scre
   </sect2>
 </sect1>
 
+<sect1 xml:id='sysadm-net.ldap.web'>
+	<title>Gestion de l'annuaire avec phpLDAPadmin</title>
+
+	<para>Après avoir vu quelques manipulations à base de fichiers
+		<acronym>LDIF</acronym> dans la section précédente, on se propose
+		maintenant d'introduire un outil de gestion d'annuaire avec une
+		interface de type service Internet. Le client Web
+		<citetitle>phpLDAPadmin</citetitle> est représentatif de cette
+		catégorie d'outil. Il ne peut pas se substituer  aux fichiers
+		<acronym>LDIF</acronym> pour les traitements en volume, mais il peut
+		très bien servir de console d'analyse et de support.</para>
+
+    <para>Dans cette section, on commence par installer l'outil avec le serveur
+    Web <citetitle>apache2</citetitle> et on configure un accès sécurisé
+    <acronym>SSL</acronym>. On ajoute un groupe d'utilisateurs baptisé
+    <option>StarWars</option> dans l'unité organisationnelle
+    <systemitem>groups</systemitem> et on visualise le schéma d'une entrée du
+    type <systemitem>posixAccount</systemitem>.</para>
+
+    <qandaset>
+      <qandadiv>
+      <qandaentry>
+      <question>
+      <para><phrase>Quel est le paquet à installer pour mettre en place le
+      client Web <citetitle>phpLDAPadmin</citetitle> ?</phrase></para>
+
+      <para>Rechercher le nom <option>phpldapadmin</option> dans la liste des
+      paquets de la distribution et installer ce paquet.</para>
+      </question>
+      <answer>
+      <para>Le résultat de la recherche est immédiat puisque le paquet du même
+      nom que celui de l'outil existe. On passe donc directement à
+      l'installation.</para>
+
+<screen><prompt>#</prompt> aptitude install phpldapadmin apache2-mpm-prefork</screen>
+
+<note>
+  <para>Alors que dans un contexte d'exploitation réelle, les réglages sur le
+  nombre d'instances de serveurs et sur les quantités de mémoire allouées au
+  fonctionnement des scripts <acronym>PHP</acronym> peuvent s'avérer
+  «délicats», dans un contexte de travaux pratiques on peut se contenter de
+  réduire l'occupation mémoire en limitant le nombre des instances du serveur
+  <citetitle>apache2</citetitle>.</para>
+
+<screen><prompt>#</prompt> sed -n '/&lt;IfModule mpm_prefork_module>/,/&lt;\/IfModule>/p' /etc/apache2/apache2.conf
+&lt;IfModule mpm_prefork_module>
+    StartServers          2
+    MinSpareServers       2
+    MaxSpareServers       5
+    MaxClients           50
+    MaxRequestsPerChild   0
+&lt;/IfModule></screen>
+</note>
+      </answer>
+      </qandaentry>
+
+      <qandaentry>
+      <question>
+      <para><phrase>Comment activer l'accès <acronym>SSL</acronym> au service
+      Web ?</phrase></para>
+
+      <para>Consulter les fichiers de documentation fournis avec le paquet
+      <citetitle>apache2</citetitle> et repérer les instructions d'activation
+      du service <acronym>SSL</acronym>.</para>
+      </question>
+      <answer>
+      <para>L'activation du module <option>ssl</option> informe directement sur
+      le fichier à consulter. On le visualise avec la commande
+      <userinput><prompt>#</prompt> zless
+      /usr/share/doc/apache2.2-common/README.Debian.gz</userinput>.</para>
+
+<screen><prompt>#</prompt> a2enmod ssl
+Enabling module ssl.
+See /usr/share/doc/apache2.2-common/README.Debian.gz on how to configure SSL
+  and create self-signed certificates.
+Run '/etc/init.d/apache2 restart' to activate new configuration!
+
+# a2ensite default-ssl
+Enabling site default-ssl.
+Run '/etc/init.d/apache2 reload' to activate new configuration!</screen>
+
+      <para>Après avoir accepté l'exception de sécurité relative à
+      l'utilisation d'un certificat auto signé, on accède à une page du type
+      suivant.</para>
+
+      <mediaobject>
+      <imageobject role="html">
+      <imagedata fileref='images/phpldapadmin-0.png' format='PNG' width='380px'/>
+      </imageobject>
+      <imageobject role="fo-fop">
+      <imagedata fileref='images/phpldapadmin-0.png' format='PNG' width='10cm'/>
+      </imageobject>
+      <textobject>
+      <phrase>Copie d'écran accès Web SSL</phrase>
+      </textobject>
+      <caption>
+      <para><link xmlns="http://docbook.org/ns/docbook" 
+      xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap.qa/images/phpldapadmin-0.png'>
+      Copie d'écran accès Web SSL - vue complète</link></para>
+      </caption>
+      </mediaobject>
+      </answer>
+      </qandaentry>
+
+      <qandaentry>
+      <question>
+      <para><phrase>Quel est le fichier de configuration du paquet
+      <systemitem>phpldapadmin</systemitem> qui contient la définition du
+      contexte de nommage (suffixe) ?</phrase></para>
+      
+      <para>Rechercher le répertoire contenant les fichiers de configuration du
+      paquet. Repérer le fichier contenant la définition du suffixe de
+      l'annuaire.</para>
+      </question>
+      <answer>
+      <para>Le répertoire qui contient les éléments de configuration du paquet
+      est nécessairement baptisé <filename
+      class='directory'>/etc/phpldapadmin</filename>. On recherche ensuite le
+      fichier contenant la définition de l'entrée <option>dc=</option>.</para>
+
+<screen><prompt>#</prompt> grep -rl 'dc=' /etc/phpldapadmin/*
+<emphasis>/etc/phpldapadmin/config.php</emphasis>
+/etc/phpldapadmin/templates/creation/sambaGroupMapping.xml</screen>
+      </answer>
+      </qandaentry>
+
+      <qandaentry>
+      <question>
+      <para><phrase>Quelles modifications apporter à ce fichier de
+      configuration pour utiliser le suffixe de travaux pratiques
+      ?</phrase></para>
+
+      <para>Rechercher les options de la commande <command>sed</command> qui
+      permettent de substituer <option>dc=example,dc=com</option> dans le
+      fichier de configuration du paquet
+      <systemitem>phpldapadmin</systemitem>.</para>
+      </question>
+      <answer>
+<screen><prompt>#</prompt> sed -i 's/dc=example,dc=com/dc=lab,dc=stri/g' /etc/phpldapadmin/config.php
+<prompt>#</prompt> /etc/init.d/apache2 reload</screen>
+
+      <para>Une fois le service Web redémarré, on peut se connecter à
+      l'annuaire avec le bon suffixe et visualiser les entrées de
+      l'annuaire.</para>
+
+      <mediaobject>
+      <imageobject role="html">
+      <imagedata fileref='images/phpldapadmin-1.png' format='PNG' width='420px'/>
+      </imageobject>
+      <imageobject role="fo-fop">
+      <imagedata fileref='images/phpldapadmin-1.png' format='PNG' width='12cm'/>
+      </imageobject>
+      <textobject>
+      <phrase>Copie d'écran suffixe et entrées</phrase>
+      </textobject>
+      <caption>
+      <para><link xmlns="http://docbook.org/ns/docbook" 
+      xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap.qa/images/phpldapadmin-1.png'>
+      Copie d'écran suffixe et entrées - vue complète</link></para>
+      </caption>
+      </mediaobject>
+      </answer>
+      </qandaentry>
+
+      <qandaentry>
+      <question>
+      <para><phrase>Comment ajouter un groupe <option>StarWars</option> dans
+      l'unité organisationnelle <option>groups</option> ?</phrase></para>
+      </question>
+      <answer>
+      <para>On sélectionne l'unité organisationnelle <option>groups</option> et
+      suit le lien <guimenu>Créer une sous-entrée</guimenu> pour ajouter le
+      groupe supplémentaire.</para>
+
+      <mediaobject>
+      <imageobject role="html">
+      <imagedata fileref='images/phpldapadmin-2.png' format='PNG' width='420px'/>
+      </imageobject>
+      <imageobject role="fo-fop">
+      <imagedata fileref='images/phpldapadmin-2.png' format='PNG' width='12cm'/>
+      </imageobject>
+      <textobject>
+      <phrase>Copie d'écran ajout d'un groupe</phrase>
+      </textobject>
+      <caption>
+      <para><link xmlns="http://docbook.org/ns/docbook" 
+      xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap.qa/images/phpldapadmin-2.png'>
+      Copie d'écran ajout d'un groupe - vue complète</link></para>
+      </caption>
+      </mediaobject>
+      </answer>
+      </qandaentry>
+
+      <qandaentry>
+      <question>
+      <para><phrase>Comment visualiser les attributs d'une entrée de type
+      <option>posixAccount</option> ?</phrase></para>
+      </question>
+      <answer>
+      <para>On sélectionne la catégorie <guimenu>schéma</guimenu> puis
+      <guimenuitem>Sauter vers un objectClass:</guimenuitem> avec l'option
+      <option>posixAccount</option>.</para>
+
+      <mediaobject>
+      <imageobject role="html">
+      <imagedata fileref='images/phpldapadmin-3.png' format='PNG' width='420px'/>
+      </imageobject>
+      <imageobject role="fo-fop">
+      <imagedata fileref='images/phpldapadmin-3.png' format='PNG' width='12cm'/>
+      </imageobject>
+      <textobject>
+      <phrase>Copie d'écran schéma de l'entrée posixAccount</phrase>
+      </textobject>
+      <caption>
+      <para><link xmlns="http://docbook.org/ns/docbook" 
+      xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap.qa/images/phpldapadmin-3.png'>
+      Copie d'écran schéma de l'entrée posixAccount - vue complète</link></para>
+      </caption>
+      </mediaobject>
+      </answer>
+      </qandaentry>
+      </qandadiv>
+    </qandaset>
+</sect1>
+
 <sect1 xml:id='sysadm-net.ldap.analysis'>
   <title>Analyse de la configuration</title>
 
@@ -2228,7 +2229,7 @@ olcDbIndex: dc eq</screen>
       <listitem>
       <para>Le type <option>pres</option> est la contraction de
       <option>presence</option> et correspond à des requêtes comme
-      <option>objectclass=person</option> ou
+      <option>objectclass=inetOrgPerson</option> ou
       <option>attribute=mail</option>.</para>
       </listitem>
 
