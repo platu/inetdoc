@@ -12,7 +12,7 @@ SYMLINKS = \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/sysadm-net.ldap.qa/images/*.jpeg) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/sysadm-net.autofs-ldap-nfs.qa/images/*.png) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/sysadm-net.dns.qa/images/*.png) \
-	$(MAIN_DIR)/images/titleimage.png
+	$(MAIN_DIR)/images/titleimage.jpg
 
 all: $(PROCESS)
 

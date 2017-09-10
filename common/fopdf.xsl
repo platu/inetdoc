@@ -260,9 +260,9 @@
           </xsl:when>
         </xsl:choose>
         <fo:block>
-          <fo:external-graphic src="url(&img_src_path;titleimage.png)"
-            padding="2cm" width="12cm" content-width="scale-to-fit"/>
-        </fo:block>
+          <fo:external-graphic src="url(&img_src_path;titleimage.jpg)"
+            padding="1cm" width="12cm" content-width="scale-to-fit"/>
+		</fo:block>
       </fo:block>
     </xsl:template>
 
