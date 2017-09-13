@@ -365,6 +365,9 @@
 	correspondant au serveur <acronym>NFS</acronym> et de créer l'arborescence
 	des comptes utilisateurs à exporter avec le bon contexte de nommage.</para>
 
+<sect2 xml:id='sysadm-net.autofs-ldap-nfs.nfs.service'>
+	<title>Service NFS</title>
+
 <qandaset>
 	<qandadiv>
 	<qandaentry>
@@ -441,99 +444,131 @@ v   nfs-server</screen>
 		<filename>/etc/exports</filename>.</para>
 
 <screen><prompt>#</prompt> grep -v ^# /etc/exports 
-/home/exports           192.0.2.0/24(rw,sync,fsid=0,crossmnt,no_subtree_check)
-/home/exports/home      192.0.2.0/24(rw,sync,no_subtree_check)</screen>
+/home/exports           192.0.2.0/27(rw,sync,fsid=0,crossmnt,no_subtree_check)
+/home/exports/home      192.0.2.0/27(rw,sync,no_subtree_check)</screen>
 	</listitem>
 	</itemizedlist>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
-		<question>
-		<para><phrase>Comment valider la configuration de l'exportation
-		réalisée par le serveur <acronym>NFS</acronym> ?</phrase></para>
-		</question>
-		<answer>
-		<para>On reprend la question sur la <link
+	<question>
+	<para><phrase>Comment valider la configuration de l'exportation réalisée
+			par le serveur <acronym>NFS</acronym> ?</phrase></para>
+	</question>
+	<answer>
+	<para>On reprend la question sur la <link
 		xmlns="http://docbook.org/ns/docbook"
 		xlink:href="&NFS-root;/sysadm-net.nfs.client.html#sysadm-net.nfs.client.manual.exports">la
 		commande qui permet d'identifier l'arborescence disponible à
 		l'exportation</link>.</para>
 
-		<itemizedlist>
-		<listitem>
-		<para>Côté client, on utilise la commande
+	<itemizedlist>
+	<listitem>
+	<para>Côté client, on utilise la commande
 		<command>showmount</command>suivie de l'option <option>-e</option> et
 		de l'adresse <acronym>IP</acronym> du serveur à interroger.</para>
-		</listitem>
-		<listitem>
-		<para>Côté serveur, on utilise la commande
+	</listitem>
+	<listitem>
+	<para>Côté serveur, on utilise la commande
 		<command>exportfs</command>.</para>
-		</listitem>
-		</itemizedlist>
-		</answer>
+	</listitem>
+	</itemizedlist>
+	</answer>
 	</qandaentry>
+	</qandadiv>
+</qandaset>
+</sect2>
 
+<sect2 xml:id='sysadm-net.autofs-ldap-nfs.local-mount'>
+	<title>Montage local sur le serveur</title>
+
+	<para>Du point de vue métier, l'opérateur du réseau de stockage doit
+		respecter le schéma de nommage qui veut que l'arborescence soit
+		identique entre serveur et client. Dans ce but, réaliser un montage
+		local permet de faire pointer l'arborescence partagée sur un volume de
+		stockage donné. Ce volume de stockage pourra changer au cours du temps
+		tout en respectant le schéma de nommage.</para>
+
+<qandaset>
+	<qandadiv>
 	<qandaentry>
-		<question>
-		<para><phrase>Quel est le montage local à mettre en place pour garantir
+	<question>
+	<para><phrase>Quel est le montage local à mettre en place pour garantir
 		la cohérence du schéma de nommage entre les postes serveur et client
 		?</phrase></para>
-		</question>
-		<answer>
-		<para>On reprend ici la question sur la <link
+	</question>
+	<answer>
+	<para>On reprend ici la question sur la <link
 		xmlns="http://docbook.org/ns/docbook"
 		xlink:href="&NFS-root;/sysadm-net.nfs.server.html#sysadm-net.nfs.server.local-mount">distinction
-		entre les versions 3 et 4 du protocole NFS</link> et sur le contexte de
-		nommage.</para>
+		entre les versions 3 et 4 du protocole NFS</link> et sur le
+		contexte de nommage.</para>
 
-		<itemizedlist>
-		<listitem>
-		<para>Création de la racine commune entre client et serveur.</para>
+	<itemizedlist>
+	<listitem>
+	<para>Création de la racine commune entre client et serveur.</para>
 
 <screen><prompt>#</prompt> mkdir /ahome</screen>
-		</listitem>
-		<listitem>
-		<para>Montage local entre racine commune et arborescence
-		exportée.</para>
+	</listitem>
+	<listitem>
+	<para>Montage local entre racine commune et arborescence exportée.</para>
 
 <screen><prompt>#</prompt> mount --bind /home/exports/home /ahome</screen>
-		</listitem>
-		</itemizedlist>
-		</answer>
+	</listitem>
+	</itemizedlist>
+	</answer>
 	</qandaentry>
+	</qandadiv>
+</qandaset>
+</sect2>
 
+<sect2 xml:id='sysadm-net.autofs-ldap-nfs.mkhomedir'>
+	<title>Création automatique du répertoire utilisateur</title>
+
+	<para>Cette étape correspond aux traitements réalisés lors de la toute
+		première utilisation du service par un nouvel utilisateur.</para>
+
+	<para>Cette opération se déroule en plusieurs étapes dans la mesure où il
+		est impossible de créer un répertoire utilisateur sur le serveur
+		directement depuis le client.</para>
+
+	<orderedlist>
+	<listitem>
+	<para>Activer sur le serveur <acronym>NFSv4</acronym> l'appel au module	de
+		création de répertoire utilisateur.</para>
+	</listitem>
+	<listitem>
+	<para>Toute les connexions suivantes depuis un client
+		<acronym>NFSv4</acronym> utiliseront l'arborescence utilisateur créée
+		lors de la première connexion.</para>
+	</listitem>
+	</orderedlist>
+
+	<warning>
+	<para>Attention ! Cette opération suppose que l'on puisse utiliser le
+		service <acronym>LDAP</acronym> sur le serveur lui-même. Il faut donc
+		installer et configurer les paquets
+		<systemitem>libnss-ldapd</systemitem>,
+		<systemitem>libpam-ldapd</systemitem> sur le serveur de façon à accéder
+		automatiquement aux ressources de l'annuaire.</para>
+	</warning>
+
+<qandaset>
+	<qandadiv>
 	<qandaentry>
-		<question>
-		<para><phrase>Comment créer automatiquement l'arborescence d'un
+	<question>
+	<para><phrase>Comment créer automatiquement l'arborescence d'un
 		utilisateur	qui n'existe que dans l'annuaire <acronym>LDAP</acronym>
 		?</phrase></para>
 
-		<para>Rechercher les fonctions de création automatique de répertoire
+	<para>Rechercher les fonctions de création automatique de répertoire
 		utilisateur dans la liste des paquets de la distribution.</para>
-
-		<warning>
-		<para>Cette opération se déroule en plusieurs étapes dans la mesure où
-		il est impossible de créer un répertoire utilisateur sur le serveur
-		directement depuis le client.</para>
-
-		<orderedlist>
-		<listitem>
-		<para>Activer sur le serveur <acronym>NFSv4</acronym> l'appel au module
-		de création de répertoire utilisateur.</para>
-		</listitem>
-		<listitem>
-		<para>Toute nouvelle connexion depuis un client
-		<acronym>NFSv4</acronym> utilise l'arborescence utilisateur créée lors
-		de la première connexion.</para>
-		</listitem>
-		</orderedlist>
-		</warning>
-		</question>
-		<answer>
-		<orderedlist>
-		<listitem>
-		<para>Sur le serveur, on ajoute le paquet
+	</question>
+	<answer>
+	<orderedlist>
+	<listitem>
+	<para>Sur le serveur, on ajoute le paquet
 		<application>oddjob-mkhomedir</application> puis on complète le fichier
 		commun de gestion de session :
 		<filename>/etc/pam.d/common-session</filename>.</para>
@@ -549,22 +584,34 @@ p   oddjob-mkhomedir   - Oddjob helper which creates and populates home director
 <prompt>#</prompt> systemctl status oddjobd
 &lt;snip></screen>
 
-<screen><prompt>#</prompt> grep -v ^# /etc/pam.d/common-session
-session [default=1]                     pam_permit.so
-session requisite                       pam_deny.so
-session required                        pam_permit.so
-<emphasis>session optional        pam_oddjob_mkhomedir.so skel=/etc/skel/ umask=0022</emphasis>
-session required        pam_unix.so 
-session optional        pam_systemd.so</screen>
-		</listitem>
-		<listitem>
-		<para>Depuis un autre hôte, on provoque la création du répertoire
-		utilisateur sur le serveur.</para>
+<screen><prompt>#</prompt># tail -15 /etc/pam.d/common-session
+# pam-auth-update(8) for details.
 
-<screen><prompt>$</prompt> ssh padme@fe80::b8ad:caff:fefe:0%vlan2
-Warning: Permanently added 'fe80::b8ad:caff:fefe:0%vlan2' (ECDSA) to the list of known hosts.
-padme@fe80::b8ad:caff:fefe:0%vlan2's password: 
+# here are the per-package modules (the "Primary" block)
+session [default=1]                     pam_permit.so
+# here's the fallback if no module succeeds
+session requisite                       pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+session required                        pam_permit.so
+# and here are more per-package modules (the "Additional" block)
+session required        pam_unix.so
+session optional        pam_systemd.so
+# end of pam-auth-update config
+<emphasis>session optional        pam_oddjob_mkhomedir.so skel=/etc/skel/ umask=0022</emphasis></screen>
+	</listitem>
+	<listitem>
+	<para>Depuis un poste client différent du serveur, on provoque la création
+		du répertoire utilisateur sur le serveur. Dans l'exemple ci-dessous, on
+		utilise le service <acronym>SSH</acronym> pour déclencher la création
+		du répertoire utilisateur ainsi que la copie des fichiers de
+		paramétrage du <wordasword>Shell</wordasword>.</para>
+
+<screen><prompt>$</prompt> ssh padme@fe80::b8ad:caff:fefe:64%eth0
+padme@fe80::b8ad:caff:fefe:64%eth0's password:
 <emphasis>Creating home directory for padme.</emphasis>
+Linux LDAP-Server 4.12.0-1-686-pae #1 SMP Debian 4.12.6-1 (2017-08-12) i686
 
 The programs included with the Debian GNU/Linux system are free software;
 the exact distribution terms for each program are described in the
@@ -572,28 +619,45 @@ individual files in /usr/share/doc/*/copyright.
 
 Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
 permitted by applicable law.
-<prompt>padme@server:~$</prompt> pwd
-<emphasis>/ahome/padme</emphasis>
-padme@server:~$</screen>
+padme@LDAP-Server:~$ pwd
+<emphasis>/ahome/padme</emphasis></screen>
 
-		<para>Enfin, on lance une nouvelle connexion sur un client
+	<para>Enfin, on lance une nouvelle connexion sur un client
 		<acronym>NFS</acronym> de façon à tester l'automontage du répertoire
 		utilisateur.</para>
 
-<screen><prompt>$</prompt> ssh padme@fe80::b8ad:caff:fefe:1%vlan2
-Warning: Permanently added 'fe80::b8ad:caff:fefe:1%vlan2' (RSA) to the list of known hosts.
-padme@fe80::b8ad:caff:fefe:1%vlan2's password: 
-Last login: Sun Sep 18 20:33:38 2016 from fe80::3413:59ff:fe55:23e4%eth0
-padme@client1:~$ mount | grep nfs
-<emphasis>192.0.2.12://home/padme on /ahome/padme type nfs4</emphasis> &lt;snip>
-<prompt>padme@client1:~$</prompt> pwd
-<emphasis>/ahome/padme</emphasis></screen>
-		</listitem>
-		</orderedlist>
-		</answer>
+<warning>
+	<para>La connexion présentée ci-dessous n'est valide que si le service
+		d'automontage fonctionne correctement. Il faut donc avoir traité la
+		section suivante avant de faire ce test : <xref
+		linkend='sysadm-net.autofs-ldap-nfs.autofs-ldap'/>.</para>
+</warning>
+
+	<para>Sur un client avant connexion la liste des montage fait apparaître
+		l'information suivante :</para>
+
+<screen><prompt>$</prompt> mount | grep ^ldap
+ldap:ou=auto.home,ou=automount,dc=lab,dc=stri on /ahome type autofs \
+(rw,relatime,fd=7,pgrp=12568,timeout=300,minproto=5,maxproto=5,indirect,pipe_ino=2875248)</screen>
+
+<screen><prompt>etu@LDAP-Client:~$</prompt> su padme
+Mot de passe :
+<prompt>padme@LDAP-Client:/home/etu$</prompt> cd
+<prompt>padme@LDAP-Client:~$</prompt> pwd
+/ahome/padme
+<prompt>padme@LDAP-Client:~$</prompt> mount | egrep '(ldap|nfs)'
+<emphasis>ldap</emphasis>:ou=auto.home,ou=automount,dc=lab,dc=stri on /ahome type autofs \
+  (rw,relatime,fd=7,pgrp=13510,timeout=300,minproto=5,maxproto=5,indirect,pipe_ino=2891149)
+192.0.2.24:/home/padme on /ahome/padme type <emphasis>nfs4</emphasis> \
+  (rw,relatime,vers=4.2,rsize=131072,wsize=131072,namlen=255,hard,proto=tcp,timeo=600,\
+  retrans=2,sec=sys,clientaddr=192.0.2.25,local_lock=none,addr=192.0.2.24)</screen>
+	</listitem>
+	</orderedlist>
+	</answer>
 	</qandaentry>
 	</qandadiv>
 	</qandaset>
+</sect2>
 </sect1>
 
 <sect1 xml:id='sysadm-net.autofs-ldap-nfs.autofs-ldap'>
