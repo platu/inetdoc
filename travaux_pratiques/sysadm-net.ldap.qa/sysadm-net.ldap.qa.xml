@@ -6,12 +6,16 @@
 <!ENTITY legal		SYSTEM "legal.xml">
 
 <!ENTITY url.openldap
-  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.openldap.org/">
-  <citetitle>OpenLDAP main page</citetitle></link>'>
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.openldap.org/">
+<citetitle>OpenLDAP main page</citetitle></link>'>
 
 <!ENTITY url.openldap.admin-guide
-  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.openldap.org/doc/admin24/">
-  <citetitle>OpenLDAP Software 2.4 Administrator&#39;s Guide</citetitle></link>'>
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.openldap.org/doc/admin24/">
+<citetitle>OpenLDAP Software 2.4 Administrator&#39;s Guide</citetitle></link>'>
+
+<!ENTITY url.ltb-project
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://ltb-project.org/">
+<citetitle>LDAP Tool Box project</citetitle></link>'>
 
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
@@ -1987,6 +1991,156 @@ Could not chdir to home directory /ahome/anakin: No such file or directory</scre
 		plupart des cas, les développements ont pour but de fournir une
 		interface Web.</para>
 
+<sect2 xml:id='sysadm-net.ldap.web.white-pages'>
+	<title>Création d'un trombinoscope</title>
+
+	<para>Le projet <citetitle>LDAP Tool Box</citetitle> propose un outil
+		baptisé <citetitle>White Pages</citetitle> qui permet de constituer un
+		trombinoscope des utilisateurs enregistrés dans un annuaire
+		<acronym>LDAP</acronym>.</para>
+
+	<para>L'objectif de cette section est d'installer le service web
+		<citetitle>White Pages</citetitle> et de compléter les attributs des
+		utilisateurs de l'annuaire avec une photo.</para>
+
+<qandaset>
+	<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le paquet à installer pour mettre en place le
+		service Web <citetitle>White Pages</citetitle> ?</phrase></para>
+
+	<para>Rechercher sur le site &url.ltb-project;, le lien de
+		téléchargement direct du paquet Debian pour le service
+		<citetitle>White Pages</citetitle>.</para>
+	</question>
+	<answer>
+	<para>Tout en bas de la page des téléchargements, on trouve un lien direct
+		vers le paquet
+		<systemitem>white-pages_0.1-1_all.deb</systemitem>.</para>
+
+	<para>Après le téléchargement, l'installation se fait en deux temps.</para>
+
+<screen><prompt>#</prompt>  wget http://ltb-project.org/archives/white-pages_0.1-1_all.deb
+&lt;snip>
+
+<prompt>#</prompt> dpkg -i white-pages_0.1-1_all.deb
+&lt;snip>
+
+<prompt>#</prompt> aptitude -f install
+&lt;snip>
+
+<prompt>#</prompt> aptitude install apache2
+&lt;snip></screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer l'accès au service Web ?</phrase></para>
+
+	<para>Consulter les fichiers de documentation et de configuration fournis
+		avec le paquet <citetitle>apache2</citetitle>. Repérer les instructions
+		d'activation et de désactivation d'un site. Retrouver les éléments
+		spécifiques à la configuration du service <citetitle>White
+		Pages</citetitle>.</para>
+	</question>
+	<answer>
+	<para>Cette question comprend plusieurs étapes.</para>
+	<orderedlist>
+	<listitem>
+	<para>Le paquet <systemitem>apache2</systemitem> comprend une liste
+		d'outils dédiés aux manipulations sur les sites et leur
+		configuration.</para>
+
+<screen><prompt>#</prompt> dpkg -L apache2 | grep "bin.*a2"
+/usr/sbin/a2enmod
+/usr/sbin/a2query
+/usr/sbin/a2disconf
+/usr/sbin/a2dismod
+/usr/sbin/a2dissite
+/usr/sbin/a2enconf
+/usr/sbin/a2ensite</screen>
+	</listitem>
+	<listitem>
+	<para>On utilise <command>a2dissite</command> pour désactiver le site par
+		défaut et <command>a2ensite</command> pour activer les pages
+		blanches.</para>
+
+<screen><prompt>#</prompt> a2dissite 000-default
+&lt;snip>
+
+<prompt>#</prompt> a2ensite white-pages
+&lt;snip>
+
+<prompt>#</prompt> apachectl configtest
+&lt;snip>
+Syntax OK
+
+<prompt>#</prompt> systemctl reload apache2
+&lt;snip></screen>
+
+	<para>La consultation de la page web donne le résultat suivant.</para>
+
+<mediaobject>
+	<imageobject role="html">
+	<imagedata fileref='images/01-white-pages.jpeg' format='JPEG' width='420px'/>
+	</imageobject>
+	<imageobject role="fo-fop">
+	<imagedata fileref='images/01-white-pages.jpeg' format='JPEG' width='12cm'/>
+	</imageobject>
+	<textobject>
+	<phrase>Copie d'écran accès Web SSL</phrase>
+	</textobject>
+	<caption>
+	<para><link xmlns="http://docbook.org/ns/docbook" 
+	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap.qa/images/01-white-pages.jpeg'>
+	Copie d'écran pages blanches - vue complète</link></para>
+	</caption>
+</mediaobject>
+	</listitem>
+	<listitem>
+	<para>Les paramètres du nouveau site sont donnés dans le fichier
+		<filename>/etc/apache2/sites-available/white-pages.conf</filename>.</para>
+	</listitem>
+	</orderedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment paramétrer l'accès à l'annuaire
+		<acronym>LDAP</acronym> à partir du service Web ?</phrase></para>
+
+	<para>Identifier les fichiers de configuration fournis avec le paquet
+		<systemitem>white-pages</systemitem>.</para>
+	</question>
+	<answer>
+	<para>C'est le fichier
+		<filename>/usr/share/white-pages/conf/config.inc.php</filename> qui
+		contient les éléments d'accès à l'annuaire <acronym>LDAP</acronym>.
+		Voici un extrait de ce fichier avec les lignes utiles complétées avec
+		le contexte de ce support de travaux pratiques.</para> 
+
+<screen><prompt>#</prompt> grep ^\$ldap /usr/share/white-pages/conf/config.inc.php
+$ldap_url = "ldap://localhost";
+$ldap_starttls = false;
+$ldap_binddn = "cn=admin,dc=lab,dc=stri";
+$ldap_bindpw = "XXXXXX";
+$ldap_base = "dc=lab,dc=stri";
+$ldap_user_base = "ou=people,".$ldap_base;
+$ldap_user_filter = "(objectClass=inetOrgPerson)";
+$ldap_size_limit = 100;</screen>
+
+	<para>Une fois le fichier modifié, il faut recharger le service Web avec la
+		commande <userinput><prompt>#</prompt> systemctl reload
+		apache2</userinput>.</para>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+</qandaset>
+</sect2>
+
 <sect2 xml:id='sysadm-net.ldap.web.phpldapadmin'>
 	<title>Gestion de l'annuaire avec phpLDAPadmin</title>
 
@@ -2005,7 +2159,7 @@ Could not chdir to home directory /ahome/anakin: No such file or directory</scre
 		<systemitem>groups</systemitem> et on visualise le schéma d'une entrée
 		du type <systemitem>posixAccount</systemitem>.</para>
 
-	<qandaset>
+<qandaset>
 	<qandadiv>
 	<qandaentry>
 	<question>
