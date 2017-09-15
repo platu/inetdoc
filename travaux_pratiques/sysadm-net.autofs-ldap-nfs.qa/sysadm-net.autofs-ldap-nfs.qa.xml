@@ -648,9 +648,9 @@ Mot de passe :
 <prompt>padme@LDAP-Client:~$</prompt> mount | egrep '(ldap|nfs)'
 <emphasis>ldap</emphasis>:ou=auto.home,ou=automount,dc=lab,dc=stri on /ahome type autofs \
   (rw,relatime,fd=7,pgrp=13510,timeout=300,minproto=5,maxproto=5,indirect,pipe_ino=2891149)
-192.0.2.24:/home/padme on /ahome/padme type <emphasis>nfs4</emphasis> \
+192.0.2.12:/home/padme on /ahome/padme type <emphasis>nfs4</emphasis> \
   (rw,relatime,vers=4.2,rsize=131072,wsize=131072,namlen=255,hard,proto=tcp,timeo=600,\
-  retrans=2,sec=sys,clientaddr=192.0.2.25,local_lock=none,addr=192.0.2.24)</screen>
+  retrans=2,sec=sys,clientaddr=192.0.2.25,local_lock=none,addr=192.0.2.12)</screen>
 	</listitem>
 	</orderedlist>
 	</answer>
@@ -1102,7 +1102,7 @@ Mot de passe :
     <answer>
     <para>La syntaxe est la suivante.</para>
 
-<screen><prompt>#</prompt> echo -e "\nautomount:      files ldap" >> /etc/nsswitch.conf</screen>
+<screen><prompt>#</prompt> echo -e "\nautomount:      ldap" >> /etc/nsswitch.conf</screen>
     </answer>
     </qandaentry>
 
@@ -1159,6 +1159,40 @@ SEARCH_BASE="ou=automount,dc=lab,dc=stri"</screen>
 
     <qandaentry>
     <question>
+	<para><phrase>Comment vérifier que le service
+		<systemitem>autofs</systemitem> a bien pris la nouvelle
+		configuration en charge et fait appel aux ressources de l'annuaire
+		<acronym>LDAP</acronym> ?</phrase></para>
+
+	<para>Rechercher dans les informations relatives au statut du service
+		<systemitem>autofs</systemitem> les paramètres de configuration
+		<acronym>LDAP</acronym>.</para>
+    </question>
+    <answer>
+	<para>On affiche l'état du service à l'aide de la commande
+		ci-dessous.</para>
+
+<screen><prompt>#</prompt> systemctl status autofs
+● autofs.service - Automounts filesystems on demand
+   Loaded: loaded (/lib/systemd/system/autofs.service; enabled; vendor preset: enabled)
+   Active: active (running) since Fri 2017-09-15 13:58:18 CEST; 15s ago
+  Process: 19416 ExecStart=/usr/sbin/automount $OPTIONS --pid-file /var/run/autofs.pid (code=exited, status=0/SUCCESS)
+ Main PID: 19417 (automount)
+    Tasks: 4 (limit: 4915)
+   CGroup: /system.slice/autofs.service
+           └─19417 /usr/sbin/automount --pid-file /var/run/autofs.pid
+
+systemd[1]: Starting Automounts filesystems on demand...
+automount[19417]: Starting automounter version 5.1.2, master map ou=auto.master,ou=automount,dc=lab,dc=stri
+automount[19417]: using kernel protocol version 5.02
+automount[19417]: <emphasis>connected to uri ldap://192.0.2.12</emphasis>
+automount[19417]: <emphasis>mounted indirect on /ahome with timeout 300</emphasis>, freq 75 seconds
+systemd[1]: Started Automounts filesystems on demand.</screen>
+	</answer>
+	</qandaentry>
+
+    <qandaentry>
+    <question>
     <para><phrase>Quelles sont les méthodes qui permettent de valider le
     fonctionnement du service d'automontage ?</phrase></para>
 
@@ -1182,6 +1216,22 @@ SEARCH_BASE="ou=automount,dc=lab,dc=stri"</screen>
       <para>Utilisation du gestionnaire de connexion graphique</para>
     </listitem>
     </itemizedlist>
+
+	<para>Enfin, une fois la session d'un(e) utilisat(eur|rice) défini dans
+		l'annuaire <acronym>LDAP</acronym> ouverte, il est important de
+		vérifier que l'automontage du répertoire personnel à fonctionné. Il
+		suffit d'utiliser la commande <command>mount</command> pour afficher la
+		liste des montages actifs.</para>
+
+	<para>On retrouve la copie d'écran donnée en fin de section
+		précédente.</para>
+
+<screen><prompt>$</prompt> mount | egrep '(ldap|nfs)'
+ldap:ou=auto.home,ou=automount,dc=lab,dc=stri on /ahome type autofs \
+  (rw,relatime,fd=7,pgrp=875,timeout=300,minproto=5,maxproto=5,indirect,pipe_ino=16519)
+192.0.2.12:/home/padme on /ahome/padme type nfs4 \
+  (rw,relatime,vers=4.2,rsize=131072,wsize=131072,namlen=255,hard,proto=tcp,timeo=600,\
+  retrans=2,sec=sys,clientaddr=192.0.2.25,local_lock=none,addr=192.0.2.12)</screen>
     </answer>
     </qandaentry>
     </qandadiv>
