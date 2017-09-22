@@ -79,9 +79,9 @@
     ################################################### -->      
 
     <xsl:param name="title.font.family">SourceSerifPro-Semibold</xsl:param>
-    <xsl:param name="body.font.family">SourceSansPro</xsl:param>
-    <xsl:param name="monospace.font.family">SourceCodePro</xsl:param>
-    <xsl:param name="symbol.font.family">SourceCodePro</xsl:param>
+    <xsl:param name="body.font.family">SourceSansPro-Light</xsl:param>
+    <xsl:param name="monospace.font.family">SourceCodePro-Regular</xsl:param>
+    <xsl:param name="symbol.font.family">OpenSymbol</xsl:param>
 
     <!-- Default Font size -->
     <xsl:param name="body.font.master">11</xsl:param>
@@ -162,7 +162,7 @@
 		<xsl:choose>
 		<xsl:when test="d:info/*/d:editor|d:info/d:editor">
 		<fo:block color="#ddd" text-align="right" 
-			font-family="SourceSansPro-Italic" font-style="italic" margin-right="50mm">
+			font-family="SourceSansPro-It" font-style="italic" margin-right="50mm">
 		<xsl:text>Publié par :</xsl:text>
 		</fo:block>
 		</xsl:when>
@@ -170,7 +170,7 @@
 
 		<xsl:for-each select="d:info/*/d:editor">
 		<fo:block color="#eee" text-align="right"
-			font-family="SourceSansProi-Bold" font-weight="bold" font-size="10pt" margin-right="10mm">
+			font-family="SourceSansPro-Bold" font-weight="bold" font-size="10pt" margin-right="10mm">
 		<xsl:value-of select="d:personname/d:firstname"/>
 		<xsl:text> </xsl:text>
 		<xsl:value-of select="d:personname/d:surname"/>
@@ -184,7 +184,7 @@
 		</fo:block>
 
 		<fo:block color="#fff" background-color="#cc0033" text-align="left"
-		font-family="SourceSansPro-Italic" font-style="italic" font-size="9pt" padding="3pt">
+		font-family="SourceSansPro-It" font-style="italic" font-size="9pt" padding="3pt">
 		<xsl:text>https://www.inetdoc.net</xsl:text>
 		</fo:block>
 
@@ -226,7 +226,7 @@
 		<xsl:choose>
 		<xsl:when test="//d:editor">
 		<fo:block color="#ddd" text-align="right" 
-			font-family="SourceSansPro-Italic" font-style="italic" margin-right="50mm">
+			font-family="SourceSansPro-It" font-style="italic" margin-right="50mm">
 		<xsl:text>Publié par :</xsl:text>
 		</fo:block>
 		</xsl:when>
