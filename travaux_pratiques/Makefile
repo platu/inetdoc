@@ -33,6 +33,7 @@ SUBDIRS = \
 	interco.rawip.q \
 	interco.ppp.qa \
 	interco.ppp.q \
+	interco.pppoe.qa \
 	interco.netfilter.qa \
 	interco.netfilter.q \
 	interco.inter-vlan.qa \
