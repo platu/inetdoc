@@ -20,7 +20,8 @@ XML_FILES = \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \
-	rfc.urls.xml
+	rfc.urls.xml \
+	$(wildcard images/*.png)
 
 all: $(PROCESS)
 
