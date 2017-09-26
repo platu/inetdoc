@@ -10,6 +10,6 @@ PROCESS = symlink
 SYMLINKS = \
         $(MAIN_DIR)/images/thumbs/thumb013.png
 
-all: $(PROCESS) $(SVGTARGET) $(PNGTARGET)
+all: $(PROCESS) $(PNGTARGET)
 
 include $(MAIN_DIR)/common/Makefile.Rules

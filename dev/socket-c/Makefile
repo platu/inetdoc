@@ -21,7 +21,7 @@ XML_FILES = \
 	legal.xml \
 	inetdoc.urls.xml \
 	$(wildcard files/*.c) \
-	$(wildcard images/*.odg images/*.svg images/*.png)
+	$(wildcard images/*.odg images/*.png)
 
 all: $(PROCESS)
 
