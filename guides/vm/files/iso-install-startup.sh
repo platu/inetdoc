@@ -66,6 +66,6 @@ ionice -c3 qemu-system-x86_64 \
 	-soundhw hda \
 	-device virtio-net,netdev=net0,mac="$macaddress" \
 	-netdev user,id=net0 \
-	-redir tcp:$((5000 + $tapnum))::22 \
+	-netdev tap,ifname=tap$tapnum,id=net0,script=no \
 	$*
 
