@@ -20,15 +20,15 @@ SYMLINKS = \
 
 XML_FILES = \
 	socket-c-4and6.xml \
-        author.xml \
-        legal.xml \
+	author.xml \
+	legal.xml \
 	inetdoc.urls.xml \
 	$(wildcard files/dns/*) \
 	$(wildcard files/showip/*) \
 	$(wildcard files/talker/*) \
 	$(wildcard files/singleSocket/*) \
 	$(wildcard files/doubleSocket/*) \
-	$(wildcard images/*.odg)
+	$(wildcard images/*)
 
 all: $(PROCESS)
 

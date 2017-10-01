@@ -5,11 +5,11 @@ endif
 PNGTARGET = $(addsuffix .png,$(basename $(wildcard *.odg)))
 
 # Type(s) de traitement
-PROCESS = symlink
+PROCESS = symlink $(PNGTARGET)
 
 SYMLINKS = \
         $(MAIN_DIR)/images/thumbs/thumb006.png
 
-all: $(PROCESS) $(SVGTARGET) $(PNGTARGET)
+all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
