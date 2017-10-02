@@ -8,10 +8,10 @@ iso=$1
 shift
 memory=$1
 shift
-num=$1
+tapnum=$1
 shift
 
-if [[ -z "$vm" || -z "$iso" || -z "$memory" || -z "$num" ]]
+if [[ -z "$vm" || -z "$iso" || -z "$memory" || -z "$tapnum" ]]
 then
 	echo "ERREUR : paramètre manquant"
 	echo "Utilisation : $0 <fichier image> <fichier iso> <quantité mémoire en Mo> <numéro interface tap>"
@@ -25,15 +25,15 @@ then
 	exit 1
 fi
 
-second_rightmost_byte=$(printf "%02x" $(expr $num / 256))
-rightmost_byte=$(printf "%02x" $(expr $num % 256))
+second_rightmost_byte=$(printf "%02x" $(expr $tapnum / 256))
+rightmost_byte=$(printf "%02x" $(expr $tapnum % 256))
 macaddress="ba:ad:ca:fe:$second_rightmost_byte:$rightmost_byte"
 
 image_format="${vm##*.}"
 
 echo -e "$RedOnBlack"
 echo "~> Machine virtuelle : $vm"
-echo "~> Port SPICE        : $((5900 + $num))"
+echo "~> Port SPICE        : $((5900 + $tapnum))"
 echo "~> Mémoire RAM       : $memory"
 echo "~> Adresse MAC       : $macaddress"
 tput sgr0
@@ -57,14 +57,15 @@ ionice -c3 qemu-system-x86_64 \
 	-device virtio-blk,drive=drive0,scsi=off,config-wce=off \
 	-k fr \
 	-vga qxl \
-	-spice port=$((5900 + $num)),addr=localhost,disable-ticketing \
+	-spice port=$((5900 + $tapnum)),addr=localhost,disable-ticketing \
 	-device virtio-serial-pci \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
-	-usb -usbdevice tablet \
+	-usb \
+	-device usb-tablet,bus=usb-bus.0 \
 	-soundhw hda \
 	-device virtio-net,netdev=net0,mac="$macaddress" \
 	-netdev user,id=net0 \
-	-redir tcp:$((5000 + $num))::22 \
+	-netdev tap,ifname=tap$tapnum,id=net0,script=no \
 	$*
 

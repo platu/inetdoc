@@ -56,7 +56,8 @@ ionice -c3 qemu-system-x86_64 \
 	-device virtio-serial-pci \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
-	-usb -usbdevice tablet \
+	-usb \
+	-device usb-tablet,bus=usb-bus.0 \
 	-soundhw hda \
 	-device virtio-net,netdev=net0,mac="$macaddress" \
 	-netdev tap,ifname=tap$tapnum,id=net0,script=no \
