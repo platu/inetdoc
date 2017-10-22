@@ -168,7 +168,7 @@
 </varlistentry>
 </variablelist>
 
-<mediaobject>
+<mediaobject xml:id='netfilter-lab-routing-nat'>
 <imageobject role='fo'>
 	<imagedata fileref='images/netfilter-lab-routing-nat.png' format='PNG' width='16cm' scalefit='1'/>
 </imageobject>
@@ -184,7 +184,7 @@
 </caption>
 </mediaobject>
 
-<mediaobject>
+<mediaobject xml:id='netfilter-lab-topology'>
 <imageobject role='fo'>
 	<imagedata fileref='images/netfilter-lab-topology.png' format='PNG' width='16cm' scalefit='1'/>
 </imageobject>
@@ -476,8 +476,237 @@
 </sect2> 
 </sect1>
 
+<sect1 xml:id='interco.netfilter.qa.routing'>
+	<title>Routage statique et traduction d'adresses source</title>
+
+	<para>Le but de cette section est de mettre en place le routage avant de
+		passer aux fonctions de filtrage réseau proprement dites. Elle
+		correspond à la vue <link linkend='netfilter-lab-routing-nat'>Topologie
+		<acronym>PPP</acronym> et routage</link>.</para>
+
+	<para>Les questions ci-dessous concernent aussi bien le routeur
+		<wordasword>Hub</wordasword> que le routeur
+		<wordasword>Spoke</wordasword>.</para>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer le routage au niveau du noyau Linux
+		?</phrase></para>
+
+	<para>Rechercher dans les outils fournis avec le paquet
+		<systemitem>procps</systemitem> celui qui permet de régler le
+		paramètre <option>ip_forward</option> pour <acronym>IPv4</acronym>
+		et/ou <option>forwarding</option> pour <acronym>IPv6</acronym>.</para>
+
+	<para>La même opération de réglage peut être réalisée directement à partir
+		du <wordasword>shell</wordasword> avec les droits super utilisateur.
+		Rechercher la syntaxe correspondante.</para>
+    </question>
+    <answer>
+	<para>La commande utile est <command>sysctl</command>. Elle permet de
+		consulter et modifier les paramètres de réglage du noyau
+		Linux.</para>
+
+	<para>Pour la consultation de la valeur d'un paramètre, il faut connaître
+		sa position dans l'arborescence <filename
+		class='directory'>/proc</filename>.</para>
+
+<screen><prompt>#</prompt> sysctl net.ipv4.ip_forward
+net.ipv4.ip_forward = 0
+<prompt>#</prompt> sysctl net.ipv6.conf.all.forwarding
+net.ipv6.conf.all.forwarding = 0</screen>
+
+	<para>Pour modifier la valeur d'un paramètre, on utilise l'option
+		<option>-w</option>.</para>
+
+<screen><prompt>#</prompt> sysctl -w net.ipv4.ip_forward=1
+net.ipv4.ip_forward = 1
+<prompt>#</prompt> sysctl -w net.ipv6.conf.all.forwarding=1
+net.ipv6.conf.all.forwarding = 1</screen>
+
+	<para>Pour consulter ou modifier ces mêmes valeurs directement à partir du
+		<wordasword>shell</wordasword> on utilise les commandes
+		<command>cat</command> et <command>echo</command>.</para>
+
+<screen><prompt>#</prompt> cat /proc/sys/net/ipv4/ip_forward
+1
+<prompt>#</prompt> echo 1 > /proc/sys/net/ipv4/ip_forward</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment rendre ces réglages permanents d'un redémarrage à
+		l'autre du système ?</phrase></para>
+
+	<para>Rechercher le fichier de configuration principal fourni avec le
+		paquet <systemitem>procps</systemitem>.</para>
+	</question>
+	<answer>
+	<para>En consultant la liste des répertoires créés avec le paquet
+		<systemitem>procps</systemitem>, on identifie le dossier <filename
+		class='directory'>/etc/sysctl.d</filename> dans lequel doivent
+		être placés les paramétrages spécifiques.</para>
+
+	<para>Dans ce dossier, on trouve un lien vers le fichier principal
+		<filename>/etc/sysctl.conf</filename> qui contient les entrées
+		relatives à l'activation du routage. On édite ce fichier avec les
+		valeurs utilisées pour les réglages effectués directement à la
+		console.</para>
+
+<screen><prompt>#</prompt> egrep -v '(^#|^$)' /etc/sysctl.conf
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer la protection contre les dénis de services
+			par usurpation des adresses sources ?</phrase></para>
+
+	<para>Rechercher les informations relatives à la fonction
+		<wordasword>Reverse Path Filtering</wordasword> du noyau Linux.
+		Identifier les rôles des 3 valeurs possibles de cette fonction.</para>
+	</question>
+	<answer>
+	<para>Le fichier de configuration principal
+		<filename>/etc/sysctl.conf</filename> dispose de plusieurs entrées
+		relatives à cette fonction. On édite donc ce fichier de façon à
+		appliquer une vérification stricte des adresses source.</para>
+
+<screen><prompt>#</prompt> grep rp_filter /etc/sysctl.conf
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter=1</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment relever les tentatives d'usurpation d'adresses
+			?</phrase></para>
+
+	<para>Rechercher l'entrée de l'arborescence <filename
+		class='directory'>/proc</filename> relatives aux paquets
+		martiens.</para>
+	</question>
+	<answer>
+	<para>On active la journalisation des martiens en éditant à nouveau le
+		fichier <filename>/etc/sysctl.conf</filename> qui dispose d'une entrée
+		dédiée.</para>
+
+<screen><prompt>#</prompt> grep martians /etc/sysctl.conf
+net.ipv4.conf.all.log_martians = 1</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer la traduction d'adresses source sur le
+		routeur <wordasword>hub</wordasword> ?</phrase></para>
+
+	<para>Même si cette question fait appel au filtrage, on utilise la
+		ressource ici pour valider l'acheminement des paquets vers l'Internet
+		depuis le routeur <wordasword>spoke</wordasword> dont les réseaux ne
+		sont pas connus au delà du routeur <wordasword>hub</wordasword>.</para>
+
+	<para>Rechercher la syntaxe d'utilisation de la cible
+		<option>MASQUERADE</option> sur l'interface Ethernet du routeur
+		<wordasword>hub</wordasword>.</para>
+	</question>
+	<answer>
+	<para>La cible <option>MASQUERADE</option> s'utilise avec la table
+		<option>nat</option>. La syntaxe est la suivante.</para>
+
+<screen><prompt>#</prompt> iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment compléter la table de routage du routeur
+		<wordasword>spoke</wordasword> avec une entrée factice
+		?</phrase></para>
+
+	<para>Rechercher des informations sur les interfaces de type
+		<systemitem>dummy</systemitem> et leur utilisation.</para>
+	</question>
+	<answer>
+	<para>Les interfaces factices de type <systemitem>dummy</systemitem> sont
+		créées à partir de la commande <command>ip link help</command>.</para>
+
+<screen><prompt>#</prompt> ip link add dummy0 type dummy
+<prompt>#</prompt> ip link add dummy1 type dummy
+<prompt>#</prompt> ip link ls | grep dummy | fmt -t -w80
+4: dummy0: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT
+   group default qlen 1000
+5: dummy1: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT
+   group default qlen 1000</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider le routage des paquets du routeur
+		<wordasword>spoke</wordasword> vers l'Internet ?</phrase></para>
+
+	<para>Rechercher le paquet qui fournit l'outil
+		<command>tracepath</command>.</para>
+	</question>
+	<answer>
+	<para>Le paquet <systemitem>iputils-tracpath</systemitem> contient l'outil
+		<command>tracepath</command> qui identifie le nombre de saut
+		aller/retour vers une destination donnée.</para>
+
+<screen><prompt>etu@Spoke:~$</prompt> tracepath 192.0.2.1
+ 1?: [LOCALHOST]            pmtu 1492
+ 1:  203.0.113.1                      0.988ms
+ 1:  203.0.113.1                      0.861ms
+ 2:  192.0.2.1                        1.112ms reached
+	 Resume: pmtu 1492 hops 2 back 2</screen>
+
+<screen><prompt>etu@Hub:~$</prompt> ping -c2 198.51.100.1
+PING 198.51.100.1 (198.51.100.1) 56(84) bytes of data.
+64 bytes from 198.51.100.1: icmp_seq=1 ttl=64 time=0.466 ms
+64 bytes from 198.51.100.1: icmp_seq=2 ttl=64 time=0.678 ms
+
+--- 198.51.100.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1030ms
+rtt min/avg/max/mdev = 0.466/0.572/0.678/0.106 ms</screen>
+
+	<para>Les résultats ci-dessus sont obtenus avec les tables de routage
+		suivantes.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Routeur <wordasword>spoke</wordasword> :</para>
+
+<screen><prompt>$</prompt> ip route ls
+default dev ppp0 scope link
+198.51.100.0/28 dev dummy0 proto kernel scope link src 198.51.100.1
+198.51.100.16/28 dev dummy1 proto kernel scope link src 198.51.100.17
+203.0.113.1 dev ppp0 proto kernel scope link src 203.0.113.4</screen>
+	</listitem>
+	<listitem>
+	<para>Routeur <wordasword>hub</wordasword> :</para>
+
+<screen><prompt>$</prompt> ip route ls
+default via 192.0.2.1 dev eth0
+192.0.2.0/26 dev eth0 proto kernel scope link src 192.0.2.8
+198.51.100.0/24 via 203.0.113.4 dev ppp0
+203.0.113.4 dev ppp0 proto kernel scope link src 203.0.113.1</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect1>
+
 <sect1 xml:id='interco.netfilter.qa.tools'>
-  <title>Les outils de filtrage réseau</title>
+	<title>Les outils de filtrage réseau</title>
 
   <para>Sur un système GNU/Linux, les fonctions de filtrage réseau sont
   réparties entre les espaces mémoire noyau
