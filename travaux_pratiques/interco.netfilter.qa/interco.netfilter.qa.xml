@@ -684,19 +684,43 @@ rtt min/avg/max/mdev = 0.466/0.572/0.678/0.106 ms</screen>
 	<para>Routeur <wordasword>spoke</wordasword> :</para>
 
 <screen><prompt>$</prompt> ip route ls
-default dev ppp0 scope link
-198.51.100.0/28 dev dummy0 proto kernel scope link src 198.51.100.1
+default dev ppp0 scope link <co xml:id='spoke-routing-default'/>
+198.51.100.0/28 dev dummy0 proto kernel scope link src 198.51.100.1 <co xml:id='spoke-routing-dummy'/>
 198.51.100.16/28 dev dummy1 proto kernel scope link src 198.51.100.17
 203.0.113.1 dev ppp0 proto kernel scope link src 203.0.113.4</screen>
+
+	<calloutlist>
+	<callout arearefs='spoke-routing-default'>
+	<para>La route par défaut du routeur <wordasword>spoke</wordasword> désigne
+		bien le lien point à point vers le routeur
+		<wordasword>hub</wordasword>.</para>
+	</callout>
+	<callout arearefs='spoke-routing-dummy'>
+	<para>dans cet exemple, les deux interfaces de type
+		<systemitem>dummy</systemitem> sont utilisées pour ajouter des entrées
+		dans la table de routage.</para>
+	</callout>
+	</calloutlist>
 	</listitem>
 	<listitem>
 	<para>Routeur <wordasword>hub</wordasword> :</para>
 
 <screen><prompt>$</prompt> ip route ls
-default via 192.0.2.1 dev eth0
+default via 192.0.2.1 dev eth0 <co xml:id='hub-routing-default'/>
 192.0.2.0/26 dev eth0 proto kernel scope link src 192.0.2.8
-198.51.100.0/24 via 203.0.113.4 dev ppp0
+198.51.100.0/24 via 203.0.113.4 dev ppp0 <co xml:id='hub-routing-static'/>
 203.0.113.4 dev ppp0 proto kernel scope link src 203.0.113.1</screen>
+
+	<calloutlist>
+	<callout arearefs='hub-routing-default'>
+	<para>La route par défaut du routeur <wordasword>hub</wordasword> désigne
+		bien son interface Ethernet.</para>
+	</callout>
+	<callout arearefs='hub-routing-static'>
+	<para>dans cet exemple, une route statique désigne le ou les réseaux locaux
+		desservis par le routeur <wordasword>spoke</wordasword>.</para>
+	</callout>
+	</calloutlist>
 	</listitem>
 	</itemizedlist>
 	</answer>
@@ -708,110 +732,54 @@ default via 192.0.2.1 dev eth0
 <sect1 xml:id='interco.netfilter.qa.tools'>
 	<title>Les outils de filtrage réseau</title>
 
-  <para>Sur un système GNU/Linux, les fonctions de filtrage réseau sont
-  réparties entre les espaces mémoire noyau
-  (<wordasword>kernelspace</wordasword>) et utilisateur
-  (<wordasword>userspace</wordasword>).</para>
+	<para>Sur un système GNU/Linux, les fonctions de filtrage réseau sont
+		réparties entre les espaces mémoire noyau
+		(<wordasword>kernelspace</wordasword>) et utilisateur
+		(<wordasword>userspace</wordasword>). En effet, les fonctions de
+		filtrage réseau sont disponibles sous forme de modules que l'on charge
+		dynamiquement dans la mémoire du système en cours d'exécution en
+		fonction de la syntaxe des règles de filtrage.</para>
 
-  <para>Que l'on utilise un noyau fourni par la distribution au le noyau
-  construit à l'issue des travaux pratiques &url.interco.kernel;, les
-  fonctions de filtrage réseau sont disponibles sous forme de modules que l'on
-  (charge|décharge) de la mémoire système en cours d'exécution. Les outils de
-  filtrage réseau du noyau Linux chargent dynamiquement ces modules en fonction
-  de la syntaxe des règles de filtrage saisies.</para>
+<qandaset defaultlabel='number'>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le paquet le plus important pour les manipulations
+		sur les fonctions de filtrage réseau ?</phrase></para>
 
-  <sect2 xml:id='interco.netfilter.qa.tools.iptables'>
-    <title>Questions sur iptables</title>
+	<para>Rechercher dans la liste des paquets les mots clés tels que
+		<option>iptables</option> ou <option>firewall</option>.</para>
+	</question>
+	<answer>
+	<para>La partie <wordasword>userspace</wordasword> des fonctions de
+		filtrage réseau s'appelle <application>iptables</application>. On lance
+		donc une recherche avec ce mot clé dans la base de données des paquets
+		Debian.</para>
 
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-    <question>
-    <para><phrase>Quels paquets contiennent les outils utilisateur principaux
-    de manipulation des fonctions de filtrage réseau ?</phrase></para>
+<screen><prompt>$</prompt> aptitude search ~iiptables
+i   iptables       - outils d'administration pour le filtrage de paquets et le NAT</screen>
+	</answer>
+	</qandaentry>
 
-    <para>Rechercher dans le cache du gestionnaire de paquets de la
-    distribution des mots clés tels que <option>iptables</option> ou
-    <option>firewall</option> à l'aide des commandes
-    <command>apt-cache</command> ou <command>aptitude</command>.</para>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les options de la commande
+		<command>iptables</command> qui permettent de visualiser les règles
+		de filtrage actives ainsi que les compteurs correspondants
+		?</phrase></para>
 
-    <para>Dans le cadre des travaux pratiques, seuls les outils élémentaires
-    sont utilisés pour faciliter la compréhension des mécanismes de suivi de
-    communication du système de filtrage réseau. On ne s'intéresse donc pas aux
-    paquets qui fournissent des solutions de filtrage «clé en main».</para>
-    </question>
-    <answer>
-    <para>On sait que la partie <wordasword>userspace</wordasword> des
-    fonctions de filtrage réseau s'appelle <application>iptables</application>.
-    On lance donc une recherche avec ce mot clé dans la base de données des
-    paquets Debian et on installe les paquets intéressants.</para>
+	<para>Quelle option faut-il préciser pour spécifier la table consultée :
+		<option>raw</option>, <option>mangle</option>,
+		<option>netfilter</option> ou <option>nat</option>.</para>
 
-    <para>Une recherche simple dans le catalogue des paquets donne le résultat
-    suivant.</para>
+	<para>Consulter les pages de manuels via <userinput><prompt>#</prompt> man
+			iptables</userinput>.</para>
+	</question>
+	<answer>
+	<para>La consultation des pages de manuels permet de relever le jeu
+		d'options <option>-vnL</option>.</para>
 
-<screen><prompt>$</prompt> aptitude search iptables
-p   arno-iptables-firewall       - single- and multi-homed firewall script with DSL/ADSL support
-i   <emphasis>iptables</emphasis>                     - Outils d'administration pour le filtrage de paquets et le NAT
-p   iptables-dev                 - iptables development files
-p   iptables-persistent          - Simple package to set up iptables on boot
-p   libiptables-chainmgr-perl    - Perl extension for manipulating iptables policies
-p   libiptables-parse-perl       - Perl extension for parsing iptables firewall rulesets</screen>
-
-    <para>Une recherche plus précise dans les descriptions de paquets donne une
-    liste plus étoffée.</para>
-
-<screen># aptitude search '~diptables' | grep ipt
-p   apf-firewall                    - easy iptables based firewall system
-p   arno-iptables-firewall          - single- and multi-homed firewall script wi
-p   firehol                         - An easy to use but powerful iptables state
-p   fwsnort                         - Snort-to-iptables rule translator
-p   ipkungfu                        - iptables-based Linux firewall
-i   <emphasis>iptables</emphasis>                        - Outils d'administration pour le filtrage d
-p   iptables-dev                    - iptables development files
-p   iptables-persistent             - Simple package to set up iptables on boot
-i   <emphasis>iptstate</emphasis>                        - Top-like state for netfilter/iptables
-p   libiptables-chainmgr-perl       - Perl extension for manipulating iptables p
-p   libiptables-parse-perl          - Perl extension for parsing iptables firewa
-p   mxallowd                        - Anti-Spam-Daemon using nolisting/iptables
-p   netscript-2.4                   - Linux 2.4.x (and 2.6.x) router/firewall ne
-p   uif                             - Advanced iptables-firewall script
-p   uruk                            - Very small firewall script, for configurin
-i   xtables-addons-common           - Extensions targets and matches for iptable
-p   xtables-addons-source           - Extensions targets and matches for iptable</screen>
-
-    <para>Comme on doit rester à un faible niveau d'intégration des règles de
-    filtrage de manière à bien illustrer les mécanismes de suivi de
-    communication. Les deux paquets retenus sont
-    <application>iptables</application> et <application>iptstate</application>.
-    On utilise les commandes usuelles d'installation et de consultation des
-    informations sur ces deux paquets.</para>
-
-<screen><prompt>#</prompt> aptitude install iptables iptstate
-&lt;snipped/>
-<prompt>#</prompt> apt-cache show iptables
-&lt;snipped/>
-<prompt>#</prompt> apt-cache show iptstate
-&lt;snipped/>
-</screen>
-    </answer>
-    </qandaentry>
-
-    <qandaentry>
-    <question>
-    <para><phrase>Quelles sont les options de la commande
-    <application>iptables</application> qui permettent de visualiser les règles
-    de filtrage réseau actives ainsi que les compteurs
-    correspondants ? Quelle option faut-il préciser pour spécifier la
-    table consultée : <application>netfilter</application> ou
-    <application>nat</application>.</phrase></para>
-
-    <para>Consulter les pages de manuels via
-    <userinput><prompt>#</prompt> man iptables</userinput>.</para>
-    </question>
-    <answer>
-    <para>La consultation des pages de manuels permet de relever le jeu
-    d'options <option>-vL</option>.</para>
-
-<screen><prompt>#</prompt> iptables -vL
+<screen><prompt>#</prompt> iptables -vnL
 Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
 
@@ -825,221 +793,111 @@ Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
     implicite alors que la table <systemitem>nat</systemitem> de traduction
     d'adresses doit être appelée explicitement.</para>
 
-<screen># iptables -vL -t nat
-Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+<screen><prompt>#</prompt> iptables -vnL -t nat
+Chain PREROUTING (policy ACCEPT 92 packets, 15174 bytes)
  pkts bytes target     prot opt in     out     source               destination
 
-Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
 
-Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+Chain OUTPUT (policy ACCEPT 171 packets, 33236 bytes)
  pkts bytes target     prot opt in     out     source               destination
-</screen>
-    </answer>
-    </qandaentry>
 
-    <qandaentry>
-    <question>
-    <para><phrase>Comment visualiser les modules chargés dynamiquement en
-    fonction de l'utilisation des règles de filtrage
-    réseau ?</phrase></para>
+Chain POSTROUTING (policy ACCEPT 77 packets, 16268 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+  182 26174 MASQUERADE  all  --  *      eth0    0.0.0.0/0            0.0.0.0/0</screen>
+	</answer>
+	</qandaentry>
 
-    <para>Utiliser la commande qui sert à lister les modules chargés en mémoire
-    avant et après avoir consulté les tables de filtrage réseau pour la
-    première fois.</para>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser les modules chargés dynamiquement en
+		fonction de l'utilisation des règles de filtrage réseau
+		?</phrase></para>
+
+	<para>Utiliser la commande qui sert à lister les modules chargés en mémoire
+		avant et après avoir consulté les tables de filtrage réseau pour la
+		première fois.</para>
     </question>
-    <answer>
-    <para>La commande <command>lsmod</command> sert à lister les modules
-    chargés en mémoire. En exécutant cette commande avant et après avoir
-    utilisé <command>iptables</command>, on visualise par différence les
-    nouveaux modules chargés par chaque appel. Par exemple, l'exécution des
-    deux commandes de consultation de la question précédente provoque le
-    chargement des modules suivants.</para>
+	<answer>
+	<para>La commande <command>lsmod</command> sert à lister les modules
+		chargés en mémoire. En exécutant cette commande avant et après avoir
+		utilisé <command>iptables</command>, on visualise par différence les
+		nouveaux modules chargés par chaque appel. Voici un exemple de liste de
+		modules relatifs au filtrage.</para>
 
-    <itemizedlist>
-      <listitem>
-      <para>Après consultation de la table
-      <systemitem>netfilter</systemitem> :</para>
-<screen># lsmod |less
-Module                  Size  Used by
-iptable_filter          2258  0 
-ip_tables              13899  1 iptable_filter
-x_tables               12845  1 ip_tables
-&lt;snipped/>
-</screen>
-      </listitem>
-      <listitem>
-      <para>Après consultation de la table
-      <systemitem>nat</systemitem> :</para>
-<screen># lsmod |less
-iptable_nat             4299  0 
-nf_nat                 13388  1 iptable_nat
-nf_conntrack_ipv4       9833  3 iptable_nat,nf_nat
-nf_conntrack           46535  3 iptable_nat,nf_nat,nf_conntrack_ipv4
-nf_defrag_ipv4          1139  1 nf_conntrack_ipv4
-iptable_filter          2258  0 
-ip_tables              13899  2 iptable_nat,iptable_filter
-x_tables               12845  2 iptable_nat,ip_tables
-&lt;snipped/>
-</screen>
-      </listitem>
-    </itemizedlist>
-    </answer>
-    </qandaentry>
+<screen><prompt>#</prompt> lsmod | egrep '(ip_|nf_)' | fmt -t -w80
+nf_tables              86016  0
+nfnetlink              16384  3 nfnetlink_log,nfnetlink_queue,nf_tables
+nf_nat_masquerade_ipv4    16384  1 ipt_MASQUERADE
+nf_conntrack_ipv4      16384  2
+nf_defrag_ipv4         16384  1 nf_conntrack_ipv4
+nf_nat_ipv4            16384  1 iptable_nat
+nf_nat                 28672  2 nf_nat_masquerade_ipv4,nf_nat_ipv4
+nf_conntrack          131072  5
+   nf_conntrack_ipv4,ipt_MASQUERADE,nf_nat_masquerade_ipv4,nf_nat_ipv4,nf_nat
+libcrc32c              16384  2 nf_conntrack,nf_nat
+ip_tables              24576  2 iptable_filter,iptable_nat
+x_tables               36864  3 ip_tables,iptable_filter,ipt_MASQUERADE</screen>
+	</answer>
+	</qandaentry>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quels sont les outils de sauvegarde et de restauration des
-      jeux de règles de filtrage réseau fournis avec le paquet
-      <application>iptables</application> ?</phrase></para>
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les outils de sauvegarde et de restauration des
+		jeux de règles de filtrage réseau fournis avec le paquet
+		<application>iptables</application> ?</phrase></para>
 
-      <para>Consulter la liste des fichiers du paquet
-      <application>iptables</application>.</para>
-      </question>
-      <answer>
-      <para>La liste des fichiers du paquet contient les outils
-      recherchés :
-      <userinput># dpkg -L iptables |grep bin</userinput>.
-      Les deux programmes <command>iptables-save</command> et
-      <command>iptables-restore</command> permettent respectivement de
-      sauvegarder et de restaurer l'ensemble des règles des tables
-      <systemitem>netfilter</systemitem> et
-      <systemitem>nat</systemitem>.</para>
+	<para>Consulter la liste des fichiers du paquet
+		<application>iptables</application>.</para>
+	</question>
+	<answer>
+	<para>La liste des fichiers du paquet fait apparaître les outils
+		<command>iptables-save</command> et <command>iptables-restore</command>
+		qui permettent respectivement de sauvegarder et de restaurer l'ensemble
+		des règles de toutes les tables utilisées.</para>
 
-      <para>Ces programmes sont indispensables pour éditer, insérer ou retirer
-      des règles sans avoir à se préoccuper de l'ordre de saisie. De plus, le
-      programme de restauration se charge de l'effacement des règles
-      précédentes.</para>
-      </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
+	<para>Ces programmes sont indispensables pour éditer, insérer ou retirer
+		des règles sans avoir à se préoccuper de l'ordre de saisie. De plus, le
+		programme de restauration se charge de l'effacement des règles
+		précédentes.</para>
+	</answer>
+	</qandaentry>
 
-  <sect2 xml:id='interco.netfilter.qa.tools.netfilter'>
-    <title>Questions sur netfilter</title>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser les enregistrements d'états de suivi de
+		communication ?</phrase></para>
 
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-    <question>
-    <para><phrase>Comment identifier la version du noyau utilisée et la
-    disponibilité des fonctions de filtrage réseau de cette
-    version ?</phrase></para>
+	<para>Rechercher les entrées de l'arborescence <filename
+		class='directory'>/proc</filename> dont le nom comprend la chaîne
+		conntrack.</para>
 
-    <para>Après avoir utilisé la commande «historique» d'identification de la
-    version du noyau, faire une recherche dans l'arborescence des modules de ce
-    noyau avec la commande <command>find</command>. Trouver les fichiers dont
-    le nom comprend la chaîne <option>netfilter</option>.</para>
-    </question>
-    <answer>
-    <para>On utilise la commande <command>uname</command> que l'on associe à
-    une recherche dans l'arborescence des modules du noyau en cours
-    d'exécution.</para>
+	<para>Rechercher la chaîne conntrack dans la liste des paquets.</para>
 
-<screen>$ uname -r
-2.6.32-5-amd64
-$ find /lib/modules/`uname -r` -type d -name netfilter
-/lib/modules/2.6.32-5-amd64/kernel/net/bridge/netfilter <co xml:id='netfilter.bridge'/>
-/lib/modules/2.6.32-5-amd64/kernel/net/ipv4/netfilter   <co xml:id='netfilter.ipv4'/>
-/lib/modules/2.6.32-5-amd64/kernel/net/decnet/netfilter
-/lib/modules/2.6.32-5-amd64/kernel/net/ipv6/netfilter   <co xml:id='netfilter.ipv6'/>
-/lib/modules/2.6.32-5-amd64/kernel/net/netfilter        <co xml:id='netfilter.common'/></screen>
+	<para>La section <citetitle>«7.2 Les entrées de conntrack»</citetitle> du
+		&url.iptables-tutorial.fr; décrit précisément les différents champs du
+		suivi de communication.</para>
 
-    <calloutlist>
-      <callout arearefs='netfilter.bridge'>
-	<para>Fonctions de filtrage au niveau liaison. Ces fonctions ne sont
-	pas utilisées ici.</para>
-      </callout>
-      <callout arearefs='netfilter.ipv4'>
-	<para>Fonctions de filtrage au niveau réseau utilisant le protocole
-	<acronym>IPv4</acronym>. C'est dans ce répertoire que se trouvent les
-	modules utilisés dans ces travaux pratiques.</para>
-      </callout>
-      <callout arearefs='netfilter.ipv6'>
-	<para>Fonctions de filtrage au niveau réseau utilisant le protocole
-	<acronym>IPv6</acronym>. Ces fonctions ne sont pas utilisées ici.</para>
-      </callout>
-      <callout arearefs='netfilter.common'>
-	<para>Fonctions communes de filtrage réseau indépendantes des niveaux
-	et des protocoles utilisés. C'est notamment à ce niveau que l'on trouve
-	les modules de la machine d'état de suivi de communications.</para>
-      </callout>
-    </calloutlist>
-    </answer>
-    </qandaentry>
-
-    <qandaentry>
-    <question>
-      <para><phrase>Quels sont les objets du système de fichiers virtuel
-      <filename class='directory'>/proc</filename> relatifs aux fonctions de
-      filtrage réseau du noyau Linux ?</phrase></para>
-
-      <para>Avec le chargement des modules en mémoire système, de nouvelles
-      entrées apparaissent dans l'arborescence <filename
-      class='directory'>/proc</filename>. Même si l'arborescence <filename
-      class='directory'>/proc</filename> n'est pas un véritable système de
-      fichiers, il est possible d'effectuer des recherches toujours à l'aide de
-      la commande <command>find</command>.</para>
-    </question>
-    <answer>
-    <para>Le chargement des trois premiers modules entraîne la création des
-    entrées relatives aux noms chaînes, aux correspondances et aux prises de
-    décisions.</para>
-
-<screen># find /proc/net/ -name "*tables*"
-/proc/net/ip_tables_targets
-/proc/net/ip_tables_matches
-/proc/net/ip_tables_names</screen>
-
-    <para>La consultation des règles de la table <systemitem>nat</systemitem>
-    entraîne la création de toutes les entrées nécessaires à la machine d'état
-    de suivi de communication.</para>
-
-<screen># find /proc/net/ -name "*conntrack*"
-/proc/net/ip_conntrack_expect
-/proc/net/ip_conntrack
-/proc/net/nf_conntrack
-/proc/net/nf_conntrack_expect
-/proc/net/stat/ip_conntrack
-/proc/net/stat/nf_conntrack</screen>
-    </answer>
-    </qandaentry>
-
-    <qandaentry>
-    <question>
-    <para><phrase>Comment visualiser les informations de la machine d'état de
-    suivi de communication ?</phrase></para>
-
-    <para>Rechercher les entrées de l'arborescence <filename
-    class='directory'>/proc</filename> dont le nom comprend la chaîne
-    conntrack.</para>
-
-    <para>La section <citetitle>«7.2 Les entrées de conntrack»</citetitle> du
-    &url.iptables-tutorial.fr; décrit précisément les différents champs du suivi
-    de communication.</para>
-
-    <para>Le programme <application>iptstate</application> affiche les entrées
-    de la table de suivi de communication sur le même mode que la commande
-    <command>top</command>.</para>
     </question>
     <answer>
     <para>Les états sont directement consultables à partir du fichier virtuel
     <filename>/proc/net/ip_conntrack</filename>. Par exemple :</para>
 
-<screen># cat /proc/net/ip_conntrack
-&lt;snipped/>
-udp 17 27 src=192.0.2.3 dst=192.0.2.1 sport=54932 dport=53 \
-      packets=1 bytes=59 src=192.0.2.1 dst=192.0.2.3 sport=53 dport=54932 \
-      packets=1 bytes=259 mark=0 secmark=0 use=2</screen>
+<screen><prompt>#</prompt> conntrack -L | fmt -t -w80
+conntrack v1.4.4 (conntrack-tools): 1 flow entries have been shown.
+udp      17 47 src=192.0.2.8 dst=192.0.2.1 sport=48386 dport=53 src=192.0.2.1
+   dst=192.0.2.8 sport=53 dport=48386 [ASSURED] mark=0 use=1</screen>
 
-    <para>L'exemple ci-dessus donne l'état du suivi de communication d'une
-    requête <acronym>DNS</acronym> entre un poste client avec l'adresse
-    <systemitem class='ipaddress'>192.0.2.3</systemitem> et le port source
-    <systemitem>54932</systemitem> et un serveur avec l'adresse <systemitem
-    class='ipaddress'>192.0.2.1</systemitem>.</para> 
-    </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
+	<para>L'exemple ci-dessus donne l'état du suivi de communication d'une
+		requête <acronym>DNS</acronym> entre un poste client avec l'adresse
+		<systemitem class='ipaddress'>192.0.2.8</systemitem> et le port source
+		<systemitem>48386</systemitem> et un serveur avec l'adresse <systemitem
+		class='ipaddress'>192.0.2.1</systemitem>.</para> 
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
 </sect1>
 
 <sect1 xml:id='interco.netfilter.qa.common'>
