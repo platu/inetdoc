@@ -133,6 +133,12 @@
       </fo:inline>
     </xsl:template>
 
+    <xsl:template match="d:phrase[@role='red']">
+      <fo:inline color="red">
+        <xsl:apply-templates/>
+      </fo:inline>
+    </xsl:template>
+
 <!--###################################################
                    Custom Article Title Page
     ################################################### --> 
