@@ -12,9 +12,10 @@ SYMLINKS = \
 
 XML_FILES = \
 	interco.inter-vlan.qa.xml \
-        author.xml \
-        legal.xml \
-	inetdoc.urls.xml
+	author.xml \
+	legal.xml \
+	inetdoc.urls.xml \
+	files/access.rules.v4
 
 all: $(PROCESS)
 

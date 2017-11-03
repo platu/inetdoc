@@ -15,8 +15,8 @@ SYMLINKS = \
 
 XML_FILES = \
 	interco.set.xml \
-        author.xml \
-        legal.xml \
+	author.xml \
+	legal.xml \
 	inetdoc.urls.xml \
 	$(OUTPUT)/chapter-interco.kernel.qa.xml \
 	$(OUTPUT)/chapter-interco.rawip.qa.xml \
