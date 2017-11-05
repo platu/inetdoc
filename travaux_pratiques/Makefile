@@ -37,8 +37,8 @@ SUBDIRS = \
 	interco.netfilter.qa \
 	interco.netfilter.q \
 	interco.inter-vlan.qa \
-	interco.ospf.qa \
-	interco.ospf.q \
+	interco.ospf-quagga.qa \
+	interco.ospf-quagga.q \
 	interco.ovs.qa \
 	interco.ovs.q \
 	interco.cs \
@@ -66,7 +66,7 @@ XML_FILES = \
 	interco.ppp.q/$(ABSTRACT_FILE) \
 	interco.netfilter.q/$(ABSTRACT_FILE) \
 	interco.inter-vlan.qa/$(ABSTRACT_FILE) \
-	interco.ospf.q/$(ABSTRACT_FILE) \
+	interco.ospf-quagga.q/$(ABSTRACT_FILE) \
 	interco.ovs.q/$(ABSTRACT_FILE) \
 	interco.cs/$(ABSTRACT_FILE) \
 	$(wildcard images/*.png)

@@ -8,10 +8,10 @@ SUBDIRS = files images
 PROCESS = subdirs symlink xml2xhtml xml2pdf
 
 SYMLINKS = \
-        $(MAIN_DIR)/common/author.xml \
-        $(MAIN_DIR)/common/legal.xml \
-        $(MAIN_DIR)/common/rfc.urls.xml \
-        $(MAIN_DIR)/common/inetdoc.urls.xml
+	$(MAIN_DIR)/common/author.xml \
+	$(MAIN_DIR)/common/legal.xml \
+	$(MAIN_DIR)/common/rfc.urls.xml \
+	$(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
 	interco.set.xml \
@@ -23,7 +23,7 @@ XML_FILES = \
 	$(OUTPUT)/chapter-interco.ppp.qa.xml \
 	$(OUTPUT)/chapter-interco.netfilter.qa.xml \
 	$(OUTPUT)/chapter-interco.inter-vlan.qa.xml \
-	$(OUTPUT)/chapter-interco.ospf.qa.xml \
+	$(OUTPUT)/chapter-interco.ospf-quagga.qa.xml \
 	$(OUTPUT)/chapter-interco.cs.xml \
 	$(wildcard images/*.png)
 
@@ -33,7 +33,7 @@ CHAPTER_FILES = \
 	../interco.ppp.qa/interco.ppp.qa.xml \
 	../interco.netfilter.qa/interco.netfilter.qa.xml \
 	../interco.inter-vlan.qa/interco.inter-vlan.qa.xml \
-	../interco.ospf.qa/interco.ospf.qa.xml \
+	../interco.ospf-quagga.qa/interco.ospf-quagga.qa.xml \
 	../interco.cs/interco.cs.xml 
 
 all: $(PROCESS)

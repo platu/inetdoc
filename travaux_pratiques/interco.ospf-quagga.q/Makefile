@@ -14,7 +14,7 @@ SYMLINKS = \
         $(MAIN_DIR)/common/rfc.urls.xml
 
 XML_FILES = \
-	interco.ospf.q.xml \
+	interco.ospf-quagga.q.xml \
 	inetdoc.urls.xml \
 	rfc.urls.xml \
 	$(wildcard images/*.png)
