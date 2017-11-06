@@ -1139,6 +1139,46 @@ Router ID       Pri          State      DTime   Interface  Router IP
 
 	<qandaentry>
 	<question>
+	<para><phrase>Comment utiliser toutes les solutions disponibles pour
+		joindre le réseau distant ?</phrase></para>
+
+	<para>Avec la topologie logique triangle, le réseau (le côté) opposé au
+		routeur (au sommet) doit être joignable depuis les deux réseaux locaux
+		raccordés à ce routeur. Nous sommes donc dans un contexte multi
+		chemins.</para>
+	</question>
+	<answer>
+	<para>La fonction réseau du noyau Linux recherchée est connue sous le nom
+		<wordasword>Equal Cost Multi Path</wordasword> ou
+		<acronym>ECMP</acronym>.</para>
+
+	<para>La configuration du protocole <acronym>OSPF</acronym> du démon
+		<systemitem class='daemon'>bird</systemitem> dispose d'un paramètre qui
+		permet d'activer <acronym>ECMP</acronym>.</para>
+
+	<para>Avec le routeur <systemitem class='systemname'>R1</systemitem>, la
+		configuration est la suivante.</para>
+
+<screen><prompt>#</prompt> sed -n '/protocol ospf/,//p' /etc/bird/bird.conf
+protocol ospf OSPFv2R1 {
+	rfc1583compat yes;
+	debug all;
+#	export all;
+	export filter export_OSPF;
+	import all;
+	<emphasis>ecmp yes;</emphasis>
+
+	area 0.0.0.0 {
+		interface "eth0.12", "eth0.13" {
+			authentication none;
+			};
+	};
+}</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
 	<para><phrase>Comment visualiser la table de routage au niveau système
 			?</phrase></para>
 
@@ -1175,255 +1215,252 @@ default via 172.16.0.3 dev eth0 proto bird metric 64
 	<title>Publication d'une route par défaut via OSPF</title>
 
 	<para>Dans la topologie logique étudiée, le routeur <systemitem
-	class='systemname'>R1</systemitem> dispose d'un lien montant vers
-	l'Internet. On peut donc considérer que ce lien est la route par défaut
-	vers tous les réseaux non connus de l'aire <acronym>OSPF</acronym>
-	contenant les trois routeurs.</para>
+		class='systemname'>R1</systemitem> dispose d'un lien montant vers
+		l'Internet. On peut donc considérer que ce lien est la route par défaut
+		vers tous les réseaux non connus de l'aire <acronym>OSPF</acronym>
+		contenant les trois routeurs.</para>
 
 	<para>Il est possible de publier une route par défaut via le protocole
-	<acronym>OSPF</acronym> depuis le routeur <systemitem
-	class='systemname'>R1</systemitem> vers les routeurs <systemitem
-	class='systemname'>R2</systemitem> et <systemitem
-	class='systemname'>R3</systemitem>.</para>
+		<acronym>OSPF</acronym> depuis le routeur <systemitem
+		class='systemname'>R1</systemitem> vers les routeurs <systemitem
+		class='systemname'>R2</systemitem> et <systemitem
+		class='systemname'>R3</systemitem>.</para>
 
 	<para>Voici, pour mémoire, une copie de la base de données
-	<acronym>OSPF</acronym> avant la mise en place de la publication de route
-	par défaut. On reconnaît les <acronym>LSA</acronym>s (<wordasword>Link
-	State Advertisement)</wordasword>) de type 1 et 2 qui correspondent
-	respectivement aux annonces de routeurs et de réseaux.</para>
+		<acronym>OSPF</acronym> avant la mise en place de la publication de
+		route par défaut. On reconnaît les <acronym>LSA</acronym>s
+		(<wordasword>Link	State Advertisement)</wordasword>) de type 1 et 2
+		qui correspondent respectivement aux annonces de routeurs et de
+		réseaux.</para>
 
-<screen><prompt>R1-ospfd#</prompt> sh ip ospf database 
+<screen><?dbfo keep-together="auto" ?><prompt>#</prompt> birdc
+BIRD 1.6.3 ready.
+bird> show ospf state
 
-       OSPF Router with ID (0.0.0.1)
+area 0.0.0.0
 
-                Router Link States (Area 0.0.0.0)
+	router 0.0.0.1
+		distance 0
+		network 10.1.12.0/26 metric 10
+		network 10.1.13.0/26 metric 10
 
-Link ID         ADV Router      Age  Seq#       CkSum  Link count
-0.0.0.1         0.0.0.1          210 0x80000021 0xebbe 2
-0.0.0.2         0.0.0.2         1345 0x8000001e 0xe7ae 2
-0.0.0.3         0.0.0.3         1654 0x8000001f 0xcf44 3
+	router 0.0.0.2
+		distance 10
+		network 10.1.12.0/26 metric 10
+		network 10.1.23.0/26 metric 10
 
-                Net Link States (Area 0.0.0.0)
+	router 0.0.0.3
+		distance 10
+		network 10.1.13.0/26 metric 10
+		network 10.1.23.0/26 metric 10
 
-Link ID         ADV Router      Age  Seq#       CkSum
-10.1.12.1       0.0.0.1         1670 0x80000018 0xda8b
-10.1.13.1       0.0.0.1         1120 0x80000018 0xdd86
-10.1.23.2       0.0.0.2         1405 0x80000018 0x69ed</screen>
+	network 10.1.12.0/26
+		dr 0.0.0.2
+		distance 10
+		router 0.0.0.2
+		router 0.0.0.1
 
-	<qandaset>
+	network 10.1.13.0/26
+		dr 0.0.0.3
+		distance 10
+		router 0.0.0.3
+		router 0.0.0.1
+
+	network 10.1.23.0/26
+		dr 0.0.0.3
+		distance 20
+		router 0.0.0.3
+		router 0.0.0.2</screen>
+
+<qandaset>
+<qandadiv>
 	<qandaentry>
 	<question>
-		<para><phrase>Quelle est la condition préalable à respecter pour que le
-		routeur <systemitem class='systemname'>R1</systemitem> soit en mesure
-		de publier une route par défaut via son démon
-		<acronym>OSPF</acronym> ?</phrase></para>
+	<para><phrase>Quelle est la condition préalable à respecter pour que le
+		routeur <systemitem class='systemname'>R1</systemitem> soit en
+		mesure de publier une route par défaut via <acronym>OSPF</acronym>
+		?</phrase></para>
 
-		<para>Parmi toutes les méthodes de redistribution de routes dans la
-		protocole <acronym>OSPF</acronym>, il en existe une dédiée à
-		l'injection de route par défaut dans une aire normale.</para>
+	<para>Avant de procéder à une redistribution de route, on doit s'assurer
+		qu'elle existe au préalable.</para>
 	</question>
 	<answer>
-		<para>Une route par défaut doit exister avant d'être injectée dans une
-		aire <acronym>OSPF</acronym>. Dans notre cas, une route statique par
-		défaut suffit à respecter la condition préalable.</para>
+	<para>Une route par défaut doit exister avant d'être injectée dans une aire
+		<acronym>OSPF</acronym>. Dans notre cas, une route statique par défaut
+		suffit à respecter la condition préalable.</para>
 
-		<para>Sur la maquette, on valide la présence de la route par défaut
-		comme suit :</para>
+	<para>Sur la maquette, on valide la présence de la route par défaut	comme
+		suit :</para>
 
 <screen><prompt>r1:~$</prompt> ip route ls | grep default
-default via 192.0.2.1 dev eth0</screen>
+default via 172.16.0.3 dev eth0 onlink
+<prompt>r1:~$</prompt> ip route get 8.8.8.8
+8.8.8.8 via 172.16.0.3 dev eth0 src 172.16.15.1
+	cache</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Quelle est l'instruction à utiliser pour publier une
-		route par défaut via le protocole de routage <acronym>OSPF</acronym>
-		?</phrase></para>
+	<para><phrase>Comment pour publier une route par défaut via le démon
+		<systemitem class='daemon'>bird</systemitem> ?</phrase></para>
 
-		<para>Rechercher le mot clé <option>default</option> dans la liste des
-		commandes relatives au démon <systemitem
-		class='daemon'>ospfd</systemitem>.</para>
+	<para>La configuration se fait en deux étapes.</para>
+
+	<orderedlist>
+	<listitem>
+	<para>Le démon <systemitem class='daemon'>bird</systemitem> doit apprendre
+		la route par défaut à partir des informations de routage du noyau.</para>
+	</listitem>
+	<listitem>
+	<para>La partie <acronym>OSPF</acronym> de la configuration doit exporter
+		spécifiquement la route par défaut via le protocole de routage.</para>
+	</listitem>
+	</orderedlist>
 	</question>
 	<answer>
-		<para>C'est la commande <command>default-information
-		originate</command> que l'on doit placer dans la configuration de
-		l'instance <acronym>OSPF</acronym>.</para>
+	<para>On commence par l'apprentissage des routes depuis le noyau. La partie
+		<wordasword>kernel</wordasword> du fichier de configuration
+		<filename>/etc/bird/bird.conf</filename> devient :</para>
 
-<screen><prompt>R1-ospfd#</prompt> conf t
-R1-ospfd(config)# router ospf
-R1-ospfd(config-router)# default-information originate</screen>
+<screen><prompt>#</prompt> sed -n '/kernel {/,/}/p' /etc/bird/bird.conf
+protocol kernel {
+	metric 64;      # Use explicit kernel route metric to avoid collisions
+                # with non-BIRD routes in the kernel routing table
+	<emphasis>import all;</emphasis>
+	export all;     # Actually insert routes into the kernel routing table
 
-		<para>Une fois cette instruction exécutée, la base de données
-		<acronym>OSPF</acronym> devient :</para>
+	learn;
+}</screen>
 
-<screen><prompt>R1-ospfd#</prompt> sh ip ospf database 
+	<para>On créé un filtre qui sélectionne exclusivement la route par défaut à
+		partir du préfixe <systemitem
+		class='ipaddress'>0.0.0.0/0</systemitem>.</para>
 
-       OSPF Router with ID (0.0.0.1)
+<screen><prompt>#</prompt> sed -n '/filter export_OSPF {/,/^}/p' /etc/bird/bird.conf
+filter export_OSPF {
+	if ( net = 0.0.0.0/0 ) then {
+		ospf_metric2 = 100;
+		accept;
+	}
+	reject;
+}</screen>
 
-                Router Link States (Area 0.0.0.0)
+	<para>Enfin, on applique ce filtre sur la règle d'exportation de la partie
+		<acronym>OSPF</acronym> du fichier de configuration.</para>
 
-Link ID         ADV Router      Age  Seq#       CkSum  Link count
-0.0.0.1         0.0.0.1          784 0x80000021 0xebbe 2
-0.0.0.2         0.0.0.2           58 0x8000001f 0xe5af 2
-0.0.0.3         0.0.0.3          463 0x80000020 0xcd45 3
+<screen><prompt>#</prompt> sed -n '/protocol ospf OSPFv2R1 {/,/^}/p' /etc/bird/bird.conf
+protocol ospf OSPFv2R1 {
+	rfc1583compat yes;
+	debug all;
+	<emphasis>export filter export_OSPF;</emphasis>
+	import all;
+	ecmp yes;
 
-                Net Link States (Area 0.0.0.0)
+	area 0.0.0.0 {
+		interface "eth0.12", "eth0.13" {
+			authentication none;
+		};
+	};
+}</screen>
 
-Link ID         ADV Router      Age  Seq#       CkSum
-10.1.12.1       0.0.0.1          394 0x80000019 0xd88c
-10.1.13.1       0.0.0.1         1694 0x80000018 0xdd86
-10.1.23.2       0.0.0.2          228 0x80000019 0x67ee
-
-                <emphasis>AS External Link States</emphasis>
-
-Link ID         ADV Router      Age  Seq#       CkSum  Route
-0.0.0.0         0.0.0.1          514 0x80000003 0x3d88 E2 0.0.0.0/0 [0x0]</screen>
-
-		<para>On voit apparaître une nouvelle rubrique baptisée <wordasword>AS
-		External Link States</wordasword>. Ce nouveau rôle pour le routeur
-		<systemitem class='systemname'>R1</systemitem> apparaît aussi lorsque
-		l'on affiche l'état de l'instance de routage
-		<acronym>OSPF</acronym>.</para>
-
-<screen>R1-ospfd# sh ip ospf 
- OSPF Routing Process, Router ID: 0.0.0.1
- Supports only single TOS (TOS0) routes
- This implementation conforms to RFC2328
- RFC1583Compatibility flag is disabled
- OpaqueCapability flag is disabled
- Initial SPF scheduling delay 200 millisec(s)
- Minimum hold time between consecutive SPFs 1000 millisec(s)
- Maximum hold time between consecutive SPFs 10000 millisec(s)
- Hold time multiplier is currently 1
- SPF algorithm last executed 39m29s ago
- Last SPF duration 148 usecs
- SPF timer is inactive
- Refresh timer 10 secs
- <emphasis>This router is an ASBR (injecting external routing information)</emphasis>
- Number of external LSA 1. Checksum Sum 0x00003d88
- Number of opaque AS LSA 0. Checksum Sum 0x00000000
- Number of areas attached to this router: 1
-
- Area ID: 0.0.0.0 (Backbone)
-   Number of interfaces in this area: Total: 2, Active: 2
-   Number of fully adjacent neighbors in this area: 2
-   Area has no authentication
-   SPF algorithm executed 16 times
-   Number of LSA 6
-   Number of router LSA 3. Checksum Sum 0x00029eb2
-   Number of network LSA 3. Checksum Sum 0x00021e00
-   Number of summary LSA 0. Checksum Sum 0x00000000
-   Number of ASBR summary LSA 0. Checksum Sum 0x00000000
-   Number of NSSA LSA 0. Checksum Sum 0x00000000
-   Number of opaque link LSA 0. Checksum Sum 0x00000000
-   Number of opaque area LSA 0. Checksum Sum 0x00000000</screen>
-
-		<para>Le routeur <systemitem class='systemname'>R1</systemitem>, est
-		maintenant à la frontière entre deux systèmes autonomes. Il a le rôle
+	<para>Après avoir relancé le démon <systemitem
+		class='daemon'>bird</systemitem>, le routeur <systemitem
+		class='systemname'>R1</systemitem> a le rôle
 		<acronym>ASBR</acronym> (<wordasword>Autonmous System Border
 		Router</wordasword>) et il est responsable de l'émission des
 		<acronym>LSA</acronym>s de type 5 à destination des autres routeurs de
-		l'aire.</para>
+		l'aire. On le vérifie à la console <command>birdc</command>.</para>
 
-		<para>Ici, <systemitem class='systemname'>R1</systemitem> utilise
-		<acronym>OSPF</acronym> et possède une route statique définie au niveau
-		système vers l'Internet. L'instruction donnée ci-dessus assure la
-		redistribution de la route statique vers <systemitem
-		class='systemname'>R2</systemitem> et <systemitem
-		class='systemname'>R3</systemitem>. Cette route apparaît comme une
-		entrée de type <option>E2</option> dans les tables de routage de ces
-		routeurs.</para>
+<screen><?dbfo keep-together="auto" ?><prompt>#</prompt> birdc
+BIRD 1.6.3 ready.
+bird> show ospf lsadb
 
-		<para>L'indicateur <option>E2</option> correspond au type par défaut
-		des routes apprises par le biais de la redistribution. La métrique est
-		un point important à considérer avec les routes de type
-		<option>E2</option>. Ces routes ne présentent que le coût du chemin
-		allant du routeur <acronym>ASBR</acronym> vers le réseau de destination
-		; ce qui ne correspond pas au coût réel du chemin.</para>
+Global
+
+ Type   LS ID           Router          Sequence   Age  Checksum
+ <emphasis>0005</emphasis>  0.0.0.0         0.0.0.1          80000001  1693    c8a4
+
+Area 0.0.0.0
+
+ Type   LS ID           Router          Sequence   Age  Checksum
+ 0001  0.0.0.1         0.0.0.1          80000078  1684    73dc
+ 0001  0.0.0.2         0.0.0.2          80000077  1688    5bdd
+ 0002  10.1.12.2       0.0.0.2          80000006  1689    ea8b
+ 0001  0.0.0.3         0.0.0.3          80000074  1688    999b
+ 0002  10.1.13.3       0.0.0.3          80000006  1692    d998
+ 0002  10.1.23.3       0.0.0.3          80000003  1042    7fea</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment la publication de route par défaut apparaît-elle
-		sur les différents routeurs <acronym>OSPF</acronym> ?</phrase></para>
+	<para><phrase>Comment la route par défaut apparaît-elle sur les autres
+		routeurs <acronym>OSPF</acronym> ?</phrase></para>
 
-		<para>Relevez la métrique de la route par défaut sur les routeurs qui
-		n'ont pas une connexion directe vers l'Internet.</para>
+	<para>Relevez les informations sur la route par défaut au niveau système et
+		au niveau du démon <systemitem class='daemon'>bird</systemitem>.
+		Rechercher le type de route <acronym>OSPF</acronym> publié par le
+		routeur de bordure <systemitem
+		class='systemname'>R1</systemitem>.</para>
 	</question>
 	<answer>
-		<para>En prenant l'exemple du routeur <systemitem
-		class='systemname'>R2</systemitem>, on retrouve les informations
-		suivantes :</para>
+	<para>Le relevé le plus simple consiste à visualiser la table de routage au
+		niveau système.</para>
 
-		<itemizedlist>
-		<listitem>
-			<para>Vu du démon <systemitem class='daemon'>ospfd</systemitem>
-			:</para>
+<screen><prompt>r3:~$</prompt> ip route ls
+<emphasis>default</emphasis> via 10.1.13.1 dev eth0.13 proto bird metric 64
+10.1.12.0/26 proto bird metric 64
+        nexthop via 10.1.13.1  dev eth0.13 weight 1
+        nexthop via 10.1.23.2  dev eth0.23 weight 1
+10.1.13.0/26 dev eth0.13 proto kernel scope link src 10.1.13.3
+10.1.23.0/26 dev eth0.23 proto kernel scope link src 10.1.23.3</screen>
 
-<screen><prompt>R2-ospfd#</prompt> sh ip ospf route 
-============ OSPF network routing table ============
-N    10.1.3.0/29           [110] area: 0.0.0.0
-                           via 10.1.23.3, eth0.23
-N    10.1.12.0/26          [10] area: 0.0.0.0
-                           directly attached to eth0.12
-N    10.1.13.0/26          [20] area: 0.0.0.0
-                           via 10.1.12.1, eth0.12
-                           via 10.1.23.3, eth0.23
-N    10.1.23.0/26          [10] area: 0.0.0.0
-                           directly attached to eth0.23
+	<para>Sur les routeurs <systemitem class='systemname'>R2</systemitem> et
+		<systemitem class='systemname'>R3</systemitem>, cette route par défaut
+		apparaît dans la base <acronym>OSPF</acronym> comme une entrée de type
+		<option>E2</option>.</para>
 
-============ OSPF router routing table =============
-R    0.0.0.1               [10] area: 0.0.0.0, ASBR
-                           via 10.1.12.1, eth0.12
+	<para>L'indicateur <option>E2</option> correspond au type par défaut des
+		routes apprises par le biais de la redistribution. La métrique est	un
+		point important à considérer avec les routes de type
+		<option>E2</option>. Ces routes ne présentent que le coût du chemin
+		allant du routeur <acronym>ASBR</acronym> vers le réseau de destination
+		; ce qui ne correspond pas au coût réel du chemin.</para>
+	
+	<para>En prenant l'exemple du routeur <systemitem
+		class='systemname'>R3</systemitem>, on retrouve les informations
+		suivantes à la console <command>birdc</command>.</para>
 
-============ OSPF external routing table ===========
-<emphasis>N E2 0.0.0.0/0             [10/10] tag: 0
-                           via 10.1.12.1, eth0.12</emphasis></screen>
-		</listitem>
-		<listitem>
-		<para>Vu du démmon <systemitem class='daemon'>zebra</systemitem>
-		:</para>
+<screen><prompt>#</prompt> birdc
+BIRD 1.6.3 ready.
+bird> show route
+0.0.0.0/0          via 10.1.13.1 on eth0.13 [OSPFv2R3 17:00:08] * <emphasis>E2 (150/10/100)</emphasis> [0.0.0.1]
+10.1.12.0/26       multipath [OSPFv2R3 17:00:08] * I (150/20) [0.0.0.2]
+        via 10.1.13.1 on eth0.13 weight 1
+        via 10.1.23.2 on eth0.23 weight 1
+10.1.13.0/26       dev eth0.13 [OSPFv2R3 16:18:17] * I (150/10) [0.0.0.3]
+10.1.23.0/26       dev eth0.23 [OSPFv2R3 16:10:43] * I (150/10) [0.0.0.3]</screen>
 
-<screen><prompt>R2-zebra#</prompt> sh ip route 
-Codes: K - kernel route, C - connected, S - static, R - RIP,
-       O - OSPF, I - IS-IS, B - BGP, P - PIM, A - Babel,
-       > - selected route, * - FIB route
+	<para>La métrique relevée pour la route par défaut est composée d'un coût de
+		<option>10</option> correspondant au lien entre <systemitem
+		class='systemname'>R3</systemitem> et <systemitem
+		class='systemname'>R1</systemitem> : c'est la métrique de type
+		1.</para>
 
-<emphasis>O>* 0.0.0.0/0 [110/10] via 10.1.12.1, eth0.12, 2d03h12m</emphasis>
-O>* 10.1.3.0/29 [110/110] via 10.1.23.3, eth0.23, 2d03h36m
-O   10.1.12.0/26 [110/10] is directly connected, eth0.12, 2d03h32m
-C>* 10.1.12.0/26 is directly connected, eth0.12
-O>* 10.1.13.0/26 [110/20] via 10.1.12.1, eth0.12, 2d03h31m
-  *                       via 10.1.23.3, eth0.23, 2d03h31m
-O   10.1.23.0/26 [110/10] is directly connected, eth0.23, 2d03h32m
-C>* 10.1.23.0/26 is directly connected, eth0.23
-C>* 127.0.0.0/8 is directly connected, lo</screen>
-		</listitem>
-		<listitem>
-		<para>Vu du niveau système :</para>
+	<para>La même métrique est aussi composée d'un coût de <option>100</option>
+		qui correspond à la règle d'exportation appliquée sur le routeur
+		<systemitem class='systemname'>R1</systemitem> : c'est la métrique de
+		type 2.</para>
 
-<screen><prompt>r2:~$</prompt> ip route ls
-<emphasis>default via 10.1.12.1 dev eth0.12  proto zebra  metric 10</emphasis>
-10.1.3.0/29 via 10.1.23.3 dev eth0.23  proto zebra  metric 110 
-10.1.12.0/26 dev eth0.12  proto kernel  scope link  src 10.1.12.2 
-10.1.13.0/26  proto zebra  metric 20 
-        nexthop via 10.1.12.1  dev eth0.12 weight 1
-        nexthop via 10.1.23.3  dev eth0.23 weight 1
-10.1.23.0/26 dev eth0.23  proto kernel  scope link  src 10.1.23.2</screen>
-		</listitem>
-		</itemizedlist>
-
-		<para>La métrique relevée pour la route par défaut vaut
-		<option>10</option>. Il s'agit d'un lien à 1Gbps. Voir la <xref
-		linkend='interco.ospf-bird.auto-cost' />. Cette métrique ne comprend que le
-		coût du lien allant du routeur <systemitem
-		class='systemname'>R1</systemitem> (avec le rôle
-		<acronym>ASBR</acronym>) vers l'Internet.</para>
+	<para>Au niveau système, cette même route apparaît avec la métrique
+		<option>64</option> parce qu'elle a été exportée depuis le démon
+		<systemitem class='daemon'>bird</systemitem> vers le noyau avec cette
+		dernière valeur.</para>
 	</answer>
 	</qandaentry>
-	</qandaset>
+</qandadiv>
+</qandaset>
 </sect1>
 
 <?custom-pagebreak?>
