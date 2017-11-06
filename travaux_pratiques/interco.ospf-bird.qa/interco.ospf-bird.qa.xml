@@ -1435,12 +1435,12 @@ Area 0.0.0.0
 <screen><prompt>#</prompt> birdc
 BIRD 1.6.3 ready.
 bird> show route
-0.0.0.0/0          via 10.1.13.1 on eth0.13 [OSPFv2R3 17:00:08] * <emphasis>E2 (150/10/100)</emphasis> [0.0.0.1]
-10.1.12.0/26       multipath [OSPFv2R3 17:00:08] * I (150/20) [0.0.0.2]
+0.0.0.0/0	via 10.1.13.1 on eth0.13 [OSPFv2R3 17:00:08] * <emphasis>E2 (150/10/100)</emphasis> [0.0.0.1]
+10.1.12.0/26	multipath [OSPFv2R3 17:00:08] * I (150/20) [0.0.0.2]
         via 10.1.13.1 on eth0.13 weight 1
         via 10.1.23.2 on eth0.23 weight 1
-10.1.13.0/26       dev eth0.13 [OSPFv2R3 16:18:17] * I (150/10) [0.0.0.3]
-10.1.23.0/26       dev eth0.23 [OSPFv2R3 16:10:43] * I (150/10) [0.0.0.3]</screen>
+10.1.13.0/26	dev eth0.13 [OSPFv2R3 16:18:17] * I (150/10) [0.0.0.3]
+10.1.23.0/26	dev eth0.23 [OSPFv2R3 16:10:43] * I (150/10) [0.0.0.3]</screen>
 
 	<para>La métrique relevée pour la route par défaut est composée d'un coût de
 		<option>10</option> correspondant au lien entre <systemitem
@@ -1464,410 +1464,214 @@ bird> show route
 </sect1>
 
 <?custom-pagebreak?>
-<sect1 xml:id='interco.ospf-bird.dummies'>
+<sect1 xml:id='interco.ospf-bird.fake-routes'>
 	<title>Ajout de routes fictives</title>
 
 	<para>L'introduction de nouvelles entrées fictives dans les tables de
-	routage est une pratique très répandue. Elle permet de qualifier le bon
-	fonctionnement du filtrage réseau ou d'un service Internet sans ajouter de
-	matériel. Cette section décrit justement la mise en place d'un service Web
-	de test.</para>
+		routage est une pratique très répandue. Elle permet de qualifier le bon
+		fonctionnement du filtrage réseau ou d'un service Internet sans ajouter
+		de matériel. Cette section décrit justement la mise en place d'un
+		service Web	de test.</para>
 
-	<qandaset>
+	<para>Pour réaliser ces manipulations, on dispose de deux techniques
+		distinctes.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Historiquement, la première solution consiste à utiliser des
+		interfaces de boucles locales sur des équipements Cisco ou des
+		interfaces de type <wordasword>dummy</wordasword> sur les systèmes
+		GNU/Linux.</para>
+
+	<para>Cette solution est satisfaisante du point de vue protocole de
+		routage, mais ces interfaces ne participent pas au routage sur le
+		système sur lequel elles sont implantées. Elles servent aux annonces
+		faites par les protocoles de routage dynamique.</para>
+
+	<para>Ce type d'interface est utilisé sur le routeur <systemitem
+		class='systemname'>R3</systemitem> dans la suite de cette
+		section.</para>
+	</listitem>
+	</itemizedlist>
+
+<sect2 xml:id='interco.ospf-bird.fake-routes.dummies'>
+	<title>Interfaces de type <wordasword>dummy</wordasword></title>
+
+<qandaset>
+<qandadiv>
 	<qandaentry>
 	<question>
-		<para><phrase>Quelles sont les opérations à effectuer pour pouvoir
-		utiliser des interfaces réseau virtuelles de type boucle locale sur un
-		système GNU/Linux ?</phrase></para>
+	<para><phrase>Comment créer et configurer une interface réseau virtuelle de type
+		<wordasword>dummy</wordasword> sur un système GNU/Linux
+		?</phrase></para>
 
-		<para>Avec un noyau Linux, il est conseillé d'utiliser les interfaces
-		baptisées <wordasword>dummy</wordasword> pour ce genre d'usage. Les
-		opérations à effectuer consistent à charger le module du même nom en
-		mémoire et à appliquer une nouvelle configuration
-		<acronym>IP</acronym>.</para>
+	<para>Rechercher dans la documentation de la command <command>ip</command>
+		la syntaxe qui permet de créer l'interface <option>dummy0</option> avec
+		l'adresse <systemitem
+		class='ipaddress'>10.1.3.3/29</systemitem>.</para>
+
+	<para>Vérifier la présence d'une nouvelle entrée dans la table de routage
+		au niveau système.</para>
 	</question>
 	<answer>
-<screen><prompt>#</prompt> modprobe -v dummy numdummies=2
-insmod /lib/modules/4.2.0-1-686-pae/kernel/drivers/net/dummy.ko numdummies=2
-<prompt>#</prompt> ip addr ls | grep dummy
-5: dummy0: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN group default 
-6: dummy1: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN group default</screen>
+	<para>On commence par la création de l'interface.</para>
 
-		<para>En prenant l'exemple du routeur <systemitem
-		class='systemname'>R3</systemitem>, on créé une nouvelle interface avec
-		l'adresse <acronym>IP</acronym> <systemitem
-		class='ipaddress'>10.1.3.3/30</systemitem>. Bien sûr, cette adresse ne
-		correspond à aucun réseau déjà connu des trois routeurs.</para>
+<screen><prompt>#</prompt> ip link add name dummy0 type dummy
+<prompt>#</prompt> ip link ls dev dummy0
+6: dummy0: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT \
+	group default qlen 1000
+	link/ether 3e:e8:51:46:27:62 brd ff:ff:ff:ff:ff:ff</screen>
 
-<screen><prompt>#</prompt> ip addr add 10.1.3.3/29 brd + dev dummy0
-<prompt>#</prompt> ip link set dev dummy0 up
-<prompt>#</prompt> ip route ls
-<emphasis>10.1.3.0/29 dev dummy0  proto kernel  scope link  src 10.1.3.3</emphasis>
-10.1.12.0/26  proto zebra  metric 20 
-        nexthop via 10.1.13.1  dev eth0.13 weight 1
-        nexthop via 10.1.23.2  dev eth0.23 weight 1
-10.1.13.0/26 dev eth0.13  proto kernel  scope link  src 10.1.13.3 
-10.1.23.0/26 dev eth0.23  proto kernel  scope link  src 10.1.23.3</screen>
+	<para>On enchaîne avec la configuration de cette interface.</para>
 
-		<para>Cette nouvelle interface se retrouve automatiquement disponible
-		dans la configuration les deux démons de routages. Dans <systemitem
-		class='daemon'>zebra</systemitem> sur <systemitem
-		class='systemname'>R3</systemitem>, on obtient les informations
-		suivante sur l'interface <option>dummy0</option>.</para>
+<screen><prompt>#</prompt> ip link set dev dummy0 up
+<prompt>#</prompt> ip addr add 10.1.3.3/29 brd + dev dummy0
+<prompt>#</prompt> ip addr ls dev dummy0
+6: dummy0: &lt;BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN \
+	group default qlen 1000
+    link/ether 3e:e8:51:46:27:62 brd ff:ff:ff:ff:ff:ff
+    inet 10.1.3.3/29 brd 10.1.3.7 scope global dummy0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::3ce8:51ff:fe46:2762/64 scope link
+	valid_lft forever preferred_lft forever</screen>
 
-<screen><prompt>R3-zebra#</prompt> sh int dummy0
-Interface dummy0 is up, line protocol detection is disabled
-  index 5 metric 0 mtu 1500 
-  flags: &lt;UP,BROADCAST,RUNNING,NOARP>
-  HWaddr: 12:08:a0:09:f3:7d
-  <emphasis>bandwidth 100000 kbps</emphasis>
-  inet 10.1.3.3/29 broadcast 10.1.3.7
-  inet6 fe80::1008:a0ff:fe09:f37d/64</screen>
+	<para>Enfin, on valide la présence d'une entrée correspondante dans la
+		table de routage.</para>
 
-		<para>On a fixé manuellement à 100Mbps dans <systemitem
-		class='daemon'>zebra</systemitem> le débit associé à l'interface
-		<option>dummy0</option>. Ce paramètre influence le calcul de métrique
-		dans les bases de données <acronym>OSPF</acronym>.</para>
+<screen><prompt>#</prompt> ip route show to 10.1.3.3/29
+10.1.3.0/29 dev dummy0 proto kernel scope link src 10.1.3.3</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Quelles sont les opérations à effectuer pour installer un
-		service Web en écoute exclusivement sur l'adresse <acronym>IP</acronym>
-		de l'interface <option>dummy0</option> ?</phrase></para>
+	<para><phrase>Comment installer un service Web en écoute exclusivement sur
+		l'adresse <acronym>IP</acronym> de l'interface
+		<option>dummy0</option> ?</phrase></para>
 
-		<para>Pour aller au plus court, on installe le paquet
-		<application>apache2</application> et on édite la configuration du
+	<para>Pour aller au plus court, on installe le paquet
+		<application>lighttpd</application> et on édite la configuration du
 		service de façon à limiter l'accès à l'adresse <acronym>IP</acronym>
 		voulue.</para>
 	</question>
 	<answer>
-<screen># aptitude install apache2
-Les NOUVEAUX paquets suivants vont être installés :     
-  apache2 apache2-bin{a} apache2-data{a} apache2-utils{a} libapr1{a}
-  libaprutil1{a} libaprutil1-dbd-sqlite3{a} libaprutil1-ldap{a} liblua5.1-0{a}
-  ssl-cert{a} 
-  0 paquets mis à jour, 10 nouvellement installés, 0 à enlever et 0 non mis à jour.
-  Il est nécessaire de télécharger 2 041 ko d'archives. Après dépaquetage,
-  6 475 ko seront utilisés.
-  Voulez-vous continuer ? [Y/n/?] Y</screen>
+<screen><prompt>#</prompt> aptitude install lighttpd
+Les NOUVEAUX paquets suivants vont être installés :
+  libfam0{a} lighttpd spawn-fcgi{a}
+0 paquets mis à jour, 3 nouvellement installés, 0 à enlever et 0 non mis à jour.
+Il est nécessaire de télécharger 350 ko d'archives.
+Après dépaquetage, 1 096 ko seront utilisés.
+Voulez-vous continuer ? [Y/n/?]</screen>
 
-		<para>On modifie ensuite le fichier de configuration
-		<filename>/etc/apache2/ports.conf</filename> de façon à limiter l'accès
-		à une adresse <acronym>IP</acronym> unique.</para>
+	<para>On modifie ensuite le fichier de configuration
+		<filename>/etc/lighttpd/lighttpd.conf</filename> de façon à limiter
+		l'accès à l'adresse <acronym>IPv4</acronym> de l'interface
+		<option>dummy0</option>.</para>
 
-<screen><?dbfo keep-together="auto" ?><xi:include href='files/ports.conf.patch'
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/lighttpd.conf.patch'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
-		<para>Après avoir redémarré l'instance de serveur Web, on vérifie que
-		la nouvelle configuration est bien en place.</para>
+	<para>Après avoir redémarré l'instance de serveur Web, on vérifie que la
+		nouvelle configuration est bien en place.</para>
 
-<screen><prompt>#</prompt> /etc/init.d/apache2 restart
+<screen><prompt>#</prompt> systemctl restart lighttpd
 &lt;snipped>
-<prompt>#</prompt> # ss -nlt '( src :80 )'
-State       Recv-Q Send-Q   Local Address:Port     Peer Address:Port              
-LISTEN      0      128           10.1.3.3:80                  *:*</screen>
+<prompt>#</prompt> ss -nlt '( src :80 )'
+State      Recv-Q Send-Q   Local Address:Port     Peer Address:Port
+LISTEN     0      128           10.1.3.3:80                  *:*
+LISTEN     0      128                 :::80                 :::*</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment ajouter la route correspondant au nouveau réseau
-		<systemitem class='ipaddress'>10.1.3.0/29</systemitem> dans le domaine
-		de routage <acronym>OSPF</acronym> ?</phrase></para>
+	<para><phrase>Comment ajouter la nouvelle route <systemitem
+		class='ipaddress'>10.1.3.0/29</systemitem> dans l'aire de
+		routage <acronym>OSPF</acronym> ?</phrase></para>
 
-		<para>Comme dans le cas de la mise en place des autres routes dans la
-		configuration du démon <systemitem class='daemon'>ospfd</systemitem>,
-		on ajoute une entrée <option>network</option> dans l'instance
-		<acronym>OSPF</acronym> du routeur.</para>
+	<para>Ajouter l'interface <option>dummy0</option> dans la configuration du
+		protocole <acronym>OSPF</acronym> du démon <systemitem
+		class='daemon'>bird</systemitem> sur le routeur <systemitem
+		class='systemname'>R3</systemitem>.</para>
 	</question>
 	<answer>
-		<para>Dans le cas du routeur <systemitem
-		class='systemname'>R3</systemitem>, la syntaxe est la suivante :</para>
+	<para>La partie <acronym>OSPF</acronym> du fichier de configuration sur
+		<systemitem class='systemname'>R3</systemitem> devient :</para>
 
-<screen>R3-ospfd(config)# router ospf
-R3-ospfd(config-router)# network 10.1.3.0/29 area 0</screen>
+<screen><prompt>#</prompt> sed -n '/protocol ospf OSPFv2R3 {/,/^}/p' /etc/bird/bird.conf
+protocol ospf OSPFv2R3 {
+	rfc1583compat yes;
+	ecmp yes;
+	debug all;
+	export all;
+	import all;
 
-		<para>On vérifie ensuite que cette entrée est bien intégrée dans la
-		base des routes <acronym>OSPF</acronym>.</para>
+	area 0.0.0.0 {
+		interface "eth0.13", "eth0.23" {
+			authentication none;
+		};
+		<emphasis>interface "dummy0"</emphasis> {
+			stub yes;
+		};
+	};
+}</screen>
 
-<screen>R3-ospfd(config)# sh ip ospf route</screen>
+	<para>On vérifie ensuite que cette entrée est bien intégrée dans la base
+		des routes <acronym>OSPF</acronym> à l'aide de la console
+		<command>birdc</command>.</para>
+
+<screen><prompt>#</prompt> birdc
+BIRD 1.6.3 ready.
+bird> show route 10.1.3.0/29
+10.1.3.0/29        dev dummy0 [OSPFv2R3 18:52:11] * I (150/10) [0.0.0.3]</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment valider l'accès à ce service Web depuis les
-		autres réseaux ?</phrase></para>
+	<para><phrase>Comment valider l'accès à ce service Web depuis les autres
+		réseaux ?</phrase></para>
 
-		<para>En respectant l'ordre des protocoles de la pile
+	<para>En respectant l'ordre des protocoles de la pile
 		<acronym>TCP/IP</acronym>, on commence par valider la connectivité au
 		niveau réseau avant de passer à la couche application.</para>
 	</question>
 	<answer>
-		<para>À partir du routeur <systemitem
-		class='systemname'>R1</systemitem>, on utilise la séquence suivante
-		:</para>
-		<itemizedlist>
-		<listitem>
-			<para>Test <acronym>ICMP</acronym> au niveau réseau :</para>
+	<para>À partir du routeur <systemitem class='systemname'>R1</systemitem>,
+		on utilise la séquence suivante :</para>
+	<itemizedlist>
+	<listitem>
+	<para>Test <acronym>ICMP</acronym> au niveau réseau :</para>
 
-<screen><prompt>r1:~$</prompt> ping -c2 10.1.3.3
+<screen><prompt>r1:~$</prompt> ping -c 2 10.1.3.3
 PING 10.1.3.3 (10.1.3.3) 56(84) bytes of data.
-64 bytes from 10.1.3.3: icmp_seq=1 ttl=64 time=0.939 ms
-64 bytes from 10.1.3.3: icmp_seq=2 ttl=64 time=0.561 ms
+64 bytes from 10.1.3.3: icmp_seq=1 ttl=64 time=0.916 ms
+64 bytes from 10.1.3.3: icmp_seq=2 ttl=64 time=0.731 ms
 
 --- 10.1.3.3 ping statistics ---
 2 packets transmitted, 2 received, 0% packet loss, time 1001ms
-rtt min/avg/max/mdev = 0.561/0.750/0.939/0.189 ms</screen>
-		</listitem>
-		<listitem>
-			<para>Test <acronym>HTTP</acronym> au niveau application :</para>
+rtt min/avg/max/mdev = 0.731/0.823/0.916/0.096 ms</screen>
+	</listitem>
+	<listitem>
+	<para>Test <acronym>HTTP</acronym> au niveau application :</para>
 
 <screen><prompt>r1:~$</prompt> wget -O /dev/null http://10.1.3.3
---2015-10-28 09:24:29--  http://10.1.3.3/
+--2017-11-06 19:12:56--  http://10.1.3.3/
 Connexion à 10.1.3.3:80… connecté.
 requête HTTP transmise, en attente de la réponse… 200 OK
-Taille : 11104 (11K) [text/html]</screen>
-		</listitem>
-		</itemizedlist>
+Taille : 1475 (1,4K) [text/html]
+Sauvegarde en : « /dev/null »
+
+/dev/null   100%[==========================>]   1,44K  --.-KB/s    ds 0s
+
+2017-11-06 19:12:56 (301 MB/s) - « /dev/null » sauvegardé [3378]</screen>
+	</listitem>
+	</itemizedlist>
 	</answer>
 	</qandaentry>
-	</qandaset>
-</sect1>
-
-<?custom-pagebreak?>
-<sect1 xml:id='interco.ospf-bird.auto-cost'>
-	<title>Adaptation de la métrique de lien au débit</title>
-
-	<para>Par défaut, le calcul de métrique du le protocole
-	<acronym>OSPF</acronym> se fait à partir de l'expression :
-	10<superscript>8</superscript> / Bande_Passante_du_lien.</para>
-
-	<para>Cette règle a été établie à une époque où l'utilisation d'un lien à
-	100Mbps devait être considéré comme une situation d'exploitation futuriste.
-	Aujourd'hui, les liens à 100Mbps sont monnaie courante et les 100Gbps vont
-	bientôt le devenir.</para>
-
-	<para>Cette section traite donc de la configuration des instances de
-	protocole de routage <acronym>OSPF</acronym> utilisant des liens avec une
-	capacité supérieure à 100Mbps.</para>
-
-	<qandaset>
-	<qandaentry>
-	<question>
-		<para><phrase>Quelle est l'instruction à utiliser pour que le calcul de
-		métrique <acronym>OSPF</acronym> se fasse sur la base d'un débit de
-		lien à 10Gbps ?</phrase></para>
-
-		<para>Rechercher le mot clé <wordasword>bandwidth</wordasword> dans la
-		liste des instructions de configuration du démon <systemitem
-		class='daemon'>ospfd</systemitem>.</para>
-	</question>
-	<answer>
-		<para>C'est l'instruction <command>auto-cost
-		reference-bandwidth</command> qui permet de fixer une nouvelle
-		référence de coût de lien en Mbps.</para>
-
-<screen>R2-ospfd(config-router)# auto-cost reference-bandwidth
-  &lt;1-4294967>  The reference bandwidth in terms of Mbits per second</screen>
-
-		<para>Voici un extrait de la configuration du routeur <systemitem
-		class='systemname'>R2</systemitem> après application d'une nouvelle
-		référence à 10000Mbps soit 10Gbps.</para>
-
-<screen>router ospf
- ospf router-id 0.0.0.2
-! Important: ensure reference bandwidth is consistent across all routers
- <emphasis>auto-cost reference-bandwidth 10000</emphasis>
- network 10.1.12.0/26 area 0.0.0.0
- network 10.1.23.0/26 area 0.0.0.0</screen>
-
-		<para>Comme indiqué dans le commentaire ci-dessus, il est indispensable
-		que tous les routeurs de l'aire <acronym>OSPF</acronym> aient la même
-		référence de calcul de métrique. La même instruction doit donc être
-		implantée dans la configuration des trois routeurs.</para>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-		<para><phrase>Comment modifier le débit d'un lien à 1Gbps ?</phrase></para>
-
-		<para>Normalement, le débit d'un lien est directement extrait des
-		paramètres de l'interface connectée au lien. Dans le cas d'interface
-		qui n'ont «aucune réalité physique», ce débit peut être attribué
-		arbitrairement par configuration. On doit rechercher dans les options
-		des démons <systemitem class='daemon'>zebra</systemitem> et <systemitem
-		class='daemon'>ospfd</systemitem> le moyen d'attribuer un débit aux
-		sous-interfaces de <acronym>VLAN</acronym>s.</para>
-	</question>
-	<answer>
-		<para>Comme indiqué dans la <xref
-		linkend='interco.ospf-bird.prepare-config'/>, c'est dans la configuration du
-		démon <systemitem class='daemon'>zebra</systemitem> que l'on attribue
-		le débit binaire d'une interface réseau. Cette opération est nécessaire
-		compte tenu du fait que le débit d'une même interface Ethernet
-		<option>eth0</option> peut varier de 10Mbps à 100Gbps.</para>
-
-		<para>Dans toutes les sections précédentes, la bande passante des
-		interfaces était fixée à 100Mbps. Pour tenir compte de la nouvelle
-		référence de calcul de métrique, on applique une nouvelle valeur de
-		bande passante fixée à 1Gbps sur les interfaces Ethernet des trois
-		routeurs. Voici un extrait du fichier de configuration du démon
-		<systemitem class='daemon'>zebra</systemitem> du routeur <systemitem
-		class='systemname'>R2</systemitem>.</para>
-
-<screen>interface eth0
- <emphasis>bandwidth 1000000</emphasis>
- ipv6 nd suppress-ra
-!
-interface eth0.12
- <emphasis>bandwidth 1000000</emphasis>
- ipv6 nd suppress-ra
-!
-interface eth0.23
- <emphasis>bandwidth 1000000</emphasis>
- ipv6 nd suppress-ra</screen>
-
-		<para>Comme la valeur de base de bande passante est le kilobit par
-		seconde, il faut 1 million de Kbps pour faire 1Gbps ou
-		10<superscript>9</superscript>bps.</para>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-		<para><phrase>Comment peut-on identifier le débit d'un lien dans la
-		configuration <acronym>OSPF</acronym> ?</phrase></para>
-
-		<para>Visualiser les paramètres des interfaces réseau depuis la console
-		du démon <systemitem class='daemon'>ospfd</systemitem>.</para>
-	</question>
-	<answer>
-		<para>C'est l'instruction <command>sh ip ospf interface</command> qui
-		permet d'afficher la valeur de débit attribuée aux interfaces avec le
-		protocole de routage <acronym>OSPF</acronym>.</para>
-
-		<para>Voici le résultat obtenu sur le routeur <systemitem
-		class='systemname'>R2</systemitem>.</para>
-
-<screen><prompt>R2-ospfd#</prompt> sh ip ospf interface
-eth0 is up
-  ifindex 2, MTU 1500 bytes, <emphasis>BW 1000000 Kbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
-  OSPF not enabled on this interface
-eth0.12 is up
-  ifindex 3, MTU 1496 bytes, <emphasis>BW 1000000 Kbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
-  Internet Address 10.1.12.2/26, Broadcast 10.1.12.63, Area 0.0.0.0
-  MTU mismatch detection:enabled
-  Router ID 0.0.0.2, Network Type BROADCAST, Cost: 1
-  Transmit Delay is 1 sec, State DR, Priority 1
-  Designated Router (ID) 0.0.0.2, Interface Address 10.1.12.2
-  Backup Designated Router (ID) 0.0.0.1, Interface Address 10.1.12.1
-  Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
-  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
-    Hello due in 8.604s
-  Neighbor Count is 1, Adjacent neighbor count is 1
-eth0.23 is up
-  ifindex 4, MTU 1496 bytes, <emphasis>BW 1000000 Kbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
-  Internet Address 10.1.23.2/26, Broadcast 10.1.23.63, Area 0.0.0.0
-  MTU mismatch detection:enabled
-  Router ID 0.0.0.2, Network Type BROADCAST, Cost: 1
-  Transmit Delay is 1 sec, State Backup, Priority 1
-  Designated Router (ID) 0.0.0.3, Interface Address 10.1.23.3
-  Backup Designated Router (ID) 0.0.0.2, Interface Address 10.1.23.2
-  Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
-  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
-    Hello due in 1.144s
-  Neighbor Count is 1, Adjacent neighbor count is 1
-lo is up
-  ifindex 1, MTU 16436 bytes, BW 0 Kbit &lt;UP,LOOPBACK,RUNNING>
-  OSPF not enabled on this interface</screen>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-		<para><phrase>Quel est le coût d'accès au pseudo service Internet
-		(réseau <systemitem class='ipaddress'>10.1.3.0/29</systemitem>) après
-		modification de la référence de calcul de métrique ? Justifier la
-		valeur de métrique obtenue.</phrase></para>
-
-		<para>À partir des informations de la base de données du démon
-		<systemitem class='daemon'>ospfd</systemitem>, faire la somme des
-		métriques de chaque lien entre les deux extrémités en
-		communication.</para>
-	</question>
-	<answer>
-		<para>Il est possible d'obtenir les informations de calcul de métrique
-		soit à partir du démon de routage <acronym>OSPF</acronym> <systemitem
-		class='daemon'>ospfd</systemitem>, soit à partir du démon de routage
-		statique <systemitem class='daemon'>zebra</systemitem>.</para>
-
-		<itemizedlist>
-		<listitem>
-			<para>Démon de routage <acronym>OSPF</acronym>:</para>
-
-<screen><prompt>R2-ospfd#</prompt> sh ip ospf route 
-============ OSPF network routing table ============
-N    10.1.3.0/29           [<emphasis>110</emphasis>] area: 0.0.0.0
-                           via 10.1.23.3, eth0.23
-N    10.1.12.0/26          [10] area: 0.0.0.0
-                           directly attached to eth0.12
-N    10.1.13.0/26          [20] area: 0.0.0.0
-                           via 10.1.12.1, eth0.12
-                           via 10.1.23.3, eth0.23
-N    10.1.23.0/26          [10] area: 0.0.0.0
-                           directly attached to eth0.23
-
-============ OSPF router routing table =============
-R    0.0.0.1               [10] area: 0.0.0.0, ASBR
-                           via 10.1.12.1, eth0.12
-
-============ OSPF external routing table ===========
-N E2 0.0.0.0/0             [10/10] tag: 0
-                           via 10.1.12.1, eth0.12</screen>
-		</listitem>
-		<listitem>
-			<para>Démon de routage statique :</para>
-
-<screen><prompt>R2-zebra#</prompt> sh ip route
-Codes: K - kernel route, C - connected, S - static, R - RIP,
-       O - OSPF, I - IS-IS, B - BGP, P - PIM, A - Babel,
-       > - selected route, * - FIB route
-
-O>* 0.0.0.0/0 [110/10] via 10.1.12.1, eth0.12, 23:49:36
-O>* 10.1.3.0/29 [110/<emphasis>110</emphasis>] via 10.1.23.3, eth0.23, 00:13:23
-O   10.1.12.0/26 [110/10] is directly connected, eth0.12, 00:09:46
-C>* 10.1.12.0/26 is directly connected, eth0.12
-O>* 10.1.13.0/26 [110/20] via 10.1.12.1, eth0.12, 00:09:00
-  *                       via 10.1.23.3, eth0.23, 00:09:00
-O   10.1.23.0/26 [110/10] is directly connected, eth0.23, 00:09:42
-C>* 10.1.23.0/26 is directly connected, eth0.23
-C>* 127.0.0.0/8 is directly connected, lo</screen>
-		</listitem>
-		</itemizedlist>
-
-		<para>Prenons l'exemple de la métrique du réseau <systemitem
-		class='ipaddress'>10.1.3.0/29</systemitem>. La valeur
-		<option>110</option> correspond à la somme des coûts de deux liens : 1
-		lien à 1Gbps
-		(10<superscript>10</superscript>/10<superscript>9</superscript> = 10) +
-		1 lien à 100Mbps
-		(10<superscript>10</superscript>/10<superscript>8</superscript> = 100)
-		= 110.</para>
-
-		<para>Le lien à 1Gbps correspond à la liaison entre les routeurs
-		<systemitem class='systemname'>R2</systemitem> et <systemitem
-		class='systemname'>R3</systemitem>. Le lien à 100Mbps correspond à la
-		liaison entre le routeur <systemitem class='systemname'>R3</systemitem>
-		et son <link linkend='interco.ospf-bird.dummies'>interface virtuelle
-		<option>dummy0</option></link> sur laquelle le service Web est en
-		écoute.</para>
-	</answer>
-	</qandaentry>
-	</qandaset>
+</qandadiv>	
+</qandaset>
+</sect2>
 </sect1>
 
 <?custom-pagebreak?>
