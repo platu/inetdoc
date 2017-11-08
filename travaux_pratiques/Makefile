@@ -40,6 +40,7 @@ SUBDIRS = \
 	interco.ospf-quagga.qa \
 	interco.ospf-quagga.q \
 	interco.ospf-bird.qa \
+	interco.ospf-bird.q \
 	interco.ovs.qa \
 	interco.ovs.q \
 	interco.cs \

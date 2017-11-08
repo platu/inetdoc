@@ -11,7 +11,9 @@ SYMLINKS = \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.ppp.qa/files/*.txt) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.netfilter.qa/files/*.txt) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.inter-vlan.qa/files/*) \
-	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.ospf-quagga.qa/files/*)
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/files/*.sh) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/files/*interfaces*) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/files/*.patch)
 
 all: $(PROCESS)
 

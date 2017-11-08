@@ -23,8 +23,9 @@ XML_FILES = \
 	$(OUTPUT)/chapter-interco.ppp.qa.xml \
 	$(OUTPUT)/chapter-interco.netfilter.qa.xml \
 	$(OUTPUT)/chapter-interco.inter-vlan.qa.xml \
-	$(OUTPUT)/chapter-interco.ospf-quagga.qa.xml \
+	$(OUTPUT)/chapter-interco.ospf-bird.qa.xml \
 	$(OUTPUT)/chapter-interco.cs.xml \
+	$(wildcard files/*) \
 	$(wildcard images/*.png)
 
 CHAPTER_FILES = \
@@ -33,7 +34,7 @@ CHAPTER_FILES = \
 	../interco.ppp.qa/interco.ppp.qa.xml \
 	../interco.netfilter.qa/interco.netfilter.qa.xml \
 	../interco.inter-vlan.qa/interco.inter-vlan.qa.xml \
-	../interco.ospf-quagga.qa/interco.ospf-quagga.qa.xml \
+	../interco.ospf-bird.qa/interco.ospf-bird.qa.xml \
 	../interco.cs/interco.cs.xml 
 
 all: $(PROCESS)
