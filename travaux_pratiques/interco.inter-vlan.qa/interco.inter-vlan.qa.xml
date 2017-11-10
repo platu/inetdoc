@@ -5,8 +5,6 @@
 <!ENTITY author				SYSTEM "author.xml">
 <!ENTITY legal				SYSTEM "legal.xml">
 
-<!ENTITY segmentation.avant	SYSTEM "files/segmentation.avant.txt">
-<!ENTITY segmentation.apres	SYSTEM "files/segmentation.apres.txt">
 <!ENTITY access.rules.v4	SYSTEM "files/access.rules.v4">
 
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
@@ -182,23 +180,20 @@
 	<acronym>IEEE 802.1q</acronym>. Ils ne nécessitent donc aucune configuration
 	particulière.</para>
 
-<screen>        __         Routeur
-    ___/  \_      GNU/Linux 
-  _/        \__     .---.     gi0/1 fa0/4       fa0/23
- /             \eth1| ==|eth0   _|___|_____ / /__|sw1
-| Internet      |___| ==|_     |_=_=_=_=_=_/ /_=_=_=_|
-\_           __/    |  -| `-O----'   |    / /    |
-  \__     __/       |   |  trunk     |           |périmètre
-     \___/         -------           |           |accès
-                        .------------'           |
-                        | périmètre              |.....
-                  .__.  | services              .------,~
-           serveur| .|,-'                       |client|'
-               Web| =|                          |      ||
-                  |  |                          \------ /
-                 ------                          ======/
-
-</screen>
+	<mediaobject>
+	<imageobject role='html'>
+	<imagedata fileref='images/inter-vlan-routing-typical.png' format='PNG' width='640px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+	<imagedata fileref='images/inter-vlan-routing-typical.png' format='PNG' width='15cm' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie type</phrase>
+	</textobject>
+	<caption>
+	<para><link xlink:href='images/inter-vlan-routing-typical.png'>Topologie type</link></para>
+	</caption>
+	</mediaobject>
 
 	<para>Cette infrastructure type comprend 2 périmètres reliés au réseau
 	public Internet. Un premier périmètre de services utilisé pour
@@ -698,99 +693,86 @@ Success rate is 0 percent (0/5)</screen>
   traduction d'adresses (<wordasword>Native Address Translation</wordasword> ou
   <acronym>NAT</acronym>).</para>
 
-  <sect2 xml:id='interco.inter-vlan.qa.netfilter.light'>
-    <title>Fonctionnement minimal</title>
+<sect2 xml:id='interco.inter-vlan.qa.netfilter.light'>
+	<title>Fonctionnement minimal</title>
 
-  <para>Après avoir activé le routage au niveau noyau (voir <xref
-  linkend='interco.inter-vlan.qa.typical.routing'/>), la fontion de camouflage est
-  simple à mettre en oeuvre :</para>
+	<para>Après avoir activé le routage au niveau noyau (voir <xref
+		linkend='interco.inter-vlan.qa.typical.routing'/>), la fontion de
+		camouflage est simple à mettre en oeuvre :</para>
 
-<screen><prompt>#</prompt> iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE</screen>
+<screen><prompt>#</prompt> iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE</screen>
 
-  <para>Cette règle réalise une traduction d'adresse source. Tout paquet
-  <acronym>IP</acronym> sortant par l'interface <systemitem>eth1</systemitem>
-  voit son adresse <acronym>IP</acronym> source réécrite avec l'adresse
-  <acronym>IP</acronym> de l'interface.</para>
+	<para>Cette règle réalise une traduction d'adresse source. Tout paquet
+		<acronym>IPv4</acronym> sortant par l'interface
+		<systemitem>eth1</systemitem> voit son adresse <acronym>IPv4</acronym>
+		source réécrite avec l'adresse <acronym>IPv4</acronym> de
+		l'interface.</para>
 
-  <para>L'exécution de la règle entraîne le chargement des modules de gestion
-  de la traduction d'adresses et du suivi dynamique de communication
-  (<wordasword>stateful inspection</wordasword>).</para>
+	<para>L'exécution de la règle entraîne le chargement des modules de gestion
+		de la traduction d'adresses et du suivi dynamique de communication
+		(<wordasword>stateful inspection</wordasword>).</para>
 
-<screen># dmesg |grep ip_
-ip_tables: (C) 2000-2002 Netfilter core team
-ip_conntrack version 2.1 (4095 buckets, 32760 max) - 248 bytes per conntrack
-</screen>
+<screen><prompt>#</prompt> lsmod | grep nat | fmt -t -w80
+nf_nat_masquerade_ipv4    16384  1 ipt_MASQUERADE
+iptable_nat            16384  1
+nf_nat_ipv4            16384  1 iptable_nat
+nf_nat                 28672  2 nf_nat_masquerade_ipv4,nf_nat_ipv4
+nf_conntrack          131072  7
+   nf_conntrack_ipv4,ipt_MASQUERADE,nf_conntrack_netlink,nf_nat_masquerade_ipv4,xt_conntrack,nf_nat_ipv4,nf_nat
+libcrc32c              16384  2 nf_conntrack,nf_nat
+ip_tables              24576  2 iptable_filter,iptable_nat</screen>
 
-<screen># lsmod |grep ip
-iptable_filter          3200  0
-ipt_MASQUERADE          3712  1
-iptable_nat            23516  2 ipt_MASQUERADE
-ip_conntrack           44728  2 ipt_MASQUERADE,iptable_nat
-ip_tables              22528  3 iptable_filter,ipt_MASQUERADE,iptable_nat
-ipv6                  255936  12
-</screen>
+	<para>Le suivi d'état des échanges réseau consiste à conserver une
+		empreinte de paquet sortant de façon à identifier les paquets retour
+		relatifs à cette «demande». Les empreintes sont stockées dans la table
+		<filename>/proc/net/nf_conntrack</filename> du système de fichiers
+		virtuel du noyau Linux.</para>
 
-  <para>Le suivi dynamique de communication consiste à conserver une empreinte
-  de paquet sortant de façon à identifier les paquets retour relatifs à cette
-  «demande». Les empreintes sont stockées dans la table
-  <filename>/proc/net/ip_conntrack</filename> du système de fichiers virtuel du
-  noyau Linux.</para>
+<screen><prompt>#</prompt> cat /proc/net/nf_conntrack | fmt -t -w80
+ipv4     2 udp<co xml:id='conntrack.proto'/>       17 8 src=198.168.200.2<co xml:id='conntrack.src'/>  dst=176.9.82.67<co xml:id='conntrack.dst'/>  sport=36322 dport=123
+   src=176.9.82.67 dst=aaa.bbb.ccc.7<co xml:id='conntrack.public'/> sport=123 dport=36322 mark=0 zone=0 use=2
+ipv4     2 tcp      6 113 TIME_WAIT<co xml:id='conntrack.state'/>  src=203.0.113.1 dst=203.0.113.4 sport=38940
+   dport=22<co xml:id='conntrack.ssh'/>  src=203.0.113.4 dst=203.0.113.1 sport=22 dport=38940 [ASSURED]
+   mark=0 zone=0 use=2</screen>
 
-<screen># cat /proc/net/ip_conntrack
-tcp<co xml:id='conntrack.proto'/>     6 431999 ESTABLISHED<co xml:id='conntrack.state'/> src=192.168.200.2<co xml:id='conntrack.src'/> dst=192.168.200.1<co xml:id='conntrack.dst'/> \
-         sport=33450 dport=22<co xml:id='conntrack.ssh'/> packets=417 bytes=31133 \
-         src=192.168.200.1 dst=192.168.200.2 \
-         sport=22 dport=33450 packets=306 bytes=111969 [ASSURED] mark=0 use=1
-tcp      6 431999 ESTABLISHED src=192.168.200.2 dst=64.236.34.4 \
-         sport=33449 dport=80<co xml:id='conntrack.http'/> packets=7075 bytes=368009 \
-         src=64.236.34.4 dst=aaa.bbb.ccc.7<co xml:id='conntrack.public'/> \
-         sport=80 dport=33449 packets=9219 bytes=12839148 [ASSURED] mark=0 use=1
-</screen>
+	<calloutlist>
+	<callout arearefs='conntrack.proto'>
+	<para>Protocole de transport utilisé.</para>
+	</callout>
+	<callout arearefs='conntrack.state'>
+	<para>État de la connexion <acronym>TCP</acronym>.</para>
+	</callout>
+	<callout arearefs='conntrack.src'>
+	<para>Adresse <acronym>IPv4</acronym> source. Cette adresse correspond à un
+		poste client appartenant au périmètre
+		<emphasis>Accès</emphasis>.</para>
+	</callout>
+	<callout arearefs='conntrack.dst'>
+	<para>Adresse <acronym>IPv4</acronym> destination. Il s'agit d'une adresse
+		publique sur l'Internet.</para>
+	</callout>
+	<callout arearefs='conntrack.ssh'>
+	<para>Le numéro de port destination du paquet identifie service Internet
+		utilisé : <acronym>SSH</acronym>.</para>
+	</callout>
+	<callout arearefs='conntrack.public'>
+	<para>L'adresse <acronym>IPv4</acronym> destination attendue pour un paquet
+		retour est l'adresse publique du Routeur GNU/Linux. Cette ligne montre
+		bien que le routeur à la connaissance des réseaux internes et du réseau
+		public. C'est à partir de ces correspondances d'adresses
+		<acronym>IPv4</acronym> que les décisions d'acheminement sont prises.
+		Dans le cas de la traduction d'adresses par camouflage, l'adresse
+		<acronym>IPv4</acronym> retour est réécrite avec l'adresse
+		<acronym>IPv4</acronym> de l'hôte du périmètre
+		<emphasis>Accès</emphasis>.</para>
+	</callout>
+	</calloutlist>
 
-  <calloutlist>
-    <callout arearefs='conntrack.proto'>
-    <para>Protocole de transport utilisé.</para>
-    </callout>
-    <callout arearefs='conntrack.state'>
-    <para>État de la connexion <acronym>TCP</acronym>.</para>
-    </callout>
-    <callout arearefs='conntrack.src'>
-    <para>Adresse <acronym>IP</acronym> source. Cette adresse correspond à un
-    poste client appartenant au périmètre <emphasis>Accès</emphasis>.</para>
-    </callout>
-    <callout arearefs='conntrack.dst'>
-    <para>Adresses <acronym>IP</acronym> destination. Dans le premier cas, la
-    communication est interne au réseau du périmètre
-    <emphasis>Accès</emphasis>. Dans le second cas, il s'agit d'une adresse sur
-    l'Internet.</para>
-    </callout>
-    <callout arearefs='conntrack.ssh'>
-    <para>Le numéro de port destination du paquet sortant identifie service
-    Internet utilisé : <acronym>SSH</acronym>.</para>
-    </callout>
-    <callout arearefs='conntrack.http'>
-    <para>Le numéro de port destination du paquet sortant identifie le
-    service Internet utilisé : <acronym>HTTP</acronym>. Plus loin sur la même
-    ligne, on retrouve les adresses <acronym>IP</acronym> source et destination
-    attendues.</para>
-    </callout>
-    <callout arearefs='conntrack.public'>
-    <para>L'adresse <acronym>IP</acronym> destination attendue pour un paquet
-    retour est l'adresse publique du Routeur GNU/Linux. Cette ligne montre bien
-    que le routeur à la connaissance des réseaux internes et du réseau public.
-    C'est à partir de ces correspondances d'adresses <acronym>IP</acronym> que
-    les décision d'acheminement sont prises. Dans le cas de la traduction
-    d'adresses par camouflage, l'adresse <acronym>IP</acronym> retour est
-    réécrite avec l'adresse <acronym>IP</acronym> de l'hôte du périmètre
-    <emphasis>Accès</emphasis>.</para>
-    </callout>
-  </calloutlist>
-
-  <para>Si cette configuration a le mérite d'illustrer le fonctionnement du
-  routage inter-VLAN de façon simple, elle ne correspond pas à un niveau de
-  contrôle d'accès suffisant. L'objet de la section suivante est justement de
-  chercher à augmenter ce niveau de contrôle.</para>
-  </sect2>
+	<para>Si cette configuration a le mérite d'illustrer le fonctionnement du
+		routage inter-VLAN de façon simple, elle ne correspond pas à un niveau
+		de contrôle d'accès suffisant. L'objet de la section suivante est
+		justement de chercher à augmenter ce niveau de contrôle.</para>
+</sect2>
   
   <sect2 xml:id='interco.inter-vlan.qa.netfilter.midrange'>
     <title>Meilleur contrôle d'accès</title>
@@ -862,8 +844,11 @@ tcp      6 431999 ESTABLISHED src=192.168.200.2 dst=64.236.34.4 \
     <title>Topologie type de travaux pratiques</title>
 
   <mediaobject>
-  <imageobject>
-    <imagedata fileref='images/inter-vlan-routing-topology.png' format='PNG' contentwidth='15cm' width='15.5cm'/>
+  <imageobject role='html'>
+    <imagedata fileref='images/inter-vlan-routing-topology.png' format='PNG' width='640px' scalefit='1'/>
+  </imageobject>
+  <imageobject role='fo'>
+    <imagedata fileref='images/inter-vlan-routing-topology.png' format='PNG' width='15cm' scalefit='1'/>
   </imageobject>
   <textobject>
     <phrase>Topologie type TP</phrase>
