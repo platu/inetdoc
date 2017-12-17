@@ -2,8 +2,10 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
+PNGTARGET = $(addsuffix .png,$(basename $(wildcard *.odg)))
+
 # Type(s) de traitement
-PROCESS = symlink
+PROCESS = symlink $(PNGTARGET)
 
 SYMLINKS = $(MAIN_DIR)/travaux_pratiques/interco.ospf-quagga.qa/images/*.png
 
