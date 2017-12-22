@@ -1798,7 +1798,7 @@ Sauvegarde en : « /dev/null »
 <qandadiv>
 	<qandaentry>
 	<question>
-	<para><phrase>Comment créer et configurer une paire d'interfaces réseau
+	<para><phrase>Comment créer et activer une paire d'interfaces réseau
 		virtuelles de type <wordasword>veth</wordasword> sur un système
 		GNU/Linux ?</phrase></para>
 
@@ -1824,6 +1824,84 @@ Sauvegarde en : « /dev/null »
 	state UP mode DEFAULT group default qlen 1000
 8: veth1@veth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
 	state UP mode DEFAULT group default qlen 1000</screen>
+	</answer>
+	</qandaentry>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment créer un nouvel espace de noms réseau baptisé
+		<wordasword>green</wordasword> et affecter l'interface
+		<option>veth1</option> à cet espace de noms ?</phrase></para>
+
+	<para>Rechercher dans les pages de manuels <option>ip-netns</option> la
+		syntaxe qui permet de créer un nouvel espace de noms réseau.</para>
+	</question>
+	<answer>
+<screen><prompt>#</prompt> ip netns add green
+<prompt>#</prompt> ip netns list
+green</screen>
+
+	<para>L'affectation d'une interface à l'espace de noms se fait avec la
+		commande suivante :</para>
+
+<screen><prompt>#</prompt> ip link set veth1 netns green</screen>
+	</answer>
+	</qandaentry>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser et modifier l'état des interfaces de type
+		<option>veth</option> dans les deux espaces de noms réseau
+		?</phrase></para>
+
+	<para>Rechercher dans les pages de manuels <option>ip-netns</option> la
+		syntaxe qui permet d'exécuter une commande dans un nouvel espace de
+		noms réseau.</para>
+	</question>
+	<answer>
+	<para>On commence par visualiser l'interface qui est restée dans l'espace
+		de noms par défaut.</para>
+
+<screen><prompt>#</prompt> ip link ls | grep veth | fmt -t -w80
+5: veth0@if6: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+	state LOWERLAYERDOWN mode DEFAULT group default qlen 1000</screen>
+
+	<para>On répète la même opération dans l'autre espace de noms
+		réseau.</para>
+
+<screen><prompt>#</prompt> ip netns exec green ip link ls | grep veth | fmt -t -w80
+6: veth1@if5: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
+	DEFAULT group default qlen 1000</screen>
+
+	<para>Pour activer l'interface dans le nouvel espace de noms, on reprend la
+		commande utiliser plus haut.</para>
+
+<screen><prompt>#</prompt> ip netns exec green ip link set dev veth1 up
+<prompt>#</prompt> ip netns exec green ip link ls | grep veth | fmt -t -w80
+6: veth1@if5: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state
+UP mode DEFAULT group default qlen 1000</screen>
+	</answer>
+	</qandaentry>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment qualifier la communication entre les deux espaces de
+			noms réseau ?</phrase></para>
+
+	<para>Utiliser les adresses de lien local <acronym>IPv6</acronym> pour
+		faire un test <acronym>ICMP</acronym> avec l'adresse multicast de
+		sollicitation d'hôte.</para>
+	</question>
+	<answer>
+	<para>Le test avec la commande <command>ping</command> doit désigner
+		l'interface du lien à utiliser.</para>
+
+<screen><prompt>$</prompt> ping -c2 ff02::1%veth0
+PING ff02::1%veth0(ff02::1%veth0) 56 data bytes
+64 bytes from fe80::aca2:77ff:feec:27e4%veth0: icmp_seq=1 ttl=64 time=0.023 ms
+64 bytes from fe80::1c1c:4aff:fef3:100f%veth0: icmp_seq=1 ttl=64 time=0.036 ms (DUP!)
+64 bytes from fe80::aca2:77ff:feec:27e4%veth0: icmp_seq=2 ttl=64 time=0.029 ms
+
+--- ff02::1%veth0 ping statistics ---
+2 packets transmitted, 2 received, +1 duplicates, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.023/0.029/0.036/0.006 ms</screen>
 	</answer>
 	</qandaentry>
 </qandadiv>	
