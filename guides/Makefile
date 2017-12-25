@@ -7,17 +7,12 @@ ABSTRACT_FILE = transform_output/abstract.xml
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
 	images \
-	autodoc \
 	lartc \
-	zebra.statique \
-	zebra.rip \
-	zebra.ospf \
 	iptables-tutorial \
 	tutoriel-secu \
 	amavisd-new \
 	squid-guard \
 	vm \
-	dynamips-dynagen \
 	linux.networking
 
 # Type(s) de traitement
