@@ -1699,7 +1699,7 @@ Voulez-vous continuer ? [Y/n/?]</screen>
 		l'accès à l'adresse <acronym>IPv4</acronym> de l'interface
 		<option>dummy0</option>.</para>
 
-<screen><?dbfo keep-together="auto" ?><xi:include href='files/lighttpd.conf.patch'
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/dummy0-lighttpd.conf.patch'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
 	<para>Après avoir redémarré l'instance de serveur Web, on vérifie que la
@@ -1789,7 +1789,7 @@ rtt min/avg/max/mdev = 0.731/0.823/0.916/0.096 ms</screen>
 <screen><prompt>r1:~$</prompt> wget -O /dev/null http://10.1.3.3
 --2017-11-06 19:12:56--  http://10.1.3.3/
 Connexion à 10.1.3.3:80… connecté.
-requête HTTP transmise, en attente de la réponse… 200 OK
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
 Taille : 1475 (1,4K) [text/html]
 Sauvegarde en : « /dev/null »
 
@@ -1951,6 +1951,248 @@ fe80::bcff:ddff:fef3:d028 lladdr be:ff:dd:f3:d0:28 router STALE</screen>
 
 	<para>On peut donc conclure que le lien point à point entre les deux
 		espaces de noms réseau est fonctionnel.</para>
+	</answer>
+	</qandaentry>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment ajouter un nouveau réseau <acronym>IPv4</acronym> sur
+		la liaison point à point entre les deux interfaces de type
+		<option>veth</option> ?</phrase></para>
+
+	<para>Comme il s'agit d'une liaison point à point, on peut utiliser un
+		préfixe <option>/30</option> dont chaque adresse utilisable est
+		affectée à une interface <option>veth</option>.</para>
+	</question>
+	<answer>
+	<para>Dans notre exemple sur le routeur <systemitem
+		class='systemname'>R2</systemitem>, on utilise le préfixe
+		<systemitem class='ipaddress'>10.1.2.0/30</systemitem>. On affecte les
+		deux adresses <acronym>IPv4</acronym> correspondantes aux interfaces
+		<option>veth</option>.</para>
+
+<screen><prompt>#</prompt> ip addr add 10.1.2.1/30 brd + dev veth0
+<prompt>#</prompt> ip netns exec green ip addr add 10.1.2.2/30 brd + dev veth1</screen>
+
+	<para>Comme dans la question précédente, on peut qualifier la communication
+		entre les deux interfaces au niveau réseau à l'aide de la commande
+		<command>ping</command>.</para>
+
+<screen><prompt>$</prompt> ping -c2 10.1.2.2
+PING 10.1.2.2 (10.1.2.2) 56(84) bytes of data.
+64 bytes from 10.1.2.2: icmp_seq=1 ttl=64 time=0.039 ms
+64 bytes from 10.1.2.2: icmp_seq=2 ttl=64 time=0.017 ms
+
+--- 10.1.2.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1008ms
+rtt min/avg/max/mdev = 0.017/0.028/0.039/0.011 ms
+
+<prompt>$</prompt> sudo ip netns exec green ping -c2 10.1.2.1
+PING 10.1.2.1 (10.1.2.1) 56(84) bytes of data.
+64 bytes from 10.1.2.1: icmp_seq=1 ttl=64 time=0.018 ms
+64 bytes from 10.1.2.1: icmp_seq=2 ttl=64 time=0.018 ms
+
+--- 10.1.2.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1003ms
+rtt min/avg/max/mdev = 0.018/0.018/0.018/0.000 ms</screen>
+	</answer>
+	</qandaentry>
+	<qandaentry>
+	<question>
+	<para><phrase>Est-ce que la configuration précédente est suffisante pour
+		rendre le nouveau réseau accessible depuis les autres routeurs
+		?</phrase></para>
+
+	<para>Comment faire pour remédier au problème en cas d'échec ?</para>
+
+	<para>La singularité de cette configuration repose sur le fait que le
+		nouvel espace de noms réseau dispose de sa propre table de routage. Il
+		faut donc s'assurer que la nouvelle entrée de la table de routage par
+		défaut du routeur est bien publiée via le protocole de routage
+		dynamique <acronym>OSPF</acronym> et que l'extrémité du lien point à
+		point située dans le nouvel espace de nom réseau est joignable depuis
+		un autre routeur.</para>
+	</question>
+	<answer>
+	<para>La réponse à la question est non. Si on se place sur le routeur
+		<systemitem class='systemname'>R1</systemitem>, le préfixe réseau
+		«fictif» du routeur <systemitem class='systemname'>R2</systemitem> est
+		inconnu.</para>
+
+	<para>Dans la copie d'écran ci-dessous, faite sur <systemitem
+		class='systemname'>R1</systemitem>, on voit clairement que la
+		décision de routage utilise la route par défaut et ne prend pas la
+		direction du routeur <systemitem
+		class='systemname'>R2</systemitem>.</para>
+
+<screen><prompt>$</prompt> ip route get 10.1.2.1
+10.1.2.1 via 172.16.0.3 dev eth0 src 172.16.15.1 uid 1000</screen>
+
+	<para>Le premier élément de correction consiste à ajouter l'interface
+		<option>veth0</option> dans la liste des interfaces actives du démon
+		<systemitem class='daemon'>bird</systemitem>. La partie
+		<acronym>OSPF</acronym> du fichier de configuration sur <systemitem
+		class='systemname'>R2</systemitem> devient :</para>
+
+<screen><prompt>#</prompt> sed -n '/protocol ospf OSPFv2R2 {/,/^}/p' /etc/bird/bird.conf
+protocol ospf OSPFv2R2 {
+	rfc1583compat yes;
+	debug all;
+	export all;
+	import all;
+	ecmp yes;
+
+	area 0.0.0.0 {
+		interface "eth0.12", "eth0.23" {
+			authentication none;
+		};
+		<emphasis>interface "veth0"</emphasis> {
+			stub yes;
+		};
+	};
+}</screen>
+
+	<para>Une fois le démon relancé, on peut visualiser l'état de l'interface
+		dans la console <command>birdc</command>.</para>
+
+<screen><prompt>#</prompt> birdc
+BIRD 1.6.3 ready.
+bird> sh ospf interface "veth0"
+OSPFv2R2:
+Interface veth0 (10.1.2.0/30)
+	<emphasis>Type: ptp</emphasis>
+	Area: 0.0.0.0 (0)
+	State: PtP (stub)
+	Priority: 1
+	Cost: 10
+	ECMP weight: 1
+	Hello timer: 10
+	Wait timer: 40
+	Dead timer: 40
+	Retransmit timer: 5
+bird></screen>
+
+	<para>Relativement à la première copie d'écran prise sur le routeur
+		<systemitem class='systemname'>R1</systemitem>, la prise de décision de
+		routage se fait bien en direction du routeur <systemitem
+		class='systemname'>R2</systemitem> :</para>
+
+<screen><prompt>$</prompt> ip route get 10.1.2.1
+10.1.2.1 via <emphasis>10.1.12.2</emphasis> dev eth0.12 src 10.1.12.1 uid 1000</screen>
+
+	<para>Malgré la publication du nouveau réseau «fictif» via
+		<acronym>OSPF</acronym>, l'adresse <acronym>IPv4</acronym> de
+		l'interface <option>veth1</option> n'est toujours pas joignable depuis
+		le routeur <systemitem class='systemname'>R1</systemitem>.</para>
+
+<screen><prompt>$</prompt> ping -c2 10.1.2.2
+PING 10.1.2.2 (10.1.2.2) 56(84) bytes of data.
+
+--- 10.1.2.2 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 1023ms</screen>
+
+	<para>Le problème se situe au niveau de la table de routage de l'espace de
+		noms réseau du routeur <systemitem class='systemname'>R2</systemitem>.
+		Elle ne contient aucune route par défaut. Tout paquet arrivant avec une
+		adresse <acronym>IPv4</acronym> source non connue est vu comme un
+		«martien». Dans le journal système du routeur <systemitem
+		class='systemname'>R2</systemitem>, on retrouve la trace des deux
+		paquets <acronym>ICMP</acronym> précédents.</para>
+
+<screen>IPv4: martian source 10.1.2.2 from 10.1.12.1, on dev veth1
+ll header: 00000000: 0e 79 d6 fe c1 ba be ff dd f3 d0 28 08 00
+IPv4: martian source 10.1.2.2 from 10.1.12.1, on dev veth1
+ll header: 00000000: 0e 79 d6 fe c1 ba be ff dd f3 d0 28 08 00</screen>
+
+	<para>On ajoute donc une route par défaut dans l'espace de noms réseau qui
+		désigne l'adresse de l'interface <option>veth0</option> comme solution
+		pour toutes les destinations.</para>
+
+<screen><prompt>$</prompt> sudo ip netns exec green ip route add default via 10.1.2.1
+<prompt>$</prompt> ip netns exec green ip route ls
+default via 10.1.2.1 dev veth1
+10.1.2.0/30 dev veth1 proto kernel scope link src 10.1.2.2</screen>
+
+	<para>Depuis le routeur <systemitem class='systemname'>R1</systemitem>,
+		l'interface <option>veth1</option> de <systemitem
+		class='systemname'>R2</systemitem> est maintenant joignable.</para>
+
+<screen><prompt>$</prompt> ping -c2 10.1.2.2
+PING 10.1.2.2 (10.1.2.2) 56(84) bytes of data.
+64 bytes from 10.1.2.2: icmp_seq=1 ttl=63 time=0.648 ms
+64 bytes from 10.1.2.2: icmp_seq=2 ttl=63 time=0.729 ms
+
+--- 10.1.2.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1009ms
+rtt min/avg/max/mdev = 0.648/0.688/0.729/0.048 ms</screen>
+	</answer>
+	</qandaentry>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment installer un service Web en écoute exclusivement sur
+		l'adresse <acronym>IP</acronym> de l'interface
+		<option>veth1</option> ?</phrase></para>
+
+	<para>Pour aller au plus court, on installe le paquet
+		<application>lighttpd</application> et on édite la configuration du
+		service de façon à limiter l'accès à l'adresse <acronym>IP</acronym>
+		voulue.</para>
+	</question>
+	<answer>
+<screen><prompt>#</prompt> aptitude install lighttpd
+Les NOUVEAUX paquets suivants vont être installés :
+  libfam0{a} lighttpd spawn-fcgi{a}
+0 paquets mis à jour, 3 nouvellement installés, 0 à enlever et 0 non mis à jour.
+Il est nécessaire de télécharger 350 ko d'archives.
+Après dépaquetage, 1 096 ko seront utilisés.
+Voulez-vous continuer ? [Y/n/?]</screen>
+
+	<para>On modifie ensuite le fichier de configuration
+		<filename>/etc/lighttpd/lighttpd.conf</filename> de façon à limiter
+		l'accès à l'adresse <acronym>IPv4</acronym> de l'interface
+		<option>veth1</option>.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/veth1-lighttpd.conf.patch'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+
+	<para>Relativement à une configuration classique, il faut lancer le serveur
+		Web dans le contexte du nouvel espace de noms réseau. On commence donc
+		par arrêter le démon lancé lors de l'installation du paquet.</para>
+
+<screen><prompt>#</prompt> systemctl stop lighttpd</screen>
+
+	<para>Pour aller au plus court, on lance directement le démon dans le
+		contexte du nouvel espace de noms réseau.</para>
+
+<screen><prompt>$</prompt> sudo ip netns exec green lighttpd -f /etc/lighttpd/lighttpd.conf
+<prompt>$</prompt> sudo ip netns exec green ss -nlt '( src :80 )'
+State       Recv-Q Send-Q   Local Address:Port    Peer Address:Port
+LISTEN      0      128           10.1.2.2:80           0.0.0.0:*
+LISTEN      0      128               [::]:80              [::]:*</screen>
+	</answer>
+	</qandaentry>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider l'accès au service Web situé dans le nouvel
+		espace de noms réseau depuis les autres routeurs ?</phrase></para>
+
+	<para>Comme la partie routage a été validée dans les questions précédentes,
+		on passe directement à la couche application avec le chargement de la
+		page Web par défaut du serveur.</para>
+	</question>
+	<answer>
+	<para>Depuis le routeur <systemitem class='systemname'>R1</systemitem>, on
+		obtient le résultat suivant :</para>
+
+<screen><prompt>$</prompt> wget -O /dev/null http://10.1.2.2
+--2017-12-30 18:36:57--  http://10.1.2.2/
+Connexion à 10.1.2.2:80… connecté.
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+Taille : 1475 (1,4K) [text/html]
+Sauvegarde en : « /dev/null »
+
+/dev/null  100%[====================>]   1,44K  --.-KB/s    ds 0s
+
+2017-12-30 18:36:57 (239 MB/s) - « /dev/null » sauvegardé [3378]</screen>
 	</answer>
 	</qandaentry>
 </qandadiv>	
