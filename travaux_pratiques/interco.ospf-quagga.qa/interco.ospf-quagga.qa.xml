@@ -611,17 +611,35 @@
 <sect1 xml:id='interco.ospf-quagga.prepare-config'>
 	<title>Préparation des routeurs</title>
 
-	<para>La première étape consiste à mettre en place la topologie
-	physique.</para>
+	<para>La première étape consiste à installer les outils et mettre en place
+		la topologie physique.</para>
 
 	<itemizedlist>
 	<listitem>
-		<para>Vérifier l'installation du paquet
-		<application>quagga</application> avant de brasser les postes sur les
-		commutateurs non programmés.</para>
+	<para>Vérifier l'installation du paquet
+		<application>quagga-ospfd</application> avant de brasser les postes sur
+		les commutateurs non programmés.</para>
 
 <screen><prompt>$</prompt> aptitude search ~iquagga
-i   quagga              - BGP/OSPF/RIP routing daemon</screen>
+i A quagga-core         - network routing daemons (core abstraction layer)
+i   quagga-ospfd        - OSPF routing daemon</screen>
+
+	<para>Sans configuration particulière les deux services correspondant aux
+		deux paquets installés ne sont pas lancés.</para>
+
+<screen><prompt>$</prompt> systemctl status <emphasis>zebra</emphasis>
+● zebra.service - GNU Zebra routing manager
+   Loaded: loaded (/lib/systemd/system/zebra.service; enabled; vendor preset: enabled)
+   Active: inactive (dead)
+Condition: start condition failed at Sun 2017-12-31 15:30:22 CET; 5 days ago
+     Docs: man:zebra
+
+<prompt>$</prompt> systemctl status <emphasis>ospfd</emphasis>
+● ospfd.service - OSPF routing daemon
+   Loaded: loaded (/lib/systemd/system/ospfd.service; enabled; vendor preset: enabled)
+   Active: inactive (dead)
+Condition: start condition failed at Sun 2017-12-31 15:30:22 CET; 5 days ago
+     Docs: man:ospfd</screen>
 	</listitem>
 
 	<listitem xml:id='interco.ospf-quagga.prepare-config.routing'>
@@ -631,7 +649,7 @@ i   quagga              - BGP/OSPF/RIP routing daemon</screen>
 <screen><prompt>$</prompt> cat /proc/sys/net/ipv4/ip_forward
 1</screen>
 
-		<para>Si ce n'est pas le cas, il est possible d'éditer le fichier
+	<para>Si ce n'est pas le cas, il est possible d'éditer le fichier
 		<filename>/etc/sysctl.conf</filename> pour fixer les valeurs des
 		paramètres de configuration des protocoles de la pile
 		<acronym>TCP/IP</acronym> dans	le noyau Linux. Voir la section
@@ -643,58 +661,50 @@ net.ipv4.conf.default.rp_filter = 1
 net.ipv4.conf.all.rp_filter = 1
 net.ipv4.ip_forward = 1
 net.ipv6.conf.all.forwarding = 1
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.all.proxy_arp = 0</screen>
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv4.conf.all.log_martians = 1</screen>
 	</listitem>
 
 	<listitem xml:id='interco.ospf-quagga.prepare-config.subinterfaces'>
-		<para>Créer les sous-interfaces associées aux <acronym>VLAN</acronym>s
-		sur chacun des routeurs R1, R2 et R3 à l'aide du script suivant
-		:</para>
+	<para>Créer les sous-interfaces associées aux <acronym>VLAN</acronym>s sur
+		chacun des routeurs <systemitem>R1</systemitem>,
+		<systemitem>R2</systemitem> et <systemitem>R3</systemitem> à l'aide du
+		script suivant :</para>
 
 <screen><?dbfo keep-together="auto" ?><xi:include href='files/subinterfaces.sh'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
-		<para>Sur le routeur R1, on utilise le script avec les numéros de
+	<para>Sur le routeur R1, on utilise le script avec les numéros de
 		<acronym>VLAN</acronym>s 12 et 13 par exemple.</para>
 
 <screen>r1:~# sh ./subinterfaces.sh 12 13</screen>
 
-		<para>On adapte l'utilisation du même script aux routeurs R2 et R3 avec
-		les numéros de <acronym>VLAN</acronym>s concernés.</para>
+	<para>On adapte l'utilisation du même script aux routeurs
+		<systemitem>R2</systemitem> et <systemitem>R3</systemitem> avec les
+		numéros de <acronym>VLAN</acronym>s concernés.</para>
 	</listitem>
 
 	<listitem>
-		<para>Activer les démons <systemitem class='daemon'>zebra</systemitem>
-		et <systemitem class='daemon'>ospfd</systemitem> sur chaque routeur en
-		éditant le fichier <filename>/etc/quagga/daemons</filename> et en
-		remplaçant <option>no</option> par <option>yes</option>.</para>
-
-<screen><prompt>r1:~#</prompt> grep -v '^#' /etc/quagga/daemons
-zebra=yes
-bgpd=no
-ospfd=yes
-ospf6d=no
-ripd=no
-ripngd=no
-isisd=no</screen>
-	</listitem>
-
-	<listitem>
-		<para>Créer les fichiers de configuration de base pour les deux démons
+	<para>Créer les fichiers de configuration de base pour les deux démons
 		<systemitem class='daemon'>zebra</systemitem> et <systemitem
-		class='daemon'>ospfd</systemitem> sur chaque routeur en utilisant les
-		patrons livrés avec le paquet <application>quagga</application>.</para>
+		class='daemon'>ospfd</systemitem> sur chaque routeur en utilisant
+		les patrons livrés avec le paquet
+		<application>quagga</application>.</para>
 
-<screen><prompt>r1:/etc/quagga#</prompt> cp /usr/share/doc/quagga/examples/zebra.conf.sample zebra.conf
-<prompt>r1:/etc/quagga#</prompt> cp /usr/share/doc/quagga/examples/ospfd.conf.sample ospfd.conf
-<prompt>r1:/etc/quagga#</prompt> chown quagga zebra.conf ospfd.conf</screen>
+<screen><prompt>#</prompt> cp /usr/share/doc/quagga-core/examples/zebra.conf.sample /etc/quagga/zebra.conf
+<prompt>#</prompt> cp /usr/share/doc/quagga-core/examples/ospfd.conf.sample /etc/quagga/ospfd.conf
+<prompt>#</prompt> cp /usr/share/doc/quagga-core/examples/vtysh.conf.sample /etc/quagga/vtysh.conf
+<prompt>#</prompt> chown quagga.quagga /etc/quagga/*.conf
+<prompt>#</prompt> mkdir /var/log/quagga
+<prompt>#</prompt> chown quagga.adm /var/log/quagga
+<prompt>#</prompt> chmod 2750 /var/log/quagga</screen>
 	</listitem>
 
 	<listitem>
-		<para>Éditer le patron du fichier de configuration du démon <systemitem
-		class='daemon'>zebra</systemitem> en fixant les paramètres de connexion
-		à utiliser pour y accéder.</para>
+	<para>Éditer le patron du fichier de configuration du démon <systemitem
+		class='daemon'>zebra</systemitem> en fixant les paramètres de
+		connexion à utiliser pour y accéder.</para>
 
 <screen><prompt>#</prompt> cat zebra.conf
 ! -*- zebra -*-
@@ -707,7 +717,7 @@ log file /var/log/quagga/zebra.log</screen>
 	</listitem>
 
 	<listitem>
-		<para>Éditer le patron du fichier de configuration du démon <systemitem
+	<para>Éditer le patron du fichier de configuration du démon <systemitem
 		class='daemon'>ospfd</systemitem> en fixant les paramètres de connexion
 		à utiliser pour y accéder.</para>
 
@@ -722,45 +732,44 @@ log file /var/log/quagga/ospfd.log</screen>
 	</listitem>
 
 	<listitem>
-		<para>Compléter la configuration des interfaces dans le démon
-		<systemitem class='daemon'>zebra</systemitem> de façon à fixer la bande
-		passante de chaque interface active.</para>
+	<para>Compléter la configuration des interfaces dans le démon <systemitem
+		class='daemon'>zebra</systemitem> de façon à fixer la bande
+		passante de chaque interface active à 1Gbps.</para>
 
-<screen><prompt>r1:/etc/quagga#</prompt> grep -1 bandwidth zebra.conf
+<screen><prompt>#</prompt> grep -1 bandwidth /etc/quagga/zebra.conf
 interface eth0
- bandwidth 100000
- ipv6 nd suppress-ra
---
+ bandwidth 1000000
+!
 interface eth0.12
- bandwidth 100000
- ipv6 nd suppress-ra
---
+ bandwidth 1000000
+!
 interface eth0.13
- bandwidth 100000
- ipv6 nd suppress-ra</screen>
+ bandwidth 1000000
+!</screen>
 
-		<note>
-		<para>Contrairement à un routeur «intégré» avec un système
-		d'exploitation dédié, le démon de routage statique n'a pas directement
-		accès aux interfaces matérielles. Or, sur un système GNU/Linux, le
-		débit d'une interface nommée <option>eth0</option> peut aller de 10Mbps
-		à 10Gbps. Sans information spécifique du noyau, l'application «service
-		de routage» n'a aucun moyen de connaître le débit exact de l'interface
-		<option>eth0</option>. C'est la raison pour laquelle il est nécessaire
-		de paramétrer manuellement les débits de chaque interface dans la
-		configuration du démon <systemitem
+	<note>
+	<para>Contrairement à un routeur «intégré» avec un système d'exploitation
+		dédié, le démon de routage statique n'a pas directement accès aux
+		interfaces matérielles. Or, sur un système GNU/Linux, le débit d'une
+		interface Ethernet filaire peut varier en fonction du débit proposé par
+		le port du commutateur. Sans information spécifique du noyau,
+		l'application «service de routage» n'a aucun moyen de connaître le
+		débit exact de l'interface. C'est la raison pour laquelle il est
+		nécessaire de paramétrer manuellement les débits de chaque interface
+		dans la	configuration du démon <systemitem
 		class='daemon'>zebra</systemitem>.</para> 
-		</note>
+	</note>
 	</listitem>
 	</itemizedlist>
 
 	<warning>
-	<para>Ce dernier paramétrage est essentiel dans le <link
-	linkend='interco.ospf-quagga.auto-cost'>calcul des métriques</link> et le
-	fonctionnement du protocole de routage <acronym>OSPF</acronym>. Si les
-	calculs de métriques pour les liens actifs sont erronés, le choix des
-	routes à emprunter pour faire transiter le trafic utilisateur entre deux
-	routeurs peut lui aussi être erroné.</para>
+	<para>Sans configuration manuelle du coût de lien d'une interface, ce
+		paramétrage de la bande passante est essentiel dans le <link
+		linkend='interco.ospf-quagga.auto-cost'>calcul des métriques</link>
+		et le fonctionnement du protocole de routage <acronym>OSPF</acronym>.
+		Si les calculs de métriques pour les liens actifs sont erronés, le
+		choix des routes à emprunter pour faire transiter le trafic utilisateur
+		entre deux routeurs peut lui aussi être erroné.</para>
 	</warning>
 </sect1>
 
