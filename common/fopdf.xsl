@@ -445,11 +445,48 @@
       <xsl:attribute name="keep-together.within-column">auto</xsl:attribute>
     </xsl:attribute-set>
 
-    <xsl:attribute-set name="table.properties"
-      use-attribute-sets="formal.object.properties" />
+	<xsl:attribute-set name="table.properties"
+		use-attribute-sets="formal.object.properties" />
 
     <!-- The table width should be adapted to the paper size -->
     <xsl:param name="default.table.width">17.5cm</xsl:param>
+
+	<xsl:template name="table.row.properties">
+
+		<xsl:variable name="tabstyle">
+			<xsl:call-template name="tabstyle"/>
+		</xsl:variable>
+
+		<xsl:variable name="bgcolor">
+		<xsl:call-template name="dbfo-attribute">
+			<xsl:with-param name="pis" select="processing-instruction('dbfo')"/>
+			<xsl:with-param name="attribute" select="'bgcolor'"/>
+		</xsl:call-template>
+		</xsl:variable>
+
+		<xsl:variable name="color">
+		<xsl:call-template name="dbfo-attribute">
+			<xsl:with-param name="pis" select="processing-instruction('dbfo')"/>
+			<xsl:with-param name="attribute" select="'color'"/>
+		</xsl:call-template>
+		</xsl:variable>
+  
+		<xsl:choose>
+		<xsl:when test="$bgcolor != ''">
+		<xsl:attribute name="background-color">
+			<xsl:value-of select="$bgcolor"/>
+		</xsl:attribute>
+		</xsl:when>
+		</xsl:choose>
+
+		<xsl:choose>
+		<xsl:when test="$color != ''">
+		<xsl:attribute name="color">
+			<xsl:value-of select="$color"/>
+		</xsl:attribute>
+		</xsl:when>
+		</xsl:choose>
+	</xsl:template>
 
     <!-- Some padding inside tables -->    
     <xsl:attribute-set name="table.cell.padding">
@@ -462,7 +499,7 @@
     <!-- Only hairlines as frame and cell borders in tables -->
     <xsl:param name="table.frame.border.thickness">1pt</xsl:param>
     <xsl:param name="table.cell.border.thickness">1pt</xsl:param>
-        
+
 <!--###################################################
                          Labels
     ################################################### -->   
