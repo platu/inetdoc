@@ -22,27 +22,29 @@
 
 <article xml:lang='fr' xml:id='conf-intf-lan'>
 <info>
-  <title>Configuration d'une interface réseau Ethernet</title>
-  &phl;
-  <abstract>
-    <para>Ce support de travaux pratiques traite de la configuration d'une
-    interface réseau Ethernet sur un système GNU/Linux. Les manipulations
-    présentées suivent la modélisation réseau en remontant du niveau physique
-    jusqu'à la validation des services de la couche application. Les questions
-    cherchent à illustrer les relations entre les différents formats
-    d'adressage utilisés à chaque niveau ainsi que les protocoles utilisés pour
-    la «correspondance» entre ces formats.</para>
-  </abstract>
+<title>Configuration d'une interface réseau Ethernet</title>
+	&phl;
+	<abstract>
+	<para>Ce support de travaux pratiques traite de la configuration d'une
+		interface réseau Ethernet sur un système GNU/Linux. Les manipulations
+		présentées suivent la modélisation réseau en remontant du niveau
+		physique jusqu'à la couche application. Les questions cherchent à
+		illustrer les relations entre les différents formats d'adressage
+		utilisés à chaque niveau ainsi que les protocoles utilisés pour les
+		correspondances entre les différentes couches.</para>
+	</abstract>
 
-  <keywordset>
-    <keyword>ip</keyword>
-    <keyword>iproute2</keyword>
-    <keyword>host</keyword>
-    <keyword>dig</keyword>
-    <keyword>interface</keyword>
-    <keyword>ping</keyword>
-    <keyword>sysctl</keyword>
-  </keywordset>
+<keywordset>
+	<keyword>ip</keyword>
+	<keyword>arp</keyword>
+	<keyword>ndp</keyword>
+	<keyword>iproute2</keyword>
+	<keyword>host</keyword>
+	<keyword>dig</keyword>
+	<keyword>interface</keyword>
+	<keyword>ping</keyword>
+	<keyword>sysctl</keyword>
+</keywordset>
 </info>
 
 <sect1 xml:id='conf-intf-lan.legal.meta'>
@@ -135,137 +137,107 @@
   </informaltable>
   </para>
 
-  <bridgehead xml:id='conf-intf-lan.ident-periph' renderas='sect2'>Comment
-  identifier un périphérique Ethernet ?</bridgehead>
+<bridgehead xml:id='conf-intf-lan.ident-periph' renderas='sect2'>Comment
+	identifier un périphérique Ethernet ?</bridgehead>
 
-  <para>Il existe une grande variété de contrôleurs réseau Ethernet. À chaque
-  composant correspond un pilote logiciel spécifique. Qu'il s'agisse d'une
-  carte additionnelle ou d'un composant intégré sur carte mère, le
-  contrôleur peut être connecté via différents bus. Les bus
-  <acronym>PCI</acronym> et <acronym>USB</acronym> sont les plus fréquemment
-  utilisés. Voici deux exemples :</para>
+	<para>Il existe une grande variété de contrôleurs réseau Ethernet. À chaque
+		famille de composants correspond un pilote logiciel spécifique. Qu'il
+		s'agisse d'une carte additionnelle ou d'un composant intégré sur carte
+		mère, le contrôleur peut être connecté via différents bus. Les bus
+		<acronym>PCI</acronym> et <acronym>USB</acronym> sont les plus
+		fréquemment utilisés. Voici deux exemples :</para>
 
-  <variablelist>
-    <varlistentry xml:id='ident-pci'>
-    <term>Contrôleur Ethernet sur bus PCI</term>
-    <listitem>
-    <para>Sur une architecture <trademark>Intel</trademark>
-    <acronym>x86_64</acronym>, un composant Ethernet est nécessairement relié
-    au bus <acronym>PCI</acronym>. La commande <command>lspci</command> du
-    paquet <application>pciutils</application> donne la liste des
-    périphériques ainsi que les modules du noyau Linux associés à ces
-    périphériques.</para>
+<variablelist>
+	<varlistentry xml:id='ident-pci'>
+	<term>Contrôleur Ethernet sur bus PCI</term>
+	<listitem>
+	<para>Sur une architecture de type <acronym>PC</acronym>, un composant
+		Ethernet est la plupart du temps relié au bus <acronym>PCI</acronym>.
+		La commande <command>lspci</command> du paquet
+		<application>pciutils</application> donne la liste des périphériques
+		ainsi que les modules du noyau Linux associés à ces
+		périphériques.</para>
 
-<screen><prompt>$</prompt> lspci -v
-&lt;snip/&gt;
-07:00.0 <emphasis>Ethernet controller</emphasis>: Intel Corporation 82576 Gigabit Network Connection (rev 01)
-        Subsystem: Intel Corporation Gigabit ET Quad Port Server Adapter
-        Flags: bus master, fast devsel, latency 0, IRQ 55
-        Memory at ddf40000 (32-bit, non-prefetchable) [size=128K]
-        Memory at de000000 (32-bit, non-prefetchable) [size=4M]
-        I/O ports at dcc0 [size=32]
-        Memory at ddf38000 (32-bit, non-prefetchable) [size=16K]
+<screen><prompt>$</prompt> lspci -v | grep -A8 Ethernet
+00:19.0 Ethernet controller: Intel Corporation Ethernet Connection (3) I218-V (rev 03)
+        Subsystem: Intel Corporation Ethernet Connection (3) I218-V
+        Flags: bus master, fast devsel, latency 0, IRQ 43
+        Memory at f7100000 (32-bit, non-prefetchable) [size=128K]
+        Memory at f713b000 (32-bit, non-prefetchable) [size=4K]
+        I/O ports at f080 [size=32]
         Capabilities: &lt;access denied>
-        <emphasis>Kernel driver in use: igb</emphasis></screen>
+		Kernel driver in use: <emphasis>e1000e</emphasis>
+		Kernel modules: e1000e</screen>
 
-    <para>Le module du noyau Linux nommé <option>igb</option> est chargé en
-    mémoire automatiquement lors de l'initialisation du système. Il est présent
-    dans la liste donnée par la commande <command>lsmod</command>.</para>
+	<para>Le module du noyau Linux nommé <option>e1000e</option> est chargé en
+		mémoire automatiquement lors de l'initialisation du système. Il est
+		présent dans la liste donnée par la commande
+		<command>lsmod</command>.</para>
 
-<screen><prompt>$</prompt> lsmod | grep igb
-<emphasis>igb                   138336  0 </emphasis>
-i2c_algo_bit           12751  1 igb
-i2c_core               24092  2 igb,i2c_algo_bit
-dca                    13168  2 igb,ioatdma
-ptp                    17460  1 igb</screen>
-    </listitem>
-    </varlistentry>
-    <varlistentry xml:id='ident-usb'>
-    <term>Contrôleur Ethernet sur bus USB</term>
-    <listitem>
-    <para>Sur une architecture <citetitle>Raspberry Pi</citetitle>, le
-    composant Ethernet est relié au bus <acronym>USB</acronym> et c'est la
-    commande <command>dmesg</command> qui permet d'obtenir l'identification du
-    composant.</para>
+<screen><prompt>$</prompt> lsmod | grep e1000e
+<emphasis>e1000e</emphasis>                278528  0
+ptp                    20480  1 e1000e</screen>
+	</listitem>
+	</varlistentry>
+	<varlistentry xml:id='ident-usb'>
+	<term>Contrôleur Ethernet sur bus USB</term>
+	<listitem>
+	<para>Sur une architecture <citetitle>Raspberry Pi</citetitle>, le
+		composant Ethernet intégré est relié au bus <acronym>USB</acronym> et
+		c'est la commande <command>lsusb</command> qui permet d'obtenir
+		l'identification du composant.</para>
 
-<screen><prompt>$</prompt> dmesg | grep -i Ethernet
-[    3.114563] smsc95xx 1-1.1:1.0 eth0: register 'smsc95xx' at usb-bcm2708_usb-1.1, \
-               <emphasis>smsc95xx USB 2.0 Ethernet</emphasis>, b8:27:eb:ea:29:72</screen>
-    </listitem>
-    </varlistentry>
-    <varlistentry xml:id='ident-sys'>
-    <term>Répertoire /sys/</term>
-    <listitem>
-    <para>Pour compléter les informations sur les interfaces réseau, il est
-    possible de parcourir l'arborescence <filename
-    class='directory'>/sys/</filename>. Ainsi, dans le cas d'une architecture
-    <citetitle>Raspberry Pi</citetitle>, on obtient les éléments suivants
-    :</para>
+<screen><prompt>$</prompt>lsusb | grep Ethernet | fmt -t -w80
+Bus 001 Device 003: ID 0424:ec00 Standard Microsystems Corp. SMSC9512/9514
+   <emphasis>Fast Ethernet Adapter</emphasis></screen>
 
-<screen><prompt>$</prompt> ls -go /sys/class/net/eth0/device/driver/<co xml:id='ident-sys.eth0'/>
-total 0
-lrwxrwxrwx 1    0 janv. 27 09:18 1-1.1:1.0 -> \
-             ../../../../devices/platform/bcm2708_usb/usb1/1-1/1-1.1/1-1.1:1.0<co xml:id='ident-sys.bus'/>
---w------- 1 4096 janv. 27 09:18 bind
-lrwxrwxrwx 1    0 janv. 27 09:18 module -> \
-             ../../../../module/smsc95xx<co xml:id='ident-sys.module'/>
--rw-r--r-- 1 4096 janv. 27 09:18 new_id
--rw-r--r-- 1 4096 janv. 27 09:18 remove_id
---w------- 1 4096 janv. 27 09:18 uevent
---w------- 1 4096 janv. 27 09:18 unbind</screen>
+	<para>Dans le cas d'un système <citetitle>Raspberry Pi</citetitle>, le
+		logiciel de pilotage de l'interface Ethernet est placé dans la partie
+		monolithique du noyau. Ce logiciel n'apparaît donc pas dans la liste
+		des modules. Il faut consulter les messages système du noyau pour
+		trouver la trace de l'initialisation de l'interface Ethernet. On peut
+		utiliser la commande <command>dmesg</command> dans ce but.</para>
 
-    <calloutlist>
-    <callout arearefs='ident-sys.eth0'>
-    <para>La dénomination <systemitem>eth0</systemitem> désigne la première
-    interface Ethernet présente sur le système.</para>
-    </callout>
+<screen><prompt>$</prompt> dmesg | grep Ethernet | fmt -t -w80
+[    2.016771] smsc95xx 1-1.1:1.0 eth0: register 'smsc95xx' at
+   usb-3f980000.usb-1.1, smsc95xx USB 2.0 <emphasis>Ethernet, b8:27:eb:d7:21:80</emphasis>
+[    9.733711] Bluetooth: BNEP (Ethernet Emulation) ver 1.3</screen>
+	</listitem>
+	</varlistentry>
+</variablelist>
 
-    <callout arearefs='ident-sys.bus'>
-    <para>Dans le répertoire relatif à l'interface, on repère la position du
-    contrôleur Ethernet sur le bus <acronym>USB</acronym>.</para>
-    </callout>
+	<para>Pour résumer, les outils utiles pour l'identification des composants
+		réseau et des modules logiciels assciés sont :
+		<command>lspci</command>, <command>lsusb</command>,
+		<command>dmesg</command> et <command>lsmod</command>.</para> 
 
-    <callout arearefs='ident-sys.module'>
-    <para>Dans le même répertoire, on identifie aussi le module de pilotage du
-    contrôleur.</para>
-    </callout>
-    </calloutlist>
-    </listitem>
-    </varlistentry>
-  </variablelist>
+<bridgehead xml:id='conf-intf-lan.ident-link' renderas='sect2'>Comment
+	visualiser l'état du lien réseau ?</bridgehead>
 
-  <para>Pour résumer, les outils utiles pour l'identification des composants
-  réseau et des modules logiciels assciés sont : <command>lspci</command>,
-  <command>dmesg</command>, <command>lsmod</command> et le parcours de
-  l'arborescence <filename class='directory'>/sys/</filename>.</para> 
+	<para>Même avec une configuration correcte de l'interface, il est possible
+		que les communications soient bloquées si le raccordement physique
+		entre l'hôte et l'équipement réseau n'est pas actif. Sur les câbles en
+		paires torsadées cuivre, on peut visualiser l'état du lien à l'aide de
+		la commande <command>ethtool</command> fournie avec le paquet du même
+		nom. En reprenant les deux exemples de systèmes ci-dessus, on obtient
+		les informations suivantes.</para>
 
-  <bridgehead xml:id='conf-intf-lan.ident-link' renderas='sect2'>Comment
-  visualiser l'état du lien réseau ?</bridgehead>
-
-  <para>Même avec une configuration correcte de l'interface, il est possible
-  que les communications soient bloquées si le lien physique entre l'hôte et
-  l'équipement réseau n'est pas actif. Sur les liaisons utilisant des câbles en
-  paires torsadées cuivre, on peut visualiser l'état du lien à l'aide de la
-  commande <command>ethtool</command> fournie avec le paquet du même
-  nom. En reprenant les mêmes exemples que ci-dessus, on retrouve les
-  informations suivantes :</para>
-
-  <variablelist>
-    <varlistentry xml:id='link-intel'>
-    <term>Interface <trademark>Intel</trademark> Gbps</term>
-    <listitem>
-<screen><prompt>#</prompt>ethtool eth0
+<variablelist>
+	<varlistentry xml:id='link-intel'>
+	<term>Contrôleur Ethernet sur bus PCI</term>
+	<listitem>
+<screen><prompt>$</prompt> sudo ethtool eth0
 Settings for eth0:
         Supported ports: [ TP ]
-        Supported link modes:   10baseT/Half 10baseT/Full 
-                                100baseT/Half 100baseT/Full 
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
                                 1000baseT/Full <co xml:id='intel-mii.cap'/>
-        Supported pause frame use: Symmetric
+        Supported pause frame use: No
         Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full 
-                                100baseT/Half 100baseT/Full 
-                                1000baseT/Full 
-        Advertised pause frame use: Symmetric
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Full
+        Advertised pause frame use: No
         Advertised auto-negotiation: Yes
         Speed: 1000Mb/s <co xml:id='intel-mii.link'/>
         Duplex: Full
@@ -273,57 +245,55 @@ Settings for eth0:
         PHYAD: 1
         Transceiver: internal
         Auto-negotiation: on <co xml:id='intel-mii.neg'/>
-        MDI-X: off (auto)
+        MDI-X: on (auto)
         Supports Wake-on: pumbg
         Wake-on: g
         Current message level: 0x00000007 (7)
                                drv probe link
         Link detected: yes</screen>
 
-    <calloutlist>
-    <callout arearefs='intel-mii.cap'>
-    <para>Cette liste correspond aux débits possibles sur cette interface :
-    1000Mbps en mode Full-Duplex, 100Mbps en mode Full-Duplex, 100Mbps en mode
-    Half-Duplex, 10Mbps en mode Full-Duplex et 10Mbps en mode
-    Half-Duplex.</para>
+	<calloutlist>
+	<callout arearefs='intel-mii.cap'>
+	<para>Cette liste correspond aux débits possibles sur cette
+		interface.</para>
+	</callout>
+	<callout arearefs='intel-mii.link'>
+	<para>Le lien entre l'interface <systemitem>eth0</systemitem> et
+		l'équipement réseau est actif et le débit négocié est le Gbps en mode
+		Full-Duplex.</para>
     </callout>
-    <callout arearefs='intel-mii.link'>
-    <para>Le lien entre l'interface <systemitem>eth0</systemitem> et
-    l'équipement réseau est actif et le débit négocié est de 1000Mbps en mode
-    Full-Duplex.</para>
-    </callout>
-    <callout arearefs='intel-mii.tp'>
-    <para>Le câble connecté à cette interface est en paire cuivre torsadée ou
-    <wordasword>twisted pair</wordasword>.</para>
-    </callout>
-    <callout arearefs='intel-mii.neg'>
-    <para>Les résultats précédents ont été obtenus par auto négociation entre
-    le contrôleur réseau et le commutateur auquel l'interface Ethernet est
-    connectée.</para> 
-    </callout>
-    </calloutlist>
-    </listitem>
-    </varlistentry>
+	<callout arearefs='intel-mii.tp'>
+	<para>Le câble connecté à cette interface est en paire cuivre torsadée ou
+		<wordasword>twisted pair</wordasword>.</para>
+	</callout>
+	<callout arearefs='intel-mii.neg'>
+	<para>Les résultats précédents ont été obtenus par auto négociation entre
+		le contrôleur réseau et le commutateur auquel l'interface Ethernet est
+		raccordée.</para> 
+	</callout>
+	</calloutlist>
+	</listitem>
+	</varlistentry>
 
-    <varlistentry xml:id='rpi-link'>
-    <term>Interface <citetitle>Raspberry Pi</citetitle> 100Mbps</term>
-    <listitem>
+	<varlistentry xml:id='rpi-link'>
+	<term>Contrôleur Ethernet sur bus USB</term>
+	<listitem>
 <screen><prompt>$</prompt> sudo ethtool eth0
 Settings for eth0:
         Supported ports: [ TP MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full 
+        Supported link modes:   10baseT/Half 10baseT/Full
                                 100baseT/Half 100baseT/Full
         Supported pause frame use: No
         Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full 
-                                100baseT/Half 100baseT/Full 
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
         Advertised pause frame use: Symmetric Receive-only
         Advertised auto-negotiation: Yes
-        Link partner advertised link modes:  10baseT/Half 10baseT/Full 
-                                             100baseT/Half 100baseT/Full 
-        Link partner advertised pause frame use: Symmetric
+        Link partner advertised link modes:  10baseT/Half 10baseT/Full
+                                             100baseT/Half 100baseT/Full
+        Link partner advertised pause frame use: No
         Link partner advertised auto-negotiation: Yes
-        Speed: 100Mb/s
+		Speed: <emphasis>100Mb/s</emphasis>
         Duplex: Full
         Port: MII
         PHYAD: 1
@@ -335,14 +305,15 @@ Settings for eth0:
                                drv probe link
         Link detected: yes</screen>
 
-    <para>Relativement à la copie d'écran ci-dessus, le débit passe à 100Mb/s.
-    C'est le principal changement observé.</para>
-    </listitem>
-    </varlistentry>
-  </variablelist>
+	<para>Relativement au contrôleur Ethernet sur bus <acronym>PCI</acronym>,
+		le débit passe à 100Mb/s.</para>
+	</listitem>
+	</varlistentry>
+</variablelist>
 
-  <para>Pour aller plus loin dans l'étude des caractéristiques techniques des
-  réseaux locaux, il est conseillé de lire l'article &url.ethernet;.</para>
+	<para>Pour aller plus loin dans l'étude des caractéristiques techniques des
+		réseaux locaux Ethernet, il est conseillé de lire l'article
+		&url.ethernet;.</para>
 </sect1>
 
 <?custom-pagebreak?>
