@@ -98,6 +98,9 @@
     <para><application>iputils-ping</application> - Tools to test the reachability of network hosts</para>
     </listitem>
     <listitem>
+    <para><application>procps</application> - /proc file system utilities</para>
+    </listitem>
+    <listitem>
     <para><application>mtr-tiny</application> - Full screen ncurses traceroute tool</para>
     </listitem>
   </itemizedlist>
@@ -1224,7 +1227,7 @@ default<co xml:id='route.def6'/> via fe80::b8f1:b6ff:fee4:a0bd dev eth0 proto ra
 
 <?custom-pagebreak?>
 <sect1 xml:id='conf-intf-lan.icmp'>
-<title>Joindre un hôte de l'Internet avec ICMP</title>
+<title>Joindre un hôte réseau avec ICMP</title>
 <subtitle>Couches réseau &amp; application</subtitle>
     
 	<para>
@@ -1415,8 +1418,132 @@ rtt min/avg/max/mdev = 39.756/39.909/40.062/0.153 ms</screen>
 	</varlistentry>
 	</variablelist>
 
+<bridgehead xml:id='conf-intf-lan.icmp.arp' renderas='sect2'>Comment savoir si
+	un hôte du réseau local est joignable avec <acronym>IPv4</acronym>
+	?</bridgehead>
+
+	<para>La commande <command>ping</command> permet de qualifier les
+		correspondances entre les adresses de la couche liaison de données
+		(<acronym>MAC</acronym>) et les adresses de la couche réseau
+		(<acronym>IPv4</acronym> ou <acronym>IPv6</acronym>).</para>
+
+	<para>Prenons l'exemple d'une table du voisinage réseau avant et après
+		l'émission de messages <acronym>ICMP</acronym> vers deux adresses
+		<acronym>IPv4</acronym>.</para>
+
+	<orderedlist>
+	<listitem>
+	<para>Voisinage réseau avant émission des messages <acronym>ICMP</acronym></para>
+
+<screen><prompt>$</prompt> ip neigh ls
+192.0.2.1 dev eth0 lladdr ba:f1:b6:e4:a0:bd STALE
+fe80::b8f1:b6ff:fee4:a0bd dev eth0 lladdr ba:f1:b6:e4:a0:bd router DELAY</screen>
+	</listitem>
+	<listitem>
+	<para>Lancement des questions <acronym>ICMP</acronym></para>
+
+<screen><prompt>$</prompt> ping -c 2 192.0.2.30
+PING 192.0.2.30 (192.0.2.30) 56(84) bytes of data.
+64 bytes from 192.0.2.30: icmp_seq=1 ttl=64 time=0.868 ms
+64 bytes from 192.0.2.30: icmp_seq=2 ttl=64 time=0.296 ms
+
+--- 192.0.2.30 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.296/0.582/0.868/0.286 ms
+
+<prompt>$</prompt> ping -c 2 192.0.2.20
+PING 192.0.2.20 (192.0.2.20) 56(84) bytes of data.
+From 192.0.2.29 icmp_seq=1 Destination Host Unreachable
+From 192.0.2.29 icmp_seq=2 Destination Host Unreachable
+
+--- 192.0.2.20 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 1012ms</screen>
+	</listitem>
+	<listitem>
+	<para>Voisinage réseau après émission des messages <acronym>ICMP</acronym></para>
+
+<screen><prompt>$</prompt> ip neigh ls
+192.0.2.1 dev eth0 lladdr ba:f1:b6:e4:a0:bd STALE
+192.0.2.30 dev eth0 lladdr ba:ad:ca:fe:00:1e STALE
+192.0.2.20 dev eth0  FAILED
+fe80::b8f1:b6ff:fee4:a0bd dev eth0 lladdr ba:f1:b6:e4:a0:bd router DELAY</screen>
+	</listitem>
+	</orderedlist>
+
+	<para>L'expérience caractérise indirectement l'utilisation du protocole
+		<acronym>ARP</acronym>. Dans le cas de l'adresse destination
+		<systemitem class='ipaddress'>192.0.2.30</systemitem>, la première
+		réponse à la requête <acronym>ICMP</acronym> prend un temps beaucoup
+		plus important que la seconde : <literal>0.868 ms</literal> contre
+		<literal>0.296 ms</literal>. La différence de temps s'explique par le
+		recours au protocole <acronym>ARP</acronym> pour établir la
+		correspondance entre l'adresse <acronym>IPv4</acronym> <systemitem
+		class='ipaddress'>192.0.2.30</systemitem> et sont adresse
+		<acronym>MAC</acronym> 
+		<systemitem>ba:ad:ca:fe:00:1e</systemitem>.</para>
+
+	<para>Avec l'adresse destination <systemitem
+		class='ipaddress'>192.0.2.20</systemitem>, le protocole
+		<acronym>ARP</acronym> n'est pas parvenu à établir une correspondance
+		entre adresse <acronym>IPv4</acronym> et adresse
+		<acronym>MAC</acronym>. Les requêtes <acronym>ICMP</acronym> n'ont donc
+		pas pu aboutir.</para>
+
+<bridgehead xml:id='conf-intf-lan.icmp.ndp' renderas='sect2'>Comment obtenir la
+	liste des voisins dans un réseau local <acronym>IPv6</acronym>
+	?</bridgehead>
+
+	<para>On sait que dans un réseau <acronym>IPv6</acronym>, la notion de
+		trafic de diffusion n'existe pas et que c'est le protocole &url.NDP;
+		qui se charge des correspondances d'adresses. Il est possible d'émettre
+		des messages <acronym>ICMPv6</acronym> de multidiffusion pour
+		solliciter les hôtes voisins dans un réseau local. Reprenons l'exemple
+		de la table des voisins de la section précédente avant et après les
+		messages de sollicitation <acronym>ICMPv6</acronym>.</para>
+
+	<orderedlist>
+	<listitem>
+	<para>Voisinage réseau avant émission des messages <acronym>ICMPv6</acronym></para>
+
+<screen><prompt>$</prompt> ip neigh ls
+192.0.2.1 dev eth0 lladdr ba:f1:b6:e4:a0:bd STALE
+192.0.2.30 dev eth0 lladdr ba:ad:ca:fe:00:1e STALE
+192.0.2.20 dev eth0  FAILED
+fe80::b8f1:b6ff:fee4:a0bd dev eth0 lladdr ba:f1:b6:e4:a0:bd router DELAY</screen>
+	</listitem>
+	<listitem>
+	<para>Lancement des sollicitations de noeuds <acronym>ICMPv6</acronym></para>
+
+<screen><prompt>$</prompt> ping -c 2 ff02::1%eth0
+PING ff02::1%eth0(ff02::1%eth0) 56 data bytes
+64 bytes from fe80::21e:c9ff:fef6:a2cd%eth0: icmp_seq=1 ttl=64 time=0.049 ms
+64 bytes from fe80::b8f1:b6ff:fee4:a0bd%eth0: icmp_seq=1 ttl=64 time=0.394 ms (DUP!)
+64 bytes from fe80::b8ad:caff:fefe:1e%eth0: icmp_seq=1 ttl=64 time=0.521 ms (DUP!)
+64 bytes from fe80::21e:c9ff:fef6:a2cd%eth0: icmp_seq=2 ttl=64 time=0.031 ms
+
+--- ff02::1%eth0 ping statistics ---
+2 packets transmitted, 2 received, +2 duplicates, 0% packet loss, time 1027ms
+rtt min/avg/max/mdev = 0.031/0.248/0.521/0.214 ms</screen>
+	</listitem>
+	<listitem>
+	<para>Voisinage après réception des réponses <acronym>ICMPv6</acronym></para>
+
+<screen><prompt>$</prompt> ip neigh ls
+192.0.2.1 dev eth0 lladdr ba:f1:b6:e4:a0:bd STALE
+192.0.2.30 dev eth0 lladdr ba:ad:ca:fe:00:1e STALE
+192.0.2.20 dev eth0  FAILED
+fe80::b8ad:caff:fefe:1e dev eth0 lladdr ba:ad:ca:fe:00:1e STALE
+fe80::b8f1:b6ff:fee4:a0bd dev eth0 lladdr ba:f1:b6:e4:a0:bd router REACHABLE</screen>
+	</listitem>
+	</orderedlist>
+
+	<para>La commande <userinput><prompt>$</prompt> ping -c 2
+		ff02::1%eth0</userinput> lance un recensement de tous les hôtes
+		actifs dans le réseau local et illsutre le fonctionnement du protocole
+		<acronym>NDP</acronym>.</para>
+
 <bridgehead xml:id='conf-intf-lan.icmp.dns' renderas='sect2'>Comment savoir si
-	un hôte distant est joignable en utilisant la résolution des noms de
+	un hôte est joignable en utilisant la résolution des noms de
 	domaines ?</bridgehead>
 
 	<para>La commande <command>ping</command> est aussi utile pour savoir si la
@@ -1988,166 +2115,167 @@ net.ipv6.conf.all.accept_redirects = 0</screen>
 <qandaset defaultlabel='number'>
 <title>Questions sur l'identification de l'interface Ethernet</title>
 <qandadiv>
-    <qandaentry>
-      <question>
-      <para>Quelles sont les informations disponibles sur le composant
-      contrôleur Ethernet et son pilote logiciel sur le système ?</para>
-      </question>
-      <answer>
-      <para>Utiliser les commandes présentées dans la <xref
-      linkend='conf-intf-lan.physical-layer'/> pour extraire la référence du
-      composant.</para>
-      </answer>
-    </qandaentry>
+	<qandaentry>
+	<question>
+	<para>Quelles sont les informations disponibles sur le composant contrôleur
+		Ethernet et son pilote logiciel sur votre système ?</para>
+	</question>
+	<answer>
+	<para>Utiliser les outils présentés dans la <xref
+		linkend='conf-intf-lan.physical-layer'/> pour obtenir la référence
+		et l'adresse du composant contrôleur Ethernet ainsi que le nom du
+		module utilisé pour son pilotage.</para>
 
-    <qandaentry>
-      <question>
-      <para>Quelles sont les informations sur la connexion au réseau local
-      Ethernet ?</para>
-      </question>
-      <answer>
-      <para>Utiliser les commandes présentées dans la <xref
-      linkend='conf-intf-lan.physical-layer'/> pour obtenir les informations
-      sur le débit utile entre l'hôte et le commutateur, le mode de
-      transmission <wordasword>full duplex</wordasword> ou <wordasword>half
-      duplex</wordasword> et le type de média utilisé.</para>
-      </answer>
-    </qandaentry>
+	<para>Attention ! Le logiciel de pilotage du contrôleur Ethernet peut avoir
+		été intégré à la partie monolithique du noyau Linux. Dans ce cas, aucun
+		module ne correspond au pilotage de l'interface réseau et il faut
+		consulter les messages système pour retrouver la trace de cette
+		interface.</para>
+	</answer>
+	</qandaentry>
 
-    <qandaentry>
-      <question>
-      <para>Quelles sont les différentes adresses de l'interface Ethernet aux
-      niveaux liaison de données et réseau ? Quel est le protocole qui assure
-      la correspondance entre ces adresses ?</para> 
-      </question>
-      <answer>
-      <para>Utiliser les commandes de visualisation présentée dans la <xref
-      linkend='conf-intf-lan.link-layer'/> et la <xref
-      linkend='conf-intf-lan.network-layer'/>.</para>
-      </answer>
-    </qandaentry>
+	<qandaentry>
+	<question>
+	<para>Quelles sont les informations sur le média de raccordement physique
+		au réseau local Ethernet ?</para>
+	</question>
+	<answer>
+	<para>Utiliser les outils présentés dans la <xref
+		linkend='conf-intf-lan.physical-layer'/> pour obtenir les
+		informations sur le type de média utilisé et le débit binaire entre
+		l'hôte et le commutateur. Préciser le mode de transmission
+		<wordasword>full-duplex</wordasword> ou
+		<wordasword>half-duplex</wordasword>.</para>
+	</answer>
+	</qandaentry>
 
-    <qandaentry>
-      <question>
-      <para>Quelles sont les informations données par la configuration sur
-      l'état de l'interface ?</para>
-      </question>
-      <answer>
-      <para>Reprendre les éléments du tableau des indicateurs d'états donné
-      dans la <xref linkend='conf-intf-lan.link-layer'/> et faire la
-      correspondance avec la configuration visualisée.</para>
-      </answer>
-    </qandaentry>
+	<qandaentry>
+	<question>
+	<para>Quelles sont les informations sur l'état de l'interface Ethernet ?</para>
+	</question>
+	<answer>
+	<para>Utiliser les informations sur les indicateurs d'état présentés dans
+		la <xref linkend='conf-intf-lan.link-layer'/>.</para>
+	</answer>
+	</qandaentry>
 </qandadiv>
 </qandaset>
  
-  <bridgehead xml:id='conf-intf-lan.tp.addressing' renderas='sect2'>Questions
-  sur les mécanismes d'adressage</bridgehead>
+<qandaset defaultlabel='number'>
+<title>Questions sur l'adressage de l'interface Ethernet</title>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para>Quelles sont les différentes adresses affectées à l'interface
+		Ethernet de votre système ?</para>
+	</question>
+	<answer>
+	<para>Utiliser les commandes de visualisation présentée dans la <xref
+		linkend='conf-intf-lan.link-layer'/> et la <xref
+		linkend='conf-intf-lan.network-layer'/>.</para>
+	</answer>
+	</qandaentry>
 
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para>Quelle est l'adresse du réseau <acronym>IP</acronym> auquel
-      l'interface Ethernet est raccordée ? Quelle est la plage des adresses
-      <acronym>IP</acronym> utilisables ? Quelle est l'adresse de diffusion de
-      ce réseau ?</para>
-      </question>
-      <answer>
-      <para>Utiliser la commande proposée à la <xref
-      linkend='conf-intf-lan.network-layer'/> et le document
-      &url.adressage.ipv4; pour déterminer les bornes du réseau
-      <acronym>IP</acronym>.</para>
-      </answer>
-    </qandaentry>
+	<qandaentry>
+	<question>
+	<para>Quel est le rôle de chacune de ces adresses ?</para>
+	</question>
+	<answer>
+	<para>Le rôle d'une adresse est essentiellement lié à sa portée vis à vis
+		des autres réseaux.</para>
+	</answer>
+	</qandaentry>
 
-    <qandaentry>
-      <question>
-      <para>Est-il possible de déduire l'adresse <acronym>IP</acronym> de la
-      passerelle par défaut à partir des informations fournies par la
-      configuration de l'interface ?</para>
-      </question>
-      <answer>
-      <para>Attention, même si des conventions font que l'on retrouve
-      fréquemment les adresses <acronym>IP</acronym> des passerelles en
-      première ou dernière position de l'espace d'adressage utile, il n'existe
-      aucune règle définie.</para>
-      </answer>
-    </qandaentry>
+	<qandaentry>
+	<question>
+	<para>Quel sont les adresses des réseaux <acronym>IPv4</acronym> et
+		<acronym>IPv6</acronym> correspondants à cette interface ?</para>
+	</question>
+	<answer>
+	<para>À l'aide des commandes présentées dans la <xref
+		linkend='conf-intf-lan.network-layer'/>, retrouver les limites de
+		l'espace d'adressage de chaque réseau.</para>
 
-    <qandaentry>
-      <question>
-      <para>Quels sont les espaces de validité respectifs des adresses
-      <acronym>MAC</acronym> et <acronym>IP</acronym> ?</para>
-      </question>
-      <answer>
-      <para>Retrouver les informations dans la <xref
-      linkend='conf-intf-lan.link-layer'/> et la <xref
-      linkend='conf-intf-lan.network-layer'/>.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Comment visualiser la table de correspondance entre les adresses
-      <acronym>MAC</acronym> et <acronym>IP</acronym> connues de l'interface
-      Ethernet ?</para>
-      </question>
-      <answer>
-      <para>Utiliser la commande proposée dans la <xref
-      linkend='conf-intf-lan.nei'/>.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Comment forcer l'ajout d'une nouvelle entrée dans la table des
-      voisins ? À quel réseau <acronym>IP</acronym> doivent appartenir les
-      adresses à tester ?</para>
-      </question>
-      <answer>
-      <para>Utiliser la commande proposée dans la <xref
-      linkend='conf-intf-lan.icmp'/> pour tester l'accessibilité d'une adresse
-      <acronym>IP</acronym>.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Pourquoi des entrées apparaissent dans la table des voisins sans
-      action particulière ?</para>
-      </question>
-      <answer>
-      <para>Essayer de repérer les stations du réseau local qui ont contacté
-      l'interface Ethernet.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Est-il possible de déduire l'adresse <acronym>IP</acronym> de la
-      passerelle par défaut à partir des informations fournies par la
-      table des voisins ?</para>
-      </question>
-      <answer>
-      <para>Retrouver l'entrée de la table des voisins sollicitée par le trafic
-      sortant vers l'Internet.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para>Pourquoi l'entrée avec l'adresse <acronym>MAC</acronym> de la
-      passerelle par défaut est-elle «rafraîchie» après un test de la commande
-      <command>ping</command> utilisant un nom d'hôte ?</para>
-      </question>
-      <answer>
-      <para>Revoir les tests présentés à la <xref
-      linkend='conf-intf-lan.icmp'/> et les éléments de configuration donnés à
-      la <xref linkend='conf-intf-lan.dns'/>.</para>
-      </answer>
-    </qandaentry>
-  </qandaset>
+	<para>On peut utiliser le document &url.adressage.ipv4; pour déterminer les
+		bornes du réseau <acronym>IPv4</acronym>.</para>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
  
+<qandaset defaultlabel='number'>
+<title>Questions sur le voisinage réseau de l'interface Ethernet</title>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para>Quelles sont les correspondances fournies par la table du voisinage
+		réseau pour les réseaux <acronym>IPv4</acronym> et
+		<acronym>IPv6</acronym> ? Quels sont les deux protocoles utilisés pour
+		obtenir ces correspondances d'adresses ?</para>
+	</question>
+	<answer>
+	<para>Reprendre les informations proposées à la <xref
+		linkend='conf-intf-lan.nei'/>.</para>
+	
+	<para>Attention ! Suivant l'activité entre les hôtes du réseau local ou la
+		passerelle par défaut, le nombre d'entrée de la table du voisinage
+		réseau peut beaucoup varier.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment provoquer l'ajout d'une ou plusieurs entrées
+		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> dans la table des
+		voisins ?</para>
+	</question>
+	<answer>
+	<para>Utiliser les instructions proposées dans la <xref
+		linkend='conf-intf-lan.icmp'/> pour tester l'accessibilité de
+		différentes adresses <acronym>IP</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Est-ce que l'adresse <acronym>IPv4</acronym> ou
+		<acronym>IPv6</acronym> d'un voisin peut appartenir à un réseau
+		extérieur au réseau local ?</para>
+	</question>
+	<answer>
+	<para>Reprendre les informations proposées à la <xref
+		linkend='conf-intf-lan.nei'/>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Pourquoi des entrées apparaissent dans la table des voisins sans
+		trafic initié depuis votre interface Ethernet ?</para>
+	</question>
+	<answer>
+	<para>Essayer de repérer les différences entre les hôtes contactés depuis
+		l'interface Ethernet et les hôtes qui ont contacté votre
+		système.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Est-il possible de déduire l'adresse d'une passerelle par défaut à
+		partir des informations fournies par la table des voisins ?</para>
+	</question>
+    <answer>
+	<para>Dans le cas du protocole <acronym>IPv6</acronym> la réponse se lit
+		directement si une passerelle est présente dans la table des voisins.
+		Pour <acronym>IPv4</acronym>, il est possible de déduire l'adresse
+		d'une passerelle à partir de la fréquence de sollicitation d'une entrée
+		par rapport aux autres.</para>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+
   <bridgehead xml:id='conf-intf-lan.tp.dns' renderas='sect2'>Questions
   sur le service DNS</bridgehead>
 
