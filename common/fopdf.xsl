@@ -65,6 +65,7 @@
       <xsl:text>Q</xsl:text>
       <xsl:number level="any" count="d:qandaentry" format="1"/>
     </xsl:template>
+	 <xsl:param name="qandadiv.autolabel" select="0"/>
 
     <!-- automated index generation -->
     <xsl:param name="generate.index" select="1"/>

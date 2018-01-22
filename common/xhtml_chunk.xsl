@@ -66,6 +66,7 @@
       <xsl:text>Q</xsl:text>
       <xsl:number level="any" count="d:qandaentry" format="1"/>
     </xsl:template>
+	 <xsl:param name="qandadiv.autolabel" select="0"/>
 
     <xsl:template match="collabname">
       <xsl:apply-templates/>
