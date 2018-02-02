@@ -12,9 +12,10 @@ SYMLINKS = \
 
 XML_FILES = \
 	intro.analyse.xml \
-        author.xml \
-        legal.xml \
-	inetdoc.urls.xml
+	author.xml \
+	legal.xml \
+	inetdoc.urls.xml \
+	$(wildcard images/*.png)
 
 all: $(PROCESS)
 
