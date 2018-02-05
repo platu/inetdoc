@@ -104,7 +104,7 @@
       part      nop
       preface   nop
       bibliography  toc
-      qandadiv  toc
+      qandadiv  nop
       qandaset  nop
       reference toc,title
       sect1     nop

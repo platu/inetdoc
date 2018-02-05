@@ -385,7 +385,7 @@
     /chapter  nop
     part      toc,title
     /preface  toc,title
-    qandadiv  toc
+    qandadiv  nop
     qandaset  nop
     reference toc,title
     /sect1    toc
@@ -566,7 +566,6 @@ up into multiple documents.
             <xsl:value-of select="$body.font.master * 1.25"/>
             <xsl:text>pt</xsl:text>
         </xsl:attribute>
-	<xsl:attribute name="border-bottom-style">solid</xsl:attribute>
     </xsl:attribute-set>
 
     <!-- Sections 1, 2 and 3 titles have a small bump factor and padding -->    
@@ -581,6 +580,7 @@ up into multiple documents.
         <xsl:attribute name="space-after.minimum">0.1em</xsl:attribute>
         <xsl:attribute name="space-after.optimum">0.2em</xsl:attribute>
         <xsl:attribute name="space-after.maximum">0.3em</xsl:attribute>
+		<xsl:attribute name="border-bottom-style">solid</xsl:attribute>
     </xsl:attribute-set>
     <xsl:attribute-set name="section.title.level2.properties">
         <xsl:attribute name="space-before.minimum">0.2em</xsl:attribute>
@@ -593,6 +593,7 @@ up into multiple documents.
         <xsl:attribute name="space-after.minimum">0.1em</xsl:attribute>
         <xsl:attribute name="space-after.optimum">0.2em</xsl:attribute>
         <xsl:attribute name="space-after.maximum">0.3em</xsl:attribute>
+		<xsl:attribute name="border-bottom-style">solid</xsl:attribute>
     </xsl:attribute-set>
     <xsl:attribute-set name="section.title.level3.properties">
         <xsl:attribute name="space-before.minimum">0.1em</xsl:attribute>
