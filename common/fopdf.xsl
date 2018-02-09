@@ -854,6 +854,15 @@ up into multiple documents.
         table before
         procedure before
     </xsl:param>
+
+	<xsl:attribute-set name="informal.object.properties">
+		<xsl:attribute name="space-before.minimum">0.5em</xsl:attribute>
+		<xsl:attribute name="space-before.optimum">1em</xsl:attribute>
+		<xsl:attribute name="space-before.maximum">2em</xsl:attribute>
+		<xsl:attribute name="space-after.minimum">0.5em</xsl:attribute>
+		<xsl:attribute name="space-after.optimum">1em</xsl:attribute>
+		<xsl:attribute name="space-after.maximum">2em</xsl:attribute>
+	</xsl:attribute-set>
     
     <!-- Format Variable Lists as Blocks (prevents horizontal overflow) -->
     <xsl:param name="variablelist.as.blocks" select="1" />
