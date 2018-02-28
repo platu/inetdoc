@@ -40,12 +40,13 @@ tput sgr0
 
 ionice -c3 qemu-system-x86_64 \
 	-machine type=q35,accel=kvm:tcg \
-	-cpu qemu64,+ssse3,+sse4.1,+sse4.2,+x2apic \
+	-cpu max,l3-cache=on \
+	-device intel-iommu \
 	-daemonize \
 	-name $vm \
 	-m $memory \
 	-balloon virtio \
-	-smp 2,cores=2 \
+	-smp 2,threads=2 \
 	-rtc base=localtime,clock=host \
 	-watchdog i6300esb \
 	-watchdog-action none \
@@ -53,8 +54,9 @@ ionice -c3 qemu-system-x86_64 \
 	-device ahci,id=ahci0 \
 	-device ide-drive,bus=ahci0.0,drive=drive-sata0-0-0,id=sata0-0-0 \
 	-drive media=cdrom,if=none,file=$iso,id=drive-sata0-0-0 \
-	-drive if=none,id=drive0,aio=native,cache.direct=on,format=$image_format,media=disk,file=$vm \
-	-device virtio-blk,drive=drive0,scsi=off,config-wce=off \
+	-object "iothread,id=iothread.drive0" \
+	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=$image_format,media=disk,file=$vm \
+	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-k fr \
 	-vga qxl \
 	-spice port=$((5900 + $tapnum)),addr=localhost,disable-ticketing \
@@ -64,8 +66,7 @@ ionice -c3 qemu-system-x86_64 \
 	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
 	-soundhw hda \
-	-device virtio-net,netdev=net0,mac="$macaddress" \
-	-netdev user,id=net0 \
-	-netdev tap,ifname=tap$tapnum,id=net0,script=no \
+	-device virtio-net-pci,mq=on,vectors=6,netdev=net0,mac="$macaddress" \
+	-netdev tap,queues=2,ifname=tap$tapnum,id=net0,script=no,downscript=no,vhost=on \
 	$*
 

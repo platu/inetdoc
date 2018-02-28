@@ -51,7 +51,7 @@ ionice -c3 qemu-system-x86_64 \
 	-boot order=c,menu=on \
 	-object "iothread,id=iothread.drive0" \
 	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=$image_format,media=disk,file=$vm \
-	-device virtio-blk-pci,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
+	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-k fr \
 	-vga qxl \
 	-spice port=$((5900 + $tapnum)),addr=localhost,disable-ticketing \
@@ -59,7 +59,7 @@ ionice -c3 qemu-system-x86_64 \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
 	-usb \
-        -device usb-tablet,bus=usb-bus.0 \
+	-device usb-tablet,bus=usb-bus.0 \
 	-soundhw hda \
 	-device virtio-net-pci,mq=on,vectors=6,netdev=net0,mac="$macaddress" \
 	-netdev tap,queues=2,ifname=tap$tapnum,id=net0,script=no,downscript=no,vhost=on \

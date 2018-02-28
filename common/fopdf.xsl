@@ -99,7 +99,7 @@
             <xsl:value-of select="$monospace.font.family"/>
         </xsl:attribute>
         <xsl:attribute name="font-size">
-          <xsl:value-of select="$body.font.master * 0.8"/>
+          <xsl:value-of select="$body.font.master * 0.7"/>
           <xsl:text>pt</xsl:text>
 	</xsl:attribute>
     </xsl:attribute-set>
