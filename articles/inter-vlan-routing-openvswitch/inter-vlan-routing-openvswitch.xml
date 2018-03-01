@@ -348,9 +348,9 @@
 		<para>Création et «activation» des deux cordons de brassage associés
 		aux instances de machines virtuelles.</para>
 
-<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap0 group kvm
+<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap0 group kvm multi_queue
 <prompt>$</prompt> sudo ip link set dev tap0 up
-<prompt>$</prompt> sudo ip tuntap add mode tap dev tap1 group kvm
+<prompt>$</prompt> sudo ip tuntap add mode tap dev tap1 group kvm multi_queue
 <prompt>$</prompt> sudo ip link set dev tap1 up</screen>
 	</listitem>
 	<listitem>
@@ -382,7 +382,6 @@
 <prompt>$</prompt> sudo ovs-vsctl set port vlan1 vlan_mode=native-untagged
 <prompt>$</prompt> sudo ip addr add 192.0.2.29/26 brd + dev vlan1
 <prompt>$</prompt> sudo ip -6 addr add 2001:db8:fe00:8175::1d/64 dev vlan1
-<prompt>$</prompt> sudo tc qdisc add dev vlan1 root pfifo_fast
 <prompt>$</prompt> sudo ip link set dev vlan1 up</screen>
 
 		<para>La dernière instruction associe l'interface au
@@ -396,7 +395,7 @@
 		informations suivantes.</para>
 
 <screen><prompt>$</prompt> ip addr ls dev vlan1
-4: vlan1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN group default 
+4: vlan1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default 
     link/ether 4a:cb:5b:38:d2:c2 brd ff:ff:ff:ff:ff:ff
     <emphasis>inet 192.0.2.29/26</emphasis> brd 192.0.2.31 scope global vlan1
        valid_lft forever preferred_lft forever
@@ -413,7 +412,6 @@
 <prompt>$</prompt> sudo ovs-vsctl set port vlan10 vlan_mode=access
 <prompt>$</prompt> sudo ip addr add 198.51.100.1/24 brd + dev vlan10
 <prompt>$</prompt> sudo ip -6 addr add fd6e:c073:b4a3:a::1/64 dev vlan10
-<prompt>$</prompt> sudo tc qdisc add dev vlan10 root pfifo_fast
 <prompt>$</prompt> sudo ip link set dev vlan10 up</screen>
 	</listitem>
 	<listitem>
@@ -424,7 +422,6 @@
 <prompt>$</prompt> sudo ovs-vsctl set port vlan20 vlan_mode=access
 <prompt>$</prompt> sudo ip addr add 203.0.113.1/24 brd + dev vlan20
 <prompt>$</prompt> sudo ip -6 addr add fd6e:c073:b4a3:14::1/64 dev vlan20
-<prompt>$</prompt> sudo tc qdisc add dev vlan20 root pfifo_fast
 <prompt>$</prompt> sudo ip link set dev vlan20 up</screen>
 	</listitem>
 	</orderedlist>
@@ -873,16 +870,14 @@ TCP window size:  320 KByte
 
 		<para><acronym>VLAN</acronym> Orange :</para>
 
-<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap0 group kvm
-<prompt>$</prompt> sudo ip link set txqueuelen 10000 dev tap0
+<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap0 group kvm multi_queue
 <prompt>$</prompt> sudo ip link set dev tap0 up
 <prompt>$</prompt> sudo ovs-vsctl add-port sw-lab tap0 tag=10
 <prompt>$</prompt> sudo ovs-vsctl set port tap0 <emphasis>vlan_mode=access</emphasis></screen>
 
 		<para><acronym>VLAN</acronym> Vert :</para>
 
-<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap1 group kvm
-<prompt>$</prompt> sudo ip link set txqueuelen 10000 dev tap1
+<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap1 group kvm multi_queue
 <prompt>$</prompt> sudo ip link set dev tap1 up
 <prompt>$</prompt> sudo ovs-vsctl add-port sw-lab tap1 tag=20
 <prompt>$</prompt> sudo ovs-vsctl set port tap1 <emphasis>vlan_mode=access</emphasis></screen>
@@ -895,8 +890,7 @@ TCP window size:  320 KByte
 		trames avec les étiquettes <acronym>IEEE802.1Q</acronym> dans ce
 		mode.</para>
 
-<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap2 group kvm
-<prompt>$</prompt> sudo ip link set txqueuelen 10000 dev tap2
+<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap2 group kvm multi_queue
 <prompt>$</prompt> sudo ip link set dev tap2 up
 <prompt>$</prompt> sudo ovs-vsctl add-port sw-lab tap2
 <prompt>$</prompt> sudo ovs-vsctl set port tap2 <emphasis>vlan_mode=trunk</emphasis></screen>
@@ -1189,8 +1183,8 @@ fe80::/64 dev eth0.10  proto kernel  metric 256  pref medium
 	</section>
 
 <?custom-pagebreak?>
-	<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.snat'>
-		<title>Traduction d'adresses source sur le routeur virtuel</title>
+<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.snat'>
+	<title>Traduction d'adresses source sur le routeur virtuel</title>
 
 	<para>Relativement à la première maquette sur laquelle la traduction des
 	adresses source a lieu sur le système hôte, seule l'interface
@@ -1210,62 +1204,37 @@ fe80::/64 dev eth0.10  proto kernel  metric 256  pref medium
 	href='files/red-rtr-rules.v6' parse='text'
 	xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
-	<para>Il faut à nouveau «surveiller» les compteurs associés à
-	chaque règle pour en mesurer l'utilisation. À partir des deux jeux de
-	règles donnés ci-dessus, on obtient les résultats suivants.</para>
+	<para>Il faut à nouveau «surveiller» les compteurs associés à chaque règle
+		pour en mesurer l'utilisation. À partir des deux jeux de règles donnés
+		ci-dessus, on obtient les résultats suivants.</para>
 
 <screen><prompt>#</prompt> iptables -t nat -vnL POSTROUTING
 Chain POSTROUTING (policy ACCEPT 2 packets, 96 bytes)
- pkts bytes target     prot opt in     out     source     destination         
-    8   448 TCPMSS     tcp  --  *      *       0.0.0.0/0  0.0.0.0/0    tcp flags:0x17/0x02 tcpmss match 1400:1536 TCPMSS clamp to PMTU
-  237 15186 SNAT       all  --  *      eth0    0.0.0.0/0  0.0.0.0/0    to:192.0.2.28</screen>
+ pkts bytes target     prot opt in  out     source     destination         
+    8   448 TCPMSS     tcp  --  *   *       0.0.0.0/0  0.0.0.0/0   tcp flags:0x17/0x02 tcpmss match 1400:1536 TCPMSS clamp to PMTU
+  237 15186 SNAT       all  --  *   eth0    0.0.0.0/0  0.0.0.0/0   to:192.0.2.28</screen>
 
 <screen><prompt>#</prompt> ip6tables -t nat -vnL POSTROUTING
 Chain POSTROUTING (policy ACCEPT 136 packets, 11260 bytes)
- pkts bytes target     prot opt in     out     source     destination         
-   46  3680 TCPMSS     tcp      *      *       ::/0       ::/0         tcp flags:0x17/0x02 tcpmss match 1400:1536 TCPMSS clamp to PMTU
-    3   251 SNAT       all      *      eth0    fd00::/8   ::/0         to:2001:db8:fe00:8175::1c</screen>
-	</section>
+ pkts bytes target     prot opt in  out     source     destination         
+   46  3680 TCPMSS     tcp      *   *       ::/0       ::/0        tcp flags:0x17/0x02 tcpmss match 1400:1536 TCPMSS clamp to PMTU
+    3   251 SNAT       all      *   eth0    fd00::/8   ::/0        to:2001:db8:fe00:8175::1c</screen>
+</section>
 
-	<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.tests'>
-		<title>Tests d'interconnexion entre réseaux</title>
+<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.tests'>
+	<title>Tests d'interconnexion entre réseaux</title>
 
 	<para>Les résultats des tests d'interconnexion réseau entre les
-	<acronym>VLAN</acronym>s Orange et Vert ainsi que vers l'Internet sont
-	<link linkend='inter-vlan-routing-openvswitch.ovs-vm.tests'>identiques à
-	ceux obtenus avec la première maquette</link>. Il est donc inutile de
-	reproduire les mêmes copies d'écran ici.</para>
+		<acronym>VLAN</acronym>s Orange et Vert ainsi que vers l'Internet sont
+		<link linkend='inter-vlan-routing-openvswitch.ovs-vm.tests'>identiques
+		à ceux obtenus avec la première maquette</link>. Il est donc
+		inutile de reproduire les mêmes copies d'écran ici.</para>
 
 	<para>En revanche, les tests de performances diffèrent. Les performances
-	son nettement moins bonnes, même après une tentative d'optimisation de la
-	configuration des interfaces réseau.</para>
-
-	<orderedlist>
-	<listitem>
-		<para>Sur le routeur virtuel :</para>
-
-<screen><prompt>#</prompt> ip link set dev eth0 txqueuelen 10000
-<prompt>#</prompt> ip link set dev eth0.10 txqueuelen 10000
-<prompt>#</prompt> ip link set dev eth0.20 txqueuelen 10000
-<prompt>#</prompt> tc qdisc add dev eth0.20 root pfifo_fast
-<prompt>#</prompt> tc qdisc add dev eth0.10 root pfifo_fast</screen>
-	</listitem>
-	<listitem>
-		<para>Sur l'instance de système virtuel du <acronym>VLAN</acronym>
-		Orange :</para>
-
-<screen><prompt>#</prompt> ip link set dev eth0 txqueuelen 10000</screen>
-	</listitem>
-	<listitem>
-		<para>Sur l'instance de système virtuel du <acronym>VLAN</acronym>
-		Vert :</para>
-
-<screen><prompt>#</prompt> ip link set dev eth0 txqueuelen 10000</screen>
-	</listitem>
-	</orderedlist>
+		sont nettement moins bonnes.</para>
 
 	<para>Voici un échantillon de mesures <application>iperf</application>
-	entre les deux <acronym>VLAN</acronym>s Orange et Vert.</para>
+		entre les deux <acronym>VLAN</acronym>s Orange et Vert.</para>
 
 	<itemizedlist>
 	<listitem>
