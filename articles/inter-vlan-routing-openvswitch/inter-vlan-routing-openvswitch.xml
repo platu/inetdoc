@@ -203,6 +203,84 @@
 </section>
 
 <?custom-pagebreak?>
+<section xml:id='inter-vlan-routing-openvswitch.setup'>
+	<title>Préparartion du système hôte</title>
+
+	<para>Avant de débuter les manipulations, on doit s'assurer que le système
+		hôte dispose de tous les éléments nécessaires.</para>
+
+	<orderedlist>
+	<listitem><para>Les fonctions matérielles de virtualisation sur le
+		processeur</para></listitem>
+	<listitem><para>Les outils utilisateurs pour la virtualisation et la
+			commutation</para></listitem>
+	<listitem><para>L'attribution des droits d'accès à la virtualisation pour
+			un utilisateur normal</para></listitem>
+	</orderedlist>
+
+	<itemizedlist>
+	<listitem>
+	<para>Pour vérifier que le processeur du système hôte dispose bien des
+		fonctions de paravirtualisation, il faut consulter la liste des
+		attributs du processeur. Il existe au moins deux solutions illustrées
+		dans les deux copies d'écran suivantes.</para>
+
+<screen><prompt>$</prompt> egrep -o -m1 '(vmx|svm)' /proc/cpuinfo
+<emphasis>vmx</emphasis></screen>
+
+<screen><prompt>$</prompt> lscpu | grep -i virtualisation
+Virtualisation :        <emphasis>VT-x</emphasis></screen>
+	</listitem>
+	<listitem>
+	<para>Pour les outils utilisateurs, au moins deux paquets sont nécessaires
+		pour la virtualisation et la commutation.</para>
+
+<screen><prompt>$</prompt> aptitude search '?or(?installed(qemu-system-x86), ?installed(openvswitch-switch))'
+i   <emphasis>openvswitch-switch</emphasis>     - Open vSwitch switch implementations
+i   <emphasis>qemu-system-x86</emphasis>        - QEMU full system emulation binaries (x86)</screen>
+
+	<para>Si l'exécution de la commande proposée dans la copie d'écran
+		ci-dessus ne produit aucun résultat, il faut donc procéder à
+		l'installation des deux paquets.</para>
+
+<screen><prompt>$</prompt> sudo aptitude install openvswitch-switch qemu-system-x86</screen>
+	</listitem>
+	<listitem>
+	<para>Pour l'attribution des droits et permissions, il faut s'assurer que
+		l'utilisateur normal soit bien membre des groupes système suivants
+		:</para>
+	<itemizedlist>
+	<listitem>
+	<para><systemitem>kvm</systemitem> pour la virtualisation</para>
+	</listitem>
+	<listitem>
+	<para><systemitem>sudo</systemitem> pour la commutation</para>
+	</listitem>
+	</itemizedlist>
+    
+<screen><prompt>#</prompt> adduser etu kvm</screen>
+
+<warning>
+	<para>L'appartenance à un nouveau groupe est conditionnée par une ouverture
+		de nouvelle session. Après avoir utilisé la commande
+		<command>adduser</command> de la copie d'écran ci-dessus, il est
+		préférable de déconnecter/reconnecter l'utilisateur normal du
+		système.</para>  
+</warning>
+
+	<para>Enfin, il faut s'assurer que les fichiers de représentation des
+		périphériques aient aussi les bonnes attributions de groupe
+		système.</para>
+
+<screen><prompt>$</prompt> ls -l /dev/kvm
+crw-rw---- 1 root kvm 10, 232 mars  13 19:50 /dev/kvm
+<prompt>$</prompt> ls -l /dev/vhost-net
+crw-rw---- 1 root kvm 10, 238 mars   8 08:21 /dev/vhost-net</screen>
+	</listitem>
+	</itemizedlist>
+</section>
+
+<?custom-pagebreak?>
 <section xml:id='inter-vlan-routing-openvswitch.ovs-host'>
 	<title>Routage inter-VLAN dans le système hôte</title>
 
@@ -214,35 +292,6 @@
 	topologie</link>, l'essentiel de la configuration porte sur le commutateur
 	<systemitem>dsw-host</systemitem>. Voyons par quelles étapes il faut
 	passer.</para>
-
-	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.install'>
-		<title>Installation et configuration des outils</title>
-
-	<para>Il faut d'abord préparer le système hôte : installer les paquets
-	nécessaires à la virtualisation système, à la commutation et au routage et
-	permettre à l'utilisateur normal de réaliser les manipulations.</para>
-
-	<itemizedlist>
-	<listitem>
-		<para>On commence par l'installation des paquets utiles après avoir
-		vérifié que le processeur du système hôte dispose bien des fonctions de
-		virtualisation.</para>
-
-<screen><prompt>#</prompt> egrep '(vmx|svm)' /proc/cpuinfo</screen>
-
-<screen><prompt>#</prompt> aptitude install qemu-system-x86 openvswitch-switch</screen>
-	</listitem>
-	<listitem>
-		<para>On s'assure ensuite que l'utilisateur normal est bien membre des
-		groupes système associés à la virtualisation. Dans notre cas, on se
-		contente des groupes <option>sudo</option> et <option>kvm</option>.
-		L'ajout d'un utilisateur à un groupe système se fait à l'aide de la
-		commande suivante.</para>
-    
-<screen><prompt>#</prompt> adduser etu kvm</screen>
-	</listitem>
-	</itemizedlist>
-	</section>
 
 	<section xml:id='inter-vlan-routing-openvswitch.ovs-host.addressing'>
 		<title>Plan d'adressage</title>
@@ -256,6 +305,8 @@
 	<colspec colnum='4' colwidth='3*'/>
 	<thead>
 	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
 		<entry>Nom</entry>
 		<entry>VLAN</entry>
 		<entry>Interface</entry>
@@ -711,16 +762,6 @@ TCP window size:  320 KByte
 	une nouvelle instance de système virtuel. Voyons par quelles étapes il faut
 	passer.</para>
 
-	<section xml:id='inter-vlan-routing-openvswitch.ovs-vm.install'>
-		<title>Installation et configuration des outils</title>
-
-	<para>La toute première étape, relative à l'installation et à la
-	configuration des outils sur le système hôte est <link
-	linkend='inter-vlan-routing-openvswitch.ovs-host.install'>identique à la
-	section précédente</link>. On peut donc passer directement au plan
-	d'adressage.</para>
-	</section>
-
 	<section xml:id='inter-vlan-routing-openvswitch.vm-host.addressing'>
 		<title>Plan d'adressage</title>
 
@@ -741,6 +782,8 @@ TCP window size:  320 KByte
 	<colspec colnum='4' colwidth='3*'/>
 	<thead>
 	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
 		<entry>Nom</entry>
 		<entry>VLAN</entry>
 		<entry>Interface</entry>
