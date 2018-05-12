@@ -20,7 +20,6 @@ PROCESS = subdirs xml2xhtml xml2pdf
 
 XML_FILES = \
 	biblio-guides.xml \
-	autodoc/$(ABSTRACT_FILE) \
 	lartc/$(ABSTRACT_FILE) \
 	amavisd-new/$(ABSTRACT_FILE) \
 	squid-guard/$(ABSTRACT_FILE) \
