@@ -45,7 +45,7 @@ ionice -c3 qemu-system-x86_64 \
 	-daemonize \
 	-name $vm \
 	-m $memory \
-	-balloon virtio \
+	-device virtio-balloon \
 	-smp 2,threads=2 \
 	-rtc base=localtime,clock=host \
 	-watchdog i6300esb \
