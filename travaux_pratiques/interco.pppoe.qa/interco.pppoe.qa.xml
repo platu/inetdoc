@@ -23,6 +23,10 @@
 <!ENTITY url.ppp-howto
 '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://tldp.org/HOWTO/PPP-HOWTO/">
 <citetitle>Linux PPP HOWTO</citetitle></link>'>
+
+<!ENTITY url.cheatsheet
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://www.inetdoc.net/pdf/iproute-cheatsheet.pdf">
+<citetitle>Antisèche réseau</citetitle></link>'>
 ]>
 
 <article xml:id='interco.pppoe.qa' xml:lang='fr'>
@@ -359,6 +363,43 @@
 		des réseaux avec un masque sur 30 bits via des routes statiques et/ou
 		des protocoles de routage dynamique.</para>
 	</listitem>
+	<listitem>
+		<para>Tous les exemples de commandes donnés dans la suite du document
+		utilisent la numérotation suivante pour les
+		<acronym>VLANs</acronym>.</para>
+		<informaltable frame='all' pgwide='0'>
+		<tgroup cols='2' align='left' colsep='1' rowsep='1'>
+		<colspec colnum='1' colwidth='1*'/>
+		<colspec colnum='2' colwidth='2*'/>
+		<thead>
+		<row>
+			<?dbfo bgcolor="#333" ?>
+			<?dbfo color="#fff" ?>
+			<entry>Flux réseau</entry>
+			<entry>VLAN</entry>
+		</row>
+		</thead>
+		<tbody>
+		<row>
+			<entry>Management</entry>
+			<entry>25</entry>
+		</row>
+		<row>
+			<entry>Data</entry>
+			<entry>26</entry>
+		</row>
+		<row>
+			<entry>Voice</entry>
+			<entry>27</entry>
+		</row>
+		<row>
+			<entry>Video</entry>
+			<entry>28</entry>
+		</row>
+		</tbody>
+		</tgroup>
+		</informaltable>
+	</listitem>
 	</itemizedlist>
   
 <?custom-pagebreak?>
@@ -585,59 +626,153 @@
 	</table>
 </sect2>
 
-  <sect2 xml:id='interco.pppoe.qa.ppp-protocol.noauth'>
-    <title>Sans authentification</title>
+<sect2 xml:id='interco.pppoe.qa.ppp-protocol.management'>
+	<title>Communications dans le VLAN Management</title>
 
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les options de configuration à fournir au
-      gestionnaire de connexion pour ce mode de fonctionnement
-      ?</phrase></para>
+	<para>Sachant que les routeurs sont reliés entre eux par des
+	<wordasword>trunks</wordasword>, il faut commencer par s'assurer que les
+	échanges réseau sont possible au sein du <acronym>VLAN</acronym> de gestion
+	opérateur : <option>Management</option>.</para>
 
-      <para>Consulter les pages de manuels du démon
-      <command>ipppd</command>.</para>
-      </question>
-      <answer>
-      <para>Le protocole <acronym>PPP</acronym> n'a pas été conçu suivant le
-      modèle Client/Serveur. Il suppose que deux processus pairs échangent des
-      informations. Pour cette question c'est l'option <option>auth</option>
-      qui définit si un hôte requiert une authentification de l'hôte pair.
-      Cette authentification peut être requise par chacune des extrémités en
-      communication. Pour désactiver l'authentification à chaque extrémité, on
-      ajoute le préfixe <option>no</option> à l'option
-      <option>auth</option>.</para>
-      </answer>
-    </qandaentry>
-    
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les options qui permettent de visualiser en
-      détails le dialogue <acronym>PPP</acronym> dans les journaux systèmes
-      ?</phrase></para>
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment créer et configurer une sous-interface dédiée au
+		<acronym>VLAN</acronym> <option>Management</option> sur chaque routeur
+		?</phrase></para>
 
-      <para>C'est à nouveau dans les pages de manuels que la réponse se
-      trouve.</para>
-      </question>
-      <answer>
-      <para>C'est l'option <option>debug</option> qui permet l'affichage des
-      informations relatives aux différentes étapes de l'établissement de la
-      connexion <acronym>PPP</acronym>.</para>
-      </answer>
-    </qandaentry>
+		<para>Consulter les pages de manuels <command>man ip-link</command> et
+		rechercher les options du type <option>vlan</option>.</para>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quels sont les noms des deux sous-couches du protocole
-      <acronym>PPP</acronym> qui apparaissent dans les journaux systèmes
-      ?</phrase> Quels sont les rôles respectifs de ces deux sous-couches
-      ?</para>
+		<para>Il est aussi possible de consulter l'&url.cheatsheet;.</para>
+	</question>
+	<answer>
+		<para>La syntaxe de création d'une sous-interface de l'interface
+		physique <option>eth0</option> est la suivante :</para>
 
-      <para>Consulter la page &url.ppp-wikipedia;.</para>
-      </question>
-      <answer>
-      <para>La consultation des journaux système fait apparaître les
-      informations suivantes.</para>
+<screen><prompt>$</prompt> sudo ip link add link eth0 name eth0.25 type vlan id 25</screen>
+
+		<para>La syntaxe d'activation de l'interface est la suivante :</para>
+
+<screen><prompt>$</prompt> sudo ip link set dev eth0.25 up</screen>
+
+		<para>Dès cette étape il est possible de faire un recensement du
+		voisinage réseau <acronym>IPv6</acronym>.</para> 
+
+<screen><prompt>$</prompt> ping -c2 ff02::1%eth0.25
+PING ff02::1%eth0.25(ff02::1%eth0.25) 56 data bytes
+64 bytes from fe80::baca:3aff:fe9e:8556%eth0.25: icmp_seq=1 ttl=64 time=0.055 ms
+64 bytes from fe80::c0da:e2ff:feec:6ac0%eth0.25: icmp_seq=1 ttl=64 time=2.83 ms (DUP!)
+64 bytes from fe80::baca:3aff:fe9e:8556%eth0.25: icmp_seq=2 ttl=64 time=0.069 ms
+
+--- ff02::1%eth0.25 ping statistics ---
+2 packets transmitted, 2 received, +1 duplicates, 0% packet loss, time 2ms
+rtt min/avg/max/mdev = 0.055/0.985/2.831/1.305 ms
+
+<prompt>$</prompt> ip neigh ls dev eth0.25
+fe80::c0da:e2ff:feec:6ac0 lladdr c2:da:e2:ec:6a:c0 REACHABLE</screen>
+
+		<para>La dernière commande de la copie d'écran ci-dessus indique qu'au
+		moins un voisin est joignable dans le domaine de diffusion
+		correspondant au <acronym>VLAN</acronym>
+		<option>Management</option>.</para>
+
+		<para>La syntaxe d'affectation d'une nouvelle adresse
+		<acronym>IPv6</acronym> à l'interface est la suivante :</para>
+
+<screen><prompt>$</prompt> sudo ip -6 addr add fe80:19::3/64 dev eth0.25
+
+<prompt>$</prompt> ip addr ls dev eth0.25
+3: eth0.25@eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether b8:ca:3a:9e:85:56 brd ff:ff:ff:ff:ff:ff
+    <emphasis>inet6 fe80:19::3/64 scope link</emphasis>
+       valid_lft forever preferred_lft forever
+    inet6 fe80::baca:3aff:fe9e:8556/64 scope link
+       valid_lft forever preferred_lft forever</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment qualifier les échanges réseau dans le
+		<acronym>VLAN</acronym> <option>Management</option> ?</phrase></para>
+
+		<para>Il faut, au minimum, que le routeur <wordasword>Hub</wordasword>
+		et les deux routeurs <wordasword>Spoke</wordasword> puissent se
+		contacter via le protocole <acronym>ICMP</acronym>. Cette opération
+		sert à valider le raccordement physique entre les 3 routeurs ainsi que
+		la configuration des ports de commutation Ethernet.</para>
+	</question>
+	<answer>
+		<para>Voici un exemple de commande <command>ping</command> dans le
+		<acronym>VLAN</acronym> <option>Management</option>.</para>
+
+<screen><prompt>$</prompt> ping -c2 fe80:19::1%eth0.25
+PING fe80:19::1%eth0.25(fe80:19::1%eth0.25) 56 data bytes
+64 bytes from fe80:19::1%eth0.25: icmp_seq=1 ttl=64 time=1.42 ms
+64 bytes from fe80:19::1%eth0.25: icmp_seq=2 ttl=64 time=0.827 ms
+
+--- fe80:19::1%eth0.25 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 3ms
+rtt min/avg/max/mdev = 0.827/1.124/1.422/0.299 ms</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect2>
+
+<sect2 xml:id='interco.pppoe.qa.ppp-protocol.hub'>
+	<title>Configuration d'un routeur Hub</title>
+
+	<qandaset defaultlabel='number'>
+		<qandaentry>
+		<question>
+			<para><phrase>Quel paquet spécifique à la gestion du dialogue <acronym>PPPoE</acronym> 
+			gestionnaire de connexion pour ce mode de fonctionnement
+			?</phrase></para>
+
+			<para>Consulter les pages de manuels du démon
+			<command>ipppd</command>.</para>
+			</question>
+			<answer>
+			<para>Le protocole <acronym>PPP</acronym> n'a pas été conçu suivant le
+			modèle Client/Serveur. Il suppose que deux processus pairs échangent des
+			informations. Pour cette question c'est l'option <option>auth</option>
+			qui définit si un hôte requiert une authentification de l'hôte pair.
+			Cette authentification peut être requise par chacune des extrémités en
+			communication. Pour désactiver l'authentification à chaque extrémité, on
+			ajoute le préfixe <option>no</option> à l'option
+			<option>auth</option>.</para>
+			</answer>
+		</qandaentry>
+		
+		<qandaentry>
+			<question>
+			<para><phrase>Quelles sont les options qui permettent de visualiser en
+			détails le dialogue <acronym>PPP</acronym> dans les journaux systèmes
+			?</phrase></para>
+
+			<para>C'est à nouveau dans les pages de manuels que la réponse se
+			trouve.</para>
+			</question>
+			<answer>
+			<para>C'est l'option <option>debug</option> qui permet l'affichage des
+			informations relatives aux différentes étapes de l'établissement de la
+			connexion <acronym>PPP</acronym>.</para>
+			</answer>
+		</qandaentry>
+
+		<qandaentry>
+			<question>
+			<para><phrase>Quels sont les noms des deux sous-couches du protocole
+			<acronym>PPP</acronym> qui apparaissent dans les journaux systèmes
+			?</phrase> Quels sont les rôles respectifs de ces deux sous-couches
+			?</para>
+
+			<para>Consulter la page &url.ppp-wikipedia;.</para>
+			</question>
+			<answer>
+			<para>La consultation des journaux système fait apparaître les
+			informations suivantes.</para>
 
 <screen>pppd[3262]: sent [LCP ConfReq id=0x1 &lt;mru 1492> &lt;magic 0x46010ac>]
 kernel: [  895.700115] NET: Registered protocol family 24
