@@ -19,6 +19,9 @@
 	<!ENTITY db_xsl_path        "/usr/local/share/xml/docbook/stylesheet/docbook-xsl-ns/">
 	<!ENTITY callout_gfx_path   "/images/">
 	<!ENTITY admon_gfx_path     "/images/">
+	<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"http://www.w3.org/2003/entities/2007/w3centities-f.ent">
+	%w3centities-f;
 ]>
 
 <xsl:stylesheet version="1.0"
