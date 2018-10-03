@@ -1049,6 +1049,13 @@ pppd[3262]: remote IP address 10.0.0.1</screen>
 		<para>C'est le fichier <filename>/etc/ppp/chap-secrets</filename> qui
 		contient les couples <wordasword>login/password</wordasword> utilisés
 		lors de l'authentification.</para>
+
+		<para>Voici un exmple du contenu de ce fichier.</para>
+
+<screen># Secrets for authentication using CHAP
+# client        server  secret                  IP addresses
+"spoke1"        *       "5p0k3-1-53cr3t"        *
+"spoke2"        *       "5p0k3-2-53cr3t"        *</screen>
 	</answer>
 	</qandaentry>
 
@@ -1068,128 +1075,183 @@ pppd[3262]: remote IP address 10.0.0.1</screen>
 		<acronym>PPP</acronym>.</para>
 	</answer>
 	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Quelles sont les options du protocole
+		<acronym>PPP</acronym> qui doivent être implantées dans le fichier
+		demandé à la question précédente&nbsp;?</phrase></para>
+
+		<para>Consulter les pages de manuels du démon <command>pppd</command>
+		et rechercher les paramètres correspondant à la liste suivante.</para>
+
+		<itemizedlist>
+		<listitem>
+			<para>Afficher en détail toutes les étapes d'établissement de
+			session dans les journaux système.</para>
+		</listitem>
+		<listitem>
+			<para>Référencer l'identifiant du compte utilisateur à utiliser
+			lors de l'authentification du routeur
+			<wordasword>Spoke</wordasword>. Cette option implique que le compte
+			utilisateur existe sur le système et qu'il soit présent dans le
+			fichier <filename>/etc/ppp/chap-secrets</filename>.</para>
+		</listitem>
+		<listitem>
+			<para>Imposer au routeur <wordasword>Spoke</wordasword> une
+			authentification via le protocole <acronym>CHAP</acronym>
+			(<wordasword>Challenge Handshake Authentication
+			Protocol</wordasword>).</para>
+		</listitem>
+		<listitem>
+			<para>Préserver la route par défaut, et donc l'accès Internet, du
+			routeur <wordasword>Hub</wordasword>.</para>
+		</listitem>
+		<listitem>
+			<para>Publier l'adresse <acronym>IP</acronym> du serveur
+			<acronym>DNS</acronym> à utiliser pour la résolution des noms de
+			domaines.</para>
+		</listitem>
+		<listitem>
+			<para>Activer l'utilisation des protocoles
+			<acronym>IPv6CP</acronym> et <acronym>IPv6</acronym>.</para>
+		</listitem>
+		</itemizedlist>
+	</question>
+	<answer>
+		<para>Voici une copie du fichier
+		<filename>/etc/ppp/pppoe-server-options</filename> qui contient la
+		liste des paramètres demandés.</para>
+
+<screen>debug
+login
+require-chap
+nodefaultroute
+ms-dns 172.16.16.2
++ipv6</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment créer les comptes utilisateurs locaux sur le
+		routeur <wordasword>Hub</wordasword> sachant qu'ils ne sont autorisés
+		ni à se connecter ni à avoir un répertoire
+		personnel&nbsp;?</phrase></para> 
+
+		<para>Consulter les options de la commande <command>adduser</command>.</para>
+	</question>
+	<answer>
+		<para>Voici un exemple de commande <command>adduser</command>.</para>
+
+<screen><prompt>#</prompt> adduser --disabled-login --no-create-home spoke1</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Quels sont les paramètres à donner au lancement de
+		l'outil <command>pppoe-server</command> pour qu'il délivre les adresses
+		aux routeurs <wordasword>Spoke</wordasword> après authentification de
+		ceux-ci&nbsp;?</phrase></para>
+
+		<para>Consulter les options de la commande
+		<command>pppoe-server</command>.</para>
+	</question>
+	<answer>
+		<para>Voici un exemple de commande
+		<command>pppoe-server</command>.</para>
+
+<screen><prompt>#</prompt> pppoe-server -I eth0.26 -C BRAS -L 192.168.1.29 -R 192.168.1.30</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Quels sont les résultats obtenus une fois que la session
+		<acronym>PPP</acronym> est établie et que les adresses de couche réseau
+		ont été délivrées&nbsp;?</phrase></para>
+
+		<para>Consulter les journaux système, la liste des procsessus, l'état
+		des interfaces réseau et de la table de routage.</para>
+
+		<para>Attention ! Les résultats ne sont pertinents que si le dialogue
+		avec un routeur <wordasword>Spoke</wordasword> est effectif.</para>
+	</question>
+	<answer>
+		<itemizedlist>
+		<listitem>
+			<para>Consultation des journaux système.</para>
+
+<screen>pppoe-server[7274]: Session 1 created for client e6:92:9d:7a:9a:98 (192.168.1.30) on eth0.26 using Service-Name ''
+pppd[7]: pppd 2.4.7 started by etu, uid 0
+pppd[7]: using channel 2
+pppd[7]: Using interface ppp0
+pppd[7]: Connect: ppp0 &lt;--> /dev/pts/1
+pppd[7]: sent [LCP ConfReq id=0x1 &lt;mru 1492> &lt;auth chap MD5> &lt;magic 0x7da53eb6>]
+pppd[7]: rcvd [LCP ConfAck id=0x1 &lt;mru 1492> &lt;auth chap MD5> &lt;magic 0x7da53eb6>]
+pppd[7]: rcvd [LCP ConfReq id=0x1 &lt;mru 1492> &lt;magic 0xeea2b21a>]
+pppd[7]: sent [LCP ConfAck id=0x1 &lt;mru 1492> &lt;magic 0xeea2b21a>]
+pppd[7]: sent [LCP EchoReq id=0x0 magic=0x7da53eb6]
+pppd[7]: sent [CHAP Challenge id=0xdf &lt;a67ec17d7f16afda88af52b81a1357b506b2260d7f754e>, name = "corellia"]
+pppd[7]: rcvd [LCP EchoReq id=0x0 magic=0xeea2b21a]
+pppd[7]: sent [LCP EchoRep id=0x0 magic=0x7da53eb6]
+pppd[7]: rcvd [LCP EchoRep id=0x0 magic=0xeea2b21a]
+pppd[7]: rcvd [CHAP Response id=0xdf &lt;8d36d92d4559ee32aec3383bd725eb4f>, name = "spoke1"]
+pppd[7]: sent [CHAP Success id=0xdf "Access granted"]
+pppd[7]: Initializing PAM (2) for user spoke1
+pppd[7]: ---> PAM INIT Result = 0
+pppd[7]: Attempting PAM account checks
+pppd[7]: PAM Account OK for spoke1
+pppd[7]: PAM Session opened for user spoke1
+pppd[7]: user spoke1 logged in on tty  intf ppp0
+pppd[7]: local  LL address fe80::85c9:885e:3a4e:02ad
+pppd[7]: remote LL address fe80::399d:24c8:9deb:a7b7
+pppd[7]: local  IP address 192.168.1.29
+pppd[7]: remote IP address 192.168.1.30</screen>
+		</listitem>
+
+		<listitem>
+			<para>Liste des processus.</para>
+
+<screen>pppoe-server -I eth0.26 -C BRAS -L 192.168.1.29 -R 192.168.1.30
+	\_ pppd pty /usr/sbin/pppoe -n -I eth0.26 -e 1:e6:92:9d:7a:9a:98 -S '' 
+		file /etc/ppp/pppoe-server-options 192.168.1.29:192.168.1.30 
+		nodetach noaccomp nopcomp default-asyncmap mru 1492 mtu 1492
+		\_ /usr/sbin/pppoe -n -I eth0.26 -e 1:e6:92:9d:7a:9a:98 -S</screen>
+		</listitem>
+
+		<listitem>
+			<para>État des interfaces.</para>
+
+<screen><prompt>$</prompt> ip addr ls dev eth0.26
+5: eth0.26@eth0: &lt;BROADCAST,MULTICAST,<emphasis>UP,LOWER_UP</emphasis>> mtu 1500 qdisc noqueue state <emphasis>UP</emphasis> group default qlen 1000
+    link/ether b8:ca:3a:9e:85:56 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::baca:3aff:fe9e:8556/64 scope link
+       valid_lft forever preferred_lft forever
+
+<prompt>$</prompt> ip addr ls dev ppp0
+9: ppp0: &lt;POINTOPOINT,MULTICAST,NOARP,<emphasis>UP,LOWER_UP</emphasis>> <emphasis>mtu 1492</emphasis> qdisc pfifo_fast state UNKNOWN group default qlen 3
+    link/ppp
+    inet 192.168.1.29 peer 192.168.1.30/32 scope global ppp0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::8478:a29b:3836:8f96/10 scope link
+       valid_lft forever preferred_lft forever</screen>
+		</listitem>
+
+		<listitem>
+			<para>Table de routage.</para>
+
+<screen><prompt>$</prompt> ip route ls
+default via 172.16.16.2 dev eth0.4
+172.16.16.0/20 dev eth0.4 proto kernel scope link src 172.16.16.59
+192.168.1.30 dev ppp0 proto kernel scope link src 192.168.1.29</screen>
+		</listitem>
+		</itemizedlist>
+	</answer>
+	</qandaentry>
 	</qandaset>
 </sect2>
-
-<!--
-      <userinput><prompt>#</prompt> tshark -V -i eth0 -R "ppp" >
-      grepMyPassword.txt</userinput>.</para>
-
-<screen>Type: PPPoE Session (0x8864)
-PPP-over-Ethernet Session
-    0001 .... = Version: 1
-    .... 0001 = Type: 1
-    Code: Session Data (0x00)
-    Session ID: 0x0003
-    Payload Length: 16
-Point-to-Point Protocol
-    Protocol: Password Authentication Protocol (0xc023)
-PPP Password Authentication Protocol
-    Code: Authenticate-Request (1)
-    Identifier: 1
-    Length: 14
-    Data
-        Peer-ID-Length: 3
-        Peer-ID: etu
-        Password-Length: 5
-        <emphasis>Password: stri</emphasis></screen>
--->
-  <sect2 xml:id='interco.pppoe.qa.protocol.client.authchap'>
-    <title>Avec authentification CHAP</title>
-
-  <para>On reprend exactement le cas précédent en changeant le protocole
-  d'authentification. On utilise maintenant le protocole <acronym>CHAP</acronym>
-  qui est nettement plus intéressant que <acronym>PAP</acronym>. Nous allons
-  voir pourquoi !</para>
-
-  <para>Les paramètres d'authentification
-  <wordasword>login/password</wordasword> ne changent pas :
-  <option>etu/stri</option>.</para>
-
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les options de configuration spécifiques à
-      l'authentification <acronym>CHAP</acronym> à fournir au démon PPP&nbsp;?</phrase></para>
-
-      <para>Consulter les pages de manuels du démon
-      <command>ipppd</command>.</para>
-      </question>
-      <answer>
-      <para>C'est l'option <option>chap</option> qui permet de spécifier ce
-      type d'authentification.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Dans quel fichier sont stockés les paramètres
-      d'authentification <wordasword>login/password</wordasword> utilisés par
-      le protocole <acronym>CHAP</acronym> ?</phrase></para>
-
-      <para>Consulter les pages de manuels du démon
-      <command>ipppd</command>.</para>
-      </question>
-      <answer>
-      <para>C'est le fichier <filename>/etc/ppp/chap-secrets</filename> qui
-      contient les couples <wordasword>login/password</wordasword> utilisés
-      lors de l'authentification.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quels sont les en-têtes du dialogue de la couche
-      <acronym>LCP</acronym> qui identifient les requêtes d'authentification
-      échangées entre les deux processus pairs ?</phrase></para>
-      </question>
-      <answer>
-      <para>Voici une copie d'écran de connexion qui fait apparaître les
-      directives <literal>Conf*</literal> relatives à la partie
-      authentification.</para>
-
-<screen>pppd[6037]: pppd 2.4.5 started by root, uid 0
-pppd[6037]: using channel 28
-pppd[6037]: Using interface ppp0
-pppd[6037]: Connect: ppp0 &lt; /dev/pts/1
-pppd[6037]: sent [LCP ConfReq id=0x1 &lt;auth chap MD5> &lt;magic 0x46c97184>]
-pppd[6037]: rcvd [LCP ConfAck id=0x1 &lt;auth chap MD5> &lt;magic 0x46c97184>]
-pppd[6037]: rcvd [LCP ConfReq id=0x1 &lt;mru 1492> &lt;auth chap MD5> &lt;magic 0x1f157ebf>]
-pppd[6037]: sent [LCP ConfAck id=0x1 &lt;mru 1492> &lt;auth chap MD5> &lt;magic 0x1f157ebf>]
-pppd[6037]: sent [LCP EchoReq id=0x0 magic=0x46c97184]
-pppd[6037]: sent [CHAP Challenge id=0x86 &lt;ed6d9c0c022dbe008b2d3332fb275f5af1ca499393>,\
-					name = "ppp-hub"]
-pppd[6037]: rcvd [LCP EchoReq id=0x0 magic=0x1f157ebf]
-pppd[6037]: sent [LCP EchoRep id=0x0 magic=0x46c97184]
-pppd[6037]: rcvd [CHAP Challenge id=0x4f &lt;29b6227da7da53d7ee2b4f6f7ec9a1900d5c9ac33f14>,\
-					name = "etu"]
-pppd[6037]: sent [CHAP Response id=0x4f &lt;cb5bf4fbb0f9afd98a477f1f8a2e4c1f>,\
-					name = "etu"]
-pppd[6037]: rcvd [LCP EchoRep id=0x0 magic=0x1f157ebf]
-pppd[6037]: rcvd [CHAP Response id=0x86 &lt;de265c472d38a441fdbd2228314e0d86>,\
-					name = "etu"]
-pppd[6037]: sent [CHAP Success id=0x86 "Access granted"]
-pppd[6037]: rcvd [CHAP Success id=0x4f "Access granted"]
-pppd[6037]: CHAP authentication succeeded: Access granted
-pppd[6037]: CHAP authentication succeeded</screen>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les informations échangées sur les mots de
-      passe avec le protocole <acronym>CHAP</acronym> ?</phrase> Est-il
-      possible de relever le mot de passe avec ce protocole ?</para>
-      </question>
-      <answer>
-      <para>Les éléments donnés dans le copie d'écran ci-dessus montrent qu'il
-      n'y a pas d'échange de mot de passe entre les deux systèmes en
-      communication. Seuls des <wordasword>Challenges</wordasword> sont
-      échangés.</para>
-      </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
 </sect1>
 
 <sect1 xml:id='interco.pppoe.qa.hub.old'>
