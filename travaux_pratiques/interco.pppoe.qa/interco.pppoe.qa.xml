@@ -1183,7 +1183,7 @@ ms-dns 172.16.16.2
 		<listitem>
 			<para>Consultation des journaux système.</para>
 
-<screen>pppoe-server[7274]: Session 1 created for client e6:92:9d:7a:9a:98 (192.168.1.30) on eth0.26 using Service-Name ''
+<screen>pppoe-server[7]: Session 1 created for client e6:92:9d:7a:9a:98 (192.168.1.30) on eth0.26 using Service-Name ''
 pppd[7]: pppd 2.4.7 started by etu, uid 0
 pppd[7]: using channel 2
 pppd[7]: Using interface ppp0
@@ -1225,13 +1225,15 @@ pppd[7]: remote IP address 192.168.1.30</screen>
 			<para>État des interfaces.</para>
 
 <screen><prompt>$</prompt> ip addr ls dev eth0.26
-5: eth0.26@eth0: &lt;BROADCAST,MULTICAST,<emphasis>UP,LOWER_UP</emphasis>> mtu 1500 qdisc noqueue state <emphasis>UP</emphasis> group default qlen 1000
+5: eth0.26@eth0: &lt;BROADCAST,MULTICAST,<emphasis>UP,LOWER_UP</emphasis>> mtu 1500 \
+			qdisc noqueue state <emphasis>UP</emphasis> group default qlen 1000
     link/ether b8:ca:3a:9e:85:56 brd ff:ff:ff:ff:ff:ff
     inet6 fe80::baca:3aff:fe9e:8556/64 scope link
        valid_lft forever preferred_lft forever
 
 <prompt>$</prompt> ip addr ls dev ppp0
-9: ppp0: &lt;POINTOPOINT,MULTICAST,NOARP,<emphasis>UP,LOWER_UP</emphasis>> <emphasis>mtu 1492</emphasis> qdisc pfifo_fast state UNKNOWN group default qlen 3
+9: ppp0: &lt;POINTOPOINT,MULTICAST,NOARP,<emphasis>UP,LOWER_UP</emphasis>> <emphasis>mtu 1492</emphasis> \
+			qdisc pfifo_fast state UNKNOWN group default qlen 3
     link/ppp
     inet 192.168.1.29 peer 192.168.1.30/32 scope global ppp0
        valid_lft forever preferred_lft forever
@@ -1242,276 +1244,98 @@ pppd[7]: remote IP address 192.168.1.30</screen>
 		<listitem>
 			<para>Table de routage.</para>
 
-<screen><prompt>$</prompt> ip route ls
-default via 172.16.16.2 dev eth0.4
-172.16.16.0/20 dev eth0.4 proto kernel scope link src 172.16.16.59
-192.168.1.30 dev ppp0 proto kernel scope link src 192.168.1.29</screen>
+<screen><prompt>$</prompt> ip route ls dev ppp0
+192.168.1.30 proto kernel scope link src 192.168.1.29</screen>
 		</listitem>
 		</itemizedlist>
 	</answer>
 	</qandaentry>
 	</qandaset>
 </sect2>
-</sect1>
 
-<sect1 xml:id='interco.pppoe.qa.hub.old'>
-  <title>Configuration d'un routeur Hub</title>
+<sect2 xml:id='interco.pppoe.qa.hub.lan'>
+	<title>Côté réseau local - <acronym>LAN</acronym></title>
 
-  <para>Compte tenu de la topologie définie dans la section précédente, on doit
-  configurer les interfaces <acronym>LAN</acronym> et <acronym>WAN</acronym> du
-  <wordasword>Hub</wordasword>. Ce routeur doit fournir l'accès Internet via
-  son interface <acronym>LAN</acronym> et attribuer les adresses
-  <acronym>IP</acronym> aux <wordasword>Spokes</wordasword> via ses interfaces
-  <acronym>WAN</acronym>.</para>
+	<para>Le routeur <wordasword>Hub</wordasword> doit interconnecter les
+	routeurs <wordasword>Spoke</wordasword> entre eux et donner accès à
+	l'Internet via son interface réseau active sur le <acronym>VLAN</acronym>
+	dédié à cet usage.</para>
 
-  <sect2 xml:id='interco.pppoe.qa.hub.old.lan'>
-    <title>Connexion au réseau local</title>
+	<para>Ici, on reprend les questions de la <xref
+	linkend='interco.pppoe.qa.hub-and-spoke.management'/> avec un changement de
+	numéro de <acronym>VLAN</acronym>.</para>
 
-  <para>Le routeur <wordasword>Hub</wordasword> accède à l'Internet via son
-  interface <acronym>LAN</acronym>. Cet accès doit être permanent et
-  indépendant de l'état des interfaces <wordasword>WAN</wordasword>.</para>
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment créer et configurer une sous-interface dédiée au
+		<acronym>VLAN</acronym> Internet (numéro 4)&nbsp;?</phrase></para>
 
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para><phrase>Comment activer le routage au niveau dans le noyau du
-      routeur ?</phrase></para>
-      
-      <para>Consulter les documentations &url.config.interface.lan; et
-      &url.nat-howto;.</para>
-      </question>
-      <answer>
-      <para>Les paramètres de réglage des fonctions réseau du noyau Linux sont
-      situés dans l'arborescence <filename class='directory'>/proc</filename>.
-      Le paramètre qui nous intéresse est <option>ip_forward.</option>. Par
-      défaut, sa valeur est à <option>0</option> et le routage est désactivé
-      dans le noyau. On doit donc passer cette valeur à <option>1</option> pour
-      activer le routage.</para>
- 
-<screen><prompt>#</prompt> echo 1 > /proc/sys/net/ipv4/ip_forward</screen>
+		<para>Consulter l'&url.cheatsheet; ou les pages de manuels <command>man
+		ip-link</command> et rechercher les options du type
+		<option>vlan</option>.</para>
+	</question>
+	<answer>
+		<para>Voici les différentes instructions.</para>
 
-      <para>Pour rendre ce réglage permanent, il est possible d'éditer le
-      fichier <filename>/etc/sysctl.conf</filename>. De cette façon, le routage
-      sera activé à chaque redémarrage du système. Dans le cadre des travaux
-      pratiques, ce n'est pas nécessaire.</para>
-      </answer>
-    </qandaentry>
+<screen><prompt>$</prompt> sudo ip link add link eth0 name eth0.4 type vlan id 4
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les opérations nécessaires à la configuration
-      de la traduction des adresses sources des paquets sortant par
-      l'interface LAN ?</phrase></para>
-      
-      <para>Consulter la documentation &url.nat-howto;.</para>
-      </question>
-      <answer>
-      <para>On utilise ici la méthode de traduction d'adresses sources la plus
-      simple. Elle est connue sous le nom de
-      <wordasword>masquerading</wordasword>.</para>
- 
-<screen><prompt>#</prompt> iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE</screen>
-      </answer>
-    </qandaentry>
+<prompt>$</prompt> sudo ip link set dev eth0.4 up
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quels sont les tests à réaliser pour s'assurer du
-      fonctionnement de l'accès Internet ?</phrase></para>
+<prompt>$</prompt> sudo ip addr add 172.16.16.59/20 brd + dev eth0.4
 
-      <para>Consulter la documentation &url.config.interface.lan;.</para>
-      </question>
-      <answer>
-      <para>Les tests peuvent se décomposer en deux parties : l'utilisation du
-      protocole <acronym>ICMP</acronym> et l'analyse réseau.</para>
+<prompt>$</prompt> sudo ip -6 addr add 2001:678:3fc:4::3b/64 dev eth0.4</screen>
+	</answer>
+	</qandaentry>
 
-      <para>Avec <acronym>ICMP</acronym>, il faut reprendre la séquence
-      «rituelle» des requêtes <wordasword>echo</wordasword> en allant de la
-      destination la plus proche à la plus éloignée. On débute avec l'interface
-      de boucle locale (<wordasword>loopback</wordasword>), puis l'interface
-      locale, puis la passerelle par défaut et enfin une adresse
-      <acronym>IP</acronym> située sur un autre réseau. Ce n'est qu'en dernier
-      lieu que l'on doit effectuer un test avec le service de noms de domaines
-      à l'aide des commandes <command>host</command> ou
-      <command>dig</command>. Enfin, si le protocole <acronym>ICMP</acronym>
-      n'est pas disponible au delà du réseau local, on peut utiliser un outil
-      du type <command>tcptraceroute</command> pour tester la connectivité
-      inter réseau.</para>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment valider les communciations dans le
+		<acronym>VLAN</acronym> Internet (numéro 4)&nbsp;?</phrase></para>
 
-      <para>Pour la partie analyse réseau, <application>tshark</application>
-      permet d'analyser à la console le trafic passant par chacune des
-      interfaces d'un routeur. Il permet notamment de caractériser le
-      fonctionnement de la traduction d'adresses entre les interfaces
-      <acronym>LAN</acronym> et <acronym>WAN</acronym>.</para>
-      </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
+		<para>L'hôte voisin le plus intéressant dans le <acronym>VLAN</acronym>
+		Internet est le routeur. On vérifie à l'aide de requêtes
+		<acronym>ICMP</acronym> que l'on peut le contacter.</para>
+	</question>
+	<answer>
+		<para>Voici un exemple de résultats.</para>
 
-  <sect2 xml:id='interco.pppoe.qa.hub.old.wan'>
-    <title>Connexion au réseau étendu</title>
+<screen><prompt>$</prompt> ping -qc2 172.16.16.2
+PING 172.16.16.2 (172.16.16.2) 56(84) bytes of data.
 
-  <para>Chaque routeur <wordasword>Hub</wordasword> utilise les deux canaux B
-  d'un bus S0. On doit donc configurer deux interfaces <literal>ipppX</literal>
-  pour établir les connexions point à point avec les deux
-  <wordasword>Spokes</wordasword>.</para>
+--- 172.16.16.2 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 13ms
+rtt min/avg/max/mdev = 0.634/0.643/0.653/0.027 ms
 
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para><phrase>Donner la liste des options de la commande
-      <command>isdnctrl</command> pour la configuration des deux interfaces du
-      <wordasword>Hub</wordasword> ?</phrase></para>
+<prompt>$</prompt> ping -qc2 2001:678:3fc:4::2
+PING 2001:678:3fc:4::2(2001:678:3fc:4::2) 56 data bytes
 
-      </question>
-      <answer>
-      <para>Comme dans les questions précédentes du même type, on doit
-      effectuer les opérations suivantes pour chacune des deux interfaces
-      <systemitem>/dev/ippp0</systemitem> et
-      <systemitem>/dev/ippp1</systemitem>.</para>
-
-      <orderedlist>
-        <listitem>
-	<para>Créer l'interface.</para>
-	</listitem>
-	<listitem>
-	<para>Attribuer le numéro de téléphone entrant.</para>
-	</listitem>
-	<listitem>
-	<para>Attribuer l'identifiant <acronym>MSN/EAZ</acronym>
-	(<wordasword>Multiple Subscriber Number</wordasword>) à partir du
-	numéro de téléphone entrant.</para>
-	</listitem>
-	<listitem>
-	<para>Attribuer le numéro de téléphone du correspondant.</para>
-	</listitem>
-	<listitem>
-	<para>Choisir le protocole HDLC pour la couche liaison.</para>
-	</listitem>
-	<listitem>
-	<para>Choisir l'encapsulation <systemitem>syncppp</systemitem>.</para>
-	</listitem>
-	<listitem>
-	<para>Fixer le mode de connexion automatique.</para>
-	</listitem>
-      </orderedlist>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les opérations supplémentaires nécessaires à
-      la configuration des interfaces <acronym>RNIS</acronym> du routeur
-      <wordasword>Hub</wordasword> ?</phrase></para>
-
-      <para>Consulter les pages de manuels de la commande
-      <command>isdnctrl</command> en effectuant une recherche avec la
-      clé : <literal>pppbind</literal>.</para>
-      </question>
-      <answer>
-      <para>De façon à éviter les «croisements» entre les affectations
-      d'adresses <acronym>IP</acronym> des deux
-      <wordasword>Spokes</wordasword>, il est nécessaire de lier les interfaces
-      réseau avec le plan de numérotation téléphonique. Par exemple, sur le
-      <wordasword>Hub</wordasword> <citetitle>Centares</citetitle>, on peut
-      exécuter les commandes suivantes.</para>
-
-<screen><prompt>#</prompt> isdnctrl pppbind ippp0 0
-<prompt>#</prompt> isdnctrl pppbind ippp1 1</screen>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quelle est l'option de la commande
-      <command>isdnctrl</command> qui permet de sauvegarder/restituer la
-      configuration de l'interface <acronym>RNIS</acronym> ?</phrase></para>
-
-      <para>Utiliser les pages de manuel de l'outil
-      <command>isdnctrl</command>. Sauvegarder le fichier de configuration de
-      l'interface pour les utilisations ultérieures.</para>
-      </question>
-      <answer>
-      <para>Ce sont les options <option>readconf</option> et
-      <option>writeconf</option> de la commande <command>isdnctrl</command>
-      quit permettent respectivement de lire et d'écrire dans un fichier de
-      configuration l'ensemble des paramètres d'une ou plusieurs interfaces
-      <acronym>RNIS</acronym>.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les opérations à effectuer pour mettre en
-      œuvre le protocole <acronym>PPP</acronym> avec une authentification
-      <acronym>CHAP</acronym> ?</phrase></para>
-
-      </question>
-    </qandaentry>
-  </qandaset>
-  </sect2>
-
-  <sect2 xml:id='interco.pppoe.qa.hub.old.static'>
-    <title>Routage statique</title>
-
-  <para>Pour que les réseaux desservis par les routeurs
-  <wordasword>Spokes</wordasword> soient accessibles depuis toutes les
-  extrémités en communication, le routeur <wordasword>Hub</wordasword> doit
-  disposer d'une table de routage complète. Comme le nombre des réseaux de
-  chaque <wordasword>Spoke</wordasword> est limité, on utilise des entrées
-  statiques dans la table de routage du <wordasword>Hub</wordasword>.</para>
-
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para><phrase>Comment ajouter une entrée statique dans la table de
-      routage du <wordasword>Hub</wordasword> ?</phrase></para>
-
-      <para>Rechercher les options de la commande <command>ip</command> dans le
-      &url.debian-reference.networking;.</para>
-      </question>
-      <answer>
-      <para>C'est l'instruction <userinput><prompt>#</prompt> ip route add
-      ...</userinput> qui permet l'ajout de routes statiques. Par exemple, dans
-      le cas du routeur <wordasword>Hub</wordasword>
-      <systemitem>centares</systemitem>, les deux instructions suivantes
-      permettent d'ajouter les deux routes correspondant aux deux réseaux des
-      routeurs <wordasword>Spokes</wordasword>
-      <systemitem>alderaan</systemitem> et
-      <systemitem>bespin</systemitem>.</para>
-
-<screen><prompt>#</prompt> ip route add 10.106.0.0/29 dev ippp0
-<prompt>#</prompt> ip route add 10.107.0.0/29 dev ippp1</screen>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Comment tester la disponibilité des différents réseaux
-      interconnectés ?</phrase></para>
-
-      <para>Reprendre les séquences de tests <acronym>ICMP</acronym> entre les
-      différents hôtes.</para>
-      </question>
-    </qandaentry>
-  </qandaset>
-  </sect2>
+--- 2001:678:3fc:4::2 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 28ms
+rtt min/avg/max/mdev = 0.628/0.634/0.640/0.006 ms</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect2>
 </sect1>
 
 <sect1 xml:id='interco.pppoe.qa.spoke'>
-  <title>Configuration d'un routeur Spoke</title>
+	<title>Configuration PPPoE d'un routeur Spoke</title>
 
-  <para>Dans ce scénario, le routeur accède à Internet par son interface
-  <acronym>WAN</acronym> et redistribue cet accès sur un réseau local. Ce genre
-  de routeur est appelé «routeur d'agence».</para>
+	<para>Dans le scénario défini dans la <xref
+	linkend='interco.pppoe.qa.hub-and-spoke'/>, ce routeur ne peut accèder aux
+	autres réseaux que par le routeur <wordasword>Hub</wordasword>. Son
+	interface <acronym>WAN</acronym> joue donc le rôle de route par défaut pour
+	le réseau local <wordasword>Branch</wordasword>. Ce genre de routeur est
+	aussi appelé routeur d'extrémité.</para>
 
-  <sect2 xml:id='interco.pppoe.qa.spoke.lan'>
-    <title>Connexion au réseau local</title>
+<sect2 xml:id='interco.pppoe.qa.spoke.lan'>
+	<title>Connexion au réseau local</title>
 
-  <para>Compte tenu de la topologie définie dans la <xref
-  linkend='interco.pppoe.qa.hub-and-spoke'/>, l'interface <acronym>LAN</acronym>
-  du routeur <wordasword>Spoke</wordasword> n'est pas utilisée. Il faut donc
-  désactiver cette interface.</para>
+	<para>Compte tenu de la topologie définie dans la <xref
+	linkend='interco.pppoe.qa.hub-and-spoke'/>, l'interface <acronym>LAN</acronym>
+	du routeur <wordasword>Spoke</wordasword> n'est pas utilisée. Il faut donc
+	désactiver cette interface.</para>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
