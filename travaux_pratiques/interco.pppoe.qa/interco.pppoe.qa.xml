@@ -414,14 +414,31 @@
 		<para>Pour les accès à l'Internet, le routeur de cœur de réseau à
 		utiliser est <citetitle>Casper</citetitle>. Les adresses de passerelle
 		par défaut des routeurs <wordasword>Hub</wordasword> dans le
-		<acronym>VLAN</acronym> <option>4</option> sont :</para>
+		<acronym>VLAN</acronym> <option>4</option> sont&nbsp;:</para>
 
 		<itemizedlist>
 		<listitem>
-			<para>172.16.16.2/20</para>
+			<para><systemitem
+			class='ipaddress'>172.16.16.2/20</systemitem></para>
 		</listitem>
 		<listitem>
-			<para>2001:678:3fc:4::2/64</para>
+			<para><systemitem
+			class='ipaddress'>2001:678:3fc:4::2/64</systemitem></para>
+		</listitem>
+		</itemizedlist>
+	</listitem>
+	<listitem>
+		<para>Pour l'adressage du réseau local d'extrémité du routeur
+		<wordasword>Spoke</wordasword>, on utilise les préfixes
+		suivants&nbsp;:</para>
+
+		<itemizedlist>
+		<listitem>
+			<para><systemitem class='ipaddress'>10.2.6.1/28</systemitem></para>
+		</listitem>
+		<listitem>
+			<para><systemitem
+			class='ipaddress'>2001:678:3fc:1a::1/64</systemitem></para>
 		</listitem>
 		</itemizedlist>
 	</listitem>
@@ -1319,375 +1336,434 @@ rtt min/avg/max/mdev = 0.628/0.634/0.640/0.006 ms</screen>
 </sect2>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='interco.pppoe.qa.spoke'>
 	<title>Configuration PPPoE d'un routeur Spoke</title>
 
 	<para>Dans le scénario défini dans la <xref
-	linkend='interco.pppoe.qa.hub-and-spoke'/>, ce routeur ne peut accèder aux
+	linkend='interco.pppoe.qa.hub-and-spoke'/>, ce routeur ne peut accéder aux
 	autres réseaux que par le routeur <wordasword>Hub</wordasword>. Son
 	interface <acronym>WAN</acronym> joue donc le rôle de route par défaut pour
 	le réseau local <wordasword>Branch</wordasword>. Ce genre de routeur est
 	aussi appelé routeur d'extrémité.</para>
 
-<sect2 xml:id='interco.pppoe.qa.spoke.lan'>
-	<title>Connexion au réseau local</title>
+<sect2 xml:id='interco.pppoe.qa.spoke.wan'>
+	<title>Côté réseau étendu - WAN</title>
 
-	<para>Compte tenu de la topologie définie dans la <xref
-	linkend='interco.pppoe.qa.hub-and-spoke'/>, l'interface <acronym>LAN</acronym>
-	du routeur <wordasword>Spoke</wordasword> n'est pas utilisée. Il faut donc
-	désactiver cette interface.</para>
+	<para>Cette partie vient en vis-à-vis de la <xref
+	linkend='interco.pppoe.qa.hub.wan'/> d'un routeur
+	<wordasword>Hub</wordasword>. Le routeur <wordasword>Spoke</wordasword>
+	utilise lui aussi un démon <application>pppd</application> sur le
+	<acronym>VLAN</acronym> <option>Data</option> pour établir une session
+	<acronym>PPP</acronym> avec le routeur <wordasword>Hub</wordasword>. À la
+	différence de ce dernier, il n'est pas à l'initiative du dialogue
+	<acronym>PPPoE</acronym> mais il doit être capable de gérer l'encapsulation
+	des trames <acronym>PPP</acronym> sur un réseau local Ethernet.</para>
 
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para><phrase>Comment supprimer la configuration d'une interface réseau
-      au niveau système ?</phrase></para>
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment utiliser l'encapsulation des trames
+		<acronym>PPP</acronym> dans Ethernet à partir du démon
+		<command>pppd</command> fourni avec le paquet
+		<application>ppp</application>&nbsp;?</phrase></para>
 
-      <para>Rechercher les outils systèmes proposés dans le
-      &url.debian-reference.networking;.</para>
-      </question>
-      <answer>
-      <para>Le paquet <systemitem>ifupdown</systemitem> propose deux scripts
-      baptisés <command>ifup</command> et <command>ifdown</command> qui
-      assurent un contrôle d'état sur la configuration des interfaces listées
-      dans le fichier de configuration système
-      <filename>/etc/network/interfaces</filename>.</para>
+		<para>Rechercher dans le répertoire de documentation du paquet
+		<application>ppp</application>.</para>
+	</question>
+	<answer>
+		<para>Dans le répertoire <filename
+		class='directory'>/usr/share/doc/ppp/</filename>, on trouve le fichier
+		<filename>README.pppoe</filename> qui indique que l'appel au module
+		<filename>rp-pppoe.so</filename> permet d'encapsuler des trames
+		<acronym>PPP</acronym> sur un réseau local Ethernet.</para>
 
-      <para>Dans le cas de l'interface <acronym>LAN</acronym> du poste de
-      travaux pratiques, <systemitem>eth0</systemitem> est configurée via le
-      protocole <acronym>DHCP</acronym>. Pour résilier le bail
-      <acronym>DHCP</acronym> et désactiver l'interface, on utilise
-      l'instruction suivante.</para>
+		<para>Toujours à partir du même répertoire, on trouve dans la liste des
+		fichiers d'exemples de configuration un modèle adapté à notre contexte
+		:&nbsp;<filename>peers-pppoe</filename>.</para>
+	</answer>
+	</qandaentry>
 
-<screen><prompt>#</prompt> ifdown eth0</screen>
-      </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
-  
-  <sect2 xml:id='interco.pppoe.qa.spoke.wan'>
-    <title>Connexion au réseau étendu</title>
+	<qandaentry>
+	<question>
+		<para><phrase>Dans quel fichier sont stockés les paramètres d'identité
+		et d'authentification utilisés par le protocole
+		<acronym>CHAP</acronym>&nbsp;?</phrase></para>
 
-  <para>Chaque routeur <wordasword>Spoke</wordasword> utilise un canal B
-  d'un bus S0. On doit donc configurer une interface <literal>ippp0</literal>
-  pour établir la connexion point à point avec le
-  <wordasword>Hub</wordasword>.</para>
+		<para>Consulter les pages de manuels du démon <command>pppd</command> à
+		la section <citetitle>AUTHENTICATION</citetitle>.</para>
+	</question>
+	<answer>
+		<para>C'est le fichier <filename>/etc/ppp/chap-secrets</filename> qui
+		contient les couples <wordasword>login/password</wordasword> utilisés
+		lors de l'authentification.</para>
 
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para><phrase>Donner la liste des options de la commande
-      <command>isdnctrl</command> pour la configuration de l'interface du
-      <wordasword>Spoke</wordasword> ?</phrase></para>
+		<para>Voici un exemple du contenu de ce fichier. Le nom du client ainsi
+		que son mot de passe secret doivent être identiques à chaque extrémité
+		de la session <acronym>PPP</acronym>.</para>
 
-      </question>
-      <answer>
-      <para>Comme dans les questions précédentes du même type, on doit
-      effectuer les opérations suivantes pour l'interface
-      <systemitem>/dev/ippp0</systemitem>.</para>
+<screen># Secrets for authentication using CHAP
+# client        server  secret                  IP addresses
+"spoke1"        *       "5p0k3-1-53cr3t"        *</screen>
+	</answer>
+	</qandaentry>
 
-      <orderedlist>
-        <listitem>
-	<para>Créer l'interface.</para>
-	</listitem>
-	<listitem>
-	<para>Attribuer le numéro de téléphone entrant.</para>
-	</listitem>
-	<listitem>
-	<para>Attribuer l'identifiant <acronym>MSN/EAZ</acronym>
-	(<wordasword>Multiple Subscriber Number</wordasword>) à partir du
-	numéro de téléphone entrant.</para>
-	</listitem>
-	<listitem>
-	<para>Attribuer le numéro de téléphone du correspondant.</para>
-	</listitem>
-	<listitem>
-	<para>Choisir le protocole HDLC pour la couche liaison.</para>
-	</listitem>
-	<listitem>
-	<para>Choisir l'encapsulation <systemitem>syncppp</systemitem>.</para>
-	</listitem>
-	<listitem>
-	<para>Fixer le mode de connexion automatique.</para>
-	</listitem>
-      </orderedlist>
-      </answer>
-    </qandaentry>
+	<qandaentry>
+	<question>
+		<para><phrase>Quelles sont les options de configuration du démon
+		<command>pppd</command> à placer dans le fichier
+		<filename>/etc/ppp/peers/pppoe-provider</filename> pour assurer
+		l'établissement de la session <acronym>PPP</acronym> entre les
+		routeurs&nbsp;?</phrase></para>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quelle est l'option de la commande
-      <command>isdnctrl</command> qui permet de sauvegarder/restituer la
-      configuration de l'interface <acronym>RNIS</acronym> ?</phrase></para>
+		<para>Utiliser le fichier exemple <acronym>PPPoE</acronym> fourni avec
+		la documentation du paquet <application>ppp</application>.</para>
+	</question>
+	<answer>
+		<para>Voici une copie du fichier
+		<filename>/etc/ppp/peers/pppoe-provider</filename> avec les options
+		correspondant au contexte d'un routeur
+		<wordasword>Spoke</wordasword>.</para>
 
-      <para>Utiliser les pages de manuel de l'outil
-      <command>isdnctrl</command>. Sauvegarder le fichier de configuration de
-      l'interface pour les utilisations ultérieures.</para>
-      </question>
-      <answer>
-      <para>Ce sont les options <option>readconf</option> et
-      <option>writeconf</option> de la commande <command>isdnctrl</command>
-      quit permettent respectivement de lire et d'écrire dans un fichier de
-      configuration l'ensemble des paramètres d'une ou plusieurs interfaces
-      <acronym>RNIS</acronym>.</para>
-      </answer>
-    </qandaentry>
+<screen># There should be a matching entry with the password in /etc/ppp/chap-secrets.
+user "spoke1"
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les opérations à effectuer pour mettre en
-      œuvre le protocole <acronym>PPP</acronym> avec une authentification
-      <acronym>CHAP</acronym> ?</phrase></para>
+# Load the PPPoE plugin.
+plugin rp-pppoe.so
 
-      </question>
-    </qandaentry>
-  </qandaset>
-  </sect2>
+# Ethernet interface to which the modem is connected.
+vlan26
 
-  <sect2 xml:id='interco.pppoe.qa.spoke.dummy'>
-    <title>Ajout d'un réseau fictif</title>
+# Assumes that your IP address is allocated dynamically by the ISP.
+noipdefault
+# Try to get the name server addresses from the ISP.
+usepeerdns
+# Use this connection as the default route.
+defaultroute
 
-  <para>L'ajout de nouvelles entrées fictives dans les tables de routage est
-  une pratique très répandue. Elle permet de qualifier le bon fonctionnement
-  d'un service ou d'un filtrage sans ajouter de matériel. Dans le cas de ces
-  travaux pratiques, c'est le service Web qui est utilisé pour valider la
-  disponibilité d'un réseau au niveau application.</para>
+# Makes pppd "dial again" when the connection is lost.
+persist
 
-  <qandaset>
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les opérations à effectuer pour pouvoir
-      utiliser des interfaces réseau virtuelles de type boucle locale sur un
-      système GNU/Linux ?</phrase></para>
+# Do not ask the remote to authenticate.
+noauth
 
-      <para>Avec le noyau Linux, il est conseillé d'utiliser des interfaces
-      baptisées <wordasword>dummy</wordasword> pour ce genre d'usage.
-      Rechercher le module correspondant à charger en mémoire.</para>
-      </question>
-      <answer>
-      <para>On charge le module <systemitem>dummy</systemitem> suivi de
-      l'option <option>numdummies</option> pour créer les interfaces. Il suffit
-      ensuite d'appliquer une nouvelle configuration <acronym>IP</acronym> pour
-      ajouter un ou plusieurs nouveaux réseaux.</para>
+debug
++ipv6</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment lancer le démon <command>pppd</command> pour
+		qu'il prenne en compte les paramètres définis dans le fichier complété
+		à la question précédente&nbsp;?</phrase></para>
+
+		<para>Consulter les pages de manuels du démon
+		<command>pppd</command>.</para>
+	</question>
+	<answer>
+		<para>C'est l'option <option>file</option> qui permet de désigner le
+		fichier de configuration à utiliser. Voici une copie d'écran du
+		lancement de <command>pppd</command>.</para>
+
+<screen><prompt>#</prompt> pppd file /etc/ppp/peers/pppoe-provider</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Quels sont les noms des deux sous-couches du protocole
+		<acronym>PPP</acronym> qui apparaissent dans les journaux
+		systèmes&nbsp;?</phrase> Quels sont les rôles respectifs de ces deux
+		sous-couches&nbsp;?</para>
+
+		<para>Consulter la page &url.ppp-wikipedia;.</para>
+	</question>
+	<answer>
+		<para>La consultation des journaux système lors du dialogue
+		<acronym>PPP</acronym> fait apparaître des informations
+		suivantes.</para>
+
+<screen>pppd[18]:  dst e6:92:9d:7a:9a:98  src b8:ca:3a:9e:85:56
+pppd[18]:  [service-name]
+pppd[18]: PADS: Service-Name: ''
+pppd[18]: PPP session is 3
+pppd[18]: Connected to b8:ca:3a:9e:85:56 via interface vlan26
+pppd[18]: using channel 40
+pppd[18]: Using interface ppp0
+pppd[18]: Connect: ppp0 &lt;--> vlan26
+pppd[18]: sent [LCP ConfReq id=0x1 &lt;mru 1492> &lt;magic 0xd9acc3c9>]
+pppd[18]: rcvd [LCP ConfReq id=0x1 &lt;mru 1492> &lt;auth chap MD5> &lt;magic 0xf7fb217b>]
+pppd[18]: sent [LCP ConfAck id=0x1 &lt;mru 1492> &lt;auth chap MD5> &lt;magic 0xf7fb217b>]
+pppd[18]: sent [LCP ConfReq id=0x1 &lt;mru 1492> &lt;magic 0xd9acc3c9>]
+pppd[18]: rcvd [LCP ConfAck id=0x1 &lt;mru 1492> &lt;magic 0xd9acc3c9>]
+pppd[18]: sent [LCP EchoReq id=0x0 magic=0xd9acc3c9]
+pppd[18]: rcvd [LCP EchoReq id=0x0 magic=0xf7fb217b]
+pppd[18]: sent [LCP EchoRep id=0x0 magic=0xd9acc3c9]
+pppd[18]: rcvd [CHAP Challenge id=0x3 &lt;330acf7fa955f3bf549595f45a700c00fe8b7bf934198b>, name = "corellia"]
+pppd[18]: sent [CHAP Response id=0x3 &lt;4b3c887e7581087b5d97718f91d1a372>, name = "spoke1"]
+pppd[18]: rcvd [LCP EchoRep id=0x0 magic=0xf7fb217b]
+pppd[18]: rcvd [CHAP Success id=0x3 "Access granted"]
+pppd[18]: CHAP authentication succeeded: Access granted
+pppd[18]: <emphasis>CHAP authentication succeeded</emphasis>
+pppd[18]: peer from calling number B8:CA:3A:9E:85:56 authorized
+pppd[18]: sent [IPCP ConfReq id=0x1 &lt;addr 0.0.0.0> &lt;ms-dns1 0.0.0.0> &lt;ms-dns2 0.0.0.0>]
+pppd[18]: sent [IPV6CP ConfReq id=0x1 &lt;addr fe80::bc5e:a5f6:6402:1a31>]
+pppd[18]: rcvd [CCP ConfReq id=0x1 &lt;deflate 15> &lt;deflate(old#) 15> &lt;bsd v1 15>]
+pppd[18]: sent [CCP ConfReq id=0x1]
+pppd[18]: sent [CCP ConfRej id=0x1 &lt;deflate 15> &lt;deflate(old#) 15> &lt;bsd v1 15>]
+pppd[18]: rcvd [IPCP ConfReq id=0x1 &lt;compress VJ 0f 01> &lt;addr 192.168.1.29>]
+pppd[18]: sent [IPCP ConfRej id=0x1 &lt;compress VJ 0f 01>]
+pppd[18]: rcvd [IPV6CP ConfReq id=0x1 &lt;addr fe80::34a0:f09f:e323:94be>]
+pppd[18]: sent [IPV6CP ConfAck id=0x1 &lt;addr fe80::34a0:f09f:e323:94be>]
+pppd[18]: rcvd [IPCP ConfNak id=0x1 &lt;addr 192.168.1.30> &lt;ms-dns1 172.16.16.2> &lt;ms-dns2 172.16.16.2>]
+pppd[18]: sent [IPCP ConfReq id=0x2 &lt;addr 192.168.1.30> &lt;ms-dns1 172.16.16.2> &lt;ms-dns2 172.16.16.2>]
+pppd[18]: rcvd [IPV6CP ConfAck id=0x1 &lt;addr fe80::bc5e:a5f6:6402:1a31>]
+pppd[18]: local  LL address fe80::bc5e:a5f6:6402:1a31
+pppd[18]: remote LL address fe80::34a0:f09f:e323:94be
+pppd[18]: Script /etc/ppp/ipv6-up started (pid 18817)
+pppd[18]: rcvd [CCP ConfAck id=0x1]
+pppd[18]: rcvd [CCP ConfReq id=0x2]
+pppd[18]: sent [CCP ConfAck id=0x2]
+pppd[18]: rcvd [IPCP ConfReq id=0x2 &lt;addr 192.168.1.29>]
+pppd[18]: sent [IPCP ConfAck id=0x2 &lt;addr 192.168.1.29>]
+pppd[18]: rcvd [IPCP ConfAck id=0x2 &lt;addr 192.168.1.30> &lt;ms-dns1 172.16.16.2> &lt;ms-dns2 172.16.16.2>]
+pppd[18]: local  IP address 192.168.1.30
+pppd[18]: remote IP address 192.168.1.29
+pppd[18]: primary   DNS address 172.16.16.2
+pppd[18]: secondary DNS address 172.16.16.2
+pppd[18]: Script /etc/ppp/ip-up started (pid 18819)
+pppd[18]: Script /etc/ppp/ipv6-up finished (pid 18817), status = 0x0
+pppd[18]: Script /etc/ppp/ip-up finished (pid 18819), status = 0x0</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Quels sont les en-têtes du dialogue qui identifient les
+		requêtes (émises|reçues), les rejets et les
+		acquittements&nbsp;?</phrase></para>
+
+		<para>Consulter les journaux système contenant les traces d'une
+		connexion <acronym>PPP</acronym>.</para>
+	</question>
+	<answer>
+		<para>La copie d'écran donnée ci-dessus fait apparaître les directives
+		<literal>Conf*</literal> pour chaque paramètre négocié.</para>
+		<itemizedlist>
+		<listitem>
+			<para><literal>ConfReq</literal> indique une requête.</para>
+		</listitem>
+		<listitem>
+			<para><literal>ConfAck</literal> indique un acquittement.</para>
+		</listitem>
+		<listitem>
+			<para><literal>ConfNak</literal> indique un rejet.</para>
+		</listitem>
+		</itemizedlist>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect2>
+
+<sect2 xml:id='interco.pppoe.qa.spoke.dummy-lan'>
+	<title>Côté réseau local - LAN fictif</title>
+
+	<para>En théorie, le réseau local d'extrémité desservi par le routeur
+	<wordasword>Spoke</wordasword> suppose l'ajout d'un commutateur et de
+	plusieurs hôtes pour caractériser l'interconnexion des différents réseaux de
+	la topologie étudiée dans ces travaux pratiques. Pour éviter l'utilisation
+	de matériel supplémentaire qui demande des étapes de configuration longues
+	et non pertinentes, on utilise une technique très répandue : les interfaces
+	de boucles locales. Ces interfaces viennent se substituer au réseau local
+	d'extrémité.</para>
+
+	<para>L'ajout et la configuration d'une interface de boucle locale provoque
+	l'arrivée d'une nouvelle entrée dans la table de routage du routeur
+	<wordasword>Spoke</wordasword>. Vu des autres réseaux de la topologie,
+	cette technique permet de qualifier le bon fonctionnement d'un service
+	Internet sans ajouter de matériel. Dans le cas de ces travaux pratiques,
+	c'est le service Web qui est utilisé pour valider la disponibilité d'un
+	réseau au niveau application.</para>
+
+	<qandaset>
+	<qandaentry>
+	<question>
+		<para><phrase>Quelles sont les opérations à effectuer pour pouvoir
+		utiliser des interfaces réseau virtuelles de type boucle locale sur un
+		système GNU/Linux&nbsp;?</phrase></para>
+
+		<para>Avec le noyau Linux, il est conseillé d'utiliser des interfaces
+		baptisées <wordasword>dummy</wordasword> pour ce genre d'usage.
+		Rechercher le module correspondant à charger en mémoire.</para>
+	</question>
+	<answer>
+		<para>On charge le module <systemitem>dummy</systemitem> suivi de
+		l'option <option>numdummies</option> pour spécifier le nombre
+		d'interfaces. Il suffit	ensuite d'appliquer une nouvelle configuration
+		<acronym>IP</acronym> pour ajouter un ou plusieurs nouveaux
+		réseaux.</para>
 
 <screen><prompt>#</prompt> modprobe -v dummy numdummies=2
-insmod /lib/modules/3.16-2-amd64/kernel/drivers/net/dummy.ko numdummies=2
+insmod /lib/modules/4.18.0-1-amd64/kernel/drivers/net/dummy.ko numdummies=2
 <prompt>#</prompt> ip addr ls | grep dummy
-3: dummy0: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN group default 
-4: dummy1: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN group default</screen>
+7: dummy0: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN group default qlen 1000
+8: dummy1: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN group default qlen 1000</screen>
 
-      <para>En prenant l'exemple du <wordasword>Spoke</wordasword>
-      <systemitem>bespin</systemitem>, on ajoute le réseau <systemitem
-      class='ipaddress'>10.106.0.0/29</systemitem> en configurant l'interface
-      <systemitem>dummy0</systemitem>.</para>
+		<para>On passe ensuite à la configuration de l'interface
+		<systemitem>dummy0</systemitem> par exemple.</para>
 
 <screen><prompt>#</prompt> ip link set dev dummy0 up
-<prompt>#</prompt> ip addr add 10.106.0.1/29 brd + dev dummy0
-<prompt>#</prompt> ip route ls
-default via 192.0.2.1 dev eth0 
-<emphasis>10.106.0.0/29 dev dummy0  proto kernel  scope link  src 10.106.0.1</emphasis> 
-192.0.2.0/26 dev eth0  proto kernel  scope link  src 192.0.2.10</screen>
-      </answer>
-    </qandaentry>
+<prompt>#</prompt> ip addr add 10.2.6.1/28 brd + dev dummy0
+<prompt>#</prompt> ip -6 addr add 2001:678:3fc:1a::1/64 dev dummy0
+<prompt>#</prompt> # ip addr ls dev dummy0
+7: dummy0: &lt;BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 \
+			qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether ce:9f:3e:c1:c5:e2 brd ff:ff:ff:ff:ff:ff
+    inet 10.2.6.1/28 brd 10.2.6.15 scope global dummy0
+       valid_lft forever preferred_lft forever
+    inet6 2001:678:3fc:1a::1/64 scope global
+       valid_lft forever preferred_lft forever
+    inet6 fe80::cc9f:3eff:fec1:c5e2/64 scope link
+       valid_lft forever preferred_lft forever</screen>
+	</answer>
+	</qandaentry>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les opérations à effectuer pour installer un
-      service Web en écoute exclusivement sur l'adresse <acronym>IP</acronym>
-      de l'interface <option>dummy0</option> ?</phrase></para>
+	<qandaentry>
+	<question>
+		<para><phrase>Quelles sont les opérations à effectuer pour installer un
+		service Web en écoute exclusivement sur les adresses
+		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> de l'interface
+		<option>dummy0</option> ?</phrase></para>
 
-      <para>Installer le paquet <systemitem>apache2</systemitem> et modifier sa
-      configuration pour que le service ne soit accessible que sur une adresse
-      <acronym>IP</acronym>.</para>
-      </question>
-      <answer>
-<screen><prompt>#</prompt> aptitude install apache2
-&lt;snipped/>
-Paramétrage de apache2-mpm-worker (2.2.21-2) ...
-Starting web server: apache2apache2: Could not reliably determine the server's
-fully qualified domain name, using 127.0.1.1 for ServerName
-.
-Paramétrage de apache2 (2.2.21-2) ...
+		<para>Installer le paquet <systemitem>lighttpd</systemitem> et modifier
+		sa configuration pour que le service ne soit accessible que sur les
+		adresses de l'interface <systemitem>dummy0</systemitem>.</para>
+	</question>
+	<answer>
+<screen><prompt>#</prompt> aptitude install lighttpd
 &lt;snipped/></screen>
 
-      <para>On modifie ensuite le fichier de configuration
-      <filename>/etc/apache2/ports.conf</filename> de façon à limiter l'accès à
-      l'adresse <acronym>IP</acronym> voulue.</para>
+		<para>On modifie ensuite le fichier de configuration
+		<filename>/etc/lighttpd/lighttpd.conf</filename> de façon à limiter
+		l'accès aux adresses voulues.</para>
 
-<screen><prompt>#</prompt> cd /etc/apache2/
-<prompt>#</prompt> diff -uBb ports.conf.orig ports.conf
---- ports.conf.orig     2011-10-31 20:37:09.000000000 +0100
-+++ ports.conf  2011-10-31 20:37:39.000000000 +0100
-@@ -6,7 +6,7 @@
- # README.Debian.gz
+<screen><prompt>#</prompt> cd /etc/lighttpd/
+<prompt>#</prompt> diff -uBb lighttpd.conf.orig lighttpd.conf
+--- lighttpd.conf.orig  2018-10-07 16:37:55.579183757 +0200
++++ lighttpd.conf       2018-10-07 16:33:31.093675213 +0200
+@@ -22,6 +22,9 @@
+ compress.filetype           = ( "application/javascript", "text/css", "text/html", "text/plain" )
 
- NameVirtualHost *:80
--Listen 80
-+Listen 10.106.0.1:80
+ # default listening port for IPv6 falls back to the IPv4 port
+-include_shell "/usr/share/lighttpd/use-ipv6.pl " + server.port
++#include_shell "/usr/share/lighttpd/use-ipv6.pl " + server.port
+ include_shell "/usr/share/lighttpd/create-mime.assign.pl"
+ include_shell "/usr/share/lighttpd/include-conf-enabled.pl"
++
++server.bind = "10.2.6.1"
++$SERVER["socket"] == "[2001:678:3fc:1a::1]:80" { server.use-ipv6 = "enable" }</screen>
 
- &lt;IfModule mod_ssl.c>
-     # If you add NameVirtualHost *:443 here, you will also have to change</screen>
+		<para>On redémarre le service et on affiche la liste des prises réseau
+		ouvertes sur le système pour	confirmer que les adresses choisies
+		sont bien prises en compte.</para>
 
-      <para>On redémarre le service et on affiche le liste des
-      <wordasword>sockets inet</wordasword> ouverts sur le système pour
-      confirmer que l'adresse <acronym>IP</acronym> choisie est bien
-      affectée.</para>
+<screen><prompt>#</prompt> systemctl restart lighttpd
 
-<screen><prompt>#</prompt> /etc/init.d/apache2 restart
-&lt;snipped/>
-<prompt>#</prompt> lsof -i | grep apache2
-apache2  22206        root    3u  IPv4  30721      0t0  TCP 10.106.0.1:www (LISTEN)
-apache2  22211    www-data    3u  IPv4  30721      0t0  TCP 10.106.0.1:www (LISTEN)
-apache2  22212    www-data    3u  IPv4  30721      0t0  TCP 10.106.0.1:www (LISTEN)</screen>
-      </answer>
-    </qandaentry>
+<prompt>#</prompt> lsof -i tcp:80
+COMMAND    PID     USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME
+lighttpd 25745 www-data    4u  IPv4 4990017      0t0  TCP 10.2.6.1:http (LISTEN)
+lighttpd 25745 www-data    5u  IPv6 4990018      0t0  TCP [2001:678:3fc:1a::1]:http (LISTEN)</screen>
+	</answer>
+	</qandaentry>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Comment valider l'accès à ce service Web depuis les autres
-      routeurs ?</phrase></para>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment valider l'accès à ce service Web au niveau du
+		routeur <wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
 
-      <para>Si la table de routage du routeur <wordasword>Hub</wordasword> est
-      complète, on décrit les couches de la modélisation en partant de la
-      couche réseau vers la couche application. Les tests
-      <acronym>ICMP</acronym> valident le niveau réseau. Les tests
-      <command>traceroute</command> valident le fonctionnement des protocoles
-      de la couche transport. Enfin, le navigateur web permet de tester la
-      couche application.</para>
-      </question>
-      <answer>
-      <para>Voici trois exemples de tests.</para>
+		<para>Il s'agit de faire un test au niveau de la couche application. À
+		la console, les deux outils adaptés sont <command>wget</command> et
+		<command>curl</command>.</para>
+	</question>
+	<answer>
+		<para>Voici deux exemples de tests avec <command>wget</command>.</para>
 
-      <itemizedlist>
-      <listitem>
-      <para>Test <acronym>ICMP</acronym>.</para>
+<screen><prompt>$</prompt> wget -O /dev/null http://10.2.6.1
+--2018-10-07 16:50:16--  http://10.2.6.1/
+Connexion à 10.2.6.1:80… connecté.
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+Taille : 3378 (3,3K) [text/html]
+Sauvegarde en : « /dev/null »
 
-<screen><prompt>$</prompt> ping -c 2 10.106.0.1
-PING 10.106.0.1 (10.106.0.1) 56(84) bytes of data.
-64 bytes from 10.106.0.1: icmp_req=1 ttl=64 time=0.435 ms
-64 bytes from 10.106.0.1: icmp_req=2 ttl=64 time=0.360 ms
+/dev/null    100%[======================>]   3,30K  --.-KB/s    ds 0s
 
---- 10.106.0.1 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1000ms
-rtt min/avg/max/mdev = 0.360/0.397/0.435/0.042 ms</screen>
-      </listitem>
-      <listitem>
-      <para>Test <command>traceroute</command>.</para>
+2018-10-07 16:50:16 (267 MB/s) — « /dev/null » sauvegardé [3378/3378]</screen>
 
-<screen><prompt>$</prompt> traceroute 10.106.0.1
-traceroute to 10.106.0.1 (10.106.0.1), 30 hops max, 60 byte packets
- 1  10.106.0.1 (10.106.0.1)  0.467 ms  0.256 ms  0.262 ms</screen>
-      </listitem>
-      <listitem>
-      <para>Test <acronym>HTTP</acronym>.</para>
+<screen><prompt>$</prompt> wget -O /dev/null http://[2001:678:3fc:1a::1]
+--2018-10-07 16:51:38--  http://[2001:678:3fc:1a::1]/
+Connexion à [2001:678:3fc:1a::1]:80… connecté.
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+Taille : 3378 (3,3K) [text/html]
+Sauvegarde en : « /dev/null »
 
-  <mediaobject>
-  <imageobject>
-    <imagedata fileref='images/lynx-spoke.png' format='PNG' width='7cm' scalefit='1'/>
-  </imageobject>
-  <textobject>
-    <phrase>Copie d'écran navigateur Web</phrase>
-  </textobject>
-  <caption>
-    <para><link xlink:href='images/lynx-spoke.png'>Copie d'écran navigateur Web</link></para>
-  </caption>
-  </mediaobject>
-      </listitem>
-      </itemizedlist>
-      </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
+/dev/null    100%[======================>]   3,30K  --.-KB/s    ds 0s
+
+2018-10-07 16:51:38 (193 MB/s) — « /dev/null » sauvegardé [3378/3378]</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
 </sect1>
 
 <sect1 xml:id='interco.pppoe.qa.refdocs'>
-  <title>Documents de référence</title>
+	<title>Documents de référence</title>
 
-  <variablelist>
-    <varlistentry xml:id='interco.pppoe.qa.rfc1661'>
-      <term><citetitle>The Point-to-Point Protocol (PPP)</citetitle></term>
-      <listitem>
-      <para>&url.rfc1661; : Le protocole point-à-point
-      <acronym>PPP</acronym> fournit une méthode standard de transport de
-      datagrammes multi-protocoles sur des liaisons point à point.
-      <acronym>PPP</acronym> comprend 3 composants principaux :</para>
-      <orderedlist>
-        <listitem>
-	<para>Une méthode d'encapsulation des datagrammes
-	multi-protocoles.</para>
-	</listitem>
-	<listitem>
-	<para>Un protocole de contrôle de niveau liaison ou <wordasword>Link
-	Control Protocol</wordasword> (<acronym>LCP</acronym>) pour établir,
-	configurer et tester une connexion de données à ce niveau.</para>
-	</listitem>
-	<listitem>
-	<para>Une famille de protocoles de contrôle de niveau réseau pour
-	établir et configurer différents protocoles de niveau réseau.</para>
-	</listitem>
-      </orderedlist>
-      <para>Dans la plupart des cas, on retrouve des trames
-      <acronym>HDLC</acronym> au niveau liaison et <acronym>IP</acronym> est le
-      seul protocole réseau utilisé.</para>
-      </listitem>
-    </varlistentry>
+	<variablelist>
+	<varlistentry xml:id='interco.pppoe.qa.rfc1661'>
+		<term><citetitle>The Point-to-Point Protocol (PPP)</citetitle></term>
+		<listitem>
+		<para>&url.rfc1661; : Le protocole point-à-point <acronym>PPP</acronym>
+		fournit une méthode standard de transport de datagrammes
+		multi-protocoles sur des liaisons point à point. <acronym>PPP</acronym>
+		comprend 3 composants principaux&nbsp;:</para>
 
-    <varlistentry xml:id='interco.pppoe.qa.rawip'>
-      <term><citetitle>Configuration d'une interface RNIS en mode
-      rawip</citetitle></term>
-      <listitem>
-      <para>&url.interco.rawip; : support de travaux pratiques utilisant la
-      connexion directe sur le réseau téléphonique.</para>
-      </listitem>
-    </varlistentry>
+		<orderedlist>
+		<listitem>
+			<para>Une méthode d'encapsulation des datagrammes
+			multi-protocoles.</para>
+		</listitem>
+		<listitem>
+		<para>Un protocole de contrôle de niveau liaison ou <wordasword>Link
+		Control Protocol</wordasword> (<acronym>LCP</acronym>) pour établir,
+		configurer et tester une connexion de données à ce niveau.</para>
+		</listitem>
+		<listitem>
+		<para>Une famille de protocoles de contrôle de niveau réseau pour
+		établir et configurer différents protocoles de niveau réseau.</para>
+		</listitem>
+		</orderedlist>
+		</listitem>
+	</varlistentry>
 
-    <varlistentry xml:id='interco.pppoe.qa.config.interface.lan'>
-      <term><citetitle>Configuration d'une interface de réseau local</citetitle></term>
-      <listitem>
-      <para>&url.config.interface.lan; : identification du type d'interface,
-      de ses caractéristiques et manipulations des paramètres. Ce support
-      fournit une méthodologie de dépannage simple d'une connexion
-      réseau.</para>
-      </listitem>
-    </varlistentry>
-    
-    <varlistentry xml:id='interco.pppoe.qa.debian-reference.networking'>
-      <term><citetitle>Debian Reference Chapter 10 - Network
-      configuration</citetitle></term>
-      <listitem>
-	<para>&url.debian-reference.networking; : chapitre du manuel de
-	référence <citetitle>Debian</citetitle> consacré à la configuration
-	réseau.</para>
-      </listitem>
-    </varlistentry>
-
-    <varlistentry xml:id='interco.pppoe.qa.fonctions.noyau'>
-      <term><citetitle>Fonctions réseau du noyau Linux</citetitle></term>
-      <listitem>
-      <para>&url.interco.kernel; : présentation et configuration des
-      fonctions réseau du noyau LINUX</para>
-      </listitem>
-    </varlistentry>
-
-    <varlistentry xml:id='interco.pppoe.qa.nat-howto'>
-      <term><citetitle>Guide Pratique du NAT sous Linux 2.4</citetitle></term>
-      <listitem>
-      <para>&url.nat-howto; : Ce document décrit comment réaliser du
-      camouflage d'adresse <acronym>IP</acronym>, un serveur mandataire
-      transparent, de la redirection de ports ou d'autres formes de traduction
-      d'adresse réseau (<wordasword>Network Address Translation</wordasword> ou
-      <acronym>NAT</acronym>) avec le noyau Linux 2.4.</para>
-      </listitem>
-    </varlistentry>
-
-    <varlistentry xml:id='interco.pppoe.qa.ppp-howto'>
-      <term><citetitle>Linux PPP HOWTO</citetitle></term>
-      <listitem>
-      <para>&url.ppp-howto; : Ce guide est relativement ancien. On y
-      trouve cependant des exemples utiles sur le paramétrage de
-      l'authentification avec la protocole <acronym>PPP</acronym>.</para>
-      </listitem>
-    </varlistentry>
-  </variablelist>
+	<varlistentry xml:id='interco.pppoe.qa.config.interface.lan'>
+		<term><citetitle>Configuration d'une interface de réseau
+		local</citetitle></term>
+		<listitem>
+		<para>&url.config.interface.lan; : identification du type d'interface,
+		de ses caractéristiques et manipulations des paramètres. Ce support
+		fournit une méthodologie de dépannage simple d'une connexion
+		réseau.</para>
+		</listitem>
+	</varlistentry>
+		
+	<varlistentry xml:id='interco.pppoe.qa.fonctions.noyau'>
+		<term><citetitle>Fonctions réseau du noyau Linux</citetitle></term>
+		<listitem>
+		<para>&url.interco.kernel; : présentation et configuration des
+		fonctions réseau du noyau LINUX.</para>
+		</listitem>
+	</varlistentry>
+	</variablelist>
 </sect1>
 </article>
