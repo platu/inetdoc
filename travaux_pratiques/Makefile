@@ -34,6 +34,7 @@ SUBDIRS = \
 	interco.ppp.qa \
 	interco.ppp.q \
 	interco.pppoe.qa \
+	interco.pppoe.q \
 	interco.netfilter.qa \
 	interco.netfilter.q \
 	interco.inter-vlan.qa \
@@ -44,7 +45,7 @@ SUBDIRS = \
 	interco.ovs.qa \
 	interco.ovs.q \
 	interco.cs \
-	interco.set
+	interco-dsl.set
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
