@@ -22,6 +22,10 @@
 <!ENTITY url.cam
 	'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/Content-addressable_memory">
 	<citetitle>Content-addressable memory</citetitle></link>'>
+
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"http://www.w3.org/2003/entities/2007/w3centities-f.ent">
+%w3centities-f;
 ]>
 
 <article xml:id='interco.ospf-quagga' xml:lang='fr'>
@@ -39,14 +43,13 @@
 	<tbody>
     <row>
     <entry valign='top'>
-	<para>L'objectif de ce support de travaux pratiques est de mettre en
-	évidence les caractéristiques de fonctionnement du protocole de routage
-	<acronym>OSPF</acronym>. Cette illustration s'appuie sur des liens de type
-	Ethernet et sur l'utilisation des <acronym>VLAN</acronym>s. Les questions
-	sont présentées comme une introduction pas à pas au protocole de routage
-	<acronym>OSPF</acronym>. On débute avec la mise en place d'une topologie
-	réseau type basée sur le routage inter-VLAN, puis on implante les instances
-	de démons de routage.</para>
+	<para>L'objectif de ce support de travaux pratiques est d'étudier le
+	protocole de routage dynamique <acronym>OSPF</acronym>. Cette illustration
+	s'appuie sur une topologie minimale très classique : le triangle.
+	L'originalité consiste à utiliser les <acronym>VLAN</acronym>s pour
+	distinguer la topologie physique (l'étoile) de la topologie logique (le
+	triangle). Cette version du support utilise la suite de démons de routage
+	<application>Quagga</application>.</para>
 	</entry>
 	<entry>
 	<inlinemediaobject>
@@ -121,6 +124,27 @@
 		daemon</para>
 	</listitem>
 	</itemizedlist>
+
+	<para>La suite de démons de routage <application>Quagga</application>
+	couvre la totalité des protocoles de routage dynamiques. Ici, on se
+	concentre sur le protocole <acronym>OSPF</acronym>. C'est la raison pour
+	laquelle, seuls trois paquets sont utiles.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para><application>quagga-core</application> : démon de routage
+		statique <application>zebra</application> et console unifiée
+		<application>vtysh</application>.</para>
+	</listitem>
+	<listitem>
+		<para><application>quagga-ospfd</application> : démon du protocole de
+		routage <acronym>OSPFv2</acronym> pour <acronym>IPv4</acronym>.</para>
+	</listitem>
+	<listitem>
+		<para><application>quagga-ospf6d</application> : démon du protocole de
+		routage <acronym>OSPFv3</acronym> pour <acronym>IPv6</acronym>.</para>
+	</listitem>
+	</itemizedlist>
 	</sect2>
 
 	<sect2 xml:id='interco.ospf-quagga.convtypo'>
@@ -182,8 +206,10 @@
 		<colspec colnum='2' colwidth='1*'/>
 	<thead>
 	<row>
-	<entry>Topologie logique</entry>
-	<entry>Topologie physique</entry>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Topologie logique</entry>
+		<entry>Topologie physique</entry>
 	</row>
 	</thead>
 	<tbody>
@@ -298,9 +324,11 @@
 	<colspec colnum='2' colwidth='4*'/>
 	<thead>
 	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
 		<entry>Groupe</entry>
 		<entry>Commutateur</entry>
-      </row>
+	</row>
     </thead>
     <tbody>
 	<row>
@@ -340,6 +368,8 @@
 		<colspec colnum='7' colwidth='3*'/>
 	<thead>
 	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
 		<entry>Groupe</entry>
 		<entry>Poste</entry>
 		<entry>Rôle</entry>
@@ -611,89 +641,99 @@
 <sect1 xml:id='interco.ospf-quagga.prepare-config'>
 	<title>Préparation des routeurs</title>
 
-	<para>La première étape consiste à installer les outils et mettre en place
-		la topologie physique.</para>
+	<para>La première étape consiste à installer les outils sur les trois
+	routeurs, à appliquer une configuration commune et à mettre en place la
+	topologie physique.</para>
 
-	<itemizedlist>
+	<orderedlist>
 	<listitem>
-	<para>Vérifier l'installation du paquet
-		<application>quagga-ospfd</application> avant de brasser les postes sur
-		les commutateurs non programmés.</para>
+	<para>Installer les paquets <application>quagga-core</application>,
+	<application>quagga-ospfd</application> et
+	<application>quagga-ospf6d</application> avant de brasser les postes sur
+	les commutateurs désignés à la <xref
+	linkend='interco.ospf-quagga.archi.adressage'/>.</para>
 
 <screen><prompt>$</prompt> aptitude search ~iquagga
-i A quagga-core         - network routing daemons (core abstraction layer)
+i   quagga-core         - network routing daemons (core abstraction layer)
+i   quagga-ospf6d       - OSPF6 routing daemon
 i   quagga-ospfd        - OSPF routing daemon</screen>
 
-	<para>Sans configuration particulière les deux services correspondant aux
-		deux paquets installés ne sont pas lancés.</para>
+	<para>Sans configuration particulière, les trois services correspondant aux
+	paquets installés ne sont pas lancés.</para>
 
 <screen><prompt>$</prompt> systemctl status <emphasis>zebra</emphasis>
+systemctl status zebra
 ● zebra.service - GNU Zebra routing manager
    Loaded: loaded (/lib/systemd/system/zebra.service; enabled; vendor preset: enabled)
-   Active: inactive (dead)
-Condition: start condition failed at Sun 2017-12-31 15:30:22 CET; 5 days ago
+   Active: <emphasis>inactive (dead)</emphasis>
      Docs: man:zebra
 
 <prompt>$</prompt> systemctl status <emphasis>ospfd</emphasis>
 ● ospfd.service - OSPF routing daemon
    Loaded: loaded (/lib/systemd/system/ospfd.service; enabled; vendor preset: enabled)
-   Active: inactive (dead)
-Condition: start condition failed at Sun 2017-12-31 15:30:22 CET; 5 days ago
-     Docs: man:ospfd</screen>
+   Active: <emphasis>inactive (dead)</emphasis>
+     Docs: man:ospfd
+
+<prompt>$</prompt> systemctl status <emphasis>ospf6d</emphasis>
+● ospf6d.service - OSPF routing daemon for IPv6
+   Loaded: loaded (/lib/systemd/system/ospf6d.service; enabled; vendor preset: enabled)
+   Active: <emphasis>inactive (dead)</emphasis>
+     Docs: man:ospf6d</screen>
 	</listitem>
 
 	<listitem xml:id='interco.ospf-quagga.prepare-config.routing'>
-		<para>Vérifier que la fonction de routage des paquets
-		<acronym>IPv4</acronym> est active au niveau noyau.</para>
+	<para>Activer le routage <acronym>IPv4</acronym> et <acronym>IPv6</acronym>
+	au niveau noyau.</para>
 
-<screen><prompt>$</prompt> cat /proc/sys/net/ipv4/ip_forward
-1</screen>
-
-	<para>Si ce n'est pas le cas, il est possible d'éditer le fichier
-		<filename>/etc/sysctl.conf</filename> pour fixer les valeurs des
-		paramètres de configuration des protocoles de la pile
-		<acronym>TCP/IP</acronym> dans	le noyau Linux. Voir la section
-		<citetitle>Fonctions réseau d'une interface</citetitle> du support
-		&url.config.interface.lan;.</para>
+	<para>Il faut éditer le fichier <filename>/etc/sysctl.conf</filename> pour
+	fixer les valeurs des paramètres de configuration du routage. Voir la
+	section <citetitle>Fonctions réseau d'une interface</citetitle> du support
+	&url.config.interface.lan;.</para>
 
 <screen><prompt>#</prompt> sysctl -p
 net.ipv4.conf.default.rp_filter = 1
 net.ipv4.conf.all.rp_filter = 1
-net.ipv4.ip_forward = 1
-net.ipv6.conf.all.forwarding = 1
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv6.conf.all.accept_redirects = 0
+<emphasis>net.ipv4.ip_forward = 1</emphasis>
+<emphasis>net.ipv6.conf.all.forwarding = 1</emphasis>
+net.ipv4.conf.all.secure_redirects = 1
 net.ipv4.conf.all.log_martians = 1</screen>
 	</listitem>
 
 	<listitem xml:id='interco.ospf-quagga.prepare-config.subinterfaces'>
 	<para>Créer les sous-interfaces associées aux <acronym>VLAN</acronym>s sur
-		chacun des routeurs <systemitem>R1</systemitem>,
-		<systemitem>R2</systemitem> et <systemitem>R3</systemitem> à l'aide du
-		script suivant :</para>
+	chacun des routeurs <systemitem>R1</systemitem>,
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> à l'aide du
+	script suivant&nbsp;:</para>
 
 <screen><?dbfo keep-together="auto" ?><xi:include href='files/subinterfaces.sh'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
 	<para>Sur le routeur R1, on utilise le script avec les numéros de
-		<acronym>VLAN</acronym>s 12 et 13 par exemple.</para>
+	<acronym>VLAN</acronym>s 12 et 13 par exemple.</para>
 
-<screen>r1:~# sh ./subinterfaces.sh 12 13</screen>
+<screen>R1:~# sh ./subinterfaces.sh 12 13</screen>
 
 	<para>On adapte l'utilisation du même script aux routeurs
-		<systemitem>R2</systemitem> et <systemitem>R3</systemitem> avec les
-		numéros de <acronym>VLAN</acronym>s concernés.</para>
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> avec les numéros
+	de <acronym>VLAN</acronym>s concernés.</para>
 	</listitem>
 
 	<listitem>
-	<para>Créer les fichiers de configuration de base pour les deux démons
-		<systemitem class='daemon'>zebra</systemitem> et <systemitem
-		class='daemon'>ospfd</systemitem> sur chaque routeur en utilisant
-		les patrons livrés avec le paquet
-		<application>quagga</application>.</para>
+	<para>Créer les fichiers de configuration de base pour les différents
+	démons et outils sur chaque routeur en utilisant les patrons livrés avec le
+	paquet <application>quagga-core</application>.</para>
+
+	<para>Créer aussi le dossier dédié aux journaux des trois démons de
+	routage&nbsp;: <filename
+	class='directory'>/var/log/quagga</filename>.</para>
+
+	<para>La présence d'un fichier de configuration par démon est une condition
+	indispensable pour le lancement des services via
+	<application>systemd</application>.</para>
 
 <screen><prompt>#</prompt> cp /usr/share/doc/quagga-core/examples/zebra.conf.sample /etc/quagga/zebra.conf
 <prompt>#</prompt> cp /usr/share/doc/quagga-core/examples/ospfd.conf.sample /etc/quagga/ospfd.conf
+<prompt>#</prompt> cp /usr/share/doc/quagga-core/examples/ospf6d.conf.sample /etc/quagga/ospf6d.conf
 <prompt>#</prompt> cp /usr/share/doc/quagga-core/examples/vtysh.conf.sample /etc/quagga/vtysh.conf
 <prompt>#</prompt> chown quagga.quagga /etc/quagga/*.conf
 <prompt>#</prompt> mkdir /var/log/quagga
@@ -702,9 +742,33 @@ parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 	</listitem>
 
 	<listitem>
+	<para>Éditer le patron du fichier de configuration de l'outil
+	<command>vtysh</command>.</para>
+
+<screen><prompt>#</prompt> cat /etc/quagga/vtysh.conf
+!
+! Configuration file for vtysh.
+!
+service integrated-vtysh-config
+hostname R1
+username root nopassword</screen>
+
+	<para>Cet outil offre une console unifiée pour les trois démons :
+	<application>zebra</application>, <application>ospfd</application> et
+	<application>ospf6d</application>. Dès que l'instruction <option>service
+	integrated-vtysh-config</option> est active, le fichier
+	<filename>/etc/quagga/Quagga.conf</filename> devient de fichier de
+	configuration commun à l'ensemble des démons actifs. Pour autant, les
+	fichiers de configuration individuels proposés ci-dessous sont toujours
+	nécessaires ; notamment pour distinguer les fichiers de journalisations
+	spécifiques à chaque protocole.</para>
+	</listitem>
+
+	<listitem>
 	<para>Éditer le patron du fichier de configuration du démon <systemitem
 		class='daemon'>zebra</systemitem> en fixant les paramètres de
-		connexion à utiliser pour y accéder.</para>
+		connexion à utiliser pour y accéder séparément de la console
+		unifiée.</para>
 
 <screen><prompt>#</prompt> cat zebra.conf
 ! -*- zebra -*-
@@ -719,10 +783,10 @@ log file /var/log/quagga/zebra.log</screen>
 	<listitem>
 	<para>Éditer le patron du fichier de configuration du démon <systemitem
 		class='daemon'>ospfd</systemitem> en fixant les paramètres de connexion
-		à utiliser pour y accéder.</para>
+		à utiliser pour y accéder séparément de la console unifiée.</para>
 
 <screen><prompt>#</prompt> cat ospfd.conf
-! -*- ospf -*-
+! -*- ospfv2 -*-
 !
 hostname R1-ospfd
 password zebra
@@ -732,11 +796,119 @@ log file /var/log/quagga/ospfd.log</screen>
 	</listitem>
 
 	<listitem>
-	<para>Compléter la configuration des interfaces dans le démon <systemitem
-		class='daemon'>zebra</systemitem> de façon à fixer la bande
-		passante de chaque interface active à 1Gbps.</para>
+	<para>Éditer le patron du fichier de configuration du démon <systemitem
+		class='daemon'>ospf6d</systemitem> en fixant les paramètres de connexion
+		à utiliser pour y accéder séparément de la console unifiée.</para>
 
-<screen><prompt>#</prompt> grep -1 bandwidth /etc/quagga/zebra.conf
+<screen><prompt>#</prompt> cat ospf6d.conf
+! -*- ospfv3 -*-
+!
+hostname R1-ospf6d
+password zebra
+enable password zebra
+!
+log file /var/log/quagga/ospf6d.log</screen>
+	</listitem>
+
+	<listitem>
+	<para>Activer et lancer les services correspondant aux trois démons&nbsp;:
+	<application>zebra</application>, <application>ospfd</application> et
+	<application>ospf6d</application>.</para> 
+
+<screen><prompt>#</prompt> systemctl enable zebra
+
+<prompt>#</prompt> systemctl enable ospfd
+
+<prompt>#</prompt> systemctl enable ospf6d
+
+<prompt>#</prompt> systemctl start zebra
+
+<prompt>#</prompt> systemctl start ospfd
+
+<prompt>#</prompt> systemctl start ospf6d</screen>
+	</listitem>
+
+	<listitem>
+	<para>Vérifier que les services sont correctement lancés.</para>
+
+<screen><prompt>#</prompt> systemctl status zebra
+● zebra.service - GNU Zebra routing manager
+   Loaded: loaded (/lib/systemd/system/zebra.service; enabled; vendor preset: enabled)
+   <emphasis>Active: active (running)</emphasis> since Fri 2018-10-12 08:55:58 UTC; 3min 12s ago
+     Docs: man:zebra
+  Process: 2521 ExecStart=/usr/sbin/zebra -d -A 127.0.0.1 -f /etc/quagga/zebra.conf (code=exited, status=0/SUCCESS)
+  Process: 2520 ExecStartPre=/bin/chown -f quagga:quaggavty /etc/quagga/vtysh.conf (code=exited, status=0/SUCCESS)
+  Process: 2519 ExecStartPre=/bin/chown -f quagga:quagga /etc/quagga/zebra.conf (code=exited, status=0/SUCCESS)
+  Process: 2518 ExecStartPre=/bin/chmod -f 640 /etc/quagga/vtysh.conf /etc/quagga/zebra.conf (code=exited, status=0/SUCCESS)
+  Process: 2517 ExecStartPre=/sbin/ip route flush proto zebra (code=exited, status=0/SUCCESS)
+ Main PID: 2522 (zebra)
+   Memory: 1.3M
+   CGroup: /system.slice/zebra.service
+           └─2522 /usr/sbin/zebra -d -A 127.0.0.1 -f /etc/quagga/zebra.conf
+
+oct. 12 08:55:58 R3 systemd[1]: Starting GNU Zebra routing manager...
+oct. 12 08:55:58 R3 systemd[1]: Started GNU Zebra routing manager.
+
+<prompt>#</prompt> systemctl status ospfd
+● ospfd.service - OSPF routing daemon
+   Loaded: loaded (/lib/systemd/system/ospfd.service; enabled; vendor preset: enabled)
+   <emphasis>Active: active (running)</emphasis> since Fri 2018-10-12 08:56:01 UTC; 4min 20s ago
+     Docs: man:ospfd
+  Process: 2527 ExecStart=/usr/sbin/ospfd -d -A 127.0.0.1 -f /etc/quagga/ospfd.conf (code=exited, status=0/SUCCESS)
+  Process: 2526 ExecStartPre=/bin/chown -f quagga:quagga /etc/quagga/ospfd.conf (code=exited, status=0/SUCCESS)
+  Process: 2525 ExecStartPre=/bin/chmod -f 640 /etc/quagga/ospfd.conf (code=exited, status=0/SUCCESS)
+ Main PID: 2528 (ospfd)
+   Memory: 1.1M
+   CGroup: /system.slice/ospfd.service
+           └─2528 /usr/sbin/ospfd -d -A 127.0.0.1 -f /etc/quagga/ospfd.conf
+
+oct. 12 08:56:01 R3 systemd[1]: Starting OSPF routing daemon...
+oct. 12 08:56:01 R3 systemd[1]: Started OSPF routing daemon.
+
+<prompt>#</prompt> systemctl status ospf6d
+● ospf6d.service - OSPF routing daemon for IPv6
+   Loaded: loaded (/lib/systemd/system/ospf6d.service; enabled; vendor preset: enabled)
+   <emphasis>Active: active (running)</emphasis> since Fri 2018-10-12 08:56:05 UTC; 5min ago
+     Docs: man:ospf6d
+  Process: 2533 ExecStart=/usr/sbin/ospf6d -d -A ::1 -f /etc/quagga/ospf6d.conf (code=exited, status=0/SUCCESS)
+  Process: 2532 ExecStartPre=/bin/chown -f quagga:quagga /etc/quagga/ospf6d.conf (code=exited, status=0/SUCCESS)
+  Process: 2531 ExecStartPre=/bin/chmod -f 640 /etc/quagga/ospf6d.conf (code=exited, status=0/SUCCESS)
+ Main PID: 2534 (ospf6d)
+   Memory: 1.0M
+   CGroup: /system.slice/ospf6d.service
+           └─2534 /usr/sbin/ospf6d -d -A ::1 -f /etc/quagga/ospf6d.conf
+
+oct. 12 08:56:05 R3 systemd[1]: Starting OSPF routing daemon for IPv6...
+oct. 12 08:56:05 R3 systemd[1]: Started OSPF routing daemon for IPv6.</screen>
+	</listitem>
+
+	<listitem>
+	<para>Compléter la configuration des interfaces dans la console unifiée
+	<command>vtysh</command> de façon à fixer la bande passante de chaque
+	interface active à 1Gbps.</para>
+
+	<para>Voici un exemple de séquence d'instructions pour configurer une
+	interface.</para>
+
+<screen><prompt>#</prompt> vtysh
+
+Hello, this is Quagga (version 1.2.4).
+Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+R1# conf t
+R1(config)# int eth0
+R1(config-if)# bandwidth 1000000
+R1(config-if)# ^Z
+R1# copy run start
+Building Configuration...
+Integrated configuration saved to /etc/quagga/Quagga.conf
+[OK]</screen>
+
+	<para>Une fois revenu au système d'exploitation, on doit obtenir un
+	résultat équivalent à celui présenté ci-dessous. Les noms d'interfaces
+	dépendent du routeur concerné.</para> 
+	
+<screen><prompt>#</prompt> grep -1 bandwidth /etc/quagga/Quagga.conf
 interface eth0
  bandwidth 1000000
 !
@@ -759,8 +931,6 @@ interface eth0.13
 		dans la	configuration du démon <systemitem
 		class='daemon'>zebra</systemitem>.</para> 
 	</note>
-	</listitem>
-	</itemizedlist>
 
 	<warning>
 	<para>Sans configuration manuelle du coût de lien d'une interface, ce
@@ -771,6 +941,12 @@ interface eth0.13
 		choix des routes à emprunter pour faire transiter le trafic utilisateur
 		entre deux routeurs peut lui aussi être erroné.</para>
 	</warning>
+	</listitem>
+	</orderedlist>
+
+	<para>Une fois l'ensemble des opérations de cette section réalisées, chaque
+	routeur dispose des outils pour mettre en œuvre la topologie physique et
+	ensuite les protocoles de routage dynamique <acronym>OSPF</acronym>.</para>
 </sect1>
 
 <?custom-pagebreak?>
@@ -778,29 +954,32 @@ interface eth0.13
 	<title>Communications entre routeurs</title>
 
 	<para>Avant d'aborder le déploiement du protocole de routage dynamique, il
-	est nécessaire de valider les communications <acronym>IP</acronym> entre
-	chaque routeur et de visualiser les tables de routage déjà connues.</para>
+	est nécessaire de valider le raccordement des routeurs aux commutateurs
+	désignés, les communications entre chaque routeur et la visualisation des
+	tables de routage pour les interfaces réseau configurées.</para>
 
 	<qandaset>
 	<qandaentry>
 	<question>
 		<para><phrase>Quelles sont les opérations à effectuer pour implanter
-		les adresses <acronym>IP</acronym> des interfaces correspondant à
-		chacun des <acronym>VLAN</acronym>s routés ?</phrase></para>
+		les adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym> des
+		interfaces correspondant à	chacun des <acronym>VLAN</acronym>s routés
+		?</phrase></para>
 
 		<para>Au niveau liaison, les sous-interfaces ont déjà été configurées
 		avec le script <link
 		linkend='interco.ospf-quagga.prepare-config.subinterfaces'>subinterfaces.sh</link>.
-		Il reste à paramétrer les adresses <acronym>IP</acronym> de ces
-		sous-interfaces.</para>
+		Il reste à paramétrer les adresses de ces sous-interfaces.</para>
 	</question>
 	<answer>
 		<variablelist>
 		<varlistentry>
 			<term>Routeur R1</term>
 		<listitem>
-<screen><prompt>r1:~#</prompt> ip addr add 10.1.12.1/26 brd + dev eth0.12
-<prompt>r1:~#</prompt> ip addr add 10.1.13.1/26 brd + dev eth0.13</screen>
+<screen><prompt>R1:~#</prompt> ip addr add 10.1.12.1/26 brd + dev eth0.12
+<prompt>R1:~#</prompt> ip -6 addr add 2001:678:3fc:c::1/64 dev eth0.12
+<prompt>R1:~#</prompt> ip addr add 10.1.13.1/26 brd + dev eth0.13
+<prompt>R1:~#</prompt> ip -6 addr add 2001:678:3fc:d::1/64 dev eth0.13</screen>
 		</listitem>
 		</varlistentry>
 		<varlistentry>
