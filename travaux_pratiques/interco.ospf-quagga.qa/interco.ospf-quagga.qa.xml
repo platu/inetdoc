@@ -1540,8 +1540,8 @@ Neighbor ID     Pri    DeadTime  State/IfState         Duration I/F[State]
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment identifier le rôle des différents routeurs pour
-		chacun des liens du triangle de la topologie
+		<para><phrase>Comment identifier le rôle des différentes interfaces des
+		routeurs pour chacun des liens du triangle de la topologie
 		logique&nbsp;?</phrase></para>
 
 	<warning>
@@ -1563,14 +1563,76 @@ Neighbor ID     Pri    DeadTime  State/IfState         Duration I/F[State]
 		liens.</para>
 	</question>
 	<answer>
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata format='PNG'
+		fileref='images/interco.ospf.logical-topology-link-state.png'
+		width='9cm' scalefit='1' />
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata format='PNG'
+		fileref='images/interco.ospf.logical-topology-link-state.png'
+		width='480px' scalefit='1' />
+	</imageobject>
+	<textobject>
+		<phrase>Topologie logique OSPF et rôle des interfaces de
+		routeurs</phrase>
+	</textobject>
+	</mediaobject>
 
-<screen>R1-ospfd# sh ip ospf route 
+		<para>Sur un même réseau de diffusion, il est possible de trouver
+		plusieurs routeurs <acronym>OSPF</acronym>. Établir une relation de
+		voisinage et procéder aux échanges de bases de données topologiques
+		entre chaque routeur revient à constituer un réseau de relations
+		complètement maillé. À chaque recalcul de topologie, ce réseau
+		complètement maillé est inefficace. C'est la raison pour laquelle la
+		notion de routeur référent ou <wordasword>Designated
+		Router</wordasword> a été introduite. Lors d'un recalcul de topologie,
+		tous les routeurs s'adressent au référent qui correspond au cœur d'un
+		réseau en topologie étoile.</para>
+
+		<para>Dans le contexte de la topologie triangle étudiée, il y a bien
+		élection d'un routeur référent et d'un routeur référent de secours.
+		Cependant, comme il n'y a que deux routeurs par domaine de diffusion ou
+		<acronym>VLAN</acronym>, on ne peut pas caractériser l'utilité de cette
+		élection.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Quelles sont les réseaux <acronym>IPv4</acronym> et
+		<acronym>IPv6</acronym> présents dans la base calcul du protocole
+		<acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+		<para>On cherche a visualiser la liste des préfixes des réseaux connus
+		des deux démons <acronym>OSPF</acronym>.</para>
+
+		<para>La liste des commandes utiles dans la console
+		<application>vtysh</application> est la suivante.</para>
+
+		<simplelist type='horiz'>
+		<member><command>show ip ospf route</command></member>
+		<member><command>show ipv6 ospf6 route</command></member>
+		</simplelist>
+	</question>
+	<answer>
+		<para>Une fois que les trois routeurs de la topologie ont convergé,
+		chaque démon connaît les trois préfixes qui correspondent aux trois
+		côtés du triangle. Un routeur correspond à un sommet du triangle et il
+		doit apprendre le préfixe réseau du côté opposé via ses deux routeurs
+		voisins.</para>
+
+		<para>Voici la vue depuis le routeur
+		<systemitem>R1</systemitem>.</para>
+
+<screen><prompt>R1#</prompt> sh ip ospf route
 ============ OSPF network routing table ============
-N    10.1.12.0/26          [100] area: 0.0.0.0
+N    10.1.12.0/26          [1] area: 0.0.0.0
                            directly attached to eth0.12
-N    10.1.13.0/26          [100] area: 0.0.0.0
+N    10.1.13.0/26          [1] area: 0.0.0.0
                            directly attached to eth0.13
-N    10.1.23.0/26          [200] area: 0.0.0.0
+N    10.1.23.0/26          [2] area: 0.0.0.0
                            via 10.1.12.2, eth0.12
                            via 10.1.13.3, eth0.13
 
@@ -1579,7 +1641,7 @@ N    10.1.23.0/26          [200] area: 0.0.0.0
 ============ OSPF external routing table ===========</screen>
 
 		<para>Les valeurs notées entre crochets correspondent à la métrique du
-		lien pour joindre le réseau à gauche. Pour le protocole
+		lien pour joindre le réseau noté à gauche. Pour le protocole
 		<acronym>OSPF</acronym>, le calcul de métrique se fait à partir de
 		l'expression : 10<superscript>8</superscript> /
 		Bande_Passante_du_lien.</para>
@@ -1593,49 +1655,83 @@ N    10.1.23.0/26          [200] area: 0.0.0.0
 		linkend='interco.ospf-quagga.auto-cost' />.</para> 
 
 		<para>Les deux premiers réseaux de la table sont joignable via un lien
-		Ethernet à 100Mbps ; soit une métrique de <option>100</option>. Le
-		troisième réseau est joignable via deux liens Ethernet à 100Mbps ; d'où
-		la métrique de <option>200</option>.</para>
+		Ethernet à 1000Mbps ; soit une métrique de <option>1</option>. Le
+		troisième réseau est joignable via deux liens Ethernet à 1000Mbps ;
+		d'où la métrique de <option>2</option>.</para>
+
+		<para>Pour les préfixes <acronym>IPv6</acronym>, les métriques
+		n'apparaissent pas.</para> 
+
+<screen><prompt>R1#</prompt> sh ipv6 ospf6 route
+*N IA 2001:678:3fc:c::/64            ::                        eth0.12 18:41:10
+*N IA 2001:678:3fc:d::/64            ::                        eth0.13 18:41:00
+*N IA 2001:678:3fc:17::/64           fe80::4c8c:2aff:fe42:b075 eth0.12 18:41:00
+                                     fe80::440:39ff:fe30:710c  eth0.13</screen>
+
+		<para>Avec <acronym>OSPFv3</acronym>, les relations de voisinage entre
+		routeurs utilisent nécessairement les adresses de lien local
+		appartenant au préfixe <systemitem
+		class='ipaddress'>fe80::/10</systemitem>.</para>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Quel est le mode d'affichage de la table de routage du
-		système qui offre le plus d'informations&nbsp;?</phrase></para>
+		<para><phrase>Comment visualiser les tables de routage depuis la
+		console <command>vtysh</command>&nbsp;?</phrase></para>
 
-		<para>Identifier le «lieu de la synthèse» de tous les canaux
-		d'information sur la table de routage d'un routeur.</para>
+		<para>L'affichage demandé illustre les mécanismes de choix entre
+		différentes solutions pour une même destination. Cet affichage est à
+		comparer avec celui demandé à la question suivante.</para>
+
+		<para>La liste des commandes utiles dans la console
+		<application>vtysh</application> est la suivante.</para>
+
+		<simplelist type='horiz'>
+		<member><command>show ip route</command></member>
+		<member><command>show ipv6 route</command></member>
+		</simplelist>
 	</question>
 	<answer>
-		<para>C'est le démon <systemitem class='daemon'>zebra</systemitem> qui
-		offre le plus d'informations sur les entrées de table de routage de
-		l'ensemble du système. Il faut donc se connecter à ce démon pour
-		visualiser toutes les propositions ainsi que les choix retenus pour la
-		table de routage.</para>
-
-<screen>R1-zebra# sh ip route
+<screen><prompt>R1#</prompt> show ip route
 Codes: K - kernel route, C - connected, S - static, R - RIP,
-       O - OSPF, I - IS-IS, B - BGP, P - PIM, A - Babel,
+       O - OSPF, I - IS-IS, B - BGP, P - PIM, A - Babel, N - NHRP,
        > - selected route, * - FIB route
 
 K>* 0.0.0.0/0 via 192.0.2.1, eth0
-O   10.1.12.0/26 [110/100] is directly connected, eth0.12, 00:47:45
+O   10.1.12.0/26 [110/1] is directly connected, eth0.12, 18:57:52
 C>* 10.1.12.0/26 is directly connected, eth0.12
-O   10.1.13.0/26 [110/100] is directly connected, eth0.13, 00:47:45
+O   10.1.13.0/26 [110/1] is directly connected, eth0.13, 18:57:36
 C>* 10.1.13.0/26 is directly connected, eth0.13
-O>* 10.1.23.0/26 [110/200] via 10.1.12.2, eth0.12, 00:44:56
-  *                        via 10.1.13.3, eth0.13, 00:44:56
+O>* 10.1.23.0/26 [110/2] via 10.1.12.2, eth0.12, 18:57:36
+  *                      via 10.1.13.3, eth0.13, 18:57:36
 C>* 127.0.0.0/8 is directly connected, lo
-C>* 192.0.2.0/26 is directly connected, eth0</screen>
+C>* 192.0.2.0/27 is directly connected, eth0</screen>
 
+<screen><prompt>R1#</prompt> show ipv6 route
+Codes: K - kernel route, C - connected, S - static, R - RIPng,
+       O - OSPFv6, I - IS-IS, B - BGP, A - Babel, N - NHRP,
+       > - selected route, * - FIB route
+
+K>* ::/0 via fe80::dc02:44ff:fe64:4834, eth0
+C>* ::1/128 is directly connected, lo
+C>* 2001:678:3fc:a::/64 is directly connected, eth0
+O   2001:678:3fc:c::/64 [110/1] is directly connected, eth0.12, 18:50:54
+C>* 2001:678:3fc:c::/64 is directly connected, eth0.12
+O   2001:678:3fc:d::/64 [110/1] is directly connected, eth0.13, 18:50:44
+C>* 2001:678:3fc:d::/64 is directly connected, eth0.13
+O>* 2001:678:3fc:17::/64 [110/2] via fe80::4c8c:2aff:fe42:b075, eth0.12, 18:50:44
+  *                              via fe80::440:39ff:fe30:710c, eth0.13, 18:50:44
+C * fe80::/64 is directly connected, eth0
+C * fe80::/64 is directly connected, eth0.13
+C>* fe80::/64 is directly connected, eth0.12</screen>
 		<itemizedlist>
 		<listitem>
 			<para>Les entrées avec le caractère <option>*</option>
-			correspondent aux routes actives mémorisées dans la base de
-			commutation des paquets <acronym>IP</acronym> ou
-			<wordasword>Forward Information	Base</wordasword>
-			(<acronym>FIB</acronym>).</para>
+			correspondent aux routes proposées par la suite
+			<application>Quagga</application> au sous-système réseau du noyau.
+			Les autres entrées sont placées en réserve au cas où la solution
+			initialement proposée viendrait à faire défaut.</para>
 		</listitem>
 		<listitem>
 			<para>L'entrée notée <option>K</option> correspond à une route
@@ -1645,7 +1741,7 @@ C>* 192.0.2.0/26 is directly connected, eth0</screen>
 			<para>Les entrées notées <option>C</option> correspondent à des
 			routes pour lesquelles il existe une interface sur le routeur. Les
 			métriques de ses routes ont la valeur <option>0</option>. Ce sont
-			les routes les	plus prioritaires.</para>
+			les routes les plus prioritaires.</para>
 		</listitem>
 		<listitem>
 			<para>Les entrées notées <option>O</option> correspondent aux
@@ -1663,25 +1759,63 @@ C>* 192.0.2.0/26 is directly connected, eth0</screen>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment visualiser la table de routage au niveau système
-		?</phrase></para>
+		<para><phrase>Comment visualiser les tables de routage au niveau
+		système&nbsp;?</phrase></para>
 
 		<para>Utiliser une commande usuelle de visualisation de la table de
 		routage.</para>
+
+		<simplelist type='horiz'>
+		<member><command>ip route ls</command></member>
+		<member><command>ip -6 route ls</command></member>
+		</simplelist>
 	</question>
 	<answer>
 		<para>Avec la commande <command>ip</command>, on voit apparaître les
-		«sources» d'alimentation de la table de routage finale du système :
-		<option>kernel</option> et <option>zebra</option>.</para>
+		«sources» d'alimentation de la table de routage finale du
+		système.</para>
 
-<screen><prompt>r1:~$</prompt> ip route ls
-default via 192.0.2.1 dev eth0 
-10.1.12.0/26 dev eth0.12  proto kernel  scope link  src 10.1.12.1 
-10.1.13.0/26 dev eth0.13  proto kernel  scope link  src 10.1.13.1 
-10.1.23.0/26  proto zebra  metric 200 
-        nexthop via 10.1.12.2  dev eth0.12 weight 1
-        nexthop via 10.1.13.3  dev eth0.13 weight 1
-192.0.2.0/26 dev eth0  proto kernel  scope link  src 192.0.2.10</screen>
+		<itemizedlist>
+		<listitem>
+			<para><option>kernel</option> pour les entrées connues du
+			sous-système réseau du noyau. Ce sont les entrées avec le caractère
+			<option>C</option> dans la console <command>vtysh</command>.</para>
+		</listitem>
+		<listitem>
+			<para><option>zebra</option> pour les entrées apprises via la suite
+			<application>Quagga</application>. Le réseau correspondant au côté
+			opposé au sommet du triangle est appris via <acronym>OSPF</acronym>
+			puisque le sous-système réseau du noyau ne le connaît pas.</para>
+		</listitem>
+		<listitem>
+			<para><option>ra</option> pour la route par défaut
+			<acronym>IPv6</acronym>. Le routeur <systemitem>R1</systemitem> se
+			distingue des deux autres routeurs par le fait qu'il dispose d'un
+			accès vers l'Internet. Ici, la route par défaut a été apprise par
+			auto configuration <acronym>SLAAC</acronym>.</para>
+		</listitem>
+		</itemizedlist>
+
+<screen><prompt>R1:~#</prompt> ip route ls
+default via 192.0.2.1 dev eth0 onlink
+10.1.12.0/26 dev eth0.12 <emphasis>proto kernel</emphasis> scope link src 10.1.12.1
+10.1.13.0/26 dev eth0.13 <emphasis>proto kernel</emphasis> scope link src 10.1.13.1
+10.1.23.0/26 <emphasis>proto</emphasis> zebra metric 20
+        nexthop via 10.1.12.2 dev eth0.12 weight 1
+        nexthop via 10.1.13.3 dev eth0.13 weight 1
+192.0.2.0/27 dev eth0 <emphasis>proto kernel</emphasis> scope link src 192.0.2.9</screen>
+
+<screen><prompt>R1:~#</prompt> ip -6 route ls
+2001:678:3fc:a::/64 dev eth0 <emphasis>proto kernel</emphasis> metric 256 expires 86285sec pref medium
+2001:678:3fc:c::/64 dev eth0.12 <emphasis>proto kernel</emphasis> metric 256 pref medium
+2001:678:3fc:d::/64 dev eth0.13 <emphasis>proto kernel</emphasis> metric 256 pref medium
+2001:678:3fc:17::/64 <emphasis>proto zebra</emphasis> metric 20
+        nexthop via fe80::4c8c:2aff:fe42:b075 dev eth0.12 weight 1
+        nexthop via fe80::440:39ff:fe30:710c dev eth0.13 weight 1 pref medium
+fe80::/64 dev eth0 <emphasis>proto</emphasis> kernel metric 256 pref medium
+fe80::/64 dev eth0.12 <emphasis>proto kernel</emphasis> metric 256 pref medium
+fe80::/64 dev eth0.13 <emphasis>proto kernel</emphasis> metric 256 pref medium
+default via fe80::dc02:44ff:fe64:4834 dev eth0 <emphasis>proto ra</emphasis> metric 1024 expires 1685sec hoplimit 64 pref medium</screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
