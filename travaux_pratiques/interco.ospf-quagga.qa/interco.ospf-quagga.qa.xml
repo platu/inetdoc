@@ -2561,7 +2561,11 @@ Sauvegarde en : « /dev/null »
 	<para>L'introduction d'un nouvel espace de nom réseau revient à introduire
 		une nouvelle table de routage dans un même système. Dans la vue
 		ci-dessous, le cadre vert illustre les éléments ajoutés au routeur
-		<systemitem class='systemname'>R2</systemitem>.</para>
+		<systemitem class='systemname'>R2</systemitem>. Les mêmes opérations
+		sont à réaliser sur le routeur <systemitem
+		class='systemname'>R3</systemitem> en suivant le plan d'adressage
+		présenté à la <xref
+		linkend='interco.ospf-quagga.archi.adressage'/>.</para>
 
 	<mediaobject>
 	<imageobject role='fo'>
@@ -2574,6 +2578,129 @@ Sauvegarde en : « /dev/null »
 		<phrase>Topologie logique avec un espace de noms réseau</phrase>
 	</textobject>
 	</mediaobject>
+
+	<qandaset>
+	<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment créer une paire d'interfaces réseau virtuelles de
+	type <wordasword>veth</wordasword> sur un système
+	GNU/Linux&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les pages de manuels la commande
+	<command>ip&nbsp;link</command> la syntaxe qui permet de créer la paire
+	d'interfaces <option>veth0</option> et <option>veth1</option>.</para>
+	</question>
+	<answer>
+<screen><prompt>#</prompt> ip link add veth1 type veth peer name veth0
+
+<prompt>#</prompt> ip link ls dev veth0
+5: veth0@veth1: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN \
+				mode DEFAULT group default qlen 1000
+    link/ether 86:22:d2:14:05:b4 brd ff:ff:ff:ff:ff:ff
+
+<prompt>#</prompt> ip link ls dev veth1
+6: veth1@veth0: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN \
+				mode DEFAULT group default qlen 1000
+    link/ether 9e:c8:44:e6:fa:70 brd ff:ff:ff:ff:ff:ff</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment créer un nouvel espace de noms réseau appelé
+	<wordasword>green</wordasword> et affecter l'interface
+	<option>veth1</option> à cet espace de noms&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les pages de manuels <option>ip-netns</option> la
+	syntaxe qui permet de créer un nouvel espace de noms réseau.</para>
+	</question>
+	<answer>
+<screen><prompt>#</prompt> ip netns add green
+<prompt>#</prompt> ip netns list
+green</screen>
+
+	<para>L'affectation d'une interface à l'espace de noms se fait avec la
+	commande suivante.</para>
+
+<screen><prompt>#</prompt> ip link set veth1 netns green</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser et modifier l'état des interfaces de type
+	<option>veth</option> dans les deux espaces de noms
+	réseau&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les pages de manuels <option>ip-netns</option> la
+	syntaxe qui permet d'exécuter une commande dans un nouvel espace de noms
+	réseau.</para>
+	</question>
+	<answer>
+	<para>On active les deux interfaces et on affiche les informations
+	d'état.</para>
+
+<screen><prompt>#</prompt> ip link set dev veth0 up
+
+<prompt>#</prompt> ip link ls dev veth0
+5: veth0@if6: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue \
+			state LOWERLAYERDOWN mode DEFAULT group default qlen 1000
+    link/ether 86:22:d2:14:05:b4 brd ff:ff:ff:ff:ff:ff <emphasis>link-netns green</emphasis></screen>
+
+<screen><prompt>#</prompt> ip netns exec green ip link set dev veth1 up
+
+<prompt>#</prompt> ip netns exec green ip link ls dev veth1
+6: veth1@if5: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue 
+			state UP mode DEFAULT group default qlen 1000
+    link/ether 9e:c8:44:e6:fa:70 brd ff:ff:ff:ff:ff:ff <emphasis>link-netnsid 0</emphasis></screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider les communications entre les deux espaces de
+	noms réseau&nbsp;?</phrase></para>
+
+	<para>Utiliser les adresses de lien local <acronym>IPv6</acronym> pour
+	faire un test <acronym>ICMP</acronym> avec l'adresse multicast de
+	sollicitation d'hôte.</para>
+	</question>
+	<answer>
+	<para>Le test avec la commande <command>ping</command> doit désigner
+	l'interface du lien à utiliser.</para>
+
+<screen><prompt>#</prompt> ping -c2 ff02::1%veth0
+PING ff02::1%veth0(ff02::1%veth0) 56 data bytes
+64 bytes from fe80::8422:d2ff:fe14:5b4%veth0: icmp_seq=1 ttl=64 time=0.080 ms
+64 bytes from fe80::9cc8:44ff:fee6:fa70%veth0: icmp_seq=1 ttl=64 time=0.168 ms (DUP!)
+64 bytes from fe80::8422:d2ff:fe14:5b4%veth0: icmp_seq=2 ttl=64 time=0.046 ms
+
+--- ff02::1%veth0 ping statistics ---
+2 packets transmitted, 2 received, +1 duplicates, 0% packet loss, time 20ms
+rtt min/avg/max/mdev = 0.046/0.098/0.168/0.051 ms</screen>
+
+	<para>Le voisinage réseau de l'interface <systemitem>veth0</systemitem>
+	désigne l'adresse <acronym>MAC</acronym> de l'interface
+	<systemitem>veth1</systemitem> dans l'espace de noms réseau
+	<wordasword>green</wordasword>.</para>
+
+<screen><prompt>#</prompt> ip nei ls dev veth0
+fe80::9cc8:44ff:fee6:fa70 lladdr <emphasis>9e:c8:44:e6:fa:70</emphasis> STALE</screen>
+
+	<para>Réciproquement, le voisinage réseau de l'interface
+	<systemitem>veth1</systemitem> désigne l'adresse <acronym>MAC</acronym> de
+	l'interface <systemitem>veth0</systemitem>.</para>
+
+<screen><prompt>#</prompt> ip netns exec green ip nei ls dev veth1
+fe80::8422:d2ff:fe14:5b4 lladdr <emphasis>86:22:d2:14:05:b4</emphasis> router STALE</screen>
+
+	<para>On peut donc conclure que le lien point à point entre les deux
+	espaces de noms réseau est fonctionnel.</para>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+	</qandaset>
 </sect1>
 
 <?custom-pagebreak?>
