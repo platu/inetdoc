@@ -357,7 +357,7 @@
 
 	<table xml:id='quagga.lab.addressing' frame='all' pgwide='1'>
 		<title>Affectation des rôles, des numéros de VLANs et des adresses
-		IP</title>
+		IP pour la salle 213</title>
 	<tgroup cols='7' align='left' colsep='1' rowsep='1'>
 		<colspec colnum='1' colwidth='1*'/>
 		<colspec colnum='2' colwidth='1*'/>
@@ -2256,7 +2256,7 @@ R    0.0.1.4               [1] area: 0.0.0.0, ASBR
 		</listitem>
 		</itemizedlist>
 
-		<para>Avec les copie d'écran ci-dessus, on vérifie bien que les routes
+		<para>Avec les copies d'écran ci-dessus, on vérifie bien que les routes
 		par défaut ont été apprises via le protocole
 		<acronym>OSPF</acronym>.</para>
 	</answer>
@@ -2280,7 +2280,7 @@ R    0.0.1.4               [1] area: 0.0.0.0, ASBR
 	<itemizedlist>
 	<listitem>
 	<para>Historiquement, la première solution consiste à utiliser des
-	interfaces de boucles locales sur des équipements
+	interfaces de boucles locales comme sur les équipements
 	<trademark>Cisco</trademark> ou des interfaces de type
 	<wordasword>dummy</wordasword> sur les systèmes	GNU/Linux.</para>
 
@@ -2290,7 +2290,7 @@ R    0.0.1.4               [1] area: 0.0.0.0, ASBR
 	de routage dynamique et sont joignables à distance.</para>
 
 	<para>Ce type d'interface est utilisé sur le routeur <systemitem
-	class='systemname'>R3</systemitem> dans la <xref
+	class='systemname'>R1</systemitem> dans la <xref
 	linkend='interco.ospf-quagga.fake-routes.dummies' />.</para>
 	</listitem>
 
@@ -2308,19 +2308,20 @@ R    0.0.1.4               [1] area: 0.0.0.0, ASBR
 
 	<para>Relativement aux interface de type <systemitem>dummy</systemitem>,
 	l'utilisation d'un lien point à point provoque effectivement une décision
-	de routage au sein du noyau sur lequel il est implanté.</para>
+	de routage au sein du noyau sur lequel ce lien est implanté.</para>
 
 	<para>Pour compléter un peu plus le scénario du réseau factice, on peut
 	utiliser les espaces de noms réseau (<wordasword>network
 	namespaces</wordasword>). Un espace de nom réseau désigne un ensemble
 	d'interfaces associées à une table de routage indépendante. Dans notre
 	contexte, on place une extrémité du lien point à point, c'est à dire une
-	interface <systemitem>veth</systemitem>, dans un espace ne nom
+	interface <systemitem>veth</systemitem>, dans un espace de nom
 	différent.</para>
 
 	<para>Cet espace de nom réseau et le type d'interface
-	<systemitem>veth</systemitem> sont utilisés sur le routeur <systemitem
-	class='systemname'>R2</systemitem> dans la <xref
+	<systemitem>veth</systemitem> sont utilisés sur les routeurs <systemitem
+	class='systemname'>R2</systemitem> et <systemitem
+	class='systemname'>R3</systemitem> dans la <xref
 	linkend='interco.ospf-quagga.fake-routes.veth' />.</para>
 	</listitem>
 	</itemizedlist>
@@ -2329,126 +2330,160 @@ R    0.0.1.4               [1] area: 0.0.0.0, ASBR
 <sect1 xml:id='interco.ospf-quagga.fake-routes.dummies'>
 	<title>Interfaces de type <wordasword>dummy</wordasword></title>
 
+	<para>Dans cette section, on créé une interface de type
+	<systemitem>dummy</systemitem> et on installe un service Web uniquement en
+	écoute sur les adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym>
+	de cette interface. Enfin, on publie ce nouveau réseau factice via le
+	protocole de routage dynamique <acronym>OSPF</acronym>.</para>
+
 	<qandaset>
 	<qandaentry>
 	<question>
-		<para><phrase>Quelles sont les opérations à effectuer pour pouvoir
-		utiliser des interfaces réseau virtuelles de type boucle locale sur un
-		système GNU/Linux&nbsp;?</phrase></para>
+		<para><phrase>Quelles sont les opérations à effectuer pour créer et
+		configurer une interface réseau virtuelle de type
+		<systemitem>dummy</systemitem>&nbsp;?</phrase></para>
 
-		<para>Avec un noyau Linux, il est conseillé d'utiliser les interfaces
-		baptisées <wordasword>dummy</wordasword> pour ce genre d'usage. Les
-		opérations à effectuer consistent à charger le module du même nom en
-		mémoire et à appliquer une nouvelle configuration
-		<acronym>IP</acronym>.</para>
+		<para>Consulter les pages de manuels de la commande
+		<command>ip</command> au niveau liaison <command>man ip-link</command>
+		et rechercher les information sur le type
+		<systemitem>dummy</systemitem>.</para>
 	</question>
 	<answer>
-<screen><prompt>#</prompt> modprobe -v dummy numdummies=2
-insmod /lib/modules/4.2.0-1-686-pae/kernel/drivers/net/dummy.ko numdummies=2
-<prompt>#</prompt> ip addr ls | grep dummy
-5: dummy0: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN group default 
-6: dummy1: &lt;BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN group default</screen>
+		<para>Sur le routeur <systemitem class='systemname'>R1</systemitem>, on
+		créé une nouvelle interface avec des adresses appartenant à deux
+		nouveaux préfixes réseau inconnus des trois routeurs de la topologie
+		logique en triangle.</para>
 
-		<para>En prenant l'exemple du routeur <systemitem
-		class='systemname'>R3</systemitem>, on créé une nouvelle interface avec
-		l'adresse <acronym>IP</acronym> <systemitem
-		class='ipaddress'>10.1.3.3/30</systemitem>. Bien sûr, cette adresse ne
-		correspond à aucun réseau déjà connu des trois routeurs.</para>
-
-<screen><prompt>#</prompt> ip addr add 10.1.3.3/29 brd + dev dummy0
+<screen><prompt>#</prompt> ip link add dummy0 type dummy
 <prompt>#</prompt> ip link set dev dummy0 up
-<prompt>#</prompt> ip route ls
-<emphasis>10.1.3.0/29 dev dummy0  proto kernel  scope link  src 10.1.3.3</emphasis>
-10.1.12.0/26  proto zebra  metric 20 
-        nexthop via 10.1.13.1  dev eth0.13 weight 1
-        nexthop via 10.1.23.2  dev eth0.23 weight 1
-10.1.13.0/26 dev eth0.13  proto kernel  scope link  src 10.1.13.3 
-10.1.23.0/26 dev eth0.23  proto kernel  scope link  src 10.1.23.3</screen>
+<prompt>#</prompt> ip addr add 10.1.1.1/29 brd + dev dummy0
+<prompt>#</prompt> ip -6 addr add 2001:678:3fc:b::1/64 dev dummy0</screen>
 
-		<para>Cette nouvelle interface se retrouve automatiquement disponible
-		dans la configuration les deux démons de routages. Dans <systemitem
-		class='daemon'>zebra</systemitem> sur <systemitem
-		class='systemname'>R3</systemitem>, on obtient les informations
-		suivante sur l'interface <option>dummy0</option>.</para>
+<screen><prompt>R1:~#</prompt> ip route ls dev dummy0
+10.1.1.0/29 proto kernel scope link src 10.1.1.1</screen>
 
-<screen><prompt>R3-zebra#</prompt> sh int dummy0
-Interface dummy0 is up, line protocol detection is disabled
-  index 5 metric 0 mtu 1500 
+<screen><prompt>R1:~#</prompt> ip -6 route ls dev dummy0
+2001:678:3fc:b::/64 proto kernel metric 256 pref medium
+fe80::/64 proto kernel metric 256 pref medium</screen>
+
+		<para>Cette nouvelle interface apparaît automatiquement dans la console
+		unifiée <command>vtysh</command> des démons de routage de la suite
+		<citetitle>Quagga</citetitle>.</para>
+
+<screen><prompt>R1#</prompt> sh interface dummy0
+<emphasis>Interface dummy0 is up, line protocol is up</emphasis>
+  Link ups:       1  last: Mon, 15 Oct 2018 12:01:14 +0000
+  Link downs:     0  last: (never)
+  vrf: 0
+  index 4 metric 0 mtu 1500
   flags: &lt;UP,BROADCAST,RUNNING,NOARP>
-  HWaddr: 12:08:a0:09:f3:7d
-  <emphasis>bandwidth 100000 kbps</emphasis>
-  inet 10.1.3.3/29 broadcast 10.1.3.7
-  inet6 fe80::1008:a0ff:fe09:f37d/64</screen>
+  Type: Unknown
+  HWaddr: d2:57:b1:cb:be:32
+  inet 10.1.1.1/29 broadcast 10.1.1.7
+  inet6 fe80::d057:b1ff:fecb:be32/64
+  inet6 2001:678:3fc:b::1/64</screen>
+	</answer>
+	</qandaentry>
 
-		<para>On a fixé manuellement à 100Mbps dans <systemitem
-		class='daemon'>zebra</systemitem> le débit associé à l'interface
-		<option>dummy0</option>. Ce paramètre influence le calcul de métrique
-		dans les bases de données <acronym>OSPF</acronym>.</para>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment publier les préfixes réseau correspondant à
+		l'interface <option>dummy0</option> via <acronym>OSPF</acronym> avec un
+		débit binaire de lien à 100Mbps&nbsp;?</phrase></para>
+
+		<para>Une fois la console <application>vtysh</application> ouverte,
+		accéder en mode configuration de l'interface puis des deux démons de
+		routage.</para>
+
+		<simplelist type='horiz'>
+		<member><command>interface dummy0</command></member>
+		<member><command>bandwidth</command></member>
+		<member><command>router ospf</command></member>
+		<member><command>network A.B.C.D/MM area 0</command></member>
+		<member><command>router ospf6</command></member>
+		<member><command>interface XXXX area 0.0.0.0</command></member>
+		</simplelist>
+	</question>
+	<answer>
+		<para>On commence par la définition du débit binaire au niveau de
+		l'interface.</para>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# int dummy0
+R1(config-if)# bandwidth 100000
+R1(config-if)# ^Z</screen>
+
+		<para>On peut ensuite publier les préfixes réseau
+		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> au niveau de chaque
+		instance de protocole de routage <acronym>OSPF</acronym>.</para> 
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# router ospf
+R1(config-router)# network 10.1.1.0/29 area 0
+R1(config-router)# ^Z</screen>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# router ospf6
+R1(config-ospf6)# interface dummy0 area 0.0.0.0
+R1(config-ospf6)# ^Z</screen>
+
+		<para>Enfin, on vérifie la présence des deux préfixes réseau dans les
+		bases <acronym>OSPF</acronym>.</para>
+
+<screen><prompt>R1#</prompt> sh ip route 10.1.1.0/29
+Routing entry for 10.1.1.0/29
+  <emphasis>Known via "ospf", distance 110, metric 10, tag 0, vrf 0</emphasis>
+  Last update 00:03:45 ago
+  >  directly connected, dummy0
+
+Routing entry for 10.1.1.0/29
+  Known via "connected", distance 0, metric 0, tag 0, vrf 0, best, fib
+  >* directly connected, dummy0</screen>
+
+<screen><prompt>R1#</prompt> sh ipv6 route 2001:678:3fc:b::/64
+Routing entry for 2001:678:3fc:b::/64
+  <emphasis>Known via "ospf6", distance 110, metric 10, tag 0, vrf 0</emphasis>
+  Last update 00:04:20 ago
+  >  directly connected, dummy0
+
+Routing entry for 2001:678:3fc:b::/64
+  Known via "connected", distance 0, metric 0, tag 0, vrf 0, best, fib
+  >* directly connected, dummy0</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
 		<para><phrase>Quelles sont les opérations à effectuer pour installer un
-		service Web en écoute exclusivement sur l'adresse <acronym>IP</acronym>
-		de l'interface <option>dummy0</option>&nbsp;?</phrase></para>
+		service Web en écoute exclusivement sur les adresses
+		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> de l'interface
+		<option>dummy0</option>&nbsp;?</phrase></para>
 
-		<para>Pour aller au plus court, on installe le paquet
-		<application>apache2</application> et on édite la configuration du
-		service de façon à limiter l'accès à l'adresse <acronym>IP</acronym>
-		voulue.</para>
+		<para>Installer le paquet <systemitem>lighttpd</systemitem> et modifier
+		sa configuration pour que le service ne soit accessible que sur les
+		adresses de l'interface <systemitem>dummy0</systemitem>.</para>
 	</question>
 	<answer>
-<screen># aptitude install apache2
-Les NOUVEAUX paquets suivants vont être installés :     
-  apache2 apache2-bin{a} apache2-data{a} apache2-utils{a} libapr1{a}
-  libaprutil1{a} libaprutil1-dbd-sqlite3{a} libaprutil1-ldap{a} liblua5.1-0{a}
-  ssl-cert{a} 
-  0 paquets mis à jour, 10 nouvellement installés, 0 à enlever et 0 non mis à jour.
-  Il est nécessaire de télécharger 2 041 ko d'archives. Après dépaquetage,
-  6 475 ko seront utilisés.
-  Voulez-vous continuer ? [Y/n/?] Y</screen>
+<screen><prompt>#</prompt> aptitude install lighttpd
+&lt;snipped/></screen>
 
 		<para>On modifie ensuite le fichier de configuration
-		<filename>/etc/apache2/ports.conf</filename> de façon à limiter l'accès
-		à une adresse <acronym>IP</acronym> unique.</para>
+		<filename>/etc/lighttpd/lighttpd.conf</filename> de façon à limiter
+		l'accès aux adresses voulues.</para>
 
-<screen><?dbfo keep-together="auto" ?><xi:include href='files/ports.conf.patch'
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/lighttpd.conf.patch'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
-		<para>Après avoir redémarré l'instance de serveur Web, on vérifie que
-		la nouvelle configuration est bien en place.</para>
+		<para>On redémarre le service et on affiche la liste des prises réseau
+		ouvertes sur le système pour confirmer que les adresses choisies
+		sont bien prises en compte.</para>
 
-<screen><prompt>#</prompt> /etc/init.d/apache2 restart
-&lt;snipped>
-<prompt>#</prompt> # ss -nlt '( src :80 )'
-State       Recv-Q Send-Q   Local Address:Port     Peer Address:Port              
-LISTEN      0      128           10.1.3.3:80                  *:*</screen>
-	</answer>
-	</qandaentry>
+<screen><prompt>#</prompt> systemctl restart lighttpd
 
-	<qandaentry>
-	<question>
-		<para><phrase>Comment ajouter la route correspondant au nouveau réseau
-		<systemitem class='ipaddress'>10.1.3.0/29</systemitem> dans le domaine
-		de routage <acronym>OSPF</acronym>&nbsp;?</phrase></para>
-
-		<para>Comme dans le cas de la mise en place des autres routes dans la
-		configuration du démon <systemitem class='daemon'>ospfd</systemitem>,
-		on ajoute une entrée <option>network</option> dans l'instance
-		<acronym>OSPF</acronym> du routeur.</para>
-	</question>
-	<answer>
-		<para>Dans le cas du routeur <systemitem
-		class='systemname'>R3</systemitem>, la syntaxe est la suivante :</para>
-
-<screen>R3-ospfd(config)# router ospf
-R3-ospfd(config-router)# network 10.1.3.0/29 area 0</screen>
-
-		<para>On vérifie ensuite que cette entrée est bien intégrée dans la
-		base des routes <acronym>OSPF</acronym>.</para>
-
-<screen>R3-ospfd(config)# sh ip ospf route</screen>
+<prompt>#</prompt> ss -nlt '( src :80 )'
+State       Recv-Q Send-Q   Local Address:Port      Peer Address:Port
+LISTEN      0      128      10.1.1.1:80             0.0.0.0:*
+LISTEN      0      128      [2001:678:3fc:b::1]:80  [::]:*</screen>
 	</answer>
 	</qandaentry>
 
@@ -2463,29 +2498,56 @@ R3-ospfd(config-router)# network 10.1.3.0/29 area 0</screen>
 	</question>
 	<answer>
 		<para>À partir du routeur <systemitem
-		class='systemname'>R1</systemitem>, on utilise la séquence suivante
-		:</para>
+		class='systemname'>R2</systemitem>, on utilise la séquence
+		suivante&nbsp;:</para>
+
 		<itemizedlist>
 		<listitem>
-			<para>Test <acronym>ICMP</acronym> au niveau réseau :</para>
+			<para>Test <acronym>ICMP</acronym> au niveau réseau&nbsp;:</para>
 
-<screen><prompt>r1:~$</prompt> ping -c2 10.1.3.3
-PING 10.1.3.3 (10.1.3.3) 56(84) bytes of data.
-64 bytes from 10.1.3.3: icmp_seq=1 ttl=64 time=0.939 ms
-64 bytes from 10.1.3.3: icmp_seq=2 ttl=64 time=0.561 ms
+<screen><prompt>R2:~#</prompt> ping -c2 10.1.1.1
+PING 10.1.1.1 (10.1.1.1) 56(84) bytes of data.
+64 bytes from 10.1.1.1: icmp_seq=1 ttl=64 time=0.648 ms
+64 bytes from 10.1.1.1: icmp_seq=2 ttl=64 time=0.090 ms
 
---- 10.1.3.3 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1001ms
-rtt min/avg/max/mdev = 0.561/0.750/0.939/0.189 ms</screen>
+--- 10.1.1.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 26ms
+rtt min/avg/max/mdev = 0.090/0.369/0.648/0.279 ms</screen>
+
+<screen><prompt>R2:~#</prompt> ping -c2 2001:678:3fc:b::1
+PING 2001:678:3fc:b::1(2001:678:3fc:b::1) 56 data bytes
+64 bytes from 2001:678:3fc:b::1: icmp_seq=1 ttl=64 time=0.567 ms
+64 bytes from 2001:678:3fc:b::1: icmp_seq=2 ttl=64 time=0.086 ms
+
+--- 2001:678:3fc:b::1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 24ms
+rtt min/avg/max/mdev = 0.086/0.326/0.567/0.241 ms</screen>
 		</listitem>
 		<listitem>
-			<para>Test <acronym>HTTP</acronym> au niveau application :</para>
+			<para>Test <acronym>HTTP</acronym> au niveau
+			application&nbsp;:</para>
 
-<screen><prompt>r1:~$</prompt> wget -O /dev/null http://10.1.3.3
---2015-10-28 09:24:29--  http://10.1.3.3/
-Connexion à 10.1.3.3:80… connecté.
+<screen><prompt>R2:~#</prompt> wget -O /dev/null http://10.1.1.1
+--2018-10-15 17:00:47--  http://10.1.1.1/
+Connexion à 10.1.1.1:80… connecté.
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+Taille : 3378 (3,3K) [text/html]
+Sauvegarde en : « /dev/null »
+
+/dev/null    100%[======================>]   3,30K  --.-KB/s    ds 0s
+
+2018-10-15 17:00:47 (298 MB/s) — « /dev/null » sauvegardé [3378/3378]</screen>
+
+<screen><prompt>R2:~#</prompt> wget -O /dev/null http://[2001:678:3fc:b::1]
+--2018-10-15 17:02:17--  http://[2001:678:3fc:b::1]/
+Connexion à [2001:678:3fc:b::1]:80… connecté.
 requête HTTP transmise, en attente de la réponse… 200 OK
-Taille : 11104 (11K) [text/html]</screen>
+Taille : 3378 (3,3K) [text/html]
+Sauvegarde en : « /dev/null »
+
+/dev/null    100%[======================>]   3,30K  --.-KB/s    ds 0s
+
+2018-10-15 17:02:17 (154 MB/s) — « /dev/null » sauvegardé [3378/3378]</screen>
 		</listitem>
 		</itemizedlist>
 	</answer>
