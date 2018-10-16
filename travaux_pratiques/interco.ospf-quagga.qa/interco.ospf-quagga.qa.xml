@@ -2396,12 +2396,12 @@ fe80::/64 proto kernel metric 256 pref medium</screen>
 		routage.</para>
 
 		<simplelist type='horiz'>
-		<member><command>interface dummy0</command></member>
+		<member><command>interface dummyX</command></member>
 		<member><command>bandwidth</command></member>
 		<member><command>router ospf</command></member>
 		<member><command>network A.B.C.D/MM area 0</command></member>
 		<member><command>router ospf6</command></member>
-		<member><command>interface XXXX area 0.0.0.0</command></member>
+		<member><command>interface dummyX area 0.0.0.0</command></member>
 		</simplelist>
 	</question>
 	<answer>
@@ -2481,9 +2481,9 @@ parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 <screen><prompt>#</prompt> systemctl restart lighttpd
 
 <prompt>#</prompt> ss -nlt '( src :80 )'
-State       Recv-Q Send-Q   Local Address:Port      Peer Address:Port
-LISTEN      0      128      10.1.1.1:80             0.0.0.0:*
-LISTEN      0      128      [2001:678:3fc:b::1]:80  [::]:*</screen>
+State       Recv-Q Send-Q       Local Address:Port      Peer Address:Port
+LISTEN      0      128               10.1.1.1:80             0.0.0.0:*
+LISTEN      0      128    [2001:678:3fc:b::1]:80                [::]:*</screen>
 	</answer>
 	</qandaentry>
 
@@ -2697,6 +2697,359 @@ fe80::8422:d2ff:fe14:5b4 lladdr <emphasis>86:22:d2:14:05:b4</emphasis> router ST
 
 	<para>On peut donc conclure que le lien point à point entre les deux
 	espaces de noms réseau est fonctionnel.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment ajouter deux préfixes réseau <acronym>IPv4</acronym>
+	et <acronym>IPv6</acronym> sur la liaison point à point entre les deux
+	interfaces de type <option>veth</option>&nbsp;?</phrase></para>
+
+	<para>Comme lors des étapes précédentes, on reprend les commandes
+	<command>ip</command> avec la désignation de l'espace de noms réseau pour
+	l'interface à l'extrémité du lien point à point.</para>
+	</question>
+	<answer>
+	<para>Dans notre exemple sur le routeur <systemitem
+	class='systemname'>R2</systemitem>, on utilise les préfixes <systemitem
+	class='ipaddress'>10.1.2.0/30</systemitem> et <systemitem
+	class='ipaddress'>2001:678:3fc:d::/64</systemitem>.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Pour l'interface <option>veth0</option>&nbsp;:</para>
+
+<screen><prompt>#</prompt> ip addr add 10.1.2.1/30 brd + dev veth0
+<prompt>#</prompt> ip -6 addr add 2001:678:3fc:d::1/64 dev veth0</screen>
+	</listitem>
+	<listitem>
+		<para>Pour l'interface <option>veth1</option>&nbsp;:</para>
+
+<screen><prompt>#</prompt> ip netns exec green ip addr add 10.1.2.2/30 brd + dev veth1
+<prompt>#</prompt> ip netns exec green ip -6 addr add 2001:678:3fc:d::2/64 dev veth1</screen>
+	</listitem>
+	</itemizedlist>
+
+	<para>Comme dans la question précédente, on peut qualifier la communication
+	entre les deux interfaces au niveau réseau à l'aide de la commande
+	<command>ping</command>.</para>
+
+	<para>Voici une copie d'écran des tests effectués depuis l'espace de noms
+	<option>green</option>.</para>
+
+<screen><prompt>#</prompt> ip netns exec green ping -qc2 10.1.2.1
+PING 10.1.2.1 (10.1.2.1) 56(84) bytes of data.
+
+--- 10.1.2.1 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 33ms
+rtt min/avg/max/mdev = 0.043/0.055/0.067/0.012 ms
+
+<prompt>#</prompt> ip netns exec green ping -qc2 2001:678:3fc:d::1
+PING 2001:678:3fc:d::1(2001:678:3fc:d::1) 56 data bytes
+
+--- 2001:678:3fc:d::1 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 18ms
+rtt min/avg/max/mdev = 0.050/0.081/0.113/0.032 ms</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment publier les préfixes réseau correspondant à la
+		nouvelle liaison point à point via <acronym>OSPF</acronym> avec un
+		débit binaire de lien à 1Gbps&nbsp;?</phrase></para>
+
+		<para>Une fois la console <application>vtysh</application> ouverte,
+		accéder en mode configuration de l'interface puis des deux démons de
+		routage.</para>
+
+		<simplelist type='horiz'>
+		<member><command>interface vethX</command></member>
+		<member><command>bandwidth</command></member>
+		<member><command>router ospf</command></member>
+		<member><command>network A.B.C.D/MM area 0</command></member>
+		<member><command>router ospf6</command></member>
+		<member><command>interface vethX area 0.0.0.0</command></member>
+		</simplelist>
+	</question>
+	<answer>
+		<para>On commence par la définition du débit binaire au niveau de
+		l'interface.</para>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# int veth0
+R1(config-if)# bandwidth 1000000
+R1(config-if)# ^Z</screen>
+
+		<para>On peut ensuite publier les préfixes réseau
+		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> au niveau de chaque
+		instance de protocole de routage <acronym>OSPF</acronym>.</para> 
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# router ospf
+R1(config-router)# network 10.1.2.0/30 area 0
+R1(config-router)# ^Z</screen>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# router ospf6
+R1(config-ospf6)# interface veth0 area 0.0.0.0
+R1(config-ospf6)# ^Z</screen>
+
+		<para>Enfin, on vérifie la présence des deux préfixes réseau dans les
+		bases <acronym>OSPF</acronym>.</para>
+
+<screen><prompt>R2#</prompt> sh ip route 10.1.2.0/30
+Routing entry for 10.1.2.0/30
+  <emphasis>Known via "ospf", distance 110, metric 1, tag 0, vrf 0</emphasis>
+  Last update 00:02:44 ago
+  >  directly connected, veth0
+
+Routing entry for 10.1.2.0/30
+  Known via "connected", distance 0, metric 0, tag 0, vrf 0, best, fib
+  >* directly connected, veth0</screen>
+
+<screen><prompt>R2#</prompt> sh ipv6 route 2001:678:3fc:d::/64
+Routing entry for 2001:678:3fc:d::/64
+  <emphasis>Known via "ospf6", distance 110, metric 1, tag 0, vrf 0</emphasis>
+  Last update 00:04:44 ago
+  >  directly connected, veth0
+
+Routing entry for 2001:678:3fc:d::/64
+  Known via "connected", distance 0, metric 0, tag 0, vrf 0, best, fib
+  >* directly connected, veth0</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Est-ce que les adresses <acronym>IPv4</acronym> et
+		<acronym>IPv6</acronym> situées dans l'espace de noms
+		<wordasword>green</wordasword> joiganbles depuis les réseaux
+		distants&nbsp;?</phrase></para>
+
+		<para>Le fait d'avoir placé l'interface <option>veth1</option> dans un
+		espace de noms réseau distinct, impose l'utilisation d'une table de
+		routage propre à cet espace. Sur la base des opérations déjà
+		effectuées, on s'interroge sur le fait que ces opérations suffisent
+		pour que les communications soient fonctionnelles.</para>
+
+		<para>On fait des tests <acronym>ICMP</acronym> et
+		<acronym>ICMP6</acronym> depuis un autre routeur pour constater que si
+		les flux parviennent bien à destination, il n'existe pas de solution
+		retour.</para>
+	</question>
+	<answer>
+		<para>Dans l'exemple ci-dessous, on teste les communications entre le
+		routeur <systemitem class='systemname'>R1</systemitem> et l'interface
+		<systemitem>veth1</systemitem> située au delà du routeur <systemitem
+		class='systemname'>R3</systemitem></para>
+
+		<para>On lance une requête <acronym>ICMP</acronym> depuis <systemitem
+		class='systemname'>R1</systemitem>.</para>
+
+<screen><prompt>R1:~#</prompt> ping -c3 10.1.3.2
+PING 10.1.3.2 (10.1.3.2) 56(84) bytes of data.
+
+--- 10.1.3.2 ping statistics ---
+3 packets transmitted, 0 received, <emphasis>100% packet loss</emphasis>, time 40ms</screen>
+
+		<para>On lance l'analyse réseau dans l'espace de noms réseau
+		<wordasword>green</wordasword>.</para>
+
+<screen><prompt>R3:~#</prompt> ip netns exec green /usr/bin/tshark -i veth1 -f icmp
+&lt;snipped/>
+Capturing on 'veth1'
+ 1 0.000000000    10.1.13.1 → 10.1.3.2     ICMP 98 Echo (ping) request  id=0x1309, seq=1/256, ttl=63
+ 2 1.013794602    10.1.13.1 → 10.1.3.2     ICMP 98 Echo (ping) request  id=0x1309, seq=2/512, ttl=63
+ 3 2.037727585    10.1.13.1 → 10.1.3.2     ICMP 98 Echo (ping) request  id=0x1309, seq=3/768, ttl=63
+^C3 packets captured</screen>
+
+		<para>On relève bien l'arrivée de la requête à destination. Il n'y a
+		aucune réponse.</para>
+
+		<para>En reprenant le même test avec <acronym>ICMP6</acronym>, on
+		relève le même problème.</para>
+
+<screen><prompt>R1:~#</prompt> ping -c3 2001:678:3fc:f::2
+PING 2001:678:3fc:f::2(2001:678:3fc:f::2) 56 data bytes
+
+--- 2001:678:3fc:f::2 ping statistics ---
+3 packets transmitted, 0 received, <emphasis>100% packet loss</emphasis>, time 27ms</screen>
+
+		<para>L'analyse réseau ne montre que l'arrivée des requêtes à
+		destination.</para>
+
+<screen><prompt>R3:~#</prompt> ip netns exec green /usr/bin/tshark -i veth1 -f icmp6
+&lt;snipped/>
+Capturing on 'veth1'
+ 1 0.000000000 2001:678:3fc:d::1 → 2001:678:3fc:f::2 ICMPv6 118 Echo (ping) request id=0x130a, seq=1, hop limit=63
+ 2 1.001038537 2001:678:3fc:d::1 → 2001:678:3fc:f::2 ICMPv6 118 Echo (ping) request id=0x130a, seq=2, hop limit=63
+ 3 2.025046012 2001:678:3fc:d::1 → 2001:678:3fc:f::2 ICMPv6 118 Echo (ping) request id=0x130a, seq=3, hop limit=63</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment compléter les tables de routage
+		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> situées dans
+		l'espace de noms <wordasword>green</wordasword> pour que le trafic
+		sortant par l'interface <systemitem>veth1</systemitem> soit émis
+		correctement&nbsp;?</phrase></para>
+
+		<para>On complète les tables de routage avec une route par défaut pour
+		joindre les réseaux distants depuis l'espace de noms
+		<wordasword>green</wordasword>.</para>
+	</question>
+	<answer>
+		<para>La lecture des tables de routage dans l'espace de noms réseau
+		<wordasword>green</wordasword> explique tout. Ces tables ne contiennent
+		que l'entrée relative au lien point à point configuré entre les
+		interfaces <systemitem>veth0</systemitem> et
+		<systemitem>veth1</systemitem>.</para>
+
+<screen><prompt>R3:~#</prompt> ip netns exec green ip route ls
+10.1.3.0/30 dev veth1 proto kernel scope link src 10.1.3.2
+
+<prompt>R3:~#</prompt> ip netns exec green ip -6 route ls
+2001:678:3fc:f::/64 dev veth1 proto kernel metric 256 pref medium
+fe80::/64 dev veth1 proto kernel metric 256 pref medium</screen>
+
+		<para>Il faut donc compléter ces tables de routage avec une route par
+		défaut vers l'espace de noms réseau par défaut dans lequel est située
+		l'interface <systemitem>veth0</systemitem>.</para>
+
+<screen><prompt>R3:~#</prompt> ip netns exec green ip route add default via 10.1.3.1
+
+<prompt>R3:~#</prompt> ip netns exec green ping -c1 ff02::2%veth1
+PING ff02::2%veth1(ff02::2%veth1) 56 data bytes
+64 bytes from fe80::8422:d2ff:fe14:5b4%veth1: icmp_seq=1 ttl=64 time=0.072 ms
+
+--- ff02::2%veth1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.072/0.072/0.072/0.000 ms
+
+<prompt>R3:~#</prompt> ip netns exec green ip -6 route add default via fe80::8422:d2ff:fe14:5b4 dev veth1</screen>
+
+		<para>Les nouvelles tables de routage de l'espace de noms
+		<wordasword>green</wordasword> font apparaître les routes par
+		défaut</para>
+
+<screen><prompt>R3:~#</prompt> ip netns exec green ip route ls
+default via 10.1.3.1 dev veth1
+10.1.3.0/30 dev veth1 proto kernel scope link src 10.1.3.2</screen>
+
+<screen><prompt>R3:~#</prompt> ip netns exec green ip -6 route ls
+2001:678:3fc:f::/64 dev veth1 proto kernel metric 256 pref medium
+fe80::/64 dev veth1 proto kernel metric 256 pref medium
+default via fe80::8422:d2ff:fe14:5b4 dev veth1 metric 1024 pref medium</screen>
+
+		<para>Les tests <acronym>ICMP</acronym> et <acronym>ICMP6</acronym> de
+		la question précédente montrent maintenant que les communications sont
+		bien fonctionnelles. Les requêtes sont à nouveau émises depuis le
+		routeur <systemitem class='systemname'>R1</systemitem></para>
+
+<screen><prompt>R1:~#</prompt> ping -c3 10.1.3.2
+PING 10.1.3.2 (10.1.3.2) 56(84) bytes of data.
+64 bytes from 10.1.3.2: icmp_seq=1 ttl=63 time=0.484 ms
+64 bytes from 10.1.3.2: icmp_seq=2 ttl=63 time=0.068 ms
+64 bytes from 10.1.3.2: icmp_seq=3 ttl=63 time=0.066 ms
+
+--- 10.1.3.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 50ms</screen>
+
+<screen><prompt>R1:~#</prompt> ping -c3 2001:678:3fc:f::2
+PING 2001:678:3fc:f::2(2001:678:3fc:f::2) 56 data bytes
+64 bytes from 2001:678:3fc:f::2: icmp_seq=1 ttl=63 time=0.591 ms
+64 bytes from 2001:678:3fc:f::2: icmp_seq=2 ttl=63 time=0.083 ms
+64 bytes from 2001:678:3fc:f::2: icmp_seq=3 ttl=63 time=0.081 ms
+
+--- 2001:678:3fc:f::2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 48ms</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment installer un service Web en écoute exclusivement
+		sur les adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym>
+		situées dans l'espace de noms réseau
+		<wordasword>green</wordasword>&nbsp;?</phrase></para>
+
+		<para>Pour aller au plus court, on installe le paquet
+		<application>lighttpd</application> et on édite la configuration du
+		service de façon à limiter l'accès aux adresses <acronym>IP</acronym>
+		voulues.</para>
+	</question>
+	<answer>
+<screen><prompt>R3:~#</prompt> aptitude install lighttpd</screen>
+
+		<para>On modifie ensuite le fichier de configuration
+		<filename>/etc/lighttpd/lighttpd.conf</filename> de façon à limiter
+		l'accès aux adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym>
+		de l'interface <option>veth1</option>.</para>
+
+		<para>Voici une copie du correctif correspondant au routeur <systemitem
+		class='systemname'>R3</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R3-veth1-lighttpd.conf.patch'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+
+		<para>Relativement à une configuration classique, il faut lancer le
+		serveur Web dans le contexte du nouvel espace de noms réseau. On
+		commence donc par arrêter le démon lancé lors de l'installation du
+		paquet.</para>
+
+<screen><prompt>R3:~#</prompt> systemctl stop lighttpd</screen>
+
+		<para>Là encore, pour aller au plus court on lance directement le démon
+		dans le contexte de l'espace de noms réseau
+		<wordasword>green</wordasword>.</para>
+
+<screen><prompt>R3:~#</prompt> ip netns exec green lighttpd -f /etc/lighttpd/lighttpd.conf
+
+<prompt>R3:~#</prompt> ip netns exec green ss -nlt '( src :80 )'
+State      Recv-Q  Send-Q       Local Address:Port  Peer Address:Port
+LISTEN     0       128               10.1.3.2:80         0.0.0.0:*
+LISTEN     0       128    [2001:678:3fc:f::2]:80            [::]:*</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment valider l'accès au service Web situé dans
+		l'espace de noms réseau <wordasword>green</wordasword> depuis un réseau
+		distant&nbsp;?</phrase></para>
+
+		<para>Comme la partie routage a été validée dans les questions
+		précédentes,	on passe directement à la couche application avec le
+		chargement de la page Web par défaut du serveur.</para>
+	</question>
+	<answer>
+		<para>Depuis le routeur <systemitem class='systemname'>R1</systemitem>,
+		on obtient les résultats suivants.</para>
+
+<screen><prompt>R1:~#</prompt> wget -O /dev/null http://10.1.3.2
+--2018-10-16 14:32:06--  http://10.1.3.2/
+Connexion à 10.1.3.2:80… connecté.
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+Taille : 3378 (3,3K) [text/html]
+Sauvegarde en : « /dev/null »
+
+/dev/null       100%[===================>]   3,30K  --.-KB/s    ds 0s
+
+2018-10-16 14:32:06 (209 MB/s) — « /dev/null » sauvegardé [3378/3378]</screen>
+
+<screen><prompt>R1:~#</prompt> wget -O /dev/null http://[2001:678:3fc:f::2]
+--2018-10-16 14:34:39--  http://[2001:678:3fc:f::2]/
+Connexion à [2001:678:3fc:f::2]:80… connecté.
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+Taille : 3378 (3,3K) [text/html]
+Sauvegarde en : « /dev/null »
+
+/dev/null       100%[===================>]   3,30K  --.-KB/s    ds 0s
+
+2018-10-16 14:34:39 (268 MB/s) — « /dev/null » sauvegardé [3378/3378]</screen>
 	</answer>
 	</qandaentry>
 	</qandadiv>
