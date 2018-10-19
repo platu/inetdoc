@@ -15,6 +15,7 @@ SYMLINKS = \
 
 XML_FILES = \
 	interco.ospf-bird.qa.xml \
+	addressing.xml \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \
@@ -25,3 +26,7 @@ XML_FILES = \
 all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
+
+addressing.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf-quagga.qa/interco.ospf-quagga.qa.xml
+	sed -n -e "/interco.ospf-quagga\.archi/,/\/sect1/{p; /\/sect1/q}" $? > $@
+	sed -i "s/quagga/bird/g" $@
