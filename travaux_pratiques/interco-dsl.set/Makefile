@@ -11,7 +11,8 @@ SYMLINKS = \
 	$(MAIN_DIR)/common/author.xml \
 	$(MAIN_DIR)/common/legal.xml \
 	$(MAIN_DIR)/common/rfc.urls.xml \
-	$(MAIN_DIR)/common/inetdoc.urls.xml
+	$(MAIN_DIR)/common/inetdoc.urls.xml \
+	$(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/addressing.xml
 
 XML_FILES = \
 	interco-dsl.set.xml \
