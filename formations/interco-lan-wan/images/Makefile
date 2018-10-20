@@ -9,6 +9,7 @@ PROCESS = $(PNGTARGET) symlink
 
 SYMLINKS = \
 	$(MAIN_DIR)/images/thumbs/thumb*.png \
+	$(MAIN_DIR)/travaux_pratiques/interco.ppp.qa/images/WAN-DSL-Topology.png \
 	$(MAIN_DIR)/travaux_pratiques/interco.ospf-quagga.qa/images/interco.ospf.physical-topology.png
 
 all: $(PROCESS)

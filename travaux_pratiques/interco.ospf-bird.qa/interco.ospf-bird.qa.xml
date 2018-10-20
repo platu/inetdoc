@@ -163,67 +163,80 @@
 <sect1 xml:id='interco.ospf-bird.prepare-config'>
 	<title>Préparation des routeurs</title>
 
-	<para>La première étape consiste à mettre en place la topologie
-	physique.</para>
+	<para>La première étape consiste à installer les outils sur les trois
+	routeurs, à appliquer une configuration commune et à mettre en place la
+	topologie physique.</para>
 
-	<itemizedlist>
+	<orderedlist>
 	<listitem>
-		<para>Vérifier l'installation du paquet
-		<application>bird</application> avant de brasser les postes sur les
-		commutateurs non programmés.</para>
+	<para>Installer le paquet <application>bird</application> avant de brasser
+	les postes sur les commutateurs attribués avec le plan d'adressage de la
+	salle de travaux pratiques.</para>
 
 <screen><prompt>$</prompt> aptitude search ~ibird
-i   bird              - Internet Routing Daemon</screen>
+i   bird              - démon de routage internet</screen>
+
+	<para>Sans configuration particulière, le service <application>bird</application> lancé.</para>
+
+<screen><prompt>$</prompt> systemctl status <emphasis>bird</emphasis>
+● bird.service - BIRD Internet Routing Daemon (IPv4)
+   Loaded: loaded (/lib/systemd/system/bird.service; enabled; vendor preset: enabled)
+   Active: <emphasis>active (running)</emphasis> since Sat 2018-10-20 12:58:52 UTC; 2min 23s ago
+ Main PID: 751 (bird)
+   Memory: 632.0K
+   CGroup: /system.slice/bird.service
+           └─751 /usr/sbin/bird -f -u bird -g bird
+
+oct. 20 12:58:52 R1 systemd[1]: Starting BIRD Internet Routing Daemon (IPv4)...
+oct. 20 12:58:52 R1 systemd[1]: Started BIRD Internet Routing Daemon (IPv4).
+oct. 20 12:58:52 R1 bird[751]: Started</screen>
 	</listitem>
 
 	<listitem xml:id='interco.ospf-bird.prepare-config.routing'>
-		<para>Vérifier que la fonction de routage des paquets
-		<acronym>IPv4</acronym> est active au niveau noyau.</para>
+	<para>Activer le routage <acronym>IPv4</acronym> et <acronym>IPv6</acronym>
+	au niveau noyau.</para>
 
-<screen><prompt>$</prompt> cat /proc/sys/net/ipv4/ip_forward
-1</screen>
+	<para>Il faut éditer le fichier <filename>/etc/sysctl.conf</filename> pour
+	fixer les valeurs des paramètres de configuration du routage. Voir la
+	section <citetitle>Fonctions réseau d'une interface</citetitle> du support
+	&url.config.interface.lan;.</para>
 
-		<para>Si ce n'est pas le cas, il est possible d'éditer le fichier
-		<filename>/etc/sysctl.conf</filename> pour fixer les valeurs des
-		paramètres de configuration des protocoles de la pile
-		<acronym>TCP/IP</acronym> dans le noyau Linux. Voir la section
-		<citetitle>Fonctions réseau d'une interface</citetitle> du support
-		&url.config.interface.lan;.</para>
-
-<screen><prompt>#</prompt> sysctl -p
+<screen><prompt>#</prompt>sysctl -p
 net.ipv4.conf.default.rp_filter = 1
 net.ipv4.conf.all.rp_filter = 1
-net.ipv4.ip_forward = 1
-net.ipv6.conf.all.forwarding = 1
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.all.proxy_arp = 0</screen>
+<emphasis>net.ipv4.ip_forward = 1</emphasis>
+<emphasis>net.ipv6.conf.all.forwarding = 1</emphasis>
+net.ipv4.conf.all.secure_redirects = 1
+net.ipv4.conf.all.log_martians = 1</screen>
 	</listitem>
 
 	<listitem xml:id='interco.ospf-bird.prepare-config.subinterfaces'>
-		<para>Créer les sous-interfaces associées aux <acronym>VLAN</acronym>s
-		sur chacun des routeurs R1, R2 et R3 à l'aide du script suivant
-		:</para>
+	<para>Créer les sous-interfaces associées aux <acronym>VLAN</acronym>s sur
+	chacun des routeurs <systemitem>R1</systemitem>,
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> à l'aide du
+	script suivant&nbsp;:</para>
 
 <screen><?dbfo keep-together="auto" ?><xi:include href='files/subinterfaces.sh'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
-		<para>Sur le routeur R1, on utilise le script avec les numéros de
-		<acronym>VLAN</acronym>s 12 et 13 par exemple.</para>
+	<para>Sur le routeur <systemitem>R1</systemitem>, on utilise le script avec
+	les numéros de <acronym>VLAN</acronym>s 12 et 13 par exemple.</para>
 
-<screen>r1:~# sh ./subinterfaces.sh 12 13</screen>
+<screen>R1:~# sh ./subinterfaces.sh 12 13</screen>
 
-		<para>On adapte l'utilisation du même script aux routeurs R2 et R3 avec
-		les numéros de <acronym>VLAN</acronym>s concernés.</para>
+	<para>On adapte l'utilisation du même script aux routeurs
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> avec les numéros
+	de <acronym>VLAN</acronym>s concernés.</para>
 
-		<para>Bien sûr, il est aussi possible d'éditer le fichier
-			<filename>/etc/network/interfaces</filename> de façon à rendre
-			cette configuration permanente. Voici une copie de ce fichier pour
-			le routeur R1.</para>
+	<para>Il est aussi possible d'éditer le fichier
+	<filename>/etc/network/interfaces</filename> de façon à rendre cette
+	configuration permanente. Voici une copie de ce fichier pour le routeur
+	<systemitem>R1</systemitem>.</para>
 
 <screen><?dbfo keep-together="auto" ?><xi:include href='files/R1-interfaces'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 	</listitem>
-	</itemizedlist>
+	</orderedlist>
 </sect1>
 
 <?custom-pagebreak?>
@@ -231,22 +244,23 @@ parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 	<title>Communications entre routeurs</title>
 
 	<para>Avant d'aborder le déploiement du protocole de routage dynamique, il
-	est nécessaire de valider les communications <acronym>IP</acronym> entre
-	chaque routeur et de visualiser les tables de routage déjà connues.</para>
+	est nécessaire de valider le raccordement des routeurs aux commutateurs
+	désignés, les communications entre chaque routeur et la visualisation des
+	tables de routage pour les interfaces réseau configurées.</para>
 
 <qandaset>
 <qandadiv>
 	<qandaentry>
 	<question>
-		<para><phrase>Comment implanter	les adresses <acronym>IP</acronym> des
-			interfaces pourchacun des <acronym>VLAN</acronym>s routés
-			?</phrase></para>
+		<para><phrase>Quelles sont les opérations à effectuer pour implanter
+		les adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym> des
+		interfaces correspondant à	chacun des <acronym>VLAN</acronym>s routés
+		?</phrase></para>
 
 		<para>Au niveau liaison, les sous-interfaces ont déjà été configurées
 		avec le script <link
 		linkend='interco.ospf-bird.prepare-config.subinterfaces'>subinterfaces.sh</link>.
-		Il reste à paramétrer les adresses <acronym>IP</acronym> de ces
-		sous-interfaces.</para>
+		Il reste à paramétrer les adresses de ces sous-interfaces.</para>
 	</question>
 	<answer>
 		<variablelist>
