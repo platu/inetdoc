@@ -19,7 +19,11 @@
 <!-- bird -->
 <!ENTITY url.bird-users-guide
 	"<link xmlns='http://docbook.org/ns/docbook'
-	xlink:href='http://bird.network.cz/?get_doc&amp;f=bird.html'>BIRD User's Guide</link>">
+	xlink:href='https://bird.network.cz/&#63;get_doc&amp;f=bird.html&amp;v=16'>BIRD User's Guide</link>">
+
+<!ENTITY url.bird-remote-control
+	"<link xmlns='http://docbook.org/ns/docbook'
+	xlink:href='https://bird.network.cz/&#63;get_doc&amp;v=16&amp;f=bird-4.html'>Remote control</link>">
 
 <!ENTITY url.bird-ospf-example
 	"<link xmlns='http://docbook.org/ns/docbook'
@@ -491,6 +495,15 @@ fe80::/64 dev eth0.23 proto kernel metric 256 pref medium</screen>
 	démon correspondant. C'est à nouveau dans la liste des fichiers du paquet
 	que l'on identifie les outils d'accès à la configuration active des deux
 	démons.</para>
+
+	<para>Il faut consulter la section &url.bird-remote-control; de la
+	documentation <application>Bird</application>. Les commandes utiles pour
+	cette question sont les suivantes.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show status</command></member>
+		<member><command>show protocols</command></member>
+	</simplelist>
 	</question>
 	<answer>
 	<para>Chaque démon dispose d'une console propre avec les outils
@@ -532,193 +545,282 @@ kernel1  Kernel   master   up     20:58:58</screen>
 	<qandaentry>
 	<question>
 	<para><phrase>Comment activer le protocole de routage
-		<acronym>OSPF</acronym> et fixer manuellement	l'identifiant du
-		routeur&nbsp;?</phrase></para>
+	<acronym>OSPF</acronym> et attribuer l'identifiant du
+	routeur&nbsp;?</phrase></para>
 
 	<para>Consulter le document &url.bird-users-guide; à la section
-		<acronym>OSPF</acronym> pour activer le protocole.</para>
+	<acronym>OSPF</acronym> pour activer le protocole. Consulter les tableaux
+	des plans d'adressage pour obtenir la valeur de l'identifiant du routeur à
+	configurer.</para>
+
+	<para>On édite les fichiers <filename>/etc/bird.conf</filename> et
+	<filename>/etc/bird6.conf</filename> avec les paramètres suivants.</para>
+
+	<simplelist type='horiz'>
+		<member><command>router id IPv4 address</command></member>
+		<member><command>protocol ospf &lt;name></command></member>
+		<member><command>area &lt;id></command></member>
+	</simplelist>
     </question>
     <answer>
-	<para>On édite le fichier <filename>/etc/bird.conf</filename> de façon à
-		fixer le paramètre <option>router id</option> et à ouvrir une section
-		pour le protocole <acronym>OSPF</acronym>.</para>
+	<para>Voici une copie des fichiers du routeur <systemitem
+	class='systemname'>R1</systemitem>.</para>
 
-<screen><?dbfo keep-together="auto" ?><prompt>#</prompt> grep -v ^# /etc/bird/bird.conf
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> grep -v ^# /etc/bird/bird.conf
 
-router id 0.0.0.1;
-
-protocol device {
-}
+router id 0.0.1.4;
 
 protocol kernel {
-	metric 64;	# Use explicit kernel route metric to avoid collisions
-				# with non-BIRD routes in the kernel routing table
-	import none;
+        scan time 10;
+        import none;
+}
+
+protocol device {
+        scan time 10;
 }
 
 protocol ospf OSPFv2R1 {
-	area 0 {
-	};
+        area 0 {
+        };
 }</screen>
 
-	<para>Une fois le service relancé, on obtient les informations suivantes à
-		la console.</para>
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> grep -v ^# /etc/bird/bird6.conf
 
-<screen><prompt>#</prompt> birdc
-BIRD 1.6.3 ready.
-bird> show protocols
+router id 0.0.1.6;
+
+protocol kernel {
+        scan time 10;
+        import none;
+}
+
+protocol device {
+        scan time 10;
+}
+
+protocol ospf OSPFv3R1 {
+        area 0 {
+        };
+}</screen>
+
+	<para>Une fois les deux services relancés, on peut vérifier que les
+	éléments demandés sont bien présents dans la configuration des démons de
+	routage <acronym>OSPF</acronym>.</para>
+
+<screen><prompt>R1:~#</prompt> systemctl restart bird
+
+<prompt>R1:~#</prompt> birdc sh protocols
+BIRD 1.6.4 ready.
 name     proto    table    state  since       info
-device1  Device   master   up     08:39:44
-kernel1  Kernel   master   up     08:39:44
-OSPFv2R1 OSPF     master   up     09:07:29    Alone
-bird> show ospf state
+kernel1  Kernel   master   up     09:38:34
+device1  Device   master   up     09:38:34
+<emphasis>OSPFv2R1 OSPF     master   up     09:38:34    Alone</emphasis>
+
+<prompt>R1:~#</prompt> birdc sh ospf state
+BIRD 1.6.4 ready.
 
 area 0.0.0.0
 
-	router 0.0.0.1
-		distance 0
-bird></screen>
+        <emphasis>router 0.0.1.4</emphasis>
+                distance 0</screen>
+
+<screen><prompt>R1:~#</prompt> systemctl restart bird6
+
+<prompt>R1:~#</prompt> birdc6 sh protocols
+BIRD 1.6.4 ready.
+name     proto    table    state  since       info
+kernel1  Kernel   master   up     09:42:33
+device1  Device   master   up     09:42:33
+<emphasis>OSPFv3R1 OSPF     master   up     09:42:33    Alone</emphasis>
+
+<prompt>R1:~#</prompt> birdc6 sh ospf state
+BIRD 1.6.4 ready.
+
+area 0.0.0.0
+
+        <emphasis>router 0.0.1.6</emphasis>
+                distance 0</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
 	<para><phrase>Comment activer et valider le protocole de routage
-		<acronym>OSPF</acronym> pour les réseaux <acronym>IPv4</acronym>
-		connus de chaque routeur&nbsp;?</phrase></para>
+	<acronym>OSPF</acronym> pour les réseaux <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> connus de chaque routeur&nbsp;?</phrase></para>
 
 	<para>Consulter la section <acronym>OSPF</acronym> de la documentation
-		&url.bird-users-guide; ainsi que l'exemple &url.bird-ospf-example;. Il
-		suffit d'adapter les exemples avec les noms d'interfaces en fonction du
-		contexte.</para>
+	&url.bird-users-guide; ainsi que l'exemple &url.bird-ospf-example;. Il
+	suffit d'adapter les exemples avec les noms d'interfaces en fonction du
+	contexte.</para>
 
-	<para>Pour la validation des interfaces et des réseaux, il faut utiliser la
-		console <command>birdc</command>.</para>
+	<para>On édite les fichiers <filename>/etc/bird.conf</filename> et
+	<filename>/etc/bird6.conf</filename> avec les paramètres suivants.</para>
+
+	<simplelist type='horiz'>
+		<member><command>interface &lt;interface pattern></command></member>
+		<member><command>authentication none|simple|cryptographic;</command></member>
+	</simplelist>
+
+	<para>On vérifie au niveau console (Voir &url.bird-remote-control;) l'état
+	de la base de connaissance des deux processus <acronym>OSPF</acronym> avec
+	la commande suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show ospf state</command></member>
+	</simplelist>
 	</question>
 	<answer>
 		<variablelist>
 		<varlistentry>
-			<term>Routeur R1</term>
+			<term>Routeur R1&nbsp;: <acronym>OSPFv2</acronym> &amp;
+			interfaces</term>
 		<listitem>
-<screen><?dbfo keep-together="auto" ?><prompt>#</prompt> grep -v ^# /etc/bird/bird.conf
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> grep -v ^# /etc/bird/bird.conf
 
-router id 0.0.0.1;
-
-protocol device {
-}
+router id 0.0.1.4;
 
 protocol kernel {
-	metric 64;	# Use explicit kernel route metric to avoid collisions
-			# with non-BIRD routes in the kernel routing table
-	import none;
-	export all;     # Actually insert routes into the kernel routing table
+        scan time 10;
+        import none;
+}
+
+protocol device {
+        scan time 10;
 }
 
 protocol ospf OSPFv2R1 {
-	rfc1583compat yes;
-	debug all;
-	import all;
-
-	area 0.0.0.0 {
-		interface "eth0.12", "eth0.13" {
-			authentication none;
-		};
-	};
+        rfc1583compat yes;
+        area 0 {
+                interface "eth0.12", "eth0.13" {
+                        authentication none;
+                };
+        };
 }</screen>
+		</listitem>
+		</varlistentry>
 
-	<para>Les commandes de la catégorie <acronym>OSPF</acronym> permettent de
-		vérifier que la liste des réseaux du routeurs sont bien annoncés par le
-		protocole de routage dynamique. À titre d'exemple, voici le résultat de
-		la commande <userinput>show ospf state</userinput>.</para>
+		<varlistentry>
+			<term>Routeur R1&nbsp;: base de connaissance
+			<acronym>OSPFv2</acronym></term>
+		<listitem>
+		<para>Dans la copie d'écran ci-dessous, on relève les deux routeurs
+		voisins de <systemitem class='systemname'>R1</systemitem> ainsi que le
+		réseau distant <systemitem
+		class='ipaddress'>10.1.23.0/26</systemitem>.</para>
 
-<screen><?dbfo keep-together="auto" ?><prompt>#</prompt> birdc
-BIRD 1.6.3 ready.
-bird> show ospf state
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> birdc sh ospf state
+BIRD 1.6.4 ready.
 
 area 0.0.0.0
 
-	router 0.0.0.1
-		distance 0
-		network 10.1.12.0/26 metric 10
-		network 10.1.13.0/26 metric 10
+        router 0.0.1.4
+                distance 0
+                network 10.1.12.0/26 metric 10
+                network 10.1.13.0/26 metric 10
 
-	network 10.1.12.0/26
-		dr 0.0.0.1
-		distance 10
-		router 0.0.0.1
+        <emphasis>router 0.0.2.4</emphasis>
+                distance 10
+                network 10.1.12.0/26 metric 10
+                network 10.1.23.0/26 metric 10
 
-	network 10.1.13.0/26
-		dr 0.0.0.1
-		distance 10
-		router 0.0.0.1</screen>
+        <emphasis>router 0.0.3.4</emphasis>
+                distance 10
+                network 10.1.13.0/26 metric 10
+                network 10.1.23.0/26 metric 10
+
+        network 10.1.12.0/26
+                dr 0.0.2.4
+                distance 10
+                router 0.0.2.4
+                router 0.0.1.4
+
+        network 10.1.13.0/26
+                dr 0.0.3.4
+                distance 10
+                router 0.0.3.4
+                router 0.0.1.4
+
+        <emphasis>network 10.1.23.0/26</emphasis>
+                dr 0.0.2.4
+                distance 20
+                router 0.0.2.4
+                router 0.0.3.4</screen>
 		</listitem>
 		</varlistentry>
 
 		<varlistentry>
-			<term>Routeur R2</term>
+			<term>Routeur R1&nbsp;: <acronym>OSPFv3</acronym> &amp;
+			interfaces</term>
 		<listitem>
-<screen><?dbfo keep-together="auto" ?><prompt>#</prompt> grep -v ^# /etc/bird/bird.conf
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> grep -v ^# /etc/bird/bird6.conf
 
-log syslog { info, remote, warning, error, fatal };
-
-router id 0.0.0.2;
-
-protocol device {
-}
+router id 0.0.1.6;
 
 protocol kernel {
-	metric 64;	# Use explicit kernel route metric to avoid collisions
-			# with non-BIRD routes in the kernel routing table
-	import none;
-	export all;     # Actually insert routes into the kernel routing table
+        scan time 10;
+        import none;
 }
 
-protocol ospf OSPFv2R2 {
-	rfc1583compat yes;
-	debug all;
-	export all;
-	import all;
+protocol device {
+        scan time 10;
+}
 
-	area 0.0.0.0 {
-		interface "eth0.12", "eth0.23" {
-			authentication none;
-		};
-	};
+protocol ospf OSPFv3R1 {
+        area 0 {
+                interface "eth0.12", "eth0.13" {
+                        authentication none;
+                };
+        };
 }</screen>
 		</listitem>
 		</varlistentry>
 
 		<varlistentry>
-			<term>Routeur R3</term>
+			<term>Routeur R1&nbsp;: base de connaissance
+			<acronym>OSPFv3</acronym></term>
 		<listitem>
-<screen><?dbfo keep-together="auto" ?><prompt>#</prompt> grep -v ^# /etc/bird/bird.conf
+		<para>Dans la copie d'écran ci-dessous, on relève les deux routeurs
+		voisins de <systemitem class='systemname'>R1</systemitem> ainsi que le
+		réseau distant <systemitem
+		class='ipaddress'>2001:678:3fc:17::/64</systemitem>.</para>
 
-log syslog { info, remote, warning, error, fatal };
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> birdc6 sh ospf state
+BIRD 1.6.4 ready.
 
-router id 0.0.0.3;
+area 0.0.0.0
 
-protocol device {
-}
+        router 0.0.1.6
+                distance 0
+                network [0.0.1.6-2] metric 10
+                network [0.0.1.6-3] metric 10
 
-protocol kernel {
-	metric 64;	# Use explicit kernel route metric to avoid collisions
-			# with non-BIRD routes in the kernel routing table
-	import none;
-	export all;	# Actually insert routes into the kernel routing table
-}
+        <emphasis>router 0.0.2.6</emphasis>
+                distance 10
+                network [0.0.1.6-2] metric 10
+                network [0.0.3.6-3] metric 10
 
-protocol ospf OSPFv2R3 {
-	rfc1583compat yes;
-	debug all;
-	export all;
-	import all;
+        <emphasis>router 0.0.3.6</emphasis>
+                distance 10
+                network [0.0.1.6-3] metric 10
+                network [0.0.3.6-3] metric 10
 
-	area 0.0.0.0 {
-        interface "eth0.13", "eth0.23" {
-			authentication none;
-		};
-	};
-}</screen>
+        network [0.0.1.6-2]
+                distance 10
+                router 0.0.1.6
+                router 0.0.2.6
+                address 2001:678:3fc:c::/64
+
+        network [0.0.1.6-3]
+                distance 10
+                router 0.0.1.6
+                router 0.0.3.6
+                address 2001:678:3fc:d::/64
+
+        network [0.0.3.6-3]
+                distance 20
+                router 0.0.3.6
+                router 0.0.2.6
+                <emphasis>address 2001:678:3fc:17::/64</emphasis></screen>
 		</listitem>
 		</varlistentry>
 		</variablelist>
@@ -727,229 +829,399 @@ protocol ospf OSPFv2R3 {
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment visualiser l'état	des interfaces actives du routeur
-		vis-à-vis du protocole de routage	<acronym>OSPF</acronym>
-		?</phrase></para>
+	<para><phrase>Comment identifier le type de réseau des interfaces actives
+	d'un routeur pour chaque version du protocole de routage
+	<acronym>OSPF</acronym>&nbsp;?</phrase></para>
 
-	<para>Comme la configuration du démon <systemitem
-		class='daemon'>bird</systemitem> est basée sur l'activation du
-		protocole par interface, il suffit de consulter la console
-		<command>birdc</command>.</para>
+	<para>La question précédente montre que la configuration des deux processus
+	<systemitem class='daemon'>bird</systemitem> et <systemitem
+	class='daemon'>bird6</systemitem> est basée sur l'activation du protocole
+	par interface. Il faut donc rechercher dans la section
+	&url.bird-remote-control; l'instruction qui donne l'état des interfaces
+	actives.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show ospf interface</command></member>
+	</simplelist>
 	</question>
 	<answer>
-	<para>C'est la commande <command>show ospf interface</command> qui affiche
-		l'état de chaque interface du routeur.</para>
+	<para>Comme on utilise uniquement des liens Ethernet dans ce contexte de
+	travaux pratiques, le type de réseau est nécessairement diffusion.</para>
 
-		<variablelist>
-		<varlistentry>
-			<term>Exemple du routeur R1</term>
-		<listitem>
-<screen><?dbfo keep-together="auto" ?><prompt>#</prompt> birdc
-BIRD 1.6.3 ready.
-bird> show ospf interface
+	<variablelist>
+	<varlistentry>
+		<term>Routeur R1&nbsp;: <acronym>OSPFv2</acronym> &amp;
+		interfaces</term>
+	<listitem>
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> birdc sh ospf interface
+BIRD 1.6.4 ready.
 OSPFv2R1:
 Interface eth0.12 (10.1.12.0/26)
-	Type: broadcast
-	Area: 0.0.0.0 (0)
-	State: Backup
-	Priority: 1
-	Cost: 10
-	ECMP weight: 1
-	Hello timer: 10
-	Wait timer: 40
-	Dead timer: 40
-	Retransmit timer: 5
-	Designated router (ID): 0.0.0.2
-	Designated router (IP): 10.1.12.2
-	Backup designated router (ID): 0.0.0.1
-	Backup designated router (IP): 10.1.12.1
+        <emphasis>Type: broadcast</emphasis>
+        Area: 0.0.0.0 (0)
+        State: Backup
+        Priority: 1
+        Cost: 10
+        Hello timer: 10
+        Wait timer: 40
+        Dead timer: 40
+        Retransmit timer: 5
+        Designated router (ID): 0.0.2.4
+        Designated router (IP): 10.1.12.2
+        Backup designated router (ID): 0.0.1.4
+        Backup designated router (IP): 10.1.12.1
 Interface eth0.13 (10.1.13.0/26)
-	Type: broadcast
-	Area: 0.0.0.0 (0)
-	State: Backup
-	Priority: 1
-	Cost: 10
-	ECMP weight: 1
-	Hello timer: 10
-	Wait timer: 40
-	Dead timer: 40
-	Retransmit timer: 5
-	Designated router (ID): 0.0.0.3
-	Designated router (IP): 10.1.13.3
-	Backup designated router (ID): 0.0.0.1
-	Backup designated router (IP): 10.1.13.1</screen>
-		</listitem>
-		</varlistentry>
-		</variablelist>
+        <emphasis>Type: broadcast</emphasis>
+        Area: 0.0.0.0 (0)
+        State: Backup
+        Priority: 1
+        Cost: 10
+        Hello timer: 10
+        Wait timer: 40
+        Dead timer: 40
+        Retransmit timer: 5
+        Designated router (ID): 0.0.3.4
+        Designated router (IP): 10.1.13.3
+        Backup designated router (ID): 0.0.1.4
+        Backup designated router (IP): 10.1.13.1</screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+		<term>Routeur R1&nbsp;: <acronym>OSPFv3</acronym> &amp;
+		interfaces</term>
+	<listitem>
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> birdc6 sh ospf interface
+BIRD 1.6.4 ready.
+OSPFv3R1:
+Interface eth0.12 (IID 0)
+        <emphasis>Type: broadcast</emphasis>
+        Area: 0.0.0.0 (0)
+        State: DR
+        Priority: 1
+        Cost: 10
+        Hello timer: 10
+        Wait timer: 40
+        Dead timer: 40
+        Retransmit timer: 5
+        Designated router (ID): 0.0.1.6
+        Designated router (IP): fe80::70de:4fff:fe1d:68b4
+        Backup designated router (ID): 0.0.2.6
+        Backup designated router (IP): fe80::943a:41ff:fe65:7307
+Interface eth0.13 (IID 0)
+        <emphasis>Type: broadcast</emphasis>
+        Area: 0.0.0.0 (0)
+        State: DR
+        Priority: 1
+        Cost: 10
+        Hello timer: 10
+        Wait timer: 40
+        Dead timer: 40
+        Retransmit timer: 5
+        Designated router (ID): 0.0.1.6
+        Designated router (IP): fe80::70de:4fff:fe1d:68b4
+        Backup designated router (ID): 0.0.3.6
+        Backup designated router (IP): fe80::3032:e9ff:fe73:6322</screen>
+	</listitem>
+	</varlistentry>
+	</variablelist>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment retrouver pour chaque <acronym>VLAN</acronym>,
-		l'identifiant du routeur désigné et le type de réseau
-		?</phrase></para>
+		<para><phrase>Comment obtenir la liste du ou des routeurs voisins pour
+		chaque processus de protocole de routage dynamique
+		<acronym>OSPFv2</acronym> ou
+		<acronym>OSPFv3</acronym>&nbsp;?</phrase></para>
 
-	<para>Consulter la documentation sur le protocole&nbsp;: &url.ospf;.</para>
+		<para>Dès qu'une interface est active, il y a émission de paquets
+		<option>HELLO</option> et si un routeur avec un démon
+		<acronym>OSPF</acronym> envoie aussi des paquets
+		<option>HELLO</option> dans le même <acronym>VLAN</acronym>, les deux
+		routeurs cherchent à former une adjacence.</para> 
+
+		<para>La commande utile de la section &url.bird-remote-control; est la suivante.</para>
+
+		<simplelist type='horiz'>
+		<member><command>show ospf neighbors</command></member>
+		</simplelist>
 	</question>
 	<answer>
-	<para>En reprenant l'exemple du routeur <systemitem
-		class='systemname'>R1</systemitem> et de son interface
-		<option>eth0.12</option> placée dans le <acronym>VLAN</acronym> 12, on
-		relève les informations suivantes.</para>
+		<para>À nouveau sur le routeur <systemitem>R1</systemitem>, voici un
+		exemple de liste de routeurs <acronym>OSPF</acronym> voisins dans
+		laquelle on reconnaît les identifiants des routeurs
+		<systemitem>R2</systemitem> et <systemitem>R3</systemitem>.</para>
 
-	<para>À partir des les lignes&nbsp;: <literal>Type: broadcast</literal> et
-		<literal>Designated router (ID): 0.0.0.2</literal>, on apprend que
-		l'identifiant <acronym>OSPF</acronym> du routeur désigné est
-		<systemitem class='ipaddress'>0.0.0.2</systemitem> ; soit le routeur
-		<systemitem class='systemname'>R2</systemitem>. L'interface est
-		connectée sur un réseau Ethernet de type <emphasis>diffusion</emphasis>
-		dans lequel <systemitem class='systemname'>R2</systemitem> est un
-		«routeur désigné» (<wordasword>Designated Router</wordasword>) qui sert
-		de référence aux autres routeurs du même périmètre de diffusion.</para>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Comment peut-on vérifier que l'algorithme
-		<acronym>SPF</acronym> du protocole <acronym>OSPF</acronym> à
-		été correctement exécuté&nbsp;?</phrase></para>
-
-	<para>Visualiser les listes des routeurs voisins puis la liste des routes
-		présentes dans la base de données du protocole.</para>
-	</question>
-	<answer>
-	<para>En reprenant l'exemple du routeur <systemitem
-		class='systemname'>R1</systemitem>, on consulte la liste des
-		voisins <acronym>OSPF</acronym> à partir de la console
-		<command>birdc</command>.</para>
-
-<screen><prompt>#</prompt> birdc
-BIRD 1.6.3 ready.
-bird> show ospf neighbors
+<screen><prompt>R1:~#</prompt> birdc sh ospf neighbors
+BIRD 1.6.4 ready.
 OSPFv2R1:
 Router ID       Pri          State      DTime   Interface  Router IP
-0.0.0.2   1     Full/DR         00:36   eth0.12    10.1.12.2
-0.0.0.3   1     Full/DR         00:35   eth0.13    10.1.13.3</screen>
+0.0.2.4   1     Full/DR         00:31   eth0.12    10.1.12.2
+0.0.3.4   1     Full/DR         00:34   eth0.13    10.1.13.3</screen>
 
-	<para>Dans cette liste, on relève la présence des deux autres
-		routeurs.</para>
+<screen><prompt>R1:~#</prompt> birdc6 sh ospf neighbors
+BIRD 1.6.4 ready.
+OSPFv3R1:
+Router ID       Pri          State      DTime   Interface  Router IP
+0.0.2.6   1     Full/BDR        00:33   eth0.12    fe80::943a:41ff:fe65:7307
+0.0.3.6   1     Full/BDR        00:36   eth0.13    fe80::3032:e9ff:fe73:6322</screen>
+	</answer>
+	</qandaentry>
 
-	<itemizedlist>
-	<listitem>
-	<para><systemitem class='systemname'>R2</systemitem> avec l'identifiant
-		<systemitem class='ipaddress'>0.0.0.2</systemitem></para>
-	</listitem>
-	<listitem>
-	<para><systemitem class='systemname'>R3</systemitem> avec l'identifiant
-		<systemitem class='ipaddress'>0.0.0.3</systemitem></para>
-	</listitem>
-	</itemizedlist>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment identifier le rôle des différentes interfaces des
+		routeurs pour chacun des liens du triangle de la topologie
+		logique&nbsp;?</phrase></para>
 
-	<para>Les indicateurs d'état <literal>Full/DR</literal> montrent que le
-		dialogue entre les routeurs voisins à convergé vers l'état stable et
-		que les routeurs voisins de <systemitem
-		class='systemname'>R1</systemitem> jouent le rôle de «routeur
-		désigné» (<wordasword>Designated Router</wordasword>).</para>
+	<warning>
+		<para>La réponse à cette question suppose que les démons
+		<acronym>OSPF</acronym> des trois routeurs de la topologie logique en
+		triangle aient convergé. On doit repérer l'état <option>Full</option>
+		pour les listes de routeurs voisins.</para>
 
-	<para>Toujours sur le routeur <systemitem
-		class='systemname'>R1</systemitem>, la liste des routes connues du
-		protocole <acronym>OSPF</acronym> est donnée par la commande
-		<command>show route</command> de la console
-		<command>birdc</command>.</para>
+		<para>De plus, la réponse varie en fonction de l'ordre d'activation des
+		démons <acronym>OSPF</acronym> des différents routeurs. En effet, un
+		routeur peut être élu routeur désigné (<acronym>DR</acronym>) en
+		l'absence de routeurs voisins. Cette élection n'est pas remise en cause
+		tant qu'il n'y pas de changement d'état de lien.</para>
+	</warning>
 
-<screen>bird> show route
-0.0.0.0/0          via 172.16.0.3 on eth0 [static1 2017-11-04] * (200)
-10.1.12.0/26       dev eth0.12 [OSPFv2R1 2017-11-04] * I (150/10) [0.0.0.2]
-10.1.13.0/26       dev eth0.13 [OSPFv2R1 2017-11-04] * I (150/10) [0.0.0.3]
-10.1.23.0/26       multipath [OSPFv2R1 2017-11-04] * I (150/20) [0.0.0.2]
-	via 10.1.12.2 on eth0.12 weight 1
-	via 10.1.13.3 on eth0.13 weight 1</screen>
+		<para>À partir des résultats des questions précédentes sur les
+		interfaces actives, il est possible de compléter le schéma de la
+		topologie étudiée avec l'état des interfaces pour chacun des trois
+		liens.</para>
+	</question>
+	<answer>
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata format='PNG'
+		fileref='images/interco.ospf.logical-topology-link-state.png'
+		width='9cm' scalefit='1' />
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata format='PNG'
+		fileref='images/interco.ospf.logical-topology-link-state.png'
+		width='480px' scalefit='1' />
+	</imageobject>
+	<textobject>
+		<phrase>Topologie logique OSPF et rôle des interfaces de
+		routeurs</phrase>
+	</textobject>
+	</mediaobject>
 
-	<para>Les valeurs notées entre parenthèses après le symbole '/'
-		correspondent à la métrique ou au coût du lien pour joindre le réseau
-		distant.</para>
+		<para>Sur un même réseau de diffusion, il est possible de trouver
+		plusieurs routeurs <acronym>OSPF</acronym>. Établir une relation de
+		voisinage et procéder aux échanges de bases de données topologiques
+		entre chaque routeur revient à constituer un réseau de relations
+		complètement maillé. À chaque recalcul de topologie, ce réseau
+		complètement maillé est inefficace. C'est la raison pour laquelle la
+		notion de routeur référent ou <wordasword>Designated
+		Router</wordasword> a été introduite. Lors d'un recalcul de topologie,
+		tous les routeurs s'adressent au référent qui correspond au cœur d'un
+		réseau en topologie étoile.</para>
 
-	<para>L'outil <systemitem class='daemon'>bird</systemitem> utilise
-		uniquement la notion de coût pour le calcul de métrique qui permet de
-		déterminer le chemin le plus court vers un réseau distant. Dans notre
-		exemple, chaque lien s'est vu attribué un coût de 10 par défaut.</para>
+		<para>Dans le contexte de la topologie triangle étudiée, il y a bien
+		élection d'un routeur référent et d'un routeur référent de secours.
+		Cependant, comme il n'y a que deux routeurs par domaine de diffusion ou
+		<acronym>VLAN</acronym>, on ne peut pas caractériser l'utilité de cette
+		élection.</para>
+	</answer>
+	</qandaentry>
 
-	<para>Sur la copie d'écran ci-dessus, les deux réseaux raccordés au routeur
-		<systemitem class='systemname'>R1</systemitem> ont un coût de 10 tandis
-		que le réseau distant joignable via  <systemitem
-		class='systemname'>R2</systemitem> ou <systemitem
-		class='systemname'>R3</systemitem> a un coût de 20. Autrement dit,
-		le réseau <systemitem class='ipaddress'>10.1.23.0/26</systemitem> est
-		joignable via deux liens de coût 10.</para>
+	<qandaentry>
+	<question>
+		<para><phrase>Quelles sont les réseaux <acronym>IPv4</acronym> et
+		<acronym>IPv6</acronym> présents dans la base calcul du protocole
+		<acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+		<para>On cherche a visualiser la liste des préfixes des réseaux connus
+		des deux démons <acronym>OSPF</acronym>.</para>
+
+		<para>La liste des commandes utiles dans la console
+		<application>vtysh</application> est la suivante.</para>
+
+		<simplelist type='horiz'>
+		<member><command>show ip ospf route</command></member>
+		<member><command>show ipv6 ospf6 route</command></member>
+		</simplelist>
+	</question>
+	<answer>
+		<para>Une fois que les trois routeurs de la topologie ont convergé,
+		chaque démon connaît les trois préfixes qui correspondent aux trois
+		côtés du triangle. Un routeur correspond à un sommet du triangle et il
+		doit apprendre le préfixe réseau du côté opposé via ses deux routeurs
+		voisins.</para>
+
+		<para>Voici la vue depuis le routeur
+		<systemitem>R1</systemitem>.</para>
+
+<screen><prompt>R1:~#</prompt> birdc sh route
+BIRD 1.6.4 ready.
+10.1.12.0/26       dev eth0.12 [OSPFv2R1 16:47:15] * I (150/10) [0.0.2.4]
+10.1.13.0/26       dev eth0.13 [OSPFv2R1 16:47:10] * I (150/10) [0.0.3.4]
+10.1.23.0/26       via 10.1.13.3 on eth0.13 [OSPFv2R1 16:47:10] * I (150/20) [0.0.2.4]</screen>
+
+		<para>Les valeurs notées entre parenthèses correspondent à la métrique du
+		lien pour joindre le réseau noté à gauche. Pour le protocole
+		<acronym>OSPF</acronym>, le calcul de métrique se fait à partir du coût
+		de lien par défaut pour chaque interface active. La valeur par défaut
+		est <option>10</option></para>
+
+		<para>Les deux premiers réseaux de la table sont joignable via un lien
+		direct&nbsp;; soit une métrique de <option>10</option>. Le troisième
+		réseau est joignable via deux liens Ethernet&nbsp;; d'où la métrique de
+		<option>20</option>.</para>
+
+		<para>Pour les réseaux <acronym>IPv6</acronym>, on retrouve les mêmes
+		métriques puisque la topologie est identique pour les deux version du
+		protocole <acronym>IP</acronym>.</para>
+
+<screen><prompt>R1:~#</prompt> birdc6 sh route
+BIRD 1.6.4 ready.
+2001:678:3fc:d::/64 dev eth0.13 [OSPFv3R1 10:01:30] * I (150/10) [0.0.1.6]
+2001:678:3fc:c::/64 dev eth0.12 [OSPFv3R1 10:05:36] * I (150/10) [0.0.1.6]
+2001:678:3fc:17::/64 via fe80::3032:e9ff:fe73:6322 on eth0.13 [OSPFv3R1 10:05:38] * I (150/20) [0.0.3.6]</screen>
+
+		<para>Avec <acronym>OSPFv3</acronym>, les relations de voisinage entre
+		routeurs utilisent nécessairement les adresses de lien local
+		appartenant au préfixe <systemitem
+		class='ipaddress'>fe80::/10</systemitem>.</para>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
 	<para><phrase>Comment utiliser toutes les solutions disponibles pour
-		joindre le réseau distant&nbsp;?</phrase></para>
+	joindre le réseau distant depuis chacun des  sommets de la topologie
+	triangle&nbsp;?</phrase></para>
 
-	<para>Avec la topologie logique triangle, le réseau (le côté) opposé au
-		routeur (au sommet) doit être joignable depuis les deux réseaux locaux
-		raccordés à ce routeur. Nous sommes donc dans un contexte multi
-		chemins.</para>
+	<para>Avec la topologie logique triangle, le réseau du côté opposé à un
+	sommet (au routeur) doit être joignable depuis les deux réseaux locaux
+	raccordés à ce routeur. Nous sommes donc dans un contexte
+	multi chemins.</para>
+
+	<para>Consulter la section <acronym>OSPF</acronym> de la documentation
+	&url.bird-users-guide; et rechercher l'intsruction qui permet l'utilisation
+	de plusieurs chemins à coût égal.</para>
+
+	<simplelist type='horiz'>
+		<member><command>ecmp switch [limit number]</command></member>
+	</simplelist>
 	</question>
 	<answer>
 	<para>La fonction réseau du noyau Linux recherchée est connue sous le nom
-		<wordasword>Equal Cost Multi Path</wordasword> ou
-		<acronym>ECMP</acronym>.</para>
+	<wordasword>Equal Cost Multi Path</wordasword> ou
+	<acronym>ECMP</acronym>.</para>
 
-	<para>La configuration du protocole <acronym>OSPF</acronym> du démon
-		<systemitem class='daemon'>bird</systemitem> dispose d'un paramètre qui
-		permet d'activer <acronym>ECMP</acronym>.</para>
+	<para>Sur le routeur <systemitem class='systemname'>R1</systemitem>, la
+	configuration du bloc d'instructions <acronym>OSPF</acronym> de chaque
+	processus est la suivante.</para>
 
-	<para>Avec le routeur <systemitem class='systemname'>R1</systemitem>, la
-		configuration est la suivante.</para>
-
-<screen><prompt>#</prompt> sed -n '/protocol ospf/,//p' /etc/bird/bird.conf
+<screen><prompt>R1:~#</prompt> sed -n '/protocol ospf/,//p' /etc/bird/bird.conf
 protocol ospf OSPFv2R1 {
-	rfc1583compat yes;
-	debug all;
-	export all;
-	import all;
-	<emphasis>ecmp yes;</emphasis>
-
-	area 0.0.0.0 {
-		interface "eth0.12", "eth0.13" {
-			authentication none;
-			};
-	};
+        rfc1583compat yes;
+        <emphasis>ecmp yes;</emphasis>
+        area 0 {
+                interface "eth0.12", "eth0.13" {
+                        authentication none;
+                };
+        };
 }</screen>
+
+<screen><prompt>R1:~#</prompt> sed -n '/protocol ospf/,//p' /etc/bird/bird6.conf
+protocol ospf OSPFv3R1 {
+        <emphasis>ecmp yes;</emphasis>
+        area 0 {
+                interface "eth0.12", "eth0.13" {
+                        authentication none;
+                };
+        };
+}</screen>
+
+	<para>Relativement aux questions précédentes, les tables de routage
+	proposées par les processus <systemitem class='daemon'>bird</systemitem> et
+	<systemitem class='daemon'>bird6</systemitem> font apparaître les deux
+	chemins disponibles pour joindre le réseau distant du sommet de la
+	topologie triangle.</para>
+
+<screen><prompt>R1:~#</prompt> birdc sh route
+BIRD 1.6.4 ready.
+10.1.12.0/26       dev eth0.12 [OSPFv2R1 19:49:42] * I (150/10) [0.0.1.4]
+10.1.13.0/26       dev eth0.13 [OSPFv2R1 19:50:37] * I (150/10) [0.0.1.4]
+10.1.23.0/26       multipath [OSPFv2R1 19:50:48] * I (150/20) [0.0.2.4]
+        <emphasis>via 10.1.12.2 on eth0.12 weight 1</emphasis>
+        <emphasis>via 10.1.13.3 on eth0.13 weight 1</emphasis></screen>
+
+<screen><prompt>R1:~#</prompt> birdc6 sh route
+BIRD 1.6.4 ready.
+2001:678:3fc:d::/64 dev eth0.13 [OSPFv3R1 19:50:38] * I (150/10) [0.0.1.6]
+2001:678:3fc:c::/64 dev eth0.12 [OSPFv3R1 19:49:44] * I (150/10) [0.0.1.6]
+2001:678:3fc:17::/64 multipath [OSPFv3R1 19:50:50] * I (150/20) [0.0.2.6]
+        <emphasis>via fe80::3032:e9ff:fe73:6322 on eth0.13 weight 1</emphasis>
+        <emphasis>via fe80::943a:41ff:fe65:7307 on eth0.12 weight 1</emphasis></screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment visualiser la table de routage au niveau système
-			?</phrase></para>
+	<para><phrase>Comment faire pour que les routes calculées par les processus
+	<systemitem class='daemon'>bird</systemitem> et <systemitem
+	class='daemon'>bird6</systemitem> soient soumises au sous-système réseau du
+	noyau Linux&nbsp;?</phrase></para>
 
-	<para>Utiliser une commande usuelle de visualisation de la table de
-		routage.</para>
+	<para>Si on s'en tient aux configurations activées dans les questions
+	précédentes, les tables de routage au niveau système ne tiennent aucun
+	compte des traitements des deux processus <acronym>OSPF</acronym>. Il faut
+	donc compléter les configurations pour exporter les résultats vers le
+	sous-système réseau du noyau.</para>
+
+	<para>Consulter la section <wordasword>kernel</wordasword> de la
+	documentation &url.bird-users-guide; à la recherche des paramètres
+	d'exportation.</para>
 	</question>
 	<answer>
-	<para>Avec la commande <command>ip</command>, on voit apparaître les
-		«sources» d'alimentation de la table de routage finale du système&nbsp;:
-		<option>kernel</option> et <option>bird</option>.</para>
+	<para>En reprenant l'exemple du routeur <systemitem
+	class='systemname'>R1</systemitem>, la configuration des blocs
+	d'instructions <option>kernel</option> de chaque processus
+	devient&nbsp;:</para>
 
-<screen><prompt>r1:~$</prompt> ip route ls
-default via 172.16.0.3 dev eth0 onlink
-default via 172.16.0.3 dev eth0 proto bird metric 64
-10.1.12.0/26 dev eth0.12 proto kernel scope link src 10.1.12.1
+<screen><prompt>R1:~#</prompt> sed -n '/protocol kernel/,/^}/p' /etc/bird/bird6.conf
+protocol kernel {
+        scan time 10;
+        import none;
+        <emphasis>export all;</emphasis>   # Actually insert routes into the kernel routing table
+}</screen>
+
+	<para>Avec la commande <command>ip</command> au niveau système, on voit
+	apparaître les «sources» d'alimentation de la table de routage du système
+	en question&nbsp;: <option>kernel</option> et <option>bird</option>.</para>
+
+<screen><prompt>R1:~#</prompt> ip route ls
+default via 192.0.2.1 dev eth0 onlink
+10.1.12.0/26 dev eth0.12 <emphasis>proto kernel</emphasis> scope link src 10.1.12.1
 10.1.13.0/26 dev eth0.13 proto kernel scope link src 10.1.13.1
-10.1.23.0/26 proto bird metric 64
-        nexthop via 10.1.12.2  dev eth0.12 weight 1
-        nexthop via 10.1.13.3  dev eth0.13 weight 1
-172.16.0.0/20 dev eth0 proto kernel scope link src 172.16.15.1</screen>
+10.1.23.0/26 <emphasis>proto bird</emphasis>
+        nexthop via 10.1.12.2 dev eth0.12 weight 1
+        nexthop via 10.1.13.3 dev eth0.13 weight 1
+192.0.2.0/27 dev eth0 proto kernel scope link src 192.0.2.7</screen>
+
+<screen><prompt>R1:~#</prompt> ip -6 route ls
+2001:678:3fc:a::/64 dev eth0 proto kernel metric 256 pref medium
+2001:678:3fc:c::/64 dev eth0.12 <emphasis>proto kernel</emphasis> metric 256 pref medium
+2001:678:3fc:d::/64 dev eth0.13 proto kernel metric 256 pref medium
+2001:678:3fc:17::/64 <emphasis>proto bird</emphasis> metric 1024
+        nexthop via fe80::3032:e9ff:fe73:6322 dev eth0.13 weight 1
+        nexthop via fe80::943a:41ff:fe65:7307 dev eth0.12 weight 1 pref medium
+fe80::/64 dev eth0 proto kernel metric 256 pref medium
+fe80::/64 dev eth0.12 proto kernel metric 256 pref medium
+fe80::/64 dev eth0.13 proto kernel metric 256 pref medium
+default via fe80::dc02:44ff:fe64:4834 dev eth0 metric 1024 onlink pref medium</screen>
 
 	<para>Il est possible de visualiser l'arbre de décision du noyau pour
-		l'acheminement des paquets à l'aide de la commande suivante.</para>
+	l'acheminement des paquets <acronym>IPv4</acronym> à l'aide de la commande
+	suivante.</para>
 
 <screen><prompt>$</prompt> cat /proc/net/fib_trie</screen>
 	</answer>
