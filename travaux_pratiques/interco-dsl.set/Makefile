@@ -20,6 +20,9 @@ XML_FILES = \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \
+	addressing.xml \
+	dummies.xml \
+	vm.xml \
 	$(OUTPUT)/chapter-interco.kernel.qa.xml \
 	$(OUTPUT)/chapter-interco.rawip.qa.xml \
 	$(OUTPUT)/chapter-interco.ppp.qa.xml \
@@ -50,3 +53,7 @@ chapter-%.xml: $(CHAPTER_FILES) $(wildcard *.xml)
 		sed -f $(MAIN_DIR)/common/entity-extract.sed $$chapter >> $(OUTPUT)/chapter-entities.xml; \
 		sed -f $(MAIN_DIR)/common/article2chapter.sed $$chapter > $(OUTPUT)/chapter-`basename $$chapter`; \
 	done
+
+dummies.xml: ../interco.ospf-bird.qa/dummies.xml
+	sed "s/linkend='/&chapter-/g" $< > $@
+#	sed -r "s/xml:id=[\'\"]/&chapter-/gi; s/arearefs=\'/&chapter-/g; s/linkend=\'/&chapter-/g" $< > $@

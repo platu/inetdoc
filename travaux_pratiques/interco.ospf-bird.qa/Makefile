@@ -16,6 +16,7 @@ SYMLINKS = \
 XML_FILES = \
 	interco.ospf-bird.qa.xml \
 	addressing.xml \
+	dummies.xml \
 	vm.xml \
 	author.xml \
 	legal.xml \
@@ -30,6 +31,10 @@ include $(MAIN_DIR)/common/Makefile.Rules
 
 addressing.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf-quagga.qa/interco.ospf-quagga.qa.xml
 	sed -n -e "/interco\.ospf-quagga\.archi/,/\/sect1/{p; /\/sect1/q}" $? > $@
+	sed -i "s/quagga/bird/g" $@
+
+dummies.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf-quagga.qa/interco.ospf-quagga.qa.xml
+	sed -n -e "/interco\.ospf-quagga\.dummies/,/\/sect1/{p; /\/sect1/q}" $? > $@
 	sed -i "s/quagga/bird/g" $@
 
 vm.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf-quagga.qa/interco.ospf-quagga.qa.xml
