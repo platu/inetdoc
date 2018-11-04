@@ -12,7 +12,6 @@ SYMLINKS = \
 	$(MAIN_DIR)/common/legal.xml \
 	$(MAIN_DIR)/common/rfc.urls.xml \
 	$(MAIN_DIR)/common/inetdoc.urls.xml \
-	$(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/addressing.xml \
 	$(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/vm.xml
 
 XML_FILES = \
@@ -54,6 +53,8 @@ chapter-%.xml: $(CHAPTER_FILES) $(wildcard *.xml)
 		sed -f $(MAIN_DIR)/common/article2chapter.sed $$chapter > $(OUTPUT)/chapter-`basename $$chapter`; \
 	done
 
+addressing.xml: ../interco.ospf-bird.qa/addressing.xml
+	sed "s/xml:id=['\"]/&chapter-/g; s/arearefs=\'/&chapter-/g; s/linkend='/&chapter-/g" $< > $@
+
 dummies.xml: ../interco.ospf-bird.qa/dummies.xml
-	sed "s/linkend='/&chapter-/g" $< > $@
-#	sed -r "s/xml:id=[\'\"]/&chapter-/gi; s/arearefs=\'/&chapter-/g; s/linkend=\'/&chapter-/g" $< > $@
+	sed "s/xml:id=['\"]/&chapter-/g; s/arearefs=\'/&chapter-/g; s/linkend='/&chapter-/g" $< > $@

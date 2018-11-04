@@ -1899,9 +1899,16 @@ Sauvegarde en : « /dev/null »
 	<title>Créer des interfaces de type <wordasword>veth</wordasword></title>
 
 	<para>L'introduction d'un nouvel espace de nom réseau revient à introduire
-		une nouvelle table de routage dans un même système. Dans la vue
-		ci-dessous, le cadre vert illustre les éléments ajoutés au routeur
-		<systemitem class='systemname'>R2</systemitem>.</para>
+	une nouvelle table de routage dans un même système. Dans la vue ci-dessous,
+	le cadre vert illustre les éléments ajoutés au routeur <systemitem
+	class='systemname'>R2</systemitem>&nbsp;: un lien vers un espace de noms
+	baptisé <wordasword>green</wordasword> avec un serveur web hébergé à
+	l'intérieur.</para>
+
+	<para>Les manipulations présentées dans cette section doivent aussi être
+	réalisées sur le routeur <systemitem class='systemname'>R3</systemitem> en
+	suivant le plan d'adressage présenté à la <xref
+	linkend='interco.ospf-bird.archi'/>.</para>
 
 	<mediaobject>
 	<imageobject role='fo'>
@@ -1919,370 +1926,461 @@ Sauvegarde en : « /dev/null »
 <qandadiv>
 	<qandaentry>
 	<question>
-	<para><phrase>Comment créer et activer une paire d'interfaces réseau
-		virtuelles de type <wordasword>veth</wordasword> sur un système
-		GNU/Linux&nbsp;?</phrase></para>
+	<para><phrase>Comment créer une paire d'interfaces réseau virtuelles de
+	type <wordasword>veth</wordasword> sur un système
+	GNU/Linux&nbsp;?</phrase></para>
 
-	<para>Rechercher dans la documentation de la commande <command>ip
-		link</command> la syntaxe qui permet de créer la paire d'interfaces
-		<option>veth0</option> et <option>veth1</option>.</para>
+	<para>Rechercher dans les pages de manuels la commande
+	<command>ip&nbsp;link</command> la syntaxe qui permet de créer la paire
+	d'interfaces <option>veth0</option> et <option>veth1</option>.</para>
 	</question>
 	<answer>
 <screen><prompt>#</prompt> ip link add veth1 type veth peer name veth0
-<prompt>#</prompt> ip link ls | grep veth | fmt -t -w80
-7: veth0@veth1: &lt;BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
-	mode DEFAULT group default qlen 1000
-8: veth1@veth0: &lt;BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
-	mode DEFAULT group default qlen 1000</screen>
 
-	<para>On doit activer ces deux interfaces pour les utiliser ensuite au
-		niveau réseau.</para>
+<prompt>#</prompt> ip link ls dev veth0
+4: veth0@veth1: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN \
+				mode DEFAULT group default qlen 1000
+    link/ether be:04:25:e8:cc:49 brd ff:ff:ff:ff:ff:ff
 
-<screen><prompt>#</prompt> ip link set dev veth0 up
-<prompt>#</prompt> ip link set dev veth1 up
-<prompt>#</prompt> ip link ls | grep veth | fmt -t -w80
-7: veth0@veth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-	state UP mode DEFAULT group default qlen 1000
-8: veth1@veth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-	state UP mode DEFAULT group default qlen 1000</screen>
+<prompt>#</prompt> ip link ls dev veth1
+5: veth1@veth0: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN \
+				mode DEFAULT group default qlen 1000
+    link/ether c2:05:0c:82:35:77 brd ff:ff:ff:ff:ff:ff</screen>
 	</answer>
 	</qandaentry>
+
 	<qandaentry>
 	<question>
-	<para><phrase>Comment créer un nouvel espace de noms réseau baptisé
-		<wordasword>green</wordasword> et affecter l'interface
-		<option>veth1</option> à cet espace de noms&nbsp;?</phrase></para>
+	<para><phrase>Comment créer un nouvel espace de noms réseau appelé
+	<wordasword>green</wordasword> et affecter l'interface
+	<option>veth1</option> à cet espace de noms&nbsp;?</phrase></para>
 
 	<para>Rechercher dans les pages de manuels <option>ip-netns</option> la
-		syntaxe qui permet de créer un nouvel espace de noms réseau.</para>
+	syntaxe qui permet de créer un nouvel espace de noms réseau.</para>
 	</question>
 	<answer>
 <screen><prompt>#</prompt> ip netns add green
-<prompt>#</prompt> ip netns list
+<prompt>#</prompt> ip netns ls
 green</screen>
 
 	<para>L'affectation d'une interface à l'espace de noms se fait avec la
-		commande suivante&nbsp;:</para>
+	commande suivante.</para>
 
 <screen><prompt>#</prompt> ip link set veth1 netns green</screen>
 	</answer>
 	</qandaentry>
+
 	<qandaentry>
 	<question>
 	<para><phrase>Comment visualiser et modifier l'état des interfaces de type
-		<option>veth</option> dans les deux espaces de noms réseau
-		?</phrase></para>
+	<option>veth</option> dans les deux espaces de noms
+	réseau&nbsp;?</phrase></para>
 
 	<para>Rechercher dans les pages de manuels <option>ip-netns</option> la
-		syntaxe qui permet d'exécuter une commande dans un nouvel espace de
-		noms réseau.</para>
+	syntaxe qui permet d'exécuter une commande dans un nouvel espace de noms
+	réseau.</para>
 	</question>
 	<answer>
-	<para>On commence par visualiser l'interface qui est restée dans l'espace
-		de noms par défaut.</para>
+	<para>On active les deux interfaces et on affiche les informations
+	d'état.</para>
 
-<screen><prompt>#</prompt> ip link ls | grep veth | fmt -t -w80
-5: veth0@if6: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
-	state LOWERLAYERDOWN mode DEFAULT group default qlen 1000</screen>
+<screen><prompt>#</prompt> ip link set dev veth0 up
 
-	<para>On répète la même opération dans l'autre espace de noms
-		réseau.</para>
-
-<screen><prompt>#</prompt> ip netns exec green ip link ls | grep veth | fmt -t -w80
-6: veth1@if5: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
-	DEFAULT group default qlen 1000</screen>
-
-	<para>Pour activer l'interface dans le nouvel espace de noms, on reprend la
-		commande utilisée plus haut.</para>
+<prompt>#</prompt> ip link ls dev veth0
+4: veth0@if5: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue \
+			state LOWERLAYERDOWN mode DEFAULT group default qlen 1000
+    link/ether d6:63:10:30:b4:da brd ff:ff:ff:ff:ff:ff <emphasis>link-netns green</emphasis></screen>
 
 <screen><prompt>#</prompt> ip netns exec green ip link set dev veth1 up
-<prompt>#</prompt> ip netns exec green ip link ls | grep veth | fmt -t -w80
-6: veth1@if5: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state
-UP mode DEFAULT group default qlen 1000</screen>
+
+ip netns exec green ip link ls dev veth1
+5: veth1@if4: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue \
+			state UP mode DEFAULT group default qlen 1000
+    link/ether be:70:c4:17:19:54 brd ff:ff:ff:ff:ff:ff <emphasis>link-netnsid 0</emphasis></screen>
 	</answer>
 	</qandaentry>
+
 	<qandaentry>
 	<question>
-	<para><phrase>Comment qualifier la communication entre les deux espaces de
-			noms réseau&nbsp;?</phrase></para>
+	<para><phrase>Comment valider les communications entre les deux espaces de
+	noms réseau&nbsp;?</phrase></para>
 
 	<para>Utiliser les adresses de lien local <acronym>IPv6</acronym> pour
-		faire un test <acronym>ICMP</acronym> avec l'adresse multicast de
-		sollicitation d'hôte.</para>
+	faire un test <acronym>ICMP</acronym> avec l'adresse multicast de
+	sollicitation d'hôte.</para>
 	</question>
 	<answer>
 	<para>Le test avec la commande <command>ping</command> doit désigner
 		l'interface du lien à utiliser.</para>
 
-<screen><prompt>$</prompt> ping -c2 ff02::1%veth0
+<screen><prompt>#</prompt> ping -c2 ff02::1%veth0
 PING ff02::1%veth0(ff02::1%veth0) 56 data bytes
-64 bytes from fe80::bcff:ddff:fef3:d028%veth0: icmp_seq=1 ttl=64 time=0.025 ms
-64 bytes from fe80::c79:d6ff:fefe:c1ba%veth0: icmp_seq=1 ttl=64 time=0.045 ms (DUP!)
-64 bytes from fe80::bcff:ddff:fef3:d028%veth0: icmp_seq=2 ttl=64 time=0.024 ms
+64 bytes from fe80::d463:10ff:fe30:b4da%veth0: icmp_seq=1 ttl=64 time=0.062 ms
+64 bytes from fe80::bc70:c4ff:fe17:1954%veth0: icmp_seq=1 ttl=64 time=0.149 ms (DUP!)
+64 bytes from fe80::d463:10ff:fe30:b4da%veth0: icmp_seq=2 ttl=64 time=0.058 ms
 
 --- ff02::1%veth0 ping statistics ---
-2 packets transmitted, 2 received, +1 duplicates, 0% packet loss, time 1001ms
-rtt min/avg/max/mdev = 0.023/0.029/0.036/0.006 ms</screen>
+2 packets transmitted, 2 received, +1 duplicates, 0% packet loss, time 27ms
+rtt min/avg/max/mdev = 0.058/0.089/0.149/0.043 ms</screen>
 
 	<para>Le voisinage réseau de l'interface <systemitem>veth0</systemitem>
-		désigne l'adresse <acronym>MAC</acronym> de l'interface
-		<systemitem>veth1</systemitem> dans l'espace de noms réseau
-		<wordasword>green</wordasword>.</para>
+	désigne l'adresse <acronym>MAC</acronym> de l'interface
+	<systemitem>veth1</systemitem> dans l'espace de noms réseau
+	<wordasword>green</wordasword>.</para>
 
-<screen><prompt>$</prompt> ip nei ls dev veth0
-fe80::c79:d6ff:fefe:c1ba lladdr 0e:79:d6:fe:c1:ba STALE</screen>
+<screen><prompt>#</prompt> ip nei ls dev veth0
+fe80::bc70:c4ff:fe17:1954 lladdr <emphasis>be:70:c4:17:19:54</emphasis> STALE</screen>
 
 	<para>Réciproquement, le voisinage réseau de l'interface
-		<systemitem>veth1</systemitem> désigne l'adresse <acronym>MAC</acronym>
-		de l'interface <systemitem>veth0</systemitem>.</para>
+	<systemitem>veth1</systemitem> désigne l'adresse <acronym>MAC</acronym> de
+	l'interface <systemitem>veth0</systemitem>.</para>
 
-<screen><prompt>$</prompt> sudo ip netns exec green ip nei ls dev veth1
-fe80::bcff:ddff:fef3:d028 lladdr be:ff:dd:f3:d0:28 router STALE</screen>
+<screen><prompt>$</prompt> ip netns exec green ip nei ls dev veth1
+fe80::d463:10ff:fe30:b4da lladdr <emphasis>d6:63:10:30:b4:da</emphasis> router STALE</screen>
 
 	<para>On peut donc conclure que le lien point à point entre les deux
-		espaces de noms réseau est fonctionnel.</para>
+	espaces de noms réseau est fonctionnel.</para>
 	</answer>
 	</qandaentry>
+
 	<qandaentry>
 	<question>
-	<para><phrase>Comment ajouter un nouveau réseau <acronym>IPv4</acronym> sur
-		la liaison point à point entre les deux interfaces de type
-		<option>veth</option>&nbsp;?</phrase></para>
+	<para><phrase>Comment ajouter deux préfixes réseau <acronym>IPv4</acronym>
+	et <acronym>IPv6</acronym> sur la liaison point à point entre les deux
+	interfaces de type <option>veth</option>&nbsp;?</phrase></para>
 
-	<para>Comme il s'agit d'une liaison point à point, on peut utiliser un
-		préfixe <option>/30</option> dont chaque adresse utilisable est
-		affectée à une interface <option>veth</option>.</para>
+	<para>Comme lors des étapes précédentes, on reprend les commandes
+	<command>ip</command> avec la désignation de l'espace de noms réseau pour
+	l'interface à l'extrémité du lien point à point.</para>
 	</question>
 	<answer>
 	<para>Dans notre exemple sur le routeur <systemitem
-		class='systemname'>R2</systemitem>, on utilise le préfixe
-		<systemitem class='ipaddress'>10.1.2.0/30</systemitem>. On affecte les
-		deux adresses <acronym>IPv4</acronym> correspondantes aux interfaces
-		<option>veth</option>.</para>
+	class='systemname'>R2</systemitem>, on utilise les préfixes <systemitem
+	class='ipaddress'>10.1.2.0/30</systemitem> et <systemitem
+	class='ipaddress'>2001:678:3fc:e::/64</systemitem>.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Pour l'interface <option>veth0</option>&nbsp;:</para>
 
 <screen><prompt>#</prompt> ip addr add 10.1.2.1/30 brd + dev veth0
-<prompt>#</prompt> ip netns exec green ip addr add 10.1.2.2/30 brd + dev veth1</screen>
+<prompt>#</prompt> ip -6 addr add 2001:678:3fc:e::1/64 dev veth0</screen>
+	</listitem>
+	<listitem>
+		<para>Pour l'interface <option>veth1</option>&nbsp;:</para>
+
+<screen><prompt>#</prompt> ip netns exec green ip addr add 10.1.2.2/30 brd + dev veth1
+<prompt>#</prompt> ip netns exec green ip -6 addr add 2001:678:3fc:e::2/64 dev veth1</screen>
+	</listitem>
+	</itemizedlist>
 
 	<para>Comme dans la question précédente, on peut qualifier la communication
-		entre les deux interfaces au niveau réseau à l'aide de la commande
-		<command>ping</command>.</para>
+	entre les deux interfaces au niveau réseau à l'aide de la commande
+	<command>ping</command>.</para>
 
-<screen><prompt>$</prompt> ping -c2 10.1.2.2
-PING 10.1.2.2 (10.1.2.2) 56(84) bytes of data.
-64 bytes from 10.1.2.2: icmp_seq=1 ttl=64 time=0.039 ms
-64 bytes from 10.1.2.2: icmp_seq=2 ttl=64 time=0.017 ms
+	<para>Voici une copie d'écran des tests effectués depuis l'espace de noms
+	<option>green</option>.</para>
 
---- 10.1.2.2 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1008ms
-rtt min/avg/max/mdev = 0.017/0.028/0.039/0.011 ms
-
-<prompt>$</prompt> sudo ip netns exec green ping -c2 10.1.2.1
+<screen><prompt>#</prompt> ip netns exec green ping -qc2 10.1.2.1
 PING 10.1.2.1 (10.1.2.1) 56(84) bytes of data.
-64 bytes from 10.1.2.1: icmp_seq=1 ttl=64 time=0.018 ms
-64 bytes from 10.1.2.1: icmp_seq=2 ttl=64 time=0.018 ms
 
 --- 10.1.2.1 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1003ms
-rtt min/avg/max/mdev = 0.018/0.018/0.018/0.000 ms</screen>
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 18ms
+rtt min/avg/max/mdev = 0.049/0.079/0.110/0.031 ms
+
+<prompt>#</prompt> ip netns exec green ping -qc2 2001:678:3fc:e::1
+PING 2001:678:3fc:e::1(2001:678:3fc:e::1) 56 data bytes
+
+--- 2001:678:3fc:e::1 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 18ms
+rtt min/avg/max/mdev = 0.070/0.112/0.155/0.043 ms</screen>
 	</answer>
 	</qandaentry>
+
 	<qandaentry>
 	<question>
-	<para><phrase>Est-ce que la configuration précédente est suffisante pour
-		rendre le nouveau réseau accessible depuis les autres routeurs
-		?</phrase></para>
+	<para><phrase>Comment publier les deux préfixes réseau correspondant à la
+	nouvelle liaison point à point via
+	<acronym>OSPF</acronym>&nbsp;?</phrase></para>
 
-	<para>Comment faire pour remédier au problème en cas d'échec&nbsp;?</para>
+	<para>Il faut activer l'interface <option>veth</option> dans la
+	configuration des deux démons de routage <acronym>OSPF</acronym>&nbsp;:
+	<systemitem class='daemon'>bird</systemitem> et <systemitem
+	class='daemon'>bird6</systemitem>.</para>
 
-	<para>La singularité de cette configuration repose sur le fait que le
-		nouvel espace de noms réseau dispose de sa propre table de routage. Il
-		faut donc s'assurer que la nouvelle entrée de la table de routage par
-		défaut du routeur est bien publiée via le protocole de routage
-		dynamique <acronym>OSPF</acronym> et que l'extrémité du lien point à
-		point située dans le nouvel espace de nom réseau est joignable depuis
-		un autre routeur.</para>
+	<para>Il faut consulter la section <acronym>OSPF</acronym> du guide
+	&url.bird-users-guide;. Les instructions utiles pour cette question sont
+	les suivantes.</para>
+
+	<simplelist type='horiz'>
+		<member><command>interface</command></member>
+		<member><command>stub</command></member>
+	</simplelist>
 	</question>
 	<answer>
-	<para>La réponse à la question est non. Si on se place sur le routeur
-		<systemitem class='systemname'>R1</systemitem>, le préfixe réseau
-		«fictif» du routeur <systemitem class='systemname'>R2</systemitem> est
-		inconnu.</para>
+	<para>La partie <acronym>OSPFv2</acronym> du fichier de configuration sur
+	<systemitem class='systemname'>R2</systemitem> devient&nbsp;:</para>
 
-	<para>Dans la copie d'écran ci-dessous, faite sur <systemitem
-		class='systemname'>R1</systemitem>, on voit clairement que la
-		décision de routage utilise la route par défaut et ne prend pas la
-		direction du routeur <systemitem
-		class='systemname'>R2</systemitem>.</para>
-
-<screen><prompt>$</prompt> ip route get 10.1.2.1
-10.1.2.1 via 172.16.0.3 dev eth0 src 172.16.15.1 uid 1000</screen>
-
-	<para>Le premier élément de correction consiste à ajouter l'interface
-		<option>veth0</option> dans la liste des interfaces actives du démon
-		<systemitem class='daemon'>bird</systemitem>. La partie
-		<acronym>OSPF</acronym> du fichier de configuration sur <systemitem
-		class='systemname'>R2</systemitem> devient&nbsp;:</para>
-
-<screen><prompt>#</prompt> sed -n '/protocol ospf OSPFv2R2 {/,/^}/p' /etc/bird/bird.conf
+<screen><prompt>R2:~#</prompt> sed -n '/protocol ospf OSPFv2R2 {/,/^}/p' /etc/bird/bird.conf
 protocol ospf OSPFv2R2 {
-	rfc1583compat yes;
-	debug all;
-	export all;
-	import all;
-	ecmp yes;
-
-	area 0.0.0.0 {
-		interface "eth0.12", "eth0.23" {
-			authentication none;
-		};
-		<emphasis>interface "veth0"</emphasis> {
-			stub yes;
-		};
-	};
+        rfc1583compat yes;
+        ecmp yes;
+        area 0 {
+                interface "eth0.12", "eth0.23" {
+                        authentication none;
+                };
+                interface "veth0" {
+                        stub yes;
+                };
+        };
 }</screen>
 
-	<para>Une fois le démon relancé, on peut visualiser l'état de l'interface
-		dans la console <command>birdc</command>.</para>
+	<para>Les mêmes instrcutions sont placées dans le fichier de configuration
+	du protocole <acronym>OSPFv3</acronym>.</para>
 
-<screen><prompt>#</prompt> birdc
-BIRD 1.6.3 ready.
-bird> sh ospf interface "veth0"
-OSPFv2R2:
-Interface veth0 (10.1.2.0/30)
-	<emphasis>Type: ptp</emphasis>
-	Area: 0.0.0.0 (0)
-	State: PtP (stub)
-	Priority: 1
-	Cost: 10
-	ECMP weight: 1
-	Hello timer: 10
-	Wait timer: 40
-	Dead timer: 40
-	Retransmit timer: 5
-bird></screen>
+<screen><prompt>R2:~#</prompt> sed -n '/protocol ospf OSPFv3R2 {/,/^}/p' /etc/bird/bird6.conf
+protocol ospf OSPFv3R2 {
+        ecmp yes;
+        area 0 {
+                interface "eth0.12", "eth0.23" {
+                        authentication none;
+                };
+                interface "veth0" {
+                        stub yes;
+                };
+        };
+}</screen>
 
-	<para>Relativement à la première copie d'écran prise sur le routeur
-		<systemitem class='systemname'>R1</systemitem>, la prise de décision de
-		routage se fait bien en direction du routeur <systemitem
-		class='systemname'>R2</systemitem>&nbsp;:</para>
+	<para>On vérifie ensuite que les entrées sont bien intégrées dans les
+	routes <acronym>OSPF</acronym> des deux démons.</para>
 
-<screen><prompt>$</prompt> ip route get 10.1.2.1
-10.1.2.1 via <emphasis>10.1.12.2</emphasis> dev eth0.12 src 10.1.12.1 uid 1000</screen>
+<screen><prompt>R2:~#</prompt> birdc show route 10.1.2.0/30
+BIRD 1.6.4 ready.
+10.1.2.0/30        dev veth0 [OSPFv2R2 13:49:32] * I (150/10) [0.0.2.4]</screen>
 
-	<para>Malgré la publication du nouveau réseau «fictif» via
-		<acronym>OSPF</acronym>, l'adresse <acronym>IPv4</acronym> de
-		l'interface <option>veth1</option> n'est toujours pas joignable depuis
-		le routeur <systemitem class='systemname'>R1</systemitem>.</para>
+<screen><prompt>R2:~#</prompt> birdc6 show route 2001:678:3fc:e::/64
+BIRD 1.6.4 ready.
+2001:678:3fc:e::/64 dev veth0 [OSPFv3R2 13:50:01] * I (150/10) [0.0.2.6]</screen>
+	</answer>
+	</qandaentry>
 
-<screen><prompt>$</prompt> ping -c2 10.1.2.2
+	<qandaentry>
+	<question>
+	<para><phrase>Est-ce que les adresses <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> situées dans l'espace de noms
+	<wordasword>green</wordasword> joiganbles depuis les réseaux
+	distants&nbsp;?</phrase></para>
+
+	<para>Le fait d'avoir placé l'interface <option>veth1</option> dans un
+	espace de noms réseau distinct, impose l'utilisation d'une table de routage
+	propre à cet espace. Sur la base des opérations déjà effectuées, on
+	s'interroge sur le fait que ces opérations suffisent pour que les
+	communications soient fonctionnelles.</para>
+
+	<para>On fait des tests <acronym>ICMP</acronym> et <acronym>ICMP6</acronym>
+	depuis un autre routeur pour constater que si les flux parviennent bien à
+	destination, il n'existe pas de solution retour.</para>
+	</question>
+	<answer>
+	<para>Dans l'exemple ci-dessous, on teste les communications entre le
+	routeur <systemitem class='systemname'>R1</systemitem> et l'interface
+	<systemitem>veth1</systemitem> située au delà du routeur <systemitem
+	class='systemname'>R2</systemitem></para>
+
+	<para>On lance une requête <acronym>ICMP</acronym> depuis <systemitem
+	class='systemname'>R1</systemitem>.</para>
+
+<screen><prompt>R1:~#</prompt> ping -c3 10.1.2.2
 PING 10.1.2.2 (10.1.2.2) 56(84) bytes of data.
 
 --- 10.1.2.2 ping statistics ---
-2 packets transmitted, 0 received, 100% packet loss, time 1023ms</screen>
+3 packets transmitted, 0 received, <emphasis>100% packet loss</emphasis>, time 56ms</screen>
 
-	<para>Le problème se situe au niveau de la table de routage de l'espace de
-		noms réseau du routeur <systemitem class='systemname'>R2</systemitem>.
-		Elle ne contient aucune route par défaut. Tout paquet arrivant avec une
-		adresse <acronym>IPv4</acronym> source non connue est vu comme un
-		«martien». Dans le journal système du routeur <systemitem
-		class='systemname'>R2</systemitem>, on retrouve la trace des deux
-		paquets <acronym>ICMP</acronym> précédents.</para>
+	<para>On lance l'analyse réseau dans l'espace de noms réseau
+	<wordasword>green</wordasword>.</para>
 
-<screen>IPv4: martian source 10.1.2.2 from 10.1.12.1, on dev veth1
-ll header: 00000000: 0e 79 d6 fe c1 ba be ff dd f3 d0 28 08 00
-IPv4: martian source 10.1.2.2 from 10.1.12.1, on dev veth1
-ll header: 00000000: 0e 79 d6 fe c1 ba be ff dd f3 d0 28 08 00</screen>
+<screen><prompt>R2:~#</prompt> ip netns exec green /usr/bin/tshark -i veth1 -f icmp
+&lt;snipped/>
+Capturing on 'veth1'
+    1 0.000000000    10.1.12.1 → 10.1.2.2     ICMP 98 Echo (ping) request  id=0x63c9, seq=1/256, ttl=63
+    2 1.026937745    10.1.12.1 → 10.1.2.2     ICMP 98 Echo (ping) request  id=0x63c9, seq=2/512, ttl=63
+    3 2.050936173    10.1.12.1 → 10.1.2.2     ICMP 98 Echo (ping) request  id=0x63c9, seq=3/768, ttl=63</screen>
 
-	<para>On ajoute donc une route par défaut dans l'espace de noms réseau qui
-		désigne l'adresse de l'interface <option>veth0</option> comme solution
-		pour toutes les destinations.</para>
+	<para>On relève bien l'arrivée des requêtes à destination. Il n'y a aucune
+	réponse à ces requêtes.</para>
 
-<screen><prompt>$</prompt> sudo ip netns exec green ip route add default via 10.1.2.1
-<prompt>$</prompt> ip netns exec green ip route ls
+	<para>En reprenant le même test avec <acronym>ICMP6</acronym>, on relève le
+	même problème.</para>
+
+<screen><prompt>R1:~#</prompt> ping -c3 2001:678:3fc:e::2
+PING 2001:678:3fc:e::2(2001:678:3fc:e::2) 56 data bytes
+
+--- 2001:678:3fc:e::2 ping statistics ---
+3 packets transmitted, 0 received, <emphasis>100% packet loss</emphasis>, time 47ms</screen>
+
+	<para>L'analyse réseau ne montre que l'arrivée des requêtes à
+	destination.</para>
+
+<screen><prompt>R2:~#</prompt> ip netns exec green /usr/bin/tshark -i veth1 -f icmp6
+&lt;snipped/>
+Capturing on 'veth1'
+    1 0.000000000 2001:678:3fc:c::1 → 2001:678:3fc:e::2 ICMPv6 118 Echo (ping) request id=0x63d0, seq=1, hop limit=63
+    2 1.004989685 2001:678:3fc:c::1 → 2001:678:3fc:e::2 ICMPv6 118 Echo (ping) request id=0x63d0, seq=2, hop limit=63
+    3 2.032992497 2001:678:3fc:c::1 → 2001:678:3fc:e::2 ICMPv6 118 Echo (ping) request id=0x63d0, seq=3, hop limit=63</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment compléter les tables de routage
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> situées dans l'espace de
+	noms <wordasword>green</wordasword> pour que le trafic initié depuis cet
+	espace soit émis correctement&nbsp;?</phrase></para>
+
+	<para>On complète les tables de routage avec une route par défaut pour
+	joindre les réseaux distants depuis l'espace de noms
+	<wordasword>green</wordasword>.</para>
+	</question>
+	<answer>
+	<para>La lecture des tables de routage dans l'espace de noms réseau
+	<wordasword>green</wordasword> explique tout. Ces tables ne contiennent que
+	l'entrée relative au lien point à point configuré entre les interfaces
+	<systemitem>veth0</systemitem> et <systemitem>veth1</systemitem>.</para>
+
+<screen><prompt>R2:~#</prompt> ip netns exec green ip route ls
+10.1.2.0/30 dev veth1 proto kernel scope link src 10.1.2.2
+
+<prompt>R2:~#</prompt> ip netns exec green ip -6 route ls
+2001:678:3fc:e::/64 dev veth1 proto kernel metric 256 pref medium
+fe80::/64 dev veth1 proto kernel metric 256 pref medium</screen>
+
+	<para>Il faut donc compléter ces tables de routage avec une route par
+	défaut vers l'espace de noms réseau par défaut dans lequel est située
+	l'interface <systemitem>veth0</systemitem>.</para>
+
+<screen><prompt>R2:~#</prompt> ip netns exec green ip route add default via 10.1.2.1
+
+<prompt>R2:~#</prompt> ip netns exec green ping -c1 ff02::2%veth1
+PING ff02::2%veth1(ff02::2%veth1) 56 data bytes
+64 bytes from fe80::d463:10ff:fe30:b4da%veth1: icmp_seq=1 ttl=64 time=0.099 ms
+
+--- ff02::2%veth1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.099/0.099/0.099/0.000 ms
+
+<prompt>R2:~#</prompt> ip netns exec green ip -6 route add default via fe80::d463:10ff:fe30:b4da dev veth1</screen>
+
+	<para>Les nouvelles tables de routage de l'espace de noms
+	<wordasword>green</wordasword> font apparaître les routes par défaut</para>
+
+<screen><prompt>R2:~#</prompt> ip netns exec green ip route ls
 default via 10.1.2.1 dev veth1
 10.1.2.0/30 dev veth1 proto kernel scope link src 10.1.2.2</screen>
 
-	<para>Depuis le routeur <systemitem class='systemname'>R1</systemitem>,
-		l'interface <option>veth1</option> de <systemitem
-		class='systemname'>R2</systemitem> est maintenant joignable.</para>
+<screen><prompt>R2:~#</prompt> ip netns exec green ip -6 route ls
+2001:678:3fc:e::/64 dev veth1 proto kernel metric 256 pref medium
+fe80::/64 dev veth1 proto kernel metric 256 pref medium
+default via fe80::d463:10ff:fe30:b4da dev veth1 metric 1024 pref medium</screen>
 
-<screen><prompt>$</prompt> ping -c2 10.1.2.2
+	<para>Les tests <acronym>ICMP</acronym> et <acronym>ICMP6</acronym> de la
+	question précédente montrent maintenant que les communications sont bien
+	fonctionnelles. Les requêtes sont à nouveau émises depuis le routeur
+	<systemitem class='systemname'>R1</systemitem></para>
+
+<screen><prompt>R1:~#</prompt> ping -qc3 10.1.2.2
 PING 10.1.2.2 (10.1.2.2) 56(84) bytes of data.
-64 bytes from 10.1.2.2: icmp_seq=1 ttl=63 time=0.648 ms
-64 bytes from 10.1.2.2: icmp_seq=2 ttl=63 time=0.729 ms
 
 --- 10.1.2.2 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1009ms
-rtt min/avg/max/mdev = 0.648/0.688/0.729/0.048 ms</screen>
+3 packets transmitted, 3 received, <emphasis>0% packet loss</emphasis>, time 40ms
+rtt min/avg/max/mdev = 0.085/0.220/0.490/0.190 ms</screen>
+
+<screen><prompt>R1:~#</prompt> ping -qc3 2001:678:3fc:e::2
+PING 2001:678:3fc:e::2(2001:678:3fc:e::2) 56 data bytes
+
+--- 2001:678:3fc:e::2 ping statistics ---
+3 packets transmitted, 3 received, <emphasis>0% packet loss</emphasis>, time 55ms
+rtt min/avg/max/mdev = 0.089/0.319/0.778/0.324 ms</screen>
 	</answer>
 	</qandaentry>
+
 	<qandaentry>
 	<question>
 	<para><phrase>Comment installer un service Web en écoute exclusivement sur
-		l'adresse <acronym>IP</acronym> de l'interface
-		<option>veth1</option>&nbsp;?</phrase></para>
+	les adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym> situées
+	dans l'espace de noms réseau
+	<wordasword>green</wordasword>&nbsp;?</phrase></para>
 
 	<para>Pour aller au plus court, on installe le paquet
-		<application>lighttpd</application> et on édite la configuration du
-		service de façon à limiter l'accès à l'adresse <acronym>IP</acronym>
-		voulue.</para>
+	<application>lighttpd</application> et on édite la configuration du service
+	de façon à limiter l'accès aux adresses <acronym>IP</acronym>
+	voulues.</para>
 	</question>
 	<answer>
-<screen><prompt>#</prompt> aptitude install lighttpd
-Les NOUVEAUX paquets suivants vont être installés :
-  libfam0{a} lighttpd spawn-fcgi{a}
-0 paquets mis à jour, 3 nouvellement installés, 0 à enlever et 0 non mis à jour.
-Il est nécessaire de télécharger 350 ko d'archives.
-Après dépaquetage, 1 096 ko seront utilisés.
-Voulez-vous continuer ? [Y/n/?]</screen>
+<screen><prompt>R2:~#</prompt> aptitude install lighttpd</screen>
 
 	<para>On modifie ensuite le fichier de configuration
-		<filename>/etc/lighttpd/lighttpd.conf</filename> de façon à limiter
-		l'accès à l'adresse <acronym>IPv4</acronym> de l'interface
-		<option>veth1</option>.</para>
+	<filename>/etc/lighttpd/lighttpd.conf</filename> de façon à limiter l'accès
+	aux adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym> de
+	l'interface <option>veth1</option>.</para>
 
-<screen><?dbfo keep-together="auto" ?><xi:include href='files/veth1-lighttpd.conf.patch'
+	<para>Voici une copie du correctif correspondant au routeur <systemitem class='systemname'>R2</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R2-veth1-lighttpd.conf.patch'
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
 	<para>Relativement à une configuration classique, il faut lancer le serveur
-		Web dans le contexte du nouvel espace de noms réseau. On commence donc
-		par arrêter le démon lancé lors de l'installation du paquet.</para>
+	Web dans le contexte du nouvel espace de noms réseau. On commence donc par
+	arrêter le démon lancé lors de l'installation du paquet.</para>
 
-<screen><prompt>#</prompt> systemctl stop lighttpd</screen>
+<screen><prompt>R2:~#</prompt> systemctl stop lighttpd</screen>
 
-	<para>Pour aller au plus court, on lance directement le démon dans le
-		contexte du nouvel espace de noms réseau.</para>
+	<para>Là encore, pour aller au plus court on lance directement le démon
+	dans le contexte de l'espace de noms réseau
+	<wordasword>green</wordasword>.</para>
 
-<screen><prompt>$</prompt> sudo ip netns exec green lighttpd -f /etc/lighttpd/lighttpd.conf
-<prompt>$</prompt> sudo ip netns exec green ss -nlt '( src :80 )'
-State       Recv-Q Send-Q   Local Address:Port    Peer Address:Port
-LISTEN      0      128           10.1.2.2:80           0.0.0.0:*
-LISTEN      0      128               [::]:80              [::]:*</screen>
+<screen><prompt>R2:~#</prompt> ip netns exec green lighttpd -f /etc/lighttpd/lighttpd.conf
+
+<prompt>R2:~#</prompt> ip netns exec green ss -nlt '( src :80 )'
+State       Recv-Q Send-Q        Local Address:Port    Peer Address:Port
+LISTEN      0      128                10.1.2.2:80           0.0.0.0:*
+LISTEN      0      128     [2001:678:3fc:e::2]:80              [::]:*</screen>
 	</answer>
 	</qandaentry>
 	<qandaentry>
 	<question>
-	<para><phrase>Comment valider l'accès au service Web situé dans le nouvel
-		espace de noms réseau depuis les autres routeurs&nbsp;?</phrase></para>
+	<para><phrase>Comment valider l'accès au service Web situé dans l'espace de
+	noms réseau <wordasword>green</wordasword> depuis un réseau
+	distant&nbsp;?</phrase></para>
 
 	<para>Comme la partie routage a été validée dans les questions précédentes,
-		on passe directement à la couche application avec le chargement de la
-		page Web par défaut du serveur.</para>
+	on passe directement à la couche application avec le chargement de la page
+	Web par défaut du serveur.</para>
 	</question>
 	<answer>
 	<para>Depuis le routeur <systemitem class='systemname'>R1</systemitem>, on
-		obtient le résultat suivant&nbsp;:</para>
+	obtient le résultat suivant&nbsp;:</para>
 
-<screen><prompt>$</prompt> wget -O /dev/null http://10.1.2.2
---2017-12-30 18:36:57--  http://10.1.2.2/
+<screen><prompt>R1:~#</prompt> wget -O /dev/null http://10.1.2.2
+--2018-11-04 14:34:37--  http://10.1.2.2/
 Connexion à 10.1.2.2:80… connecté.
 requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
-Taille : 1475 (1,4K) [text/html]
+Taille : 3378 (3,3K) [text/html]
 Sauvegarde en : « /dev/null »
 
-/dev/null  100%[====================>]   1,44K  --.-KB/s    ds 0s
+/dev/null  100%[=========================>]   3,30K  --.-KB/s    ds 0s
 
-2017-12-30 18:36:57 (239 MB/s) - « /dev/null » sauvegardé [3378]</screen>
+2018-11-04 14:34:37 (116 MB/s) — « /dev/null » sauvegardé [3378/3378]</screen>
+
+<screen><prompt>R1:~#</prompt> wget -O /dev/null http://[2001:678:3fc:e::2]
+--2018-11-04 14:35:45--  http://[2001:678:3fc:e::2]/
+Connexion à [2001:678:3fc:e::2]:80… connecté.
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+Taille : 3378 (3,3K) [text/html]
+Sauvegarde en : « /dev/null »
+
+/dev/null  100%[==========================>]   3,30K  --.-KB/s    ds 0s
+
+2018-11-04 14:35:45 (16,8 MB/s) — « /dev/null » sauvegardé [3378/3378]</screen>
 	</answer>
 	</qandaentry>
 </qandadiv>	
