@@ -44,7 +44,7 @@ SUBDIRS = \
 	interco.ospf-bird.q \
 	interco.ovs.qa \
 	interco.ovs.q \
-	interco.cs \
+	interco-dsl.cs \
 	interco-dsl.set
 
 # Type(s) de traitement
@@ -71,7 +71,7 @@ XML_FILES = \
 	interco.inter-vlan.qa/$(ABSTRACT_FILE) \
 	interco.ospf-quagga.q/$(ABSTRACT_FILE) \
 	interco.ovs.q/$(ABSTRACT_FILE) \
-	interco.cs/$(ABSTRACT_FILE) \
+	interco-dsl.cs/$(ABSTRACT_FILE) \
 	$(wildcard images/*.png)
 
 all: $(PROCESS)

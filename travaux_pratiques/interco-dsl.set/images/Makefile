@@ -12,7 +12,7 @@ SYMLINKS = \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.netfilter.qa/images/*.png) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.inter-vlan.qa/images/*.png) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.ospf-quagga.qa/images/*.png) \
-	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco.cs/images/*.png) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco-dsl.cs/images/*.png) \
 	$(MAIN_DIR)/images/titleimage.jpg
 
 all: $(PROCESS)

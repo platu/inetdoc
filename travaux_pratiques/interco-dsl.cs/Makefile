@@ -13,7 +13,7 @@ SYMLINKS = \
 	$(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
-	interco.cs.xml \
+	interco-dsl.cs.xml \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \

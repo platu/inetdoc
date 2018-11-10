@@ -56,5 +56,5 @@ tp5.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.inter-vlan.qa/$(ABSTRACT
 tp6.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.q/$(ABSTRACT_FILE)
 	ln -s $< $@
 
-tp7.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.cs/$(ABSTRACT_FILE)
+tp7.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco-dsl.cs/$(ABSTRACT_FILE)
 	ln -s $< $@
