@@ -385,7 +385,7 @@
     article/appendix  nop
     article   toc,title
     book      toc,title
-    /chapter  nop
+    chapter   toc,title
     part      toc,title
     /preface  toc,title
     qandadiv  nop
