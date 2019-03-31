@@ -31,6 +31,7 @@
 
 <xsl:stylesheet version="1.0"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
   xmlns:fo="http://www.w3.org/1999/XSL/Format"
   xmlns:d="http://docbook.org/ns/docbook" exclude-result-prefixes="d">
                 
@@ -894,4 +895,24 @@ up into multiple documents.
     <fo:inline id="{$id}"><xsl:apply-templates/></fo:inline>
     </fo:block>
     </xsl:template>
+
+	<!-- link with prefix within PDF files
+		Unfortunately the transformation below doesn't work at all.
+		Replaced by a sed rule at line 186 of Makefile.rules wich adds the
+		prefix once the fo file is built
+	-->
+	<xsl:template match="d:link[@role='relative']">
+	<xsl:variable name="new.element">
+	<foo>
+		<xsl:copy>
+		<xsl:attribute name="xlink:href">
+			<xsl:value-of select="concat('https://inetdoc.net/', @xlink:href)"/>
+		</xsl:attribute>
+		<xsl:apply-templates/>
+		</xsl:copy>
+	</foo>
+	</xsl:variable>
+		<xsl:apply-templates select="exsl:node-set($new.element)/foo/*"/>
+	</xsl:template>
 </xsl:stylesheet>
+
