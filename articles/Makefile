@@ -6,7 +6,6 @@ ABSTRACT_FILE = transform_output/abstract.xml
 
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
-	images \
 	infosecconcepts \
 	devmgmt \
 	ssh-ios \
@@ -22,7 +21,8 @@ SUBDIRS = \
 	lan-segmentation \
 	inter-vlan-routing \
 	inter-vlan-routing-openvswitch \
-	site2site-ipsecvpn
+	site2site-ipsecvpn \
+	images
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
