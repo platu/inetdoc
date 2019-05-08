@@ -16,7 +16,7 @@
 
 <!DOCTYPE xsl:stylesheet [
 	<!-- The below path is defined by the docbook-xsl-ns Debian package -->
-	<!ENTITY db_xsl_path        "/usr/local/share/xml/docbook/stylesheet/docbook-xsl-ns/">
+	<!ENTITY db_xsl_path        "/usr/share/xml/docbook/stylesheet/docbook-xsl-ns/">
 	<!ENTITY callout_gfx_path   "/images/">
 	<!ENTITY admon_gfx_path     "/images/">
 	<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
