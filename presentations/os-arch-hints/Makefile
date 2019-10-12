@@ -7,7 +7,7 @@ SUBDIRS = \
 	images
 
 # Type(s) de traitement
-PROCESS = subdirs odp2xhtml
+PROCESS = subdirs odp2pdf
 
 all: $(PROCESS)
 

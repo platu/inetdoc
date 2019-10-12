@@ -193,25 +193,13 @@ ifndef ODP_FILES
 ODP_FILES	:= $(wildcard *.odp)
 endif
 
-ifndef geometry
-geometry	= 800x600
-endif
-
-ifndef thumb-geometry
-thumb-geometry	= 320x240
-endif
-
 BASENAME = $(basename $(firstword $(ODP_FILES)))
 
-odp2xhtml: \
+odp2pdf: \
 	dist_dirs \
-	$(STYLESHEET).css \
 	$(MAIN_DIR)/odp/$(BASENAME).odp \
 	$(MAIN_DIR)/pdf/$(BASENAME).pdf \
-	$(OUTPUT)/$(BASENAME)-00.png \
-	$(BASENAME)-00.idx.png \
-	$(BASENAME)-00.png \
-	index.html
+	$(BASENAME)-00.thb.png
 
 $(MAIN_DIR)/odp/$(BASENAME).odp: $(BASENAME).odp
 	cp $< $@
@@ -221,58 +209,8 @@ $(MAIN_DIR)/pdf/%.pdf: %.odp
 	# Génération du fichier imprimable PDF
 	@$(LIBREOFFICE) --headless --invisible --convert-to pdf --outdir $(MAIN_DIR)/pdf $?
 
-$(OUTPUT)/$(BASENAME)-00.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf
-	# Génération d'un fichier image par vue
-	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
-	@convert -density 600 $? $(OUTPUT)/$(BASENAME)-%02d.png
-
-$(BASENAME)-00.idx.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(OUTPUT)/$(BASENAME)-00.png
-	# Génération d'une vignette par vue
-	@for file in `ls $(OUTPUT)/*.png`; do \
-		convert -thumbnail $(thumb-geometry) $$file `basename $$file .png`.idx.png ;\
-	done
-
-$(BASENAME)-00.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(OUTPUT)/$(BASENAME)-00.png
-	# Génération d'une image par vue
-	@for file in `ls $(OUTPUT)/*.png`; do \
-		convert -quality 95 -resize $(geometry) $$file `basename $$file .png`.png ;\
-	done
-
-index.html: $(MAIN_DIR)/pdf/$(BASENAME).pdf $(BASENAME)-00.idx.png $(BASENAME)-00.png
-	@rm -rf *.html $(OUTPUT)/*.html
-	# Formatage XHTML de la page d'index
-	$(MAIN_DIR)/common/odp2index.sh $(BASENAME) $(OUTPUT)/$@.tmp
-	@( cd $(MAIN_DIR) && \
-	nb --title $(BASENAME) make-page $(CWD)/$(OUTPUT)/$@.tmp $(CWD)/$(OUTPUT)/$@ \
-	)
-	@rm $(OUTPUT)/$@.tmp
-	# Formatage XHTML des pages de vues
-	$(MAIN_DIR)/common/odp2slidepages.sh $(BASENAME) $(OUTPUT)
-	@for file in `ls $(OUTPUT)/$(BASENAME)*.html`; do \
-		mv $$file $$file.tmp ;\
-		( cd $(MAIN_DIR) && \
-		nb --title $(BASENAME) make-page $(CWD)/$$file.tmp $(CWD)/$$file \
-		) ;\
-		rm $$file.tmp ;\
-	done
-	# Insertion de la feuille de styles
-	# Insertion des liens de distribution
-	@for file in `ls $(OUTPUT)/*.html`; do \
-		if ! egrep -qi -e "$(STYLESHEET).css" $$file; then \
-			sed -i 's/<\/head>/<link rel=\"stylesheet\" href=\"$(STYLESHEET).css\" type=\"text\/css\" media=\"all\" \/>&/' $$file ;\
-		fi ;\
-		sed -n '1,/<!-- insertion point -->/p' $$file > $$file.tmp ;\
-		sed -i '$$d' $$file.tmp ;\
-		echo '<div class="sidetitle">Formats</div><div class="side">' >> $$file.tmp ;\
-		echo '<a href="/odp/$(BASENAME).odp" class="odp-small">Fichier OpenDocument</a><br />' >> $$file.tmp ;\
-		echo '<a href="/pdf/$(BASENAME).pdf" class="pdf-small">Fichier imprimable PDF</a><br />' >> $$file.tmp ;\
-		echo '</div><!-- /side -->' >> $$file.tmp ;\
-		echo '</div><!-- /links -->' >> $$file.tmp ;\
-		sed -n '/<div id=\"content\">/,$$p' $$file >> $$file.tmp ;\
-		mv $$file.tmp $$file ;\
-	done
-	cp $(OUTPUT)/*.html .
-
+$(BASENAME)-00.thb.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf
+	convert -thumbnail x300 $< $(BASENAME)-%02d.thb.png
 endif
 
 #/*--------------------------------------------------------------------------

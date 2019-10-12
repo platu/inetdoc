@@ -3,10 +3,7 @@ MAIN_DIR = $(HOME)/inetdoc
 endif
 
 # Type(s) de traitement
-PROCESS = odp2xhtml
-
-geometry = 1067x600
-thumb-geometry = 267x150
+PROCESS = odp2pdf
 
 all: $(PROCESS)
 

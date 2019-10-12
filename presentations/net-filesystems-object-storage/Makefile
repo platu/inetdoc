@@ -3,7 +3,7 @@ MAIN_DIR = $(HOME)/inetdoc
 endif
 
 # Type(s) de traitement
-PROCESS = odp2xhtml
+PROCESS = odp2pdf
 
 all: $(PROCESS)
 
