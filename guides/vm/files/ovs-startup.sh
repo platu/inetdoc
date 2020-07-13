@@ -32,6 +32,7 @@ image_format="${vm##*.}"
 echo -e "$RedOnBlack"
 echo "~> Machine virtuelle : $vm"
 echo "~> Port SPICE        : $((5900 + $tapnum))"
+echo "~> Port Console TCP  : $((2300 + $tapnum))"
 echo "~> Mémoire RAM       : $memory"
 echo "~> Adresse MAC       : $macaddress"
 tput sgr0
@@ -61,6 +62,7 @@ ionice -c3 qemu-system-x86_64 \
 	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
 	-soundhw hda \
+	-serial telnet:localhost:$((2300 + $tapnum)),server,nowait \
 	-device virtio-net-pci,mq=on,vectors=6,netdev=net0,mac="$macaddress" \
 	-netdev tap,queues=2,ifname=tap$tapnum,id=net0,script=no,downscript=no,vhost=on \
 	$*

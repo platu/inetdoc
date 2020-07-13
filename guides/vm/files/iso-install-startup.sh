@@ -50,13 +50,13 @@ ionice -c3 qemu-system-x86_64 \
 	-rtc base=localtime,clock=host \
 	-watchdog i6300esb \
 	-watchdog-action none \
+	-boot order=c,menu=on \
 	-boot once=d,menu=on \
 	-device ahci,id=ahci0 \
-	-device ide-drive,bus=ahci0.0,drive=drive-sata0-0-0,id=sata0-0-0 \
+	-device ide-cd,bus=ahci0.0,drive=drive-sata0-0-0,id=sata0-0-0 \
 	-drive media=cdrom,if=none,file=$iso,id=drive-sata0-0-0 \
-	-object "iothread,id=iothread.drive0" \
-	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=$image_format,media=disk,file=$vm \
-	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
+	-drive if=none,id=drive0,aio=native,cache.direct=on,format=$image_format,media=disk,file=$vm \
+	-device virtio-blk,drive=drive0,scsi=off,config-wce=off \
 	-k fr \
 	-vga qxl \
 	-spice port=$((5900 + $tapnum)),addr=localhost,disable-ticketing \
