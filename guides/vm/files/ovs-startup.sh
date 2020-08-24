@@ -61,7 +61,8 @@ ionice -c3 qemu-system-x86_64 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
 	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
-	-soundhw hda \
+	-device intel-hda \
+	-device hda-duplex \
 	-serial telnet:localhost:$((2300 + $tapnum)),server,nowait \
 	-device virtio-net-pci,mq=on,vectors=6,netdev=net0,mac="$macaddress" \
 	-netdev tap,queues=2,ifname=tap$tapnum,id=net0,script=no,downscript=no,vhost=on \
