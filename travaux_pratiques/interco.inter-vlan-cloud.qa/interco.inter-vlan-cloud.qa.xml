@@ -1,0 +1,1473 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY author				SYSTEM "author.xml">
+<!ENTITY legal				SYSTEM "legal.xml">
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.ieee802.1q.standard
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://standards.ieee.org/getieee802/download/802.1Q-1998.pdf">
+  <citetitle>IEEE 802.1Q Standard</citetitle></link>'>
+
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"http://www.w3.org/2003/entities/2007/w3centities-f.ent">
+%w3centities-f;
+]>
+
+<article xml:lang='fr' xml:id='interco.inter-vlan.qa'>
+<info>
+	<title>Routage inter-VLAN dans un contexte cloud</title>
+	&author;
+<abstract>
+<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='5*'/>
+	<colspec colwidth='200px'/>
+	<tbody>
+	<row>
+		<entry valign='top'>
+		<para>Le routage inter-VLAN est très largement utilisé dans
+		l'interconnexion entre les réseaux Ethernet. Les manipulations
+		présentées dans ces travaux pratiques illustrent l'interconnexion entre
+		un réseau d'hébergement de type Cloud IAAS (<wordasword>Infrastructure
+		As A Service</wordasword>) et un réseau de conteneurs
+		<acronym>LXD</acronym> raccordés à l'aide de la technologie
+		<acronym>MACVLAN</acronym>.</para> 
+
+		<para>On introduit aussi un premier niveau de filtrage induit par le
+		recours à la traduction d'adresses entre les deux réseaux
+		interconnectés.</para> 
+		</entry>
+		<entry>
+		<link xlink:href="/articles/inter-vlan-routing/">
+		<inlinemediaobject>
+		<imageobject role='html'>
+			<imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='200px' scalefit='1'/>
+		</imageobject>
+		<imageobject role='fo'>
+			<imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='5cm' scalefit='1'/>
+	    </imageobject>
+		</inlinemediaobject>
+		</link>
+		</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+</para>
+</abstract>
+<keywordset>
+	<keyword>8021q</keyword>
+	<keyword>access</keyword>
+	<keyword>arp</keyword>
+	<keyword>dot1q</keyword>
+	<keyword>ieee802.1q</keyword>
+	<keyword>iproute2</keyword>
+	<keyword>iptables</keyword>
+	<keyword>lxd</keyword>
+	<keyword>macvlan</keyword>
+	<keyword>route</keyword>
+	<keyword>routing</keyword>
+	<keyword>sysctl</keyword>
+	<keyword>trunk</keyword>
+</keywordset>
+</info>
+
+<sect1 xml:id='interco.inter-vlan.qa.meta'>
+	&legal;
+	<sect2 xml:id='interco.inter-vlan.qa.meta.file'>
+		<title>Méta-information</title>
+    
+		<para>Ce document est écrit avec <link
+		xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+		XML sur un système <link
+		xlink:href="https://www.debian.org"><citetitle>Debian
+		GNU/Linux</citetitle></link>. Il est disponible en version imprimable
+		au format PDF : <link
+		xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+	</sect2>
+
+	<sect2 xml:id='interco.inter-vlan.qa.meta.convtypo'>
+		<title>Conventions typographiques</title>
+
+		<para>Tous les exemples d'exécution des commandes sont précédés d'une
+		invite utilisateur ou <wordasword>prompt</wordasword> spécifique au
+		niveau des droits utilisateurs nécessaires sur le système.</para>
+
+		<itemizedlist>
+		<listitem>
+			<para>Toute commande précédée de l'invite <prompt>$</prompt> ne
+			nécessite aucun privilège particulier et peut être utilisée au
+			niveau utilisateur simple.</para>
+		</listitem>
+		<listitem>
+			<para>Toute commande précédée de l'invite <prompt>#</prompt>
+			nécessite les privilèges du super-utilisateur.</para>
+		</listitem>
+		</itemizedlist>
+	</sect2>
+</sect1>
+
+<sect1 xml:id='interco.inter-vlan.qa.topology'>
+	<title>Topologies logiques et virtuelles</title>
+
+	<para>Les définitions importantes sur les réseaux locaux virtuels et le
+	routage associé sont présentées dans l'article
+	&url.inter-vlan-routing;</para>
+
+	<para>On rappelle simplement que la notion de réseau local virtuel ou
+	<acronym>VLAN</acronym> permet de constituer des groupes logiques dans les
+	réseaux Ethernet au niveau liaison de la modélisation. Lors du raccordement
+	entre les équipements (commutateurs, routeurs, serveurs), certaines
+	liaisons doivent véhiculer le trafic de plusieurs réseaux locaux virtuels
+	(<acronym>VLANs</acronym>). Ces liaisons sont baptisées
+	<wordasword>trunks</wordasword> dans le jargon. Pour distinguer le trafic
+	appartenant à chaque réseau local, on ajoute à la trame une balise définie
+	par le standard <acronym>IEEE 802.1Q</acronym>. C'est cette étiquetage de
+	trame qui permet la distribution des domaines de diffusion entre plusieurs
+	équipements physiques distincts.</para>
+
+	<para>On atteint ainsi un objectif très important. Il est possible de
+	concevoir une topologie logique de réseau totalement indépendante de la
+	topologie physique.</para>
+
+	<para>Réseau virtuel ou pas, il ne faut pas oublier les éléments suivants
+	sur la segmentation des réseaux locaux.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Une interface de <emphasis>commutateur</emphasis> délimite un
+		domaine de <emphasis>collision</emphasis>.</para>
+	</listitem>
+	<listitem>
+		<para>Une interface de <emphasis>routeur</emphasis> délimite à la fois
+		un domaine de <emphasis>collision</emphasis> et un domaine de
+		<emphasis>diffusion</emphasis>.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>La représentation de la topologie logique ci-dessous montre que le
+	routeur de couleur verte assure l'interconnexion entre un réseau
+	d'infrastructure appelé <wordasword>Hosting VLAN</wordasword> et un réseau
+	de conteneurs appelé <wordasword>Container VLAN</wordasword>. Les deux
+	rectangles en gris “matérialisent“ les machines virtuelles qui sont
+	utilisées pour les manipulations.</para>
+
+	<mediaobject>
+	<imageobject role='html'>
+	<imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='700px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+	<imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='16cm' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie type</phrase>
+	</textobject>
+	<caption>
+	<para><link xlink:href='images/inter-VLAN-logical-topology.png'>Topologie logique</link></para>
+	</caption>
+	</mediaobject>
+
+	<para>La représentation de la topologie vue sous l'angle de l'hébergement
+	sur un système hôte hyperviseur montre que les deux
+	<acronym>VLANs</acronym> sont présents sur le commutateur virtuel de couche
+	distribution appelé <citetitle>dsw-host</citetitle>. Ce commutateur
+	appartient au système hôte. Il assure le raccordement entre les réseaux
+	physiques et virtualisés. On retrouve le routeur de couleur verte raccordé
+	avec un lien unique sur lequel le trafic des deux <acronym>VLANs</acronym>
+	doit transiter.</para>
+
+	<para>Côté conteneurs, seule l'interface <systemitem>enp0s6</systemitem>
+	est raccordé via un lien en mode accès. La technologie
+	<acronym>macVLAN</acronym> permet d'utiliser plusieurs adresses
+	<acronym>MAC</acronym> sur une même interface réseau.</para>
+
+	<mediaobject>
+	<imageobject role='html'>
+	<imagedata fileref='images/inter-VLAN-hosting-topology.png' format='PNG' width='700px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+	<imagedata fileref='images/inter-VLAN-hosting-topology.png' format='PNG' width='16cm' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie type</phrase>
+	</textobject>
+	<caption>
+	<para><link xlink:href='images/inter-VLAN-hosting-topology.png'>Topologie hébergée</link></para>
+	</caption>
+	</mediaobject>
+</sect1>
+
+<sect1 xml:id='interco.inter-vlan.qa.addressing'>
+	<title>Plan d'adressage des réseaux d'hébergement et de conteneurs</title>
+
+<para>Attention ! Les adresses de passerelle côté hébergement sont déjà
+implantées dans l'infrastructure de travaux pratiques tandis que les adresses
+de passerelle côté conteneurs sont à implanter sur le routeur.</para>
+
+<table frame='all' pgwide='1'>
+	<title>Affectations des adresses de passerelle</title>
+	<tgroup cols='4' align='left' colsep='1' rowsep='1'>
+	<colspec colname='c1' colwidth='2*'/>
+	<colspec colname='c2' colwidth='2*'/>
+	<colspec colname='c3' colwidth='1*'/>
+	<colspec colname='c4' colwidth='2*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+	<entry>Planète (deux machines virtuelles)</entry>
+	<entry>Passerelle&nbsp;- <wordasword>Hosting VLAN</wordasword></entry>
+	<entry  namest="c3" nameend="c4">VLAN &amp; Passerelle&nbsp;- <wordasword>Container VLAN</wordasword></entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+	<entry>christophsis</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.37.9/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:133::1/64</systemitem>
+	</entry>
+	<entry>400</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:190::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>corellia</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.22.9.33/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:151::1/64</systemitem>
+	</entry>
+	<entry>401</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:191::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>delaya</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.31.0.193/26</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:136::1/64</systemitem>
+	</entry>
+	<entry>402</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:192::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>kashyyyk</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.30.5.129/26</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:131::1/64</systemitem>
+	</entry>
+	<entry>403</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:193::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>korriban</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.9.10.129/26</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:14f::1/64</systemitem>
+	</entry>
+	<entry>404</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:194::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>kessel</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.30.6.65/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:132::1/64</systemitem>
+	</entry>
+	<entry>405</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:195::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>mygeeto</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.9.15.17/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:150::1/64</systemitem>
+	</entry>
+	<entry>406</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:196::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>nelvaan</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.31.1.145/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:137::1/64</systemitem>
+	</entry>
+	<entry>407</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:197::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>rattatak</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.10.81/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:145::1/64</systemitem>
+	</entry>
+	<entry>408</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:198::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>saleucami</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.12.17/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:138::1/64</systemitem>
+	</entry>
+	<entry>409</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:199::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>taris</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.8.11.9/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:14b::1/64</systemitem>
+	</entry>
+	<entry>410</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:19a::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>teth</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.0.10.33/27</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:13c::1/64</systemitem>
+	</entry>
+	<entry>411</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:19b::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>utapau</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.21.12.17/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:14c::1/64</systemitem>
+	</entry>
+	<entry>412</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:19c::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>yavin</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.19.9.65/26</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:13b::1/64</systemitem>
+	</entry>
+	<entry>413</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:19d::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>alderaan</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.17.64.129/25</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:64::1/64</systemitem>
+	</entry>
+	<entry>220</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:dc::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>bespin</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.20.135.65/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:87::1/64</systemitem>
+	</entry>
+	<entry>221</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:dd::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>centares</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.18.4.1/22</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:65::1/64</systemitem>
+	</entry>
+	<entry>222</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:de::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>coruscant</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.20.136.81/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:88::1/64</systemitem>
+	</entry>
+	<entry>223</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:df::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>dagobah</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.3.2.1/23</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:66::1/64</systemitem>
+	</entry>
+	<entry>224</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e0::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>endor</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.24.132.17/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:84::1/64</systemitem>
+	</entry>
+	<entry>225</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e1::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>felucia</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.6.8.1/23</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:69::1/64</systemitem>
+	</entry>
+	<entry>226</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e2::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>geonosis</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.20.131.33/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:83::1/64</systemitem>
+	</entry>
+	<entry>227</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e3::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>hoth</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.7.10.1/23</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:6a::1/64</systemitem>
+	</entry>
+	<entry>228</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e4::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>jakku</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.20.130.25/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:82::1/64</systemitem>
+	</entry>
+	<entry>229</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e5::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>kamino</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.107.1/25</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:6b::1/64</systemitem>
+	</entry>
+	<entry>230</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e6::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>mustafar</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.110.129/25</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:6e::1/64</systemitem>
+	</entry>
+	<entry>231</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e7::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>naboo</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.122.1/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:7a::1/64</systemitem>
+	</entry>
+	<entry>232</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e8::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>tatooine</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.19.115.193/26</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:73::1/64</systemitem>
+	</entry>
+	<entry>233</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e9::1/64</systemitem>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+</table>
+</sect1>
+
+<sect1 xml:id='interco.inter-vlan.qa.vm'>
+	<title>Raccordement au commutateur de distribution</title>
+
+	<para>Dans cette section, on étudie le raccordement des deux machines
+	virtuelles au commutateur de distribution sur le système hôte.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Comment contrôler la configuration des ports du commutateur de
+	distribution sur le système hôte&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Le commutateur virtuel implanté sur le système hôte est géré par
+	<citetitle>Open vSwitch</citetitle>. On fait donc appel à la commande
+	<command>ovs-vsctl</command> pour afficher la configuration des ports. Le
+	mot clé dans le cas de cette question est
+	<option>vlan_mode</option>.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Pour le port de raccordement du routeur, on obtient&nbsp;:</para>
+<screen><prompt>$</prompt> sudo ovs-vsctl list port tap100 | grep vlan_mode
+vlan_mode           : <emphasis>trunk</emphasis></screen>
+	</listitem>
+	<listitem>
+	<para>Pour le port de raccordement du serveur de conteneur, on obtient&nbsp;:</para>
+<screen><prompt>$</prompt> sudo ovs-vsctl list port tap1 | grep vlan_mode
+vlan_mode           : <emphasis>access</emphasis></screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment contrôler le numéro de <acronym>VLAN</acronym> attribué au
+	port en mode accès du commutateur de distribution sur le système
+	hôte&nbsp;?</para>
+	</question>
+	<answer>
+	<para>On reprend la même commande que dans la question précédente avec le
+	mot clé <option>tag</option>.</para>
+<screen><prompt>$</prompt> sudo ovs-vsctl list port tap1 | grep tag
+tag                 : <emphasis>430</emphasis></screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment affecter le numéro de <acronym>VLAN</acronym> attribué au
+	port en mode accès du commutateur de distribution sur le système
+	hôte&nbsp;?</para>
+	</question>
+	<answer>
+	<para>On reprend à nouveau la même commande avec l'option <option>set</option>.</para> 
+<screen><prompt>$</prompt> sudo ovs-vsctl set port <emphasis>tap1 tag=430</emphasis></screen>
+
+	<para>Les valeurs données dans l'exemple ci-dessus sont à changer suivant
+	les attributions de la section <link
+	linkend='interco.inter-vlan.qa.addressing'>Plan d'adressage des réseaux
+	d'hébergement et de conteneurs</link>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment s'assurer que le port du commutateur est bien configuré à
+	chaque nouveau lancement de machine virtuelle&nbsp;?</para>
+	</question>
+	<answer>
+	<para>On place les commandes de configuration dans une section dédiée du
+	script de lancement. Voici deux exemples de script de lancement&nbsp;:</para>
+<screen>#!/bin/bash
+RAM=1024
+
+echo "Lancement VM rôle routeur"
+CORDON_TRUNK=100
+
+sudo ovs-vsctl set port tap$CORDON_TRUNK vlan_mode=trunk
+
+$HOME/vm/scripts/ovs-startup.sh routeur.qcow2 $RAM $CORDON_TRUNK</screen>
+
+<screen>#!/bin/bash
+RAM=1024
+
+echo "Lancement VM rôle serveur de conteneurs"
+CORDON_ACCES=1
+VLAN_ACCES=430
+
+sudo ovs-vsctl set port tap$CORDON_ACCES vlan_mode=access
+sudo ovs-vsctl set port tap$CORDON_ACCES tag=$VLAN_ACCES
+
+$HOME/vm/scripts/ovs-startup.sh serveur.qcow2 $RAM $CORDON_ACCES</screen>
+
+	<para>Les numéros de port et de <acronym>VLAN</acronym> donnés dans les
+	exemples ci-dessus sont à changer suivant le contexte.</para>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
+<sect1 xml:id='interco.inter-vlan.qa.router'>
+	<title>Rôle routeur</title>
+
+	<para>Dans cette section, on étudie la machine virtuelle qui joue le rôle
+	de routeur entre le réseau  d'hébergement et un réseau de conteneurs. Pour
+	traiter les questions, il est nécessaire de mettre en œuvre une maquette
+	avec un adressage indépendant de la liste de la section <link
+	linkend='interco.inter-vlan.qa.addressing'>Plan d'adressage des réseaux
+	d'hébergement et de conteneurs</link>. Voici les choix effectués pour la
+	maquette.</para>
+
+	<table xml:id='interco.inter-vlan.qa.router.addressing' frame='all' pgwide='1'>
+		<title>Plan d'adressage des réseaux de la maquette</title>
+	<tgroup cols='4'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='1*'/>
+	<colspec colnum='3' colwidth='3*'/>
+	<colspec colnum='4' colwidth='1*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Réseau</entry>
+		<entry>Numéro VLAN</entry>
+		<entry>Adresses de passerelles</entry>
+		<entry>Numéro interface tap</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+		<entry>
+		<citetitle>Hébergement</citetitle><?custom-linebreak?>
+		VLAN rouge
+		</entry>
+		<entry>300</entry>
+		<entry>
+		<systemitem class='ipaddress'>10.141.0.161/27</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:12c::1/64</systemitem>
+		</entry>
+		<entry>100</entry>
+	</row>
+	<row>
+		<entry>
+		<citetitle>Services</citetitle><?custom-linebreak?>
+		VLAN vert
+		</entry>
+		<entry>430</entry>
+		<entry>
+		<systemitem class='ipaddress'>192.0.2.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1ae::1/64</systemitem>
+		</entry>
+		<entry>1</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</table>
+
+	<sect2 xml:id='interco.inter-vlan.qa.router.interfaces'>
+		<title>Configuration des interfaces du routeur</title>
+
+	<para>Une fois la machine virtuelle routeur lancée, les premières étapes
+	consistent à lui attribuer un nouveau nom et à configurer les interfaces
+	réseau pour joindre les hôtes voisins.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Comment changer le nom de la machine virtuelle&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Il faut éditer les deux fichiers <filename>/etc/hosts</filename> et
+	<filename>/etc/hostname</filename> en remplaçant le nom de l'image
+	maître <citetitle>vm0</citetitle> par le nom voulu. Il est ensuite
+	nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
+	tous les outils du système.</para>
+
+<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/rtr/g' /etc/hosts
+[sudo] Mot de passe de etu :
+<prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/rtr/g' /etc/hostname
+sudo: impossible de résoudre l'hôte vm0: Échec temporaire dans la résolution du nom
+<prompt>etu@vm0:~$</prompt> sudo reboot</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment appliquer les configurations réseau <acronym>IPv4</acronym>
+	et <acronym>IPv6</acronym> à partir de l'unique interface du
+	routeur&nbsp;?</para>
+
+	<para>Consulter les pages de manuels du fichier de configuration système à
+	l'aide de la commande <command>man&nbsp;interfaces</command>.</para>
+	</question>
+	<answer>
+	<para>Il existe plusieurs possibilités pour configurer une interface
+	réseau. Dans le contexte de ces manipulations, on utilise le fichier de
+	configuration fourni par la distribution <citetitle>Debian
+	GNU/Linux</citetitle>&nbsp;:
+	<filename>/etc/network/interfaces</filename>.</para> 
+
+	<para>La configuration de base fournie avec l'image maître suppose que
+	l'interface obtienne un bail <acronym>DHCP</acronym> pour la partie
+	<acronym>IPv4</acronym> et une configuration automatique via
+	<acronym>SLAAC</acronym> pour la partie <acronym>IPv6</acronym>. Cette
+	configuration par défaut doit être éditée et remplacée. Il faut configurer
+	trois interfaces.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>L'interface principale doit être placée en mode manuel
+	(<wordasword>manual</wordasword>). Elle doit être activée/désactivée au
+	niveau de la couche liaison.</para>
+	</listitem>
+	<listitem>
+	<para>Une interface doit être créée pour le réseau d'hébergement avec le
+	numéro de <acronym>VLAN</acronym> désigné dans le tableau de la section
+	<link linkend='interco.inter-vlan.qa.addressing'>Plan d'adressage des
+	réseaux d'hébergement et de conteneurs</link>. Cette interface doit
+	désigner les passerelles <acronym>IPv4</acronym> et <acronym>IPv6</acronym>
+	de façon à joindre l'Internet.</para>
+	</listitem>
+	<listitem>
+	<para>Une interface doit être créée pour le réseau des conteneurs avec, là
+	encore, le bon numéro de <acronym>VLAN</acronym>. Les adresses
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> de cette interface
+	deviendront les passerelles du serveur et des conteneurs.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>Voici une copie du fichier
+	<filename>/etc/network/interfaces</filename> de la maquette.</para>
+
+<screen># This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto enp0s6
+iface enp0s6 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+auto enp0s6.300
+iface enp0s6.300 inet static
+	address 10.141.0.162/27
+	gateway 10.141.0.161
+	dns-nameserver 9.9.9.9
+
+iface enp0s6.300 inet6 static
+	address 2001:678:3fc:12c::2/64
+	gateway 2001:678:3fc:12c::1
+
+auto enp0s6.430
+iface enp0s6.430 inet static
+	address 192.0.2.1/24
+
+iface enp0s6.430 inet6 static
+	address fda0:7a62:1ae::1/64</screen>
+
+	<para>Une fois le fichier de configuration en place, il est préférable de
+	redémarrer la machine virtuelle de façon à vérifier que la configuration
+	des interfaces est bien appliquée après chaque réinitialisation.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Quelles ont les tests de connectivité réalisables après application
+	de la nouvelle configuration des interfaces réseau&nbsp;?</para>
+
+	<para>Relever l'état des trois interfaces et procédez aux tests en
+	respectant les couches de la modélisation.</para>
+	</question>
+	<answer>
+	<para>La commande <command>ip addr ls</command> permet de relever l'état de
+	la configuration pour chaque interface.</para>
+
+<screen><prompt>$</prompt> ip addr ls | grep state
+1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+2: enp0s6: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq <emphasis>state UP</emphasis> group default qlen 1000
+3: enp0s6.300@enp0s6: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000
+4: enp0s6.430@enp0s6: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000</screen>
+
+	<para>Sans la confirmation que la configuration du serveur de conteneurs
+	est prête, c'est du côté hébergement et accès Internet qu'il faut orienter
+	les tests. Classiquemt, on cherche à joindre la passerelle en premier puis
+	l'Internet ensuite via des requêtes <acronym>ICMP</acronym>. Enfin, on
+	effectue un test de couche application avec une requête
+	<acronym>DNS</acronym>.</para>
+
+<screen><prompt>$</prompt> ping -q -c2 10.141.0.161
+PING 10.141.0.161 (10.141.0.161) 56(84) bytes of data.
+
+--- 10.141.0.161 ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1002ms
+rtt min/avg/max/mdev = 0.990/1.188/1.387/0.198 ms
+<prompt>$</prompt> ping -q -c2 9.9.9.9
+PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+
+--- 9.9.9.9 ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1002ms
+rtt min/avg/max/mdev = 12.218/12.227/12.237/0.009 ms</screen>
+
+<screen><prompt>$</prompt> ping -q -c2 2001:678:3fc:12c::1
+PING 2001:678:3fc:12c::1(2001:678:3fc:12c::1) 56 data bytes
+
+--- 2001:678:3fc:12c::1 ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1002ms
+rtt min/avg/max/mdev = 1.023/1.164/1.306/0.141 ms
+<prompt>$</prompt> ping -q -c2 2620:fe::fe
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+
+--- 2620:fe::fe ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1002ms
+rtt min/avg/max/mdev = 39.999/40.391/40.784/0.392 ms</screen>
+
+<screen><prompt>$</prompt> host quad9.net
+quad9.net has address 216.21.3.77
+quad9.net has IPv6 address 2620:0:871:9000::77
+quad9.net mail is handled by 20 mx2.quad9.net.
+quad9.net mail is handled by 100 keriomail.pch.net.
+quad9.net mail is handled by 5 mx1.quad9.net.</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='interco.inter-vlan.qa.router.routing'>
+		<title>Activation de la fonction routage</title>
+
+	<para>Sans modification de la configuration par défaut, un système
+	GNU/Linux n'assure pas la fonction de routage du trafic d'une interface
+	réseau à une autre.</para>
+
+	<para>L'activation du routage correspond à un réglage de paramètres du
+	sous-système réseau du noyau Linux. L'outil qui permet de consulter et
+	modifier les réglages de paramètre sur le noyau est appelé
+	<application>sysctl</application>. Son fichier de configuration principal
+	est <filename>/etc/sysctl.conf</filename>.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Comment activer le routage dans le sous-système réseau du noyau
+	Linuxe&nbsp;?</para>
+
+	<para>Utiliser la commande <command>sysctl</command> pour effectuer des
+	recherches et identifier les paramètres utiles. Par exemple&nbsp;:
+	<userinput><prompt>$</prompt> sudo sysctl -a -r
+	".*forward.*"</userinput>.</para>
+
+	<para>Le fichier <filename>/etc/sysctl.conf</filename> contient des
+	commentaires qui guident facilement vers les bons paramètres.</para>
+
+	<para>Attention ! Il ne faut pas oublier d'appliquer les nouvelles valeurs
+	des paramètres de configuration.</para>
+	</question>
+	<answer>
+	<para>Voici un extrait du fichier <filename>/etc/sysctl.conf</filename> du
+	routeur de la maquette après édition.</para>
+
+<screen><prompt>$</prompt> egrep -v '(^#|^$)' /etc/sysctl.conf
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter=1
+<emphasis>net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1</emphasis>
+net.ipv4.conf.all.log_martians = 1</screen>
+
+	<para>Voici une copie d'écran de l'application des nouveaux
+	paramètres.</para>
+
+<screen><prompt>$</prompt> sudo sysctl --system
+* Applying /usr/lib/sysctl.d/50-pid-max.conf ...
+kernel.pid_max = 4194304
+* Applying /etc/sysctl.d/99-sysctl.conf ...
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv4.conf.all.log_martians = 1
+* Applying /usr/lib/sysctl.d/protect-links.conf ...
+fs.protected_fifos = 1
+fs.protected_hardlinks = 1
+fs.protected_regular = 2
+fs.protected_symlinks = 1
+* Applying /etc/sysctl.conf ...
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv4.conf.all.log_martians = 1</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Quelles sont les conditions à réunir pour tester le fonctionnement du
+	routage&nbsp;?</para>
+
+	<para>Rechercher comment utiliser l'analyseur réseau
+	<application>tshark</application> pour caractériser l'acheminement du
+	trafic d'un réseau à l'autre.</para>
+	</question>
+	<answer>
+	<para>Le plan d'adressage prévoit d'utiliser des préfixes ayant une portée
+	locale pour les réseaux de conteneurs. Il n'est donc pas possible de
+	passer par une requête <acronym>ICMP</acronym> pour caractériser l'accès
+	aux réseaux distants. En effet, l'adresse source n'est pas reconnue par
+	l'hôte distant et les routeurs de l'Internet ne disposent d'aucune solution
+	pour joindre le réseau des conteneurs.</para>
+
+	<para>Voici un extrait de capture qui montre que le serveur de conteneur
+	cherche à joindre un hôte sur l'Internet sans succès. Cette capture étant
+	réalisée sur l'interface réseau côté hébergement, elle montre que le trafic
+	est bien echeminé d'un réseau à l'autre.</para>
+
+<screen><prompt>$</prompt> tshark -i enp0s6.300
+Capturing on 'enp0s6.300'
+    1 0.000000000    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xbdab A 1.debian.pool.ntp.org
+    2 0.000056361    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xab92 AAAA 1.debian.pool.ntp.org</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='interco.inter-vlan.qa.router.nat'>
+		<title>Activation de la traduction d'adresses</title>
+
+	<para>Le résultat de la question ci-dessus montre que les hôtes situés dans
+	le réseau des conteneurs ne peuvent pas joindre l'Internet puisque les
+	préfixes réseau utilisés ont une portée limitée.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Quels sont les paquets qui fournissent les outils de gestion de la
+	traduction d'adresses&nbsp;?</para>
+
+	<para>Rechercher les paquets relatifs au filtrage et à la gestion des
+	règles de pare-feux.</para>
+	</question>
+	<answer>
+	<para>Sur les systèmes GNU/Linux, le système de pare-feux comprend une
+	partie "espace utilisateur" appelée <application>iptables</application> et
+	une partie "noyau" appelée <application>netfilter</application>.</para>
+
+	<para>C'est la partie "espace utilisateur" qui nous intéresse ici.</para>
+
+<screen><prompt>$</prompt> aptitude search iptables
+p   arno-iptables-firewall          - single- and multi-homed firewall script wi
+p   golang-github-coreos-go-iptable - Go bindings for iptables utility
+<emphasis>i   iptables                        - administration tools for packet filtering</emphasis>
+p   iptables-converter              - convert iptables-commands from a file to i
+p   iptables-converter-doc          - convert iptables-commands from a file to i
+p   iptables-netflow-dkms           - iptables target which generates netflows
+<emphasis>p   iptables-persistent             - boot-time loader for netfilter rules, ipta</emphasis>
+p   libiptables-chainmgr-perl       - Perl extension for manipulating iptables p
+p   libiptables-parse-perl          - Perl extension for parsing iptables firewa
+p   python-iptables-doc             - documentation for the python-iptables libr
+p   python3-iptables                - Python bindings for iptables (Python 3 int</screen>
+
+	<para>On voit que le paquet <application>iptables</application> est déjà
+	installé et qu'il ne manque que la gestion de la sauvegarde des règles de
+	filtrage et traduction d'adresses.</para>
+
+<screen><prompt>$</prompt> sudo apt install iptables-persistent</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Quelles sont les règles à appliquer pour assurer une traduction des
+	adresses sources en sortie sur le réseau hébergement&nbsp;?</para>
+
+	<para>Rechercher dans les pages de manuel de la commande
+	<command>iptables</command>.</para>
+	</question>
+	<answer>
+	<para>C'est la cible <literal>MASQUERADE</literal> qui nous intéresse.
+	Voici un exemple de règles de traduction des adresses sources pour la
+	maquette.</para>
+
+<screen><prompt>$</prompt> sudo iptables -t nat -A POSTROUTING -o enp0s6.300 -j MASQUERADE
+<prompt>$</prompt> sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
+
+<screen><prompt>$</prompt> sudo ip6tables -t nat -A POSTROUTING -o enp0s6.300 -j MASQUERADE
+<prompt>$</prompt> sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment caractériser le fonctionnement de la traduction d'adresses
+	sources&nbsp;?</para>
+	
+	<para>Rechercher dans les pages de manuel de la commande
+	<command>iptables</command> les options d'affichage du décompte du trafic
+	traité.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple d'affichage pour le trafic <acronym>IPv4</acronym>
+	uniquement.</para>
+
+<screen><prompt>$</prompt> sudo iptables -vnL -t nat
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+<emphasis>    8   598 MASQUERADE  all  --  *      enp0s6.300  0.0.0.0/0            0.0.0.0/0</emphasis>
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='interco.inter-vlan.qa.router.radvd'>
+		<title>Activation de la configuration IPv6 automatique pour le réseau
+		de conteneurs</title>
+
+	<para>Pour que les hôtes du réseau de conteneurs obtiennent automatiquement
+	une configuration <acronym>IPv6</acronym>, il faut que le routeur assure
+	les annonces auprès de ces voisins. Un moyen simple pour assurer la
+	configuration <acronym>SLAAC</acronym> des hôtes voisins du routeur
+	consiste à utiliser le paquet <application>radvd</application>.</para> 
+
+	<para>On débute par l'installation de ce paquet.</para>
+
+<screen><prompt>$</prompt> sudo apt install radvd
+...
+Préparation du dépaquetage de .../radvd_1%3a2.17-2+b1_amd64.deb ...
+Dépaquetage de radvd (1:2.17-2+b1) ...
+Paramétrage de radvd (1:2.17-2+b1) ...
+Job for radvd.service failed because the control process exited with error code.
+See "systemctl status radvd.service" and "journalctl -xe" for details.
+invoke-rc.d: initscript radvd, action "start" failed.
+● radvd.service - Router advertisement daemon for IPv6
+     Loaded: loaded (/lib/systemd/system/radvd.service; disabled; vendor preset: enabled)
+     <emphasis>Active: failed</emphasis> (Result: exit-code) since Sun 2020-09-13 22:32:10 CEST; 17ms ago
+       Docs: man:radvd(8)
+    Process: 2814 ExecStartPre=/usr/sbin/radvd --logmethod stderr_clean --configtest (code=exited, status=1/FAILURE)</screen>
+
+	<para>On voit que le lancement du service a échoué.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Comment configurer le service <application>radvd</application> pour
+	publier les annonces côté conteneurs&nbsp;?</para>
+
+	<para>Rechercher les options utiles dans les pages de manuel du
+	service&nbsp;: <userinput>man radvd.conf</userinput>.</para>
+	</question>
+	<answer>
+	<para>Voici une copie du fichier de configuration
+	<filename>/etc/radvd.conf</filename> de la maquette.</para>
+
+<screen>interface enp0s6.430
+{
+        AdvSendAdvert on;
+
+        prefix fda0:7a62:1ae::/64
+        {
+                AdvOnLink on;
+                AdvAutonomous on;
+                AdvRouterAddr on;
+        };
+
+        RDNSS 2620:fe::fe
+        {
+        };
+};</screen>
+
+	<para>Attention ! Une fois le fichier créé, il ne faut pas oublier de
+	redémarrer le service et de contrôler l'état de son fonctionnement.</para>
+
+<screen><prompt>$</prompt> sudo systemctl enable radvd
+<prompt>$</prompt> sudo systemctl restart radvd
+<prompt>$</prompt> systemctl status radvd
+● radvd.service - Router advertisement daemon for IPv6
+     Loaded: loaded (/lib/systemd/system/radvd.service; disabled; vendor preset: enabled)
+     Active: <emphasis>active (running)</emphasis> since Sun 2020-09-13 22:39:34 CEST; 5s ago
+       Docs: man:radvd(8)
+    Process: 2890 ExecStartPre=/usr/sbin/radvd --logmethod stderr_clean --configtest (code=exited, status=0/SUCCESS)
+    Process: 2891 ExecStart=/usr/sbin/radvd --logmethod stderr_clean (code=exited, status=0/SUCCESS)
+   Main PID: 2892 (radvd)
+      Tasks: 2 (limit: 1142)
+     Memory: 1.3M
+     CGroup: /system.slice/radvd.service
+             ├─2892 /usr/sbin/radvd --logmethod stderr_clean
+             └─2893 /usr/sbin/radvd --logmethod stderr_clean
+
+sept. 13 22:39:34 rtr systemd[1]: Starting Router advertisement daemon for IPv6...
+sept. 13 22:39:34 rtr radvd[2890]: config file, /etc/radvd.conf, syntax ok
+sept. 13 22:39:34 rtr radvd[2891]: version 2.17 started
+sept. 13 22:39:34 rtr systemd[1]: Started Router advertisement daemon for IPv6.</screen>
+
+	<para>Enfin, le résultat doit se retrouver sur la configuration réseau de
+	l'interface du serveur de conteneurs.</para>
+
+<screen><prompt>etu@srvr:~$</prompt> ip addr ls dev enp0s6
+2: enp0s6: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+    link/ether b0:ad:ca:fe:00:01 brd ff:ff:ff:ff:ff:ff
+    inet 192.0.2.2/24 brd 192.0.2.255 scope global enp0s6
+       valid_lft forever preferred_lft forever
+    <emphasis>inet6 fda0:7a62:1ae:0:b2ad:caff:fefe:1/64 scope global dynamic mngtmpaddr</emphasis>
+       valid_lft 86124sec preferred_lft 14124sec
+    inet6 fe80::b2ad:caff:fefe:1/64 scope link
+       valid_lft forever preferred_lft forever</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.inter-vlan.qa.server'>
+	<title>Rôle serveur de conteneurs</title>
+
+	<sect2 xml:id='interco.inter-vlan.qa.server.interfaces'>
+		<title>Configuration des interfaces du routeur</title>
+
+	<para>Une fois la machine virtuelle serveur de conteneurs lancée, les
+	premières étapes consistent à lui attribuer un nouveau nom et à configurer
+	les interfaces réseau pour joindre le routeur voisin et l'Internet.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Comment changer le nom de la machine virtuelle&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Il faut éditer les deux fichiers <filename>/etc/hosts</filename> et
+	<filename>/etc/hostname</filename> en remplaçant le nom de l'image
+	maître <citetitle>vm0</citetitle> par le nom voulu. Il est ensuite
+	nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
+	tous les outils du système.</para>
+
+<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/srvr/g' /etc/hosts
+<prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/srvr/g' /etc/hostname
+sudo: impossible de résoudre l'hôte vm0: Échec temporaire dans la résolution du nom
+<prompt>etu@vm0:~$</prompt> sudo reboot</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment appliquer la configuration réseau <acronym>IPv4</acronym>
+	et <acronym>IPv6</acronym> de l'interface du serveur&nbsp;?</para>
+
+	<para>Consulter les pages de manuels du fichier de configuration système à
+	l'aide de la commande <command>man&nbsp;interfaces</command>.</para>
+	</question>
+	<answer>
+	<para>Il existe plusieurs possibilités pour configurer une interface
+	réseau. Dans le contexte de ces manipulations, on utilise le fichier de
+	configuration fourni par la distribution <citetitle>Debian
+	GNU/Linux</citetitle>&nbsp;:
+	<filename>/etc/network/interfaces</filename>.</para> 
+
+	<para>La configuration de base fournie avec l'image maître suppose que
+	l'interface obtienne un bail <acronym>DHCP</acronym> pour la partie
+	<acronym>IPv4</acronym> et une configuration automatique via
+	<acronym>SLAAC</acronym> pour la partie <acronym>IPv6</acronym>.</para>
+
+	<para>La configuration <acronym>IPv4</acronym> par défaut doit être éditée
+	et remplacée par une configuration statique tandis que la configuration
+	<acronym>IPv6</acronym> doit toujours se faire automatiquement via
+	<acronym>SLAAC</acronym>.</para>
+
+	<para>Voici une copie du fichier
+	<filename>/etc/network/interfaces</filename> de la maquette.</para>
+
+<screen># This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+allow-hotplug enp0s6
+iface enp0s6 inet static
+        address 192.0.2.2/24
+        gateway 192.0.2.1
+        dns-nameserver 9.9.9.9</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='interco.inter-vlan.qa.lxd.install'>
+	    <title>Installation du gestionnaire de conteneurs LXD</title>
+
+	<para>Sur l'hôte serveur, la gestion des conteneurs est confiée à
+	<application>LXD</application>. Pour des raisons de rapidité de mise en
+	œuvre, on choisit de passer par le gestionnaire de paquets
+	<application>snapd</application> pour l'installation des outils.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Comment installer le gestionnaire de paquets
+	<application>snap</application> sur une distribution <citetitle>Debian
+	GNU/Linux</citetitle>&nbsp;?</para>
+
+	<para>Effectuer une recherche dans les paquets fournis via
+	<acronym>APT</acronym>.</para>
+	</question> 
+	<answer>
+	<para>Il existe tout simplement un paquet appelé
+	<application>snapd</application>.</para>
+
+<screen><prompt>$</prompt> sudo apt install snapd</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment installer le gestionnaire de conteneurs
+	<application>LXD</application>&nbsp;?</para>
+
+	<para>Rechercher dans la liste des <wordasword>snaps</wordasword>.</para>
+	</question>
+	<answer>
+	<para>Le <wordasword>snap</wordasword> s'appelle tout simplement
+	<application>lxd</application>.</para>
+
+<screen><prompt>$</prompt> sudo snap install lxd
+2020-09-13T22:59:46+02:00 INFO Waiting for automatic snapd restart...
+Warning: /snap/bin was not found in your $PATH. If you've not restarted your session since you
+         installed snapd, try doing that. Please see https://forum.snapcraft.io/t/9469 for more
+         details.
+
+lxd 4.4 from Canonical✓ installed</screen>
+
+	<para>On peut lister les <wordasword>snaps</wordasword> installés.</para>
+
+<screen><prompt>$</prompt> snap list
+Name    Version   Rev    Tracking       Publisher   Notes
+core18  20200724  1885   latest/stable  canonical✓  base
+lxd     4.4       16926  latest/stable  canonical✓  -
+snapd   2.45.3.1  8790   latest/stable  canonical✓  snapd</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment faire pour que l'utilisateur normal <literal>etu</literal>
+	ait la capacité à gérer les conteneurs&nbsp;?</para>
+
+	<para>Rechercher le nom du groupe système correspondant à l'utilisation des
+	outils <application>LXD</application>.</para>
+	</question>
+	<answer>
+	<para>Il faut que l'utilisteur normal appartienne au groupe système
+	<systemitem>lxd</systemitem> pour qu'il est tous les droits sur la gestion
+	des conteneurs.</para>
+
+<screen><prompt>$</prompt> sudo adduser etu lxd</screen>
+
+	<para>Attention ! il faut se déconnecter/reconnecter pour bénéficier de la
+	nouvelle attribution de groupe. On peut utiliser la commande
+	<command>groups</command> pour vérifier le résultats.</para>
+
+<screen><prompt>$</prompt> groups
+etu adm cdrom floppy sudo audio dip video plugdev staff netdev <emphasis>lxd</emphasis></screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+  
+	<sect2 xml:id='interco.inter-vlan.qa.lxd.init'>
+	    <title>Configuration du gestionnaire de conteneurs LXD</title>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Quelle est l'instruction de configuration initiale du gestionnaire
+	<application>LXD</application>&nbsp;?</para>
+
+	<para>Utiliser l'aide de la commande <command>lxd</command>.</para>
+	</question>
+	<answer>
+	<para>C'est l'instruction <userinput>lxd init</userinput> qui nous
+	intéresse.</para>
+
+	<para>Voici une copie d'écran de son exécution.</para>
+
+<screen><prompt>$</prompt> lxd init
+Would you like to use LXD clustering? (yes/no) [default=no]:
+Do you want to configure a new storage pool? (yes/no) [default=yes]:
+Name of the new storage pool [default=default]:
+Name of the storage backend to use (ceph, btrfs, dir, lvm) [default=btrfs]:
+Create a new BTRFS pool? (yes/no) [default=yes]:
+Would you like to use an existing empty disk or partition? (yes/no) [default=no]:
+Size in GB of the new loop device (1GB minimum) [default=13GB]:
+Would you like to connect to a MAAS server? (yes/no) [default=no]:
+Would you like to create a new local network bridge? (yes/no) [default=yes]: <emphasis>no</emphasis>
+Would you like to configure LXD to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
+Name of the existing bridge or host interface: <emphasis>enp0s6</emphasis>
+Would you like LXD to be available over the network? (yes/no) [default=no]:
+Would you like stale cached images to be updated automatically? (yes/no) [default=yes]
+Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]: yes
+config: {}
+networks: []
+storage_pools:
+- config:
+    size: 13GB
+  description: ""
+  name: default
+  driver: btrfs
+profiles:
+- config: {}
+  description: ""
+  devices:
+    eth0:
+      name: eth0
+      <emphasis>nictype: macvlan</emphasis>
+      parent: enp0s6
+      type: nic
+    root:
+      path: /
+      pool: default
+      type: disk
+  name: default
+cluster: null</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Quelle est l'instruction qui permet d'afficher le profil par défaut
+	des conteneur&nbsp;?</para>
+
+	<para>Rechercher dans les options de la commande
+	<command>lxc</command>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple d'exécution.</para>
+
+<screen><prompt>$</prompt> lxc profile show default
+To start your first instance, try: lxc launch ubuntu:18.04
+
+config: {}
+description: Default LXD profile
+devices:
+  eth0:
+    name: eth0
+    nictype: macvlan
+    parent: enp0s6
+    type: nic
+  root:
+    path: /
+    pool: default
+    type: disk
+name: default
+used_by: []</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Quelle est l'instruction de lancement d'un conteneur&nbsp;?</para>
+
+	<para>Rechercher dans les options de la commande
+	<command>lxc</command>.</para>
+
+	<para>Tester son exécution avec un conteneur de type
+	<literal>debian/bullseye</literal>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple d'exécution.</para>
+
+<screen><prompt>$</prompt> lxc launch images:debian/bullseye container0
+Creating container0
+Starting container0
+<prompt>$</prompt> lxc ls
++------------+---------+------+-------------------------------------------+-----------+-----------+
+|    NAME    |  STATE  | IPV4 |                   IPV6                    |   TYPE    | SNAPSHOTS |
++------------+---------+------+-------------------------------------------+-----------+-----------+
+| container0 | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fe22:6075 (eth0) | CONTAINER | 0         |
++------------+---------+------+-------------------------------------------+-----------+-----------+</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+</sect1>
+</article>

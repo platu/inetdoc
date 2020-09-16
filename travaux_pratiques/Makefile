@@ -38,6 +38,7 @@ SUBDIRS = \
 	interco.netfilter.qa \
 	interco.netfilter.q \
 	interco.inter-vlan.qa \
+	interco.inter-vlan-cloud.qa \
 	interco.ospf-quagga.qa \
 	interco.ospf-quagga.q \
 	interco.ospf-bird.qa \
