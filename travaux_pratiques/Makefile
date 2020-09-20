@@ -35,6 +35,7 @@ SUBDIRS = \
 	interco.ppp.q \
 	interco.pppoe.qa \
 	interco.pppoe.q \
+	interco.pppoe-cloud.qa \
 	interco.netfilter.qa \
 	interco.netfilter.q \
 	interco.inter-vlan.qa \
