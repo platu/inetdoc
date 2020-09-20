@@ -241,11 +241,19 @@
 	<title>Topologies logiques et virtuelles</title>
 
 	<para>La représentation de la topologie logique ci-dessous montre que le
-	routeur de couleur verte assure l'interconnexion entre un réseau
-	d'infrastructure appelé <wordasword>Hosting VLAN</wordasword> et un réseau
-	de conteneurs appelé <wordasword>Container VLAN</wordasword>. Les deux
-	rectangles en gris “matérialisent“ les machines virtuelles qui sont
-	utilisées pour les manipulations.</para>
+	routeur de couleur bleue assure l'interconnexion entre un réseau
+	d'infrastructure opérateur appelé <wordasword>Hosting VLAN</wordasword> et
+	un réseau étendu qui dessert un site distant. Ce site distant est
+	représenté par le routeur de couleur verte. Les services hébergés sur le
+	site distant appartiennent au réseau appelé <wordasword>Container
+	VLAN</wordasword>. Sur le réseau étendu on distingue deux autres
+	<acronym>VLANs</acronym>&nbsp;: le <acronym>VLAN</acronym> violet appelé
+	<wordasword>Management VLAN</wordasword> est utilisé pour la supervision et
+	le <acronym>VLAN</acronym> orange <wordasword>Data VLAN</wordasword> est
+	utilisé pour l'acheminement des données du site distant. Ce dernier réseau
+	à la particularité d'utiliser une session <acronym>PPPoE</acronym> entre
+	les routeurs bleu et vert. Les deux rectangles en gris “matérialisent“ les
+	machines virtuelles qui sont utilisées pour les manipulations.</para>
 
 	<mediaobject>
 	<imageobject role='html'>
@@ -263,18 +271,26 @@
 	</mediaobject>
 
 	<para>La représentation de la topologie vue sous l'angle de l'hébergement
-	sur un système hôte hyperviseur montre que les deux
-	<acronym>VLANs</acronym> sont présents sur le commutateur virtuel de couche
-	distribution appelé <citetitle>dsw-host</citetitle>. Ce commutateur
-	appartient au système hôte. Il assure le raccordement entre les réseaux
-	physiques et virtualisés. On retrouve le routeur de couleur verte raccordé
-	avec un lien unique sur lequel le trafic des deux <acronym>VLANs</acronym>
-	doit transiter.</para>
+	sur un système hôte hyperviseur montre que le <acronym>VLAN</acronym> de
+	couleur verte appelé <wordasword>Container VLAN</wordasword> n'est visible
+	qu'à l'intérieur de la machine virtuelle qui représente le site distant. Ce
+	<acronym>VLAN</acronym> est isolé et ses préfixes réseau
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> doivent être
+	<emphasis>routés</emphasis>. C'est la raison pour laquelle la machine
+	virtuelle du site distant dispose de son propre commutateur&nbsp;:
+	<systemitem>asw-host</systemitem>.</para>
 
-	<para>Côté conteneurs, seule l'interface <systemitem>enp0s6</systemitem>
-	est raccordé via un lien en mode accès. La technologie
-	<acronym>macVLAN</acronym> permet d'utiliser plusieurs adresses
-	<acronym>MAC</acronym> sur une même interface réseau.</para>
+	<para>Tous les autres <acronym>VLANs</acronym> sont présents sur le
+	commutateur virtuel de couche distribution appelé
+	<systemitem>dsw-host</systemitem>. Ce commutateur appartient au système
+	hôte. Il assure le raccordement entre les réseaux physiques et virtualisés.
+	Chacun des routeurs bleu et vert est raccordé avec un lien unique (port en
+	mode <wordasword>trunk</wordasword>) sur lequel le trafic des
+	<acronym>VLANs</acronym> doit transiter.</para>
+
+	<para>Côté conteneurs, le raccordement au commutateur
+	<systemitem>asw-host</systemitem> sera assuré automatiquement par le
+	gestionnaire <citetitle>LXD</citetitle>.</para>
 
 	<mediaobject>
 	<imageobject role='html'>
@@ -290,371 +306,1492 @@
 	<para><link xlink:href='images/pppoe-cloud-hypervisor-topology.png'>Topologie hébergée</link></para>
 	</caption>
 	</mediaobject>
-
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='interco.pppoe-cloud.qa.addressing'>
-	<title>Plan d'adressage des réseaux d'hébergement et de conteneurs</title>
+	<title>Plan d'adressage</title>
 
-<para>Attention ! Les adresses de passerelle côté hébergement sont déjà
-implantées dans l'infrastructure de travaux pratiques tandis que les adresses
-de passerelle côté conteneurs sont à implanter sur le routeur.</para>
+<para>Attention ! Les adresses de passerelle côté opérateur
+(<wordasword>Hosting VLAN</wordasword> de couleur rouge) sont déjà implantées
+dans l'infrastructure de travaux pratiques tandis que toutes les autres
+adresses de passerelle sont à implanter sur les routeurs bleu et vert.</para>
 
 <table frame='all' pgwide='1'>
-	<title>Affectations des adresses de passerelle</title>
-	<tgroup cols='4' align='left' colsep='1' rowsep='1'>
-	<colspec colname='c1' colwidth='2*'/>
-	<colspec colname='c2' colwidth='2*'/>
+	<title>Affectation des numéros de VLANs, des adresses de passerelle et des
+	authentifiants</title>
+	<tgroup cols='5' align='left' colsep='1' rowsep='1'>
+	<colspec colname='c1' colwidth='1*'/>
+	<colspec colname='c2' colwidth='1*'/>
 	<colspec colname='c3' colwidth='1*'/>
-	<colspec colname='c4' colwidth='2*'/>
+	<colspec colname='c4' colwidth='1*'/>
+	<colspec colname='c5' colwidth='2*'/>
 	<thead>
 	<row>
 		<?dbfo bgcolor="#333" ?>
 		<?dbfo color="#fff" ?>
-	<entry>Planète (deux machines virtuelles)</entry>
-	<entry>Passerelle&nbsp;- <wordasword>Hosting VLAN</wordasword></entry>
-	<entry  namest="c3" nameend="c4">VLAN &amp; Passerelle&nbsp;- <wordasword>Container VLAN</wordasword></entry>
+		<entry>Planète</entry>
+		<entry>VLAN</entry>
+		<entry>Numéro</entry>
+		<entry>Type</entry>
+		<entry>Adresse</entry>
 	</row>
 	</thead>
 	<tbody>
+	<!-- Christophsis -->
 	<row>
-	<entry>christophsis</entry>
+	<entry morerows='5' valign='middle'>Christophsis</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>192.168.37.9/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>2001:678:3fc:133::1/64</systemitem>
 	</entry>
-	<entry>400</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>400</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:190::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:190::1</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>corellia</entry>
 	<entry>
-		<systemitem class='ipaddress'>172.22.9.33/29</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:151::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:190::2</systemitem>
 	</entry>
-	<entry>401</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>401</entry>
+	<entry>Passerelle</entry>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>10.4.1.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:191::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>delaya</entry>
-	<entry>
-		<systemitem class='ipaddress'>10.31.0.193/26</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:136::1/64</systemitem>
-	</entry>
-	<entry>402</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s1 / Sp0k3.1</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>10</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:192::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:a::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>kashyyyk</entry>
+	<!-- Corellia -->
+	<entry morerows='5'>Corellia</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
 	<entry>
-		<systemitem class='ipaddress'>10.30.5.129/26</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:131::1/64</systemitem>
+		<systemitem class='ipaddress'>172.22.9.33/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:151::1/64</systemitem>
 	</entry>
-	<entry>403</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>402</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:192::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:192::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>403</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.3.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:193::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>korriban</entry>
-	<entry>
-		<systemitem class='ipaddress'>10.9.10.129/26</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:14f::1/64</systemitem>
-	</entry>
-	<entry>404</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s2 / Sp0k3.2</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>11</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:194::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:b::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>kessel</entry>
+	<!-- Delaya -->
+	<entry morerows='5'>Delaya</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
 	<entry>
-		<systemitem class='ipaddress'>10.30.6.65/28</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:132::1/64</systemitem>
+		<systemitem class='ipaddress'>10.31.0.193/26</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:136::1/64</systemitem>
 	</entry>
-	<entry>405</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>404</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:194::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:194::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>405</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.5.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:195::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>mygeeto</entry>
-	<entry>
-		<systemitem class='ipaddress'>10.9.15.17/29</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:150::1/64</systemitem>
-	</entry>
-	<entry>406</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s3 / Sp0k3.3</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>12</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:196::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:c::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>nelvaan</entry>
+	<!-- Kashyyyk -->
+	<entry morerows='5'>Kashyyyk</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
 	<entry>
-		<systemitem class='ipaddress'>10.31.1.145/28</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:137::1/64</systemitem>
+		<systemitem class='ipaddress'>10.30.5.129/26</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:131::1/64</systemitem>
 	</entry>
-	<entry>407</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>406</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:196::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:196::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>407</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.7.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:197::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>rattatak</entry>
-	<entry>
-		<systemitem class='ipaddress'>192.168.10.81/28</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:145::1/64</systemitem>
-	</entry>
-	<entry>408</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s4 / Sp0k3.4</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>13</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:198::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:d::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>saleucami</entry>
+	<!-- Korriban -->
+	<entry morerows='5'>Korriban</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
 	<entry>
-		<systemitem class='ipaddress'>192.168.12.17/29</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:138::1/64</systemitem>
+		<systemitem class='ipaddress'>10.9.10.129/26</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:14f::1/64</systemitem>
 	</entry>
-	<entry>409</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>408</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:198::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:198::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>409</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.9.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:199::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>taris</entry>
-	<entry>
-		<systemitem class='ipaddress'>10.8.11.9/29</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:14b::1/64</systemitem>
-	</entry>
-	<entry>410</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s5 / Sp0k3.5</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>14</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:19a::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:e::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Kessel -->
+	<row>
+	<entry morerows='5'>Kessel</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.30.6.65/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:132::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>teth</entry>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>410</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>10.0.10.33/27</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:13c::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:19a::1</systemitem>
 	</entry>
-	<entry>411</entry>
+	</row>
+	<row>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:19a::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>411</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.11.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:19b::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>utapau</entry>
-	<entry>
-		<systemitem class='ipaddress'>172.21.12.17/29</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:14c::1/64</systemitem>
-	</entry>
-	<entry>412</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s6 / Sp0k3.6</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>15</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:19c::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:f::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Mygeeto -->
+	<row>
+	<entry morerows='5'>Mygeeto</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.9.15.17/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:150::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>yavin</entry>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>412</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>172.19.9.65/26</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:13b::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:19c::1</systemitem>
 	</entry>
-	<entry>413</entry>
+	</row>
+	<row>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:19c::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>413</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.13.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:19d::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>alderaan</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s7 / Sp0k3.7</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>16</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:10::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- nelvaan -->
+	<row>
+	<entry morerows='5'>Nelvaan</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.31.1.145/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:137::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>414</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:19e::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:19e::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>415</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.15.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:19f::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s8 / Sp0k3.8</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>17</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:11::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Rattatak -->
+	<row>
+	<entry morerows='5'>Rattatak</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.10.81/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:145::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>416</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1a0::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1a0::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>417</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.17.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1a1::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s9 / Sp0k3.9</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>18</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:12::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Saleucami -->
+	<row>
+	<entry morerows='5'>Saleucami</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.12.17/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:138::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>418</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1a2::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1a2::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>419</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.19.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1a3::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s10 / Sp0k3.10</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>19</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:13::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Taris -->
+	<row>
+	<entry morerows='5'>Taris</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.8.11.9/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:14b::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>420</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1a4::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1a4::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>421</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.21.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1a5::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s11 / Sp0k3.11</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>20</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:14::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Teth -->
+	<row>
+	<entry morerows='5'>teth</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.0.10.33/27</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:13c::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>422</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1a6::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1a6::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>423</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.23.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1a7::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s12 / Sp0k3.12</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>21</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:15::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Utapau -->
+	<row>
+	<entry morerows='5'>Utapau</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.21.12.17/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:14c::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>424</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1a8::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1a8::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>425</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.25.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1a9::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s13 / Sp0k3.13</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>22</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:16::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Yavin -->
+	<row>
+	<entry morerows='5'>Yavin</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.19.9.65/26</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:13b::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>426</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1aa::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1aa::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>427</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.27.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1ab::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s14 / Sp0k3.14</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>23</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:17::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Alderaan -->
+	<row>
+	<entry morerows='5'>Alderaan</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>172.17.64.129/25</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>2001:678:3fc:64::1/64</systemitem>
 	</entry>
-	<entry>220</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>220</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:dc::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:dc::1</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>bespin</entry>
 	<entry>
-		<systemitem class='ipaddress'>172.20.135.65/28</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:87::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:dc::2</systemitem>
 	</entry>
-	<entry>221</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>221</entry>
+	<entry>Passerelle</entry>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>10.2.21.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:dd::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>centares</entry>
-	<entry>
-		<systemitem class='ipaddress'>172.18.4.1/22</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:65::1/64</systemitem>
-	</entry>
-	<entry>222</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s20 / Sp0k3.20</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>24</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:de::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:18::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Bespin -->
+	<row>
+	<entry morerows='5'>Bespin</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.20.135.65/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:87::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>coruscant</entry>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>222</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>172.20.136.81/28</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:88::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:de::1</systemitem>
 	</entry>
-	<entry>223</entry>
+	</row>
+	<row>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:de::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>223</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.23.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:df::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>dagobah</entry>
-	<entry>
-		<systemitem class='ipaddress'>10.3.2.1/23</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:66::1/64</systemitem>
-	</entry>
-	<entry>224</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s21 / Sp0k3.21</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>25</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:e0::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:19::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Centares -->
+	<row>
+	<entry morerows='5'>Centares</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.18.4.1/22</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:65::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>endor</entry>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>224</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>172.24.132.17/28</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:84::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:e0::1</systemitem>
 	</entry>
-	<entry>225</entry>
+	</row>
+	<row>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:e0::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>225</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.25.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:e1::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>felucia</entry>
-	<entry>
-		<systemitem class='ipaddress'>10.6.8.1/23</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:69::1/64</systemitem>
-	</entry>
-	<entry>226</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s22 / Sp0k3.22</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>26</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:e2::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:1a::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Coruscant -->
+	<row>
+	<entry morerows='5'>Coruscant</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.20.136.81/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:88::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>geonosis</entry>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>226</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>172.20.131.33/29</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:83::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:e2::1</systemitem>
 	</entry>
-	<entry>227</entry>
+	</row>
+	<row>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:e2::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>227</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.27.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:e3::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>hoth</entry>
-	<entry>
-		<systemitem class='ipaddress'>10.7.10.1/23</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:6a::1/64</systemitem>
-	</entry>
-	<entry>228</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s23 / Sp0k3.23</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>27</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:e4::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:1b::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Dagobah -->
+	<row>
+	<entry morerows='5'>Dagobah</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.3.2.1/23</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:66::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>jakku</entry>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>228</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>172.20.130.25/29</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:82::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:e4::1</systemitem>
 	</entry>
-	<entry>229</entry>
+	</row>
+	<row>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:e4::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>229</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.29.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:e5::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>kamino</entry>
-	<entry>
-		<systemitem class='ipaddress'>192.168.107.1/25</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:6b::1/64</systemitem>
-	</entry>
-	<entry>230</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s24 / Sp0k3.24</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>28</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:e6::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:1c::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Endor -->
+	<row>
+	<entry morerows='5'>Endor</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.24.132.17/28</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:84::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>mustafar</entry>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>230</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>192.168.110.129/25</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:6e::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:e6::1</systemitem>
 	</entry>
-	<entry>231</entry>
+	</row>
+	<row>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fe80:e6::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>231</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.31.1/29</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>fda0:7a62:e7::1/64</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>naboo</entry>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s25 / Sp0k3.25</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>29</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1d::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Felucia -->
+	<row>
+	<entry morerows='5'>Felucia</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.6.8.1/23</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:69::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>232</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:e8::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:e8::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>233</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.33.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:e9::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s26 / Sp0k3.26</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>30</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1e::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Geonosis -->
+	<row>
+	<entry morerows='5'>Geonosis</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.20.131.33/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:83::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>234</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:ea::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:ea::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>235</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.35.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:eb::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s27 / Sp0k3.27</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>31</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1f::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Hoth -->
+	<row>
+	<entry morerows='5'>Hoth</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.7.10.1/23</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:6a::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>236</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:ec::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:ec::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>237</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.37.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:ed::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s28 / Sp0k3.28</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>32</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:20::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Jakku -->
+	<row>
+	<entry morerows='5'>Jakku</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>172.20.130.25/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:82::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>238</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:ee::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:ee::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>239</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.39.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:ef::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s29 / Sp0k3.29</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>33</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:21::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Kamino -->
+	<row>
+	<entry morerows='5'>Kamino</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.107.1/25</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:6b::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>240</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:f0::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:f0::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>241</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.41.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:f1::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s30 / Sp0k3.30</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>34</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:22::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Mustafar -->
+	<row>
+	<entry morerows='5'>Mustafar</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.110.129/25</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:6e::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>242</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:f2::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:f2::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>243</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.43.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:f3::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s31 / Sp0k3.31</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>35</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:25::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Naboo -->
+	<row>
+	<entry morerows='5'>Naboo</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>192.168.122.1/28</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>2001:678:3fc:7a::1/64</systemitem>
 	</entry>
-	<entry>232</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>244</entry>
+	<entry morerows='1'>Adresse</entry>
 	<entry>
-		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:e8::1/64</systemitem>
+		<systemitem class='ipaddress'>fe80:f4::1</systemitem>
 	</entry>
 	</row>
 	<row>
-	<entry>tatooine</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:f4::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>245</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.45.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:f5::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s32 / Sp0k3.32</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>36</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:26::1/64</systemitem>
+	</entry>
+	</row>
+	<!-- Tatooine -->
+	<row>
+	<entry morerows='5'>Tatooine</entry>
+	<entry>Rouge</entry>
+	<entry>-</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>172.19.115.193/26</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>2001:678:3fc:73::1/64</systemitem>
 	</entry>
-	<entry>233</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>246</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:f6::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:f6::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>247</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.2.47.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:f7::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu_s33 / Sp0k3.33</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>37</entry>
+	<entry>Passerelle</entry>
 	<entry>
 		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:e9::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:27::1/64</systemitem>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+</table>
+
+	<para>Voici le plan d'adressage utilisé pour la maquette qui sert à la
+	rédaction de ce support de travaux pratiques.</para>
+
+<table frame='all' pgwide='1'>
+	<title>Affectation des numéros de VLANs, des adresses de passerelle et des
+	authentifiants</title>
+	<tgroup cols='5' align='left' colsep='1' rowsep='1'>
+	<colspec colname='c1' colwidth='1*'/>
+	<colspec colname='c2' colwidth='1*'/>
+	<colspec colname='c3' colwidth='1*'/>
+	<colspec colname='c4' colwidth='1*'/>
+	<colspec colname='c5' colwidth='2*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Planète</entry>
+		<entry>VLAN</entry>
+		<entry>Numéro</entry>
+		<entry>Type</entry>
+		<entry>Adresse</entry>
+	</row>
+	</thead>
+	<tbody>
+	<!-- Maquette -->
+	<row>
+	<entry morerows='5' valign='middle'>Maquette</entry>
+	<entry>Rouge</entry>
+	<entry>300</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.141.0.161/27</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:12c::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>430</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1ae::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1ae::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>431</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.31.1/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1af::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>etu / Sp0k3</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>40</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:28::1/64</systemitem>
 	</entry>
 	</row>
 	</tbody>
 	</tgroup>
 </table>
 </sect1>
+
+<sect1 xml:id='interco.pppoe-clous.qa.dsw'>
+	<title>Raccordement au commutateur de distribution</title>
+
+	<para>Dans cette section, on étudie le raccordement des deux machines
+	virtuelles au commutateur de distribution sur le système hôte.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Comment contrôler la configuration des ports du commutateur de
+	distribution sur le système hôte&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Le commutateur virtuel implanté sur le système hôte est géré par
+	<citetitle>Open vSwitch</citetitle>. On fait donc appel à la commande
+	<command>ovs-vsctl</command> pour afficher la configuration des ports. Le
+	mot clé dans le cas de cette question est
+	<option>vlan_mode</option>.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Pour le port de raccordement du routeur, on obtient&nbsp;:</para>
+<screen><prompt>$</prompt> sudo ovs-vsctl list port tap100 | grep vlan_mode
+vlan_mode           : <emphasis>trunk</emphasis></screen>
+	</listitem>
+	<listitem>
+	<para>Pour le port de raccordement du serveur de conteneur, on obtient&nbsp;:</para>
+<screen><prompt>$</prompt> sudo ovs-vsctl list port tap1 | grep vlan_mode
+vlan_mode           : <emphasis>access</emphasis></screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment contrôler le numéro de <acronym>VLAN</acronym> attribué au
+	port en mode accès du commutateur de distribution sur le système
+	hôte&nbsp;?</para>
+	</question>
+	<answer>
+	<para>On reprend la même commande que dans la question précédente avec le
+	mot clé <option>tag</option>.</para>
+<screen><prompt>$</prompt> sudo ovs-vsctl list port tap1 | grep tag
+tag                 : <emphasis>430</emphasis></screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment affecter le numéro de <acronym>VLAN</acronym> attribué au
+	port en mode accès du commutateur de distribution sur le système
+	hôte&nbsp;?</para>
+	</question>
+	<answer>
+	<para>On reprend à nouveau la même commande avec l'option <option>set</option>.</para> 
+<screen><prompt>$</prompt> sudo ovs-vsctl set port <emphasis>tap1 tag=430</emphasis></screen>
+
+	<para>Les valeurs données dans l'exemple ci-dessus sont à changer suivant
+	les attributions de la <xref
+	linkend='interco.pppoe-cloud.qa.addressing'/>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment s'assurer que le port du commutateur est bien configuré à
+	chaque nouveau lancement de machine virtuelle&nbsp;?</para>
+	</question>
+	<answer>
+	<para>On place les commandes de configuration dans une section dédiée du
+	script de lancement. Voici deux exemples de script de lancement&nbsp;:</para>
+<screen>#!/bin/bash
+RAM=1024
+
+echo "Lancement routeur Bleu ou Vert" !! À changer
+CORDON_TRUNK=100 !! À changer
+
+sudo ovs-vsctl set port tap$CORDON_TRUNK vlan_mode=trunk
+
+$HOME/vm/scripts/ovs-startup.sh routeur.qcow2 $RAM $CORDON_TRUNK</screen>
+
+	<para>Les numéros de port et de <acronym>VLAN</acronym> donnés dans les
+	exemples ci-dessus sont à changer suivant le contexte.</para>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
 </article>
