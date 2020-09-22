@@ -2382,7 +2382,7 @@ ms-dns 172.16.0.2
 	<qandaentry>
 	<question>
 		<para><phrase>Comment créer le compte utilisateur local sur le routeur
-		vert sachant qu'il n'est autorisé ni à se connecter ni à avoir un
+		bleu sachant qu'il n'est autorisé ni à se connecter ni à avoir un
 		répertoire personnel&nbsp;?</phrase></para> 
 
 		<para>Consulter les options de la commande
@@ -2553,6 +2553,128 @@ iface enp0s6.431 inet manual
 	</qandaentry>
 	</qandaset>
 	</sect2>
+
+	<sect2 xml:id='interco.pppoe-cloud.qa.bleu.static-route'>
+		<title>Ajout des routes statiques vers le réseau des conteneurs</title>
+	
+	<para>Pour joindre le réseau des conteneurs situé au delà du routeur vert,
+	il est nécessaire d'ajouter une route statique pour chaque protocole de la
+	couche réseau&nbsp;<acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym>. Le choix du routage statique est justifié par le
+	fait que l'on adresse un site distant d'extrémité via un lien
+	unique.</para>
+
+	<para>Attention&nbsp;! Les tests de connectivité vers le réseau des
+	conteneurs supposent que ces conteneurs soient actifs et correctement
+	configurés. Voici un exemple d'information sur l'état des conteneurs sur le
+	site distant.</para>
+
+<screen><prompt>etu@vert:~$</prompt> lxc ls
++------------+---------+---------------------+------------------------------------------+-----------+-----------+
+|    NAME    |  STATE  |        IPV4         |                   IPV6                   |   TYPE    | SNAPSHOTS |
++------------+---------+---------------------+------------------------------------------+-----------+-----------+
+| container0 | RUNNING | 203.0.113.10 (eth0) | fda0:7a62:28:0:216:3eff:feda:e1a (eth0)  | CONTAINER | 0         |
++------------+---------+---------------------+------------------------------------------+-----------+-----------+
+| container1 | RUNNING | 203.0.113.11 (eth0) | fda0:7a62:28:0:216:3eff:fec4:d325 (eth0) | CONTAINER | 0         |
++------------+---------+---------------------+------------------------------------------+-----------+-----------+
+| container2 | RUNNING | 203.0.113.12 (eth0) | fda0:7a62:28:0:216:3eff:fe66:86fb (eth0) | CONTAINER | 0         |
++------------+---------+---------------------+------------------------------------------+-----------+-----------+</screen>
+
+	<para>On peut aussi s'assurer que les tables de routage du routeur vert
+	désignent bien le routeur bleu comme passerelle vers tous les autres
+	réseaux.</para>
+
+<screen><prompt>etu@bleu:~$</prompt> ssh fe80:1ae::2%enp0s6.430 "ip route ls default"
+default dev ppp0 scope link
+<prompt>etu@bleu:~$</prompt> ssh fe80:1ae::2%enp0s6.430 "ip -6 route ls default"
+default dev ppp0 metric 1024 pref medium</screen>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment ajouter manuellement les routes
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> vers le réseau desservi
+	par le routeur verte&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuel sur le routage avec la commande&nbsp;:
+	<userinput>man ip-route</userinput>.</para>
+	</question>
+	<answer>
+	<para>Sachant que le site distant est raccordé via une liaison point à
+	point unique, on choisit de désigner la destination par l'interface de la
+	liaison.</para>
+
+<screen><prompt>$</prompt> sudo ip route add 203.0.113.0/24 dev ppp0
+<prompt>$</prompt> sudo ip -6 route add fda0:7a62:28::/64 dev ppp0</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les tests de connectivité qui permettent valider
+	la communication à destination des conteneurs du réseau
+	distant&nbsp;?</phrase></para>
+
+	<para>Collecter les adresses <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> des conteneurs avant de lancer des requêtes
+	<acronym>ICMP</acronym>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple de test pour <acronym>IPv4</acronym>.</para>
+
+<screen><prompt>$</prompt> for num in {10..12}; do ping -q -c2 203.0.113.$num; done</screen>
+
+	<para>Voici un exemple plus “compliqué“ du fait de l'adressage automatique
+	pour <acronym>IPv6</acronym>.</para>
+
+<screen><prompt>$</prompt> for addr in fda0:7a62:28:0:216:3eff:feda:e1a \
+fda0:7a62:28:0:216:3eff:fec4:d325 \
+fda0:7a62:28:0:216:3eff:fe66:86fb; \
+do ping -q -c2 $addr; done</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment appliquer ces routes statiques dans la configuration
+	système pour qu'elles soient activées à chaque établissement de session
+	<acronym>PPP</acronym>&nbsp;?</phrase></para> 
+
+	<para>Il faut parcourir l'arborescence du répertoire <filename
+	class='directory'>/etc/ppp/</filename> pour repérer les scripts exécutés
+	lors de l'ouverture de session. Créer un script pour chaque protocole de
+	couche réseau qui ajoute la route statique voulue.</para>
+	</question>
+	<answer>
+	<itemizedlist>
+	<listitem>
+	<para>Pour <acronym>IPv4</acronym>, le répertoire est <filename
+	class='directory'>/etc/ppp/ip-up.d/</filename>. Voici une copie du script
+	exécutable <filename>staticroute</filename>.</para>
+
+<screen>#!/bin/sh
+
+if [ -z "${CONNECT_TIME}" ]; then
+	ip route add 203.0.113.0/24 dev ${PPP_IFACE}
+fi</screen>
+	</listitem>
+
+	<listitem>
+	<para>Pour <acronym>IPv6</acronym>, le répertoire est <filename
+	class='directory'>/etc/ppp/ipv6-up.d/</filename>. Voici une copie du script
+	exécutable <filename>staticroute</filename>.</para>
+
+<screen>#!/bin/sh
+
+if [ -z "${CONNECT_TIME}" ]; then
+	ip -6 route add fda0:7a62:28::/64 dev ${PPP_IFACE}
+fi</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
 </sect1>
 
 <sect1 xml:id='interco.pppoe-cloud.qa.server'>
@@ -2645,6 +2767,7 @@ iface enp0s6.431 inet manual
 	up ip link set dev $IFACE up
 	down ip link set dev $IFACE down
 
+# ---------- TEMPORAIRE -----------
 auto enp0s6.217
 iface enp0s6.217 inet dhcp</screen>
 	</answer>
@@ -3226,6 +3349,321 @@ sept. 13 22:39:34 rtr systemd[1]: Starting Router advertisement daemon for IPv6.
 sept. 13 22:39:34 rtr radvd[2890]: config file, /etc/radvd.conf, syntax ok
 sept. 13 22:39:34 rtr radvd[2891]: version 2.17 started
 sept. 13 22:39:34 rtr systemd[1]: Started Router advertisement daemon for IPv6.</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='interco.pppoe-cloud.qa.vert.default-route'>
+		<title>Ajout des routes par défaut vers le réseau opérateur</title>
+	
+	<para>Pour joindre l'Internet situé au delà du routeur bleu, il est
+	nécessaire d'ajouter une route par défaut pour chaque protocole de la
+	couche réseau&nbsp;: <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym>.</para> 
+
+	<para>Attention&nbsp;! Les tests de connectivité vers l'Internet supposent
+	que le routeur bleu soit fonctionnel.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment ajouter manuellement les routes par défaut
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> vers le routeur
+	bleu&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuel sur le routage avec la commande&nbsp;:
+	<userinput>man ip-route</userinput>.</para>
+	</question>
+	<answer>
+	<para>Sachant que le site distant est raccordé via une liaison point à
+	point unique, on choisit de désigner la destination par l'interface de la
+	liaison.</para>
+
+<screen><prompt>$</prompt> sudo ip route add default dev ppp0
+<prompt>$</prompt> sudo ip -6 route default dev ppp0</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les tests de connectivité qui permettent valider
+	la communication vers l'Internet en passant par le routeur bleu&nbsp;?</phrase></para>
+
+	<para>Au niveau de la couche réseau, on lance les requêtes
+	<acronym>ICMP</acronym> classques.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple de test pour <acronym>IPv4</acronym>.</para>
+
+<screen><prompt>$</prompt> for i in {0..2}; do lxc exec container$i -- ping -q -c2 9.9.9.9; done</screen>
+
+	<para>On change l'adresse de destination <acronym>IPv6</acronym>.</para>
+
+<screen><prompt>$</prompt> for i in {0..2}; do lxc exec container$i -- ping -q -c2 2620:fe::fe; done</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment appliquer ces routes statiques dans la configuration
+	système pour qu'elles soient activées à chaque établissement de session
+	<acronym>PPP</acronym>&nbsp;?</phrase></para> 
+
+	<para>Il faut parcourir l'arborescence du répertoire <filename
+	class='directory'>/etc/ppp/</filename> pour repérer les scripts exécutés
+	lors de l'ouverture de session. Créer un script pour chaque protocole de
+	couche réseau qui ajoute la route statique voulue.</para>
+	</question>
+	<answer>
+	<itemizedlist>
+	<listitem>
+	<para>Pour <acronym>IPv4</acronym>, le répertoire est <filename
+	class='directory'>/etc/ppp/ip-up.d/</filename>. Voici une copie du script
+	exécutable <filename>staticroute</filename>.</para>
+
+<screen>#!/bin/sh
+
+if [ -z "${CONNECT_TIME}" ]; then
+	ip route add default dev ${PPP_IFACE}
+fi</screen>
+	</listitem>
+
+	<listitem>
+	<para>Pour <acronym>IPv6</acronym>, le répertoire est <filename
+	class='directory'>/etc/ppp/ipv6-up.d/</filename>. Voici une copie du script
+	exécutable <filename>staticroute</filename>.</para>
+
+<screen>#!/bin/sh
+
+if [ -z "${CONNECT_TIME}" ]; then
+	ip -6 route add default dev ${PPP_IFACE}
+fi</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='interco.pppoe-cloud.qa.lxd.install'>
+	    <title>Installation du gestionnaire de conteneurs LXD</title>
+
+	<para>Sur le routeur vert, la gestion des conteneurs est confiée à
+	<application>LXD</application>. Pour des raisons de rapidité de mise en
+	œuvre, on choisit de passer par le gestionnaire de paquets
+	<application>snapd</application> pour l'installation des outils.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Comment installer le gestionnaire de paquets
+	<application>snap</application> sur une distribution <citetitle>Debian
+	GNU/Linux</citetitle>&nbsp;?</para>
+
+	<para>Effectuer une recherche dans les paquets fournis via
+	<acronym>APT</acronym>.</para>
+	</question> 
+	<answer>
+	<para>Il existe tout simplement un paquet appelé
+	<application>snapd</application>.</para>
+
+<screen><prompt>$</prompt> sudo apt install snapd</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment installer le gestionnaire de conteneurs
+	<application>LXD</application>&nbsp;?</para>
+
+	<para>Rechercher dans la liste des <wordasword>snaps</wordasword>.</para>
+	</question>
+	<answer>
+	<para>Le <wordasword>snap</wordasword> s'appelle tout simplement
+	<application>lxd</application>.</para>
+
+<screen><prompt>$</prompt> sudo snap install lxd
+2020-09-21T18:12:31+02:00 INFO Waiting for automatic snapd restart...
+Warning: /snap/bin was not found in your $PATH. If you've not restarted your session since you
+         installed snapd, try doing that. Please see https://forum.snapcraft.io/t/9469 for more
+         details.
+
+lxd 4.6 from Canonical✓ installed</screen>
+
+	<para>On peut lister les <wordasword>snaps</wordasword> installés.</para>
+
+<screen><prompt>$</prompt> snap list
+Name    Version   Rev    Tracking       Publisher   Notes
+core18  20200724  1885   latest/stable  canonical✓  base
+lxd     4.6       17320  latest/stable  canonical✓  -
+snapd   2.46.1    9279   latest/stable  canonical✓  snapd</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment faire pour que l'utilisateur normal <literal>etu</literal>
+	ait la capacité à gérer les conteneurs&nbsp;?</para>
+
+	<para>Rechercher le nom du groupe système correspondant à l'utilisation des
+	outils <application>LXD</application>.</para>
+	</question>
+	<answer>
+	<para>Il faut que l'utilisteur normal appartienne au groupe système
+	<systemitem>lxd</systemitem> pour qu'il est tous les droits sur la gestion
+	des conteneurs.</para>
+
+<screen><prompt>$</prompt> sudo adduser etu lxd</screen>
+
+	<para>Attention ! il faut se déconnecter/reconnecter pour bénéficier de la
+	nouvelle attribution de groupe. On peut utiliser la commande
+	<command>groups</command> pour vérifier le résultats.</para>
+
+<screen><prompt>$</prompt> groups
+etu adm cdrom floppy sudo audio dip video plugdev staff netdev <emphasis>lxd</emphasis></screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+  
+	<sect2 xml:id='interco.pppoe-cloud.qa.lxd.init'>
+	    <title>Configuration du gestionnaire de conteneurs LXD</title>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction de configuration initiale du
+	gestionnaire <application>LXD</application>&nbsp;?</phrase></para>
+
+	<para>Utiliser l'aide de la commande <command>lxd</command>.</para>
+	</question>
+	<answer>
+	<para>C'est l'instruction <userinput>lxd init</userinput> qui nous
+	intéresse.</para>
+
+	<para>Voici une copie d'écran de son exécution.</para>
+
+<screen><prompt>$</prompt> lxd init
+Would you like to use LXD clustering? (yes/no) [default=no]:
+Do you want to configure a new storage pool? (yes/no) [default=yes]:
+Name of the new storage pool [default=default]:
+Name of the storage backend to use (btrfs, dir, lvm, ceph) [default=btrfs]:
+Create a new BTRFS pool? (yes/no) [default=yes]:
+Would you like to use an existing empty disk or partition? (yes/no) [default=no]:
+Size in GB of the new loop device (1GB minimum) [default=13GB]:
+Would you like to connect to a MAAS server? (yes/no) [default=no]:
+Would you like to create a new local network bridge? (yes/no) [default=yes]: <emphasis>no</emphasis>
+Would you like to configure LXD to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
+Name of the existing bridge or host interface: <emphasis>sw-vlan40</emphasis>
+Would you like LXD to be available over the network? (yes/no) [default=no]:
+Would you like stale cached images to be updated automatically? (yes/no) [default=yes]
+Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]: yes
+config: {}
+networks: []
+storage_pools:
+- config:
+    size: 13GB
+  description: ""
+  name: default
+  driver: btrfs
+profiles:
+- config: {}
+  description: ""
+  devices:
+    eth0:
+      name: eth0
+      nictype: <emphasis>macvlan</emphasis>
+      parent: sw-vlan40
+      type: nic
+    root:
+      path: /
+      pool: default
+      type: disk
+  name: default
+cluster: null</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment changer le type de raccordement défini par le
+	paramètre <option>nictype</option> de <option>macvlan</option> à
+	<option>bridged</option>&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les options d'édition des paramètres du profil avec
+	la commande <command>lxc</command>.</para>
+	</question>
+	<answer>
+	<para>Il faut suivre les champs du fichier <citetitle>yaml</citetitle> de
+	description du profil.</para>
+
+<screen><prompt>$</prompt> lxc profile device set default eth0 nictype bridged
+<prompt>$</prompt> lxc profile device get default eth0 nictype
+bridged</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction qui permet d'afficher le profil par
+	défaut des conteneur&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les options de la commande
+	<command>lxc</command>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple d'exécution.</para>
+
+<screen><prompt>$</prompt> lxc profile show default
+config: {}
+description: Default LXD profile
+devices:
+  eth0:
+    name: eth0
+    nictype: bridged
+    parent: sw-vlan40
+    type: nic
+  root:
+    path: /
+    pool: default
+    type: disk
+name: default
+used_by: []</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction de lancement d'un
+	conteneur&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les options de la commande
+	<command>lxc</command>.</para>
+
+	<para>Tester son exécution avec un conteneur de type
+	<literal>debian/bullseye</literal>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple d'exécution.</para>
+
+<screen><prompt>$</prompt> lxc launch images:debian/bullseye container0
+Creating container0
+Starting container0
+<prompt>$</prompt> lxc launch images:debian/bullseye container1
+Starting container1
+<prompt>$</prompt> lxc launch images:debian/bullseye container2
+Starting container2
+<prompt>$</prompt> lxc ls
++------------+---------+------+------------------------------------------+-----------+-----------+
+|    NAME    |  STATE  | IPV4 |                   IPV6                   |   TYPE    | SNAPSHOTS |
++------------+---------+------+------------------------------------------+-----------+-----------+
+| container0 | RUNNING |      | fda0:7a62:28:0:216:3eff:feda:e1a (eth0)  | CONTAINER | 0         |
++------------+---------+------+------------------------------------------+-----------+-----------+
+| container1 | RUNNING |      | fda0:7a62:28:0:216:3eff:fec4:d325 (eth0) | CONTAINER | 0         |
++------------+---------+------+------------------------------------------+-----------+-----------+
+| container2 | RUNNING |      | fda0:7a62:28:0:216:3eff:fe66:86fb (eth0) | CONTAINER | 0         |
++------------+---------+------+------------------------------------------+-----------+-----------+</screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
