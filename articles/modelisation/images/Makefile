@@ -6,7 +6,7 @@ PNGTARGET = $(addsuffix .png,$(basename $(wildcard *.odg)))
 SVGTARGET = $(addsuffix .svg,$(basename $(wildcard *.odg)))
 
 # Type(s) de traitement
-PROCESS = symlink $(PNGTARGET) $(SVGTARGET)
+PROCESS = symlink $(PNGTARGET)
 
 SYMLINKS = \
         $(MAIN_DIR)/images/thumbs/thumb006.png

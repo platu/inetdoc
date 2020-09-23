@@ -50,7 +50,10 @@ SUBDIRS = \
 	interco-dsl.set
 
 # Type(s) de traitement
-PROCESS = subdirs xml2xhtml xml2pdf
+PROCESS = subdirs symlink xml2xhtml xml2pdf
+
+SYMLINKS = \
+	$(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
 	biblio-travaux_pratiques.xml \

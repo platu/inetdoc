@@ -11,7 +11,10 @@ SYMLINKS = \
         $(MAIN_DIR)/common/author.xml \
         $(MAIN_DIR)/common/legal.xml \
         $(MAIN_DIR)/common/inetdoc.urls.xml \
-        $(MAIN_DIR)/common/rfc.urls.xml
+        $(MAIN_DIR)/common/rfc.urls.xml \
+        $(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/addressing.xml \
+        $(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/dummies.xml \
+        $(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/vm.xml
 
 XML_FILES = \
 	interco.ospf-bird.q.xml \
