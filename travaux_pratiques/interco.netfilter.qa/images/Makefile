@@ -2,10 +2,12 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
-PNGTARGET = $(addsuffix .png,$(basename $(wildcard *.odg)))
+PNGTARGET = $(patsubst %.odg,%.png,$(wildcard *.odg))
 
 # Type(s) de traitement
-PROCESS = $(PNGTARGET)
+PROCESS = $(PNGTARGET) symlink
+
+SYMLINKS = $(MAIN_DIR)/travaux_pratiques/interco.pppoe.qa/images/pppoe-hub-and-spoke-logical-topology.png
 
 all: $(PROCESS)
 
