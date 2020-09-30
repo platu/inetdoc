@@ -207,12 +207,13 @@
 </caption>
 </mediaobject>
 
-	<para>Pour les besoins des questions de travaux pratiques ci-après, on se
-		limite à un scénario d'utilisation des fonctions de filtrage
-		réseau.</para>
-
 <bridgehead xml:id='interco.netfilter.qa.archi.topologie-routage'
-	renderas='sect3'>Routage et traduction d'adresses</bridgehead>
+	renderas='sect2'>Routage et traduction d'adresses (situation de départ)</bridgehead>
+
+	<para>Les manipulations qui suivent supposent que la topologie
+	<wordasword>Hub &amp; Spoke</wordasword> est en place et
+	fonctionnelle. On s'appuie sur le support précédent de la série&nbsp;:
+	&url.interco.pppoe;</para>
 
 <itemizedlist>
 	<listitem>
@@ -233,6 +234,186 @@
 		l'Internet.</para>  
 	</listitem>
 </itemizedlist>
+
+	<para>Les questions ci-dessous ont pour objectif de valider le
+	fonctionnement du routage et de la traduction des adresses sources en
+	sortie du routeur <wordasword>Hub</wordasword> vers l'Internet.</para>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment tracer le chemin suivi par les paquets
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> d'un conteneur à un
+	autre conteneur du site distant de l'autre branche de la
+	topologie&nbsp;?</phrase></para>
+
+	<para>Rechercher le paquet contenant la commande
+	<command>tracepath</command> qui permet d'afficher le chemin suivi par le
+	trafic réseau.</para>
+    </question>
+    <answer>
+	<para>Partant de la topologie de la maquette, on commence par se placer sur
+	le routeur <citetitle>Spoke2Vert</citetitle> et on accède à la console du
+	<citetitle>container2</citetitle>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc ls
++------------+---------+------------------+-----------------------------------------+-----------+-----------+
+|    NAME    |  STATE  |       IPV4       |                  IPV6                   |   TYPE    | SNAPSHOTS |
++------------+---------+------------------+-----------------------------------------+-----------+-----------+
+| container0 | RUNNING | 10.0.2.10 (eth0) | fda0:7a62:2:0:216:3eff:feda:e1a (eth0)  | CONTAINER | 0         |
++------------+---------+------------------+-----------------------------------------+-----------+-----------+
+| container1 | RUNNING | 10.0.2.11 (eth0) | fda0:7a62:2:0:216:3eff:fec4:d325 (eth0) | CONTAINER | 0         |
++------------+---------+------------------+-----------------------------------------+-----------+-----------+
+| container2 | RUNNING | 10.0.2.12 (eth0) | fda0:7a62:2:0:216:3eff:fe66:86fb (eth0) | CONTAINER | 0         |
++------------+---------+------------------+-----------------------------------------+-----------+-----------+</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec container2 -- /bin/bash
+<prompt>root@container2:~#</prompt> apt install iputils-tracepath</screen>
+
+	<para>une fois le paquet <systemitem>iputils-tracepath</systemitem>
+	installé, on peut contacter les adresses <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> du <citetitle>container0</citetitle> desservi par
+	le routeur <citetitle>Spoke1Vert</citetitle>.</para> 
+
+	<para>Toujours dans le contexte de la maquette, on affiche la liste des
+	adresses des conteneurs côté <citetitle>Spoke1Vert</citetitle>.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> lxc ls
++------------+---------+------------------+-----------------------------------------+-----------+-----------+
+|    NAME    |  STATE  |       IPV4       |                  IPV6                   |   TYPE    | SNAPSHOTS |
++------------+---------+------------------+-----------------------------------------+-----------+-----------+
+| container0 | RUNNING | 10.0.1.10 (eth0) | fda0:7a62:1:0:216:3eff:feda:e1a (eth0)  | CONTAINER | 0         |
++------------+---------+------------------+-----------------------------------------+-----------+-----------+
+| container1 | RUNNING | 10.0.1.11 (eth0) | fda0:7a62:1:0:216:3eff:fec4:d325 (eth0) | CONTAINER | 0         |
++------------+---------+------------------+-----------------------------------------+-----------+-----------+
+| container2 | RUNNING | 10.0.1.12 (eth0) | fda0:7a62:1:0:216:3eff:fe66:86fb (eth0) | CONTAINER | 0         |
++------------+---------+------------------+-----------------------------------------+-----------+-----------+</screen>
+
+	<para>On connait maintenant les adresses à contacter depuis le conteneur
+	numéro 2 côté <citetitle>Spoke2Vert</citetitle>.</para>
+
+<screen><prompt>root@container2:~#</prompt> tracepath 10.0.1.10
+ 1?: [LOCALHOST]                      pmtu 1500
+ 1:  10.0.2.1                                              0.937ms
+ 1:  10.0.2.1                                              0.115ms
+ 2:  10.0.2.1                                              0.306ms pmtu 1492
+ 2:  10.47.3.1                                             0.843ms
+ 3:  10.47.1.2                                             1.853ms
+ 4:  10.0.1.10                                             2.506ms reached
+     Resume: pmtu 1492 hops 4 back 4</screen>
+
+<screen><prompt>root@container2:~#</prompt> tracepath fda0:7a62:1:0:216:3eff:feda:e1a
+ 1?: [LOCALHOST]                        0.046ms pmtu 1500
+ 1:  fda0:7a62:2::1                                        1.403ms
+ 1:  fda0:7a62:2::1                                        0.292ms
+ 2:  fda0:7a62:2::1                                        0.315ms pmtu 1492
+ 2:  2001:678:3fc:12c::2                                   0.788ms
+ 3:  fda0:7a62:1::1                                        2.491ms
+ 4:  fda0:7a62:1:0:216:3eff:feda:e1a                       2.539ms reached
+     Resume: pmtu 1492 hops 4 back 4</screen>
+	
+	<para>Les résultats obtenus avec l'exécution de la commande
+	<command>tracepath</command> montrent que le routage des paquets
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> est fonctionnel sur la
+	topologie <wordasword>Hub &amp; Spoke</wordasword>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment caractériser la traduction d'adresses source en
+	sortie du routeur <wordasword>Hub</wordasword>&nbsp;?</phrase></para>
+
+	<para>La fonction de traduction d'adresse entre dans cadre du filtrage
+	réseau et fait appel aux mêmes outils&nbsp;:
+	<citetitle>netfilter/iptables</citetitle>.</para>
+
+	<para>Rechercher le paquet qui contient la commande
+	<command>conntrack</command> puis rechercher les options de cette commande
+	qui permettent d'afficher les états des enregistrements de la table
+	<acronym>NAT</acronym>.</para>
+	</question>
+
+	<answer>
+	<para>On se place sur le routeur <wordasword>Hub</wordasword> de la
+	maquette et on installe le paquet
+	<systemitem>conntrack</systemitem>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo apt install conntrack</screen>
+
+	<para>Dans le même temps, on accède au conteneur numéro 0 desservi par le
+	routeur <citetitle>Spoke1Vert</citetitle>. C'est à partir de cette console
+	que l'on lance des téléchargements depuis le serveur
+	<citetitle>inetdoc.net</citetitle> à l'aide de la commande
+	<command>wget</command>.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> lxc exec container0 -- /bin/bash
+root@container0:~# apt install wget</screen>
+
+	<para>Sur le routeur <wordasword>Hub</wordasword>, on affiche la liste des
+	enregistrements de la table <acronym>NAT</acronym>.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Requête <acronym>IPv4</acronym> depuis le conteneur&nbsp;:</para>
+
+<screen><prompt>root@container0:~#</prompt> while true
+do
+	wget -4 -O /dev/null https://inetdoc.net/pdf/iproute-cheatsheet.pdf
+	sleep 3
+done</screen>
+
+	<para>Liste des enregistrements&nbsp;:</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo conntrack -f ipv4 -L
+udp      17 17 src=10.0.1.10 dst=9.9.9.9 sport=49165 dport=53 src=9.9.9.9 dst=10.141.0.162 sport=53 dport=49165 mark=0 use=1
+tcp      6 432000 ESTABLISHED src=172.16.0.230 dst=10.141.0.162 sport=40278 dport=22 src=10.141.0.162 dst=172.16.0.230 sport=22 dport=40278 [ASSURED] mark=0 use=1
+udp      17 20 src=10.0.1.10 dst=9.9.9.9 sport=36074 dport=53 src=9.9.9.9 dst=10.141.0.162 sport=53 dport=36074 mark=0 use=1
+tcp      6 1 CLOSE src=10.0.1.10 dst=89.234.156.195 sport=44860 dport=443 src=89.234.156.195 dst=10.141.0.162 sport=443 dport=44860 [ASSURED] mark=0 use=1
+tcp      6 7 CLOSE src=10.0.1.10 dst=89.234.156.195 sport=44864 dport=443 src=89.234.156.195 dst=10.141.0.162 sport=443 dport=44864 [ASSURED] mark=0 use=1
+udp      17 27 src=10.0.1.10 dst=9.9.9.9 sport=45443 dport=53 src=9.9.9.9 dst=10.141.0.162 sport=53 dport=45443 mark=0 use=1
+udp      17 24 src=10.0.1.10 dst=9.9.9.9 sport=33499 dport=53 src=9.9.9.9 dst=10.141.0.162 sport=53 dport=33499 mark=0 use=1
+udp      17 23 src=0.0.0.0 dst=255.255.255.255 sport=68 dport=67 [UNREPLIED] src=255.255.255.255 dst=0.0.0.0 sport=67 dport=68 mark=0 use=1
+tcp      6 4 CLOSE src=10.0.1.10 dst=89.234.156.195 sport=44862 dport=443 src=89.234.156.195 dst=10.141.0.162 sport=443 dport=44862 [ASSURED] mark=0 use=1
+conntrack v1.4.6 (conntrack-tools): 9 flow entries have been shown.</screen>
+	</listitem>
+
+	<listitem>
+	<para>Requête <acronym>IPv6</acronym> depuis le conteneur&nbsp;:</para>
+
+<screen><prompt>root@container0:~#</prompt> while true
+do
+	wget -6 -O /dev/null https://inetdoc.net/pdf/iproute-cheatsheet.pdf
+	sleep 3
+done</screen>
+
+	<para>Liste des enregistrements&nbsp;:</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo conntrack -f ipv6 -L
+tcp      6 5 CLOSE src=fda0:7a62:1:0:216:3eff:feda:e1a dst=2a03:7220:8083:c300::1 sport=47472 dport=443 
+				src=2a03:7220:8083:c300::1 dst=2001:678:3fc:12c::2 sport=443 dport=47472 [ASSURED] mark=0 use=1
+tcp      6 8 CLOSE src=fda0:7a62:1:0:216:3eff:feda:e1a dst=2a03:7220:8083:c300::1 sport=47474 dport=443 
+				src=2a03:7220:8083:c300::1 dst=2001:678:3fc:12c::2 sport=443 dport=47474 [ASSURED] mark=0 use=1
+tcp      6 431998 ESTABLISHED src=fe80:1d6::1 dst=fe80:1d6::2 sport=39218 dport=2222 
+				src=fe80:1d6::2 dst=fe80:1d6::1 sport=2222 dport=39218 [ASSURED] mark=0 use=1
+conntrack v1.4.6 (conntrack-tools): 3 flow entries have been shown.</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+	</qandaset>
+</sect1>
+
+<sect1 xml:id='interco.netfilter.qa.base'>
+	<title>Protection de base des routeurs <wordasword>Hub</wordasword> et
+	<wordasword>Spoke</wordasword></title>
+
+	<para>Le but de cette section est de mettre en place le routage avant de
+		passer aux fonctions de filtrage réseau proprement dites. Elle
+		correspond à la vue <link linkend='netfilter-lab-routing-nat'>Topologie
+		<acronym>PPP</acronym> et routage</link>.</para>
 
 	<para>Voici une liste de fonctions de protection à mettre en œuvre sur tous
 	les types de routeurs.</para>
@@ -282,25 +463,6 @@
 	</varlistentry>
 	</variablelist>
 
-	<para>Pour traiter les questions, il faut consulter la <xref
-		linkend='interco.netfilter.qa.refdocs'/>. Il est essentiel de
-		s'intéresser aux choix des tables et des chaînes associées puis aux
-		modules <systemitem>conntrack</systemitem>,
-		<systemitem>limit</systemitem> ainsi qu'à la cible
-		<systemitem>REDIRECT</systemitem>.</para>
-</sect1>
-
-<sect1 xml:id='interco.netfilter.qa.routing'>
-	<title>Routage statique et traduction d'adresses source</title>
-
-	<para>Le but de cette section est de mettre en place le routage avant de
-		passer aux fonctions de filtrage réseau proprement dites. Elle
-		correspond à la vue <link linkend='netfilter-lab-routing-nat'>Topologie
-		<acronym>PPP</acronym> et routage</link>.</para>
-
-	<para>Les questions ci-dessous concernent aussi bien le routeur
-		<wordasword>Hub</wordasword> que le routeur
-		<wordasword>Spoke</wordasword>.</para>
 
 <qandaset defaultlabel='number'>
 <qandadiv>
