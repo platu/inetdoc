@@ -24,6 +24,10 @@
 '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://ebtables.sourceforge.net/br_fw_ia/PacketFlow.png">
 <citetitle>Linux kernel packet flow</citetitle></link>'>
 
+<!ENTITY url.kernel.ip-sysctl
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">
+<citetitle>Kernel IP sysctl</citetitle></link>'>
+
 <!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
 	"http://www.w3.org/2003/entities/2007/w3centities-f.ent">
 %w3centities-f;
@@ -413,6 +417,133 @@ conntrack v1.4.6 (conntrack-tools): 3 flow entries have been shown.</screen>
 	</qandaset>
 </sect1>
 
+<sect1 xml:id='interco.netfilter.qa.tools'>
+	<title>Les outils de filtrage réseau</title>
+
+	<para>Sur un système GNU/Linux, les fonctions de filtrage réseau sont
+	réparties entre les espaces mémoire noyau
+	(<wordasword>kernelspace</wordasword>) et utilisateur
+	(<wordasword>userspace</wordasword>). Les fonctions de filtrage réseau sont
+	disponibles sous forme de modules qui sont chargés dynamiquement dans la
+	mémoire du système en cours d'exécution en fonction de la syntaxe des
+	règles de filtrage ajoutées.</para>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le paquet le plus important pour les manipulations
+	sur les fonctions de filtrage réseau&nbsp;?</phrase></para>
+
+	<para>Rechercher dans la liste des paquets les mots clés tels que
+	<option>iptables</option> ou <option>firewall</option>.</para>
+	</question>
+	<answer>
+	<para>La partie <wordasword>userspace</wordasword> des fonctions de
+	filtrage réseau s'appelle <application>iptables</application>. On lance
+	donc une recherche avec ce mot clé dans la base de données des paquets
+	Debian.</para>
+
+<screen><prompt>$</prompt> aptitude search ~iiptables
+i   iptables              - administration tools for packet filtering and NAT
+i   iptables-persistent   - boot-time loader for netfilter rules, iptables plugin</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser les modules chargés dynamiquement en
+	fonction de l'utilisation des règles de filtrage
+	réseau&nbsp;?</phrase></para>
+
+	<para>Utiliser la commande qui sert à lister les modules chargés en mémoire
+	avant et après avoir consulté les tables de filtrage réseau pour la
+	première fois.</para>
+    </question>
+	<answer>
+	<para>La commande <command>lsmod</command> sert à lister les modules
+	chargés en mémoire. Voici un exemple de liste de modules relatifs au
+	filtrage.</para>
+
+<screen><prompt>$</prompt> $ lsmod | egrep '(ip_|nf_)' | fmt -t -w80
+nf_conntrack_netlink    57344  0
+nf_nat                 49152  2 nft_chain_nat,xt_MASQUERADE
+nf_conntrack          176128  3 nf_nat,nf_conntrack_netlink,xt_MASQUERADE
+nf_defrag_ipv6         24576  1 nf_conntrack
+nf_defrag_ipv4         16384  1 nf_conntrack
+libcrc32c              16384  2 nf_conntrack,nf_nat
+nf_tables             241664  7 nft_compat,nft_counter,nft_chain_nat
+nfnetlink              16384  3 nft_compat,nf_conntrack_netlink,nf_tables
+ip_tables              32768  0
+x_tables               53248  4 nft_compat,ip_tables,xt_limit,xt_MASQUERADE</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les outils de sauvegarde et de restauration des
+	jeux de règles de filtrage réseau fournis avec le paquet
+	<application>iptables-persistent</application>&nbsp;?</phrase></para>
+
+	<para>Consulter la liste des fichiers du paquet.</para>
+	</question>
+	<answer>
+	<para>La liste des fichiers du paquet fait apparaître les outils
+	<command>iptables-save</command> et <command>iptables-restore</command> qui
+	permettent respectivement de sauvegarder et de restaurer l'ensemble des
+	règles de toutes les tables utilisées.</para>
+
+	<para>Ces programmes sont indispensables pour éditer, insérer ou retirer
+	des règles sans avoir à se préoccuper de l'ordre de saisie. De plus, le
+	programme de restauration se charge de l'effacement des règles
+	précédentes.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser les enregistrements d'états de suivi des
+	communications réseau&nbsp;?</phrase></para>
+
+	<para>Rechercher la chaîne <literal>conntrack</literal> dans la liste des
+	paquets.</para>
+
+	<para>La section <citetitle>«7.2 Les entrées de conntrack»</citetitle> du
+	&url.iptables-tutorial.fr; décrit précisément les différents champs du
+	suivi de communication.</para>
+
+    </question>
+    <answer>
+	<para>Voici un échantillon capturé sur le routeur
+	<citetitle>HubBleu</citetitle> après avoir lancé une mise à jour du
+	catalogue des paquets sur les conteneurs du routeur
+	<citetitle>Spoke2Vert</citetitle>.</para>
+
+<screen><prompt>$</prompt> sudo conntrack -L | fmt -t -w80
+conntrack v1.4.6 (conntrack-tools): <emphasis>7 flow entries have been shown</emphasis>.
+tcp      6 431999 ESTABLISHED src=172.16.0.230 dst=10.141.0.162 sport=40626
+   dport=22 src=10.141.0.162 dst=172.16.0.230 sport=22 dport=40626 [ASSURED]
+   mark=0 use=1
+udp      17 23 src=10.0.2.10 dst=9.9.9.9 sport=53336 dport=53 src=9.9.9.9
+   dst=10.141.0.162 sport=53 dport=53336 [ASSURED] mark=0 use=1
+tcp      6 113 TIME_WAIT src=10.0.2.10 dst=151.101.12.204 sport=48494
+   dport=80 src=151.101.12.204 dst=10.141.0.162 sport=80 dport=48494 [ASSURED]
+   mark=0 use=1
+udp      17 27 src=10.0.2.11 dst=9.9.9.9 sport=39790 dport=53 src=9.9.9.9
+   dst=10.141.0.162 sport=53 dport=39790 mark=0 use=1
+udp      17 23 src=10.0.2.10 dst=9.9.9.9 sport=59674 dport=53 src=9.9.9.9
+   dst=10.141.0.162 sport=53 dport=59674 mark=0 use=1
+tcp      6 117 TIME_WAIT src=10.0.2.11 dst=151.101.12.204 sport=50252
+   dport=80 src=151.101.12.204 dst=10.141.0.162 sport=80 dport=50252 [ASSURED]
+   mark=0 use=1
+udp      17 27 src=10.0.2.11 dst=9.9.9.9 sport=43617 dport=53 src=9.9.9.9
+   dst=10.141.0.162 sport=53 dport=43617 [ASSURED] mark=0 use=1</screen>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect1>
+
 <sect1 xml:id='interco.netfilter.qa.base'>
 	<title>Protection de base des routeurs <wordasword>Hub</wordasword> et
 	<wordasword>Spoke</wordasword></title>
@@ -475,271 +606,221 @@ conntrack v1.4.6 (conntrack-tools): 3 flow entries have been shown.</screen>
 <qandadiv>
 	<qandaentry>
 	<question>
-	<para><phrase>Comment activer le routage au niveau du noyau Linux
-		?</phrase></para>
+	<para><phrase>Comment afficher la liste des règles de filtrage de la table
+	<systemitem>raw</systemitem> dédiée au filtrage sans état
+	(<wordasword>stateless</wordasword>)&nbsp;?</phrase></para>
 
-	<para>Rechercher dans les outils fournis avec le paquet
-		<systemitem>procps</systemitem> celui qui permet de régler le
-		paramètre <option>ip_forward</option> pour <acronym>IPv4</acronym>
-		et/ou <option>forwarding</option> pour <acronym>IPv6</acronym>.</para>
+	<para>Rechercher dans les pages de manuels de la commande
+	<command>iptables</command> les options relatives aux listes et aux
+	compteurs.</para>
 
-	<para>La même opération de réglage peut être réalisée directement à partir
-		du <wordasword>shell</wordasword> avec les droits super utilisateur.
-		Rechercher la syntaxe correspondante.</para>
-    </question>
-    <answer>
-	<para>La commande utile est <command>sysctl</command>. Elle permet de
-		consulter et modifier les paramètres de réglage du noyau
-		Linux.</para>
-
-	<para>Pour la consultation de la valeur d'un paramètre, il faut connaître
-		sa position dans l'arborescence <filename
-		class='directory'>/proc</filename>.</para>
-
-<screen><prompt>#</prompt> sysctl net.ipv4.ip_forward
-net.ipv4.ip_forward = 0
-<prompt>#</prompt> sysctl net.ipv6.conf.all.forwarding
-net.ipv6.conf.all.forwarding = 0</screen>
-
-	<para>Pour modifier la valeur d'un paramètre, on utilise l'option
-		<option>-w</option>.</para>
-
-<screen><prompt>#</prompt> sysctl -w net.ipv4.ip_forward=1
-net.ipv4.ip_forward = 1
-<prompt>#</prompt> sysctl -w net.ipv6.conf.all.forwarding=1
-net.ipv6.conf.all.forwarding = 1</screen>
-
-	<para>Pour consulter ou modifier ces mêmes valeurs directement à partir du
-		<wordasword>shell</wordasword> on utilise les commandes
-		<command>cat</command> et <command>echo</command>.</para>
-
-<screen><prompt>#</prompt> cat /proc/sys/net/ipv4/ip_forward
-1
-<prompt>#</prompt> echo 1 > /proc/sys/net/ipv4/ip_forward</screen>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Comment rendre ces réglages permanents d'un redémarrage à
-		l'autre du système&nbsp;?</phrase></para>
-
-	<para>Rechercher le fichier de configuration principal fourni avec le
-		paquet <systemitem>procps</systemitem>.</para>
+	<para>La visualisation des compteurs de correspondance des règles de
+	filtrage est indispensable pour qualifier le fonctionnement du
+	filtrage</para>
 	</question>
 	<answer>
-	<para>En consultant la liste des répertoires créés avec le paquet
-		<systemitem>procps</systemitem>, on identifie le dossier <filename
-		class='directory'>/etc/sysctl.d</filename> dans lequel doivent
-		être placés les paramétrages spécifiques.</para>
+	<para>C'est l'option <option>-L</option> qui permet l'affichage des
+	listes.</para>
 
-	<para>Dans ce dossier, on trouve un lien vers le fichier principal
-		<filename>/etc/sysctl.conf</filename> qui contient les entrées
-		relatives à l'activation du routage. On édite ce fichier avec les
-		valeurs utilisées pour les réglages effectués directement à la
-		console.</para>
+	<para>C'est l'option <option>-v</option> qui permet d'obtenir les valeurs
+	des compteurs de correspondance avec chaque règle.</para>
 
-<screen><prompt>#</prompt> egrep -v '(^#|^$)' /etc/sysctl.conf
-net.ipv4.ip_forward=1
-net.ipv6.conf.all.forwarding=1</screen>
+	<para>Voici un exemple dans le contexte de la maquette sur le routeur
+	<citetitle>Spoke1Vert</citetitle>. Une règle a déjà été insérée dans la
+	table <systemitem>raw</systemitem>. Elle permet de visualiser les compteurs
+	de correspondance qui montrent que la règle a bien été utilisée.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo iptables -vL -t raw
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+Chain PREROUTING (policy ACCEPT 112K packets, 113M bytes)
+ pkts bytes target     prot opt in     out     source       destination
+<emphasis>   60  4996 DROP       all  --  any    any     anywhere     anywhere  rpfilter invert /* BCP38 */</emphasis>
+
+Chain OUTPUT (policy ACCEPT 20480 packets, 1365K bytes)
+ pkts bytes target     prot opt in     out     source       destination</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment activer la protection contre les dénis de services
-			par usurpation des adresses sources&nbsp;?</phrase></para>
+	<para><phrase>Comment activer la protection contre l'usurpation des
+	adresses sources au niveau du noyau&nbsp;?</phrase></para>
 
 	<para>Rechercher les informations relatives à la fonction
-		<wordasword>Reverse Path Filtering</wordasword> du noyau Linux.
-		Identifier les rôles des 3 valeurs possibles de cette fonction.</para>
+	<wordasword>Reverse Path Forwarding</wordasword> du noyau Linux. Identifier
+	les rôles des 3 valeurs possibles de cette fonction.</para>
+
+	<para>La documentation est à cette adresse&nbsp;:
+	&url.kernel.ip-sysctl;.</para>
 	</question>
 	<answer>
 	<para>Le fichier de configuration principal
-		<filename>/etc/sysctl.conf</filename> dispose de plusieurs entrées
-		relatives à cette fonction. On édite donc ce fichier de façon à
-		appliquer une vérification stricte des adresses source.</para>
+	<filename>/etc/sysctl.conf</filename> dispose de plusieurs entrées
+	relatives à cette fonction. Voici un extrait dans le contexte de la
+	maquette.</para>
 
-<screen><prompt>#</prompt> grep rp_filter /etc/sysctl.conf
+<screen><prompt>$</prompt> grep rp_filter /etc/sysctl.conf
 net.ipv4.conf.default.rp_filter=1
 net.ipv4.conf.all.rp_filter=1</screen>
+
+	<para>Voici la liste des valeurs actives au moment de l'exécution de la
+	commande.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo sysctl -ar '\.rp_filter'
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.asw-host.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.enp0s6.rp_filter = 1
+net.ipv4.conf.enp0s6/470.rp_filter = 1
+net.ipv4.conf.enp0s6/471.rp_filter = 1
+net.ipv4.conf.lo.rp_filter = 0
+net.ipv4.conf.ovs-system.rp_filter = 1
+net.ipv4.conf.ppp0.rp_filter = 1
+net.ipv4.conf.sw-vlan1.rp_filter = 1
+net.ipv4.conf.veth52dfe1cc.rp_filter = 1
+net.ipv4.conf.veth73d0058f.rp_filter = 1
+net.ipv4.conf.vethc394c229.rp_filter = 1</screen>
+
+	<para>Voici l'extrait de la documentation officielle qui donne les
+	explications sur les 3 valeurs possibles du paramètre
+	<option>rp_filter</option>.</para>
+
+<screen>rp_filter - INTEGER
+	0 - No source validation.
+	1 - Strict mode as defined in RFC3704 Strict Reverse Path
+	    Each incoming packet is tested against the FIB and if the interface
+	    is not the best reverse path the packet check will fail.
+	    By default failed packets are discarded.
+	2 - Loose mode as defined in RFC3704 Loose Reverse Path
+	    Each incoming packet's source address is also tested against the FIB
+	    and if the source address is not reachable via any interface
+	    the packet check will fail.
+
+	Current recommended practice in RFC3704 is to enable strict mode
+	to prevent IP spoofing from DDos attacks. If using asymmetric routing
+	or other complicated routing, then loose mode is recommended.
+
+	The max value from conf/{all,interface}/rp_filter is used
+	when doing source validation on the {interface}.
+
+	Default value is 0. Note that some distributions enable it
+	in startup scripts.</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment relever les tentatives d'usurpation d'adresses
-			?</phrase></para>
+	<para><phrase>Comment enregistrer les tentatives d'usurpation d'adresses
+	dans les journaux système&nbsp;?</phrase></para>
 
-	<para>Rechercher l'entrée de l'arborescence <filename
-		class='directory'>/proc</filename> relatives aux paquets
-		martiens.</para>
+	<para>Rechercher les entrées de l'arborescence <filename
+	class='directory'>/proc</filename> relatives aux paquets “martiens“.</para>
+
+	<para>Rechercher aussi le paramètre relatifs aux “martiens“ dans le fichier
+	<filename>/etc/sysctl.conf</filename>.</para>
 	</question>
 	<answer>
-	<para>On active la journalisation des martiens en éditant à nouveau le
-		fichier <filename>/etc/sysctl.conf</filename> qui dispose d'une entrée
-		dédiée.</para>
+	<para>On a activé la “journalisation des martiens“ en éditant le fichier
+	<filename>/etc/sysctl.conf</filename>.</para>
 
-<screen><prompt>#</prompt> grep martians /etc/sysctl.conf
+<screen><prompt>$</prompt> grep martians /etc/sysctl.conf
 net.ipv4.conf.all.log_martians = 1</screen>
+
+	<para>On vérifie que le paramètre est bien actif sur le système.</para>
+
+<screen><prompt>$</prompt> sudo sysctl -ar 'all.*martians'
+net.ipv4.conf.all.log_martians = 1</screen>
+
+	<para>Si ce n'est pas le cas, il ne faut pas oublier de parcourir à nouveau
+	les fichiers de paramètres à l'aide de la commande
+	<command>sysctl</command>.</para>
+
+<screen><prompt>$</prompt> sudo sysctl --system</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment activer la traduction d'adresses source sur le
-		routeur <wordasword>Hub</wordasword>&nbsp;?</phrase></para>
+	<para><phrase>Comment valider la fonction de blocage des tentatives
+	d'usurpation d'adresses entre le routeur <wordasword>Hub</wordasword> et
+	les routeurs <wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
 
-	<para>Même si cette question fait appel au filtrage, on utilise la
-		ressource ici pour valider l'acheminement des paquets vers l'Internet
-		depuis le routeur <wordasword>Spoke</wordasword> dont les réseaux ne
-		sont pas connus au delà du routeur <wordasword>Hub</wordasword>.</para>
+	<para>Installer le paquet <systemitem>hping3</systemitem> sur le routeur
+	<wordasword>Hub</wordasword>.</para>
 
-	<para>Rechercher la syntaxe d'utilisation de la cible
-		<option>MASQUERADE</option> sur l'interface Ethernet du routeur
-		<wordasword>Hub</wordasword>.</para>
+	<para>Rechercher dans les pages de manuels de la commande
+	<command>hping3</command> les options qui permettent de générer du trafic
+	<acronym>ICMP</acronym> avec des adresses source aléatoires à destination
+	d'un conteneur hébergé sur un routeur
+	<wordasword>Spoke</wordasword>.</para>
 	</question>
 	<answer>
-	<para>La cible <option>MASQUERADE</option> s'utilise avec la table
-		<option>nat</option>. La syntaxe est la suivante.</para>
+	<para>Voici un premier exemple de test effectué sur le routeur
+	<wordasword>Hub</wordasword> dans le contexte de la maquette.</para>
 
-<screen><prompt>#</prompt> iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE</screen>
+	<para>L'option <option>-a</option> désigne l'adresse
+	<acronym>IPv4</acronym> source usurpée tandis que l'adresse en bout de
+	ligne désigne la destination. Ici, on cherche à contacter un conteneur avec
+	l'adresse source d'un conteneur voisin en étant placé “à l'extérieur“ du
+	<acronym>VLAN</acronym> vert.</para> 
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo hping3 -1 -a 10.0.2.12 --fast -c 10 10.0.2.11
+HPING 10.0.2.11 (ppp0 10.0.2.11): icmp mode set, 28 headers + 0 data bytes
+
+--- 10.0.2.11 hping statistic ---
+<emphasis>10 packets transmitted, 0 packets received, 100% packet loss</emphasis>
+round-trip min/avg/max = 0.0/0.0/0.0 ms</screen>
+
+	<para>Côté routeur <wordasword>Spoke</wordasword>, on peut consulter les
+	traces des tentatives d'usurpation d'adresses à l'aide de la commande
+	suivante.</para> 
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> grep martian /var/log/kern.log</screen>
+
+	<para>Il est aussi possible de lancer un test avec une série d'adresses
+	<acronym>IP</acronym> source aléatoires. Voici un exemple de commande qui
+	provoquera un nombre de blocages aléatoire en fonction des
+	correspondances.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo hping3 -1 --rand-source --fast -c 100 10.0.1.11</screen>
+
+	<para>On étudie l'utilisation de l'outil <command>hping3</command> avec le
+	protocole <acronym>TCP</acronym> dans une question suivante.</para>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment valider le routage des paquets du routeur
-		<wordasword>Spoke</wordasword> vers l'Internet&nbsp;?</phrase></para>
+	<para><phrase>Comment peut-on se protéger contre un nombre de
+	sollicitations <acronym>ICMP</acronym> trop
+	important&nbsp;?</phrase></para>
 
-	<para>Rechercher le paquet qui fournit l'outil
-		<command>tracepath</command>.</para>
+	<para>Rechercher dans le guide &url.iptables-tutorial.fr; la correspondance
+	<citetitle>Limit</citetitle> qui permet de définir un seuil au delà duquel
+	les nouveaux flux réseau ne sont plus acceptés.</para>
+
+	<para>Il faut ajouter un régle spécifique au protocole
+	<acronym>ICMP</acronym> après celle qui assure le traitement des flux déjà
+	enregistrés dans les tables de suivi d'état
+	(<wordasword>Stateful</wordasword>).</para>
 	</question>
 	<answer>
-	<para>Le paquet <systemitem>iputils-tracpath</systemitem> contient l'outil
-		<command>tracepath</command> qui identifie le nombre de saut
-		aller/retour vers une destination donnée.</para>
+	<para>Dans le contexte de la maquette, les nouvelles règles de filtrage
+	sont appliquées sur le routeur <citetitle>Spoke2Vert</citetitle> et le
+	trafic “malveillant“ est généré sur le routeur
+	<citetitle>HubBleu</citetitle> à destination des conteneurs du réseau local
+	du site distant.</para>
 
-<screen><prompt>etu@Spoke:~$</prompt> tracepath 192.0.2.1
- 1?: [LOCALHOST]            pmtu 1492
- 1:  203.0.113.1                      0.988ms
- 1:  203.0.113.1                      0.861ms
- 2:  192.0.2.1                        1.112ms reached
-	 Resume: pmtu 1492 hops 2 back 2</screen>
+	<para>On commence par afficher la liste des règles de la table par défaut
+	appelée <citetitle>netfilter</citetitle> de façon à vérifier si la règle
+	générale de suivi des enregistrements est présente ou non dans les chaînes
+	<literal>INPUT</literal> et <literal>FORWARD</literal>.</para>
 
-<screen><prompt>etu@Hub:~$</prompt> ping -c2 198.51.100.1
-PING 198.51.100.1 (198.51.100.1) 56(84) bytes of data.
-64 bytes from 198.51.100.1: icmp_seq=1 ttl=64 time=0.466 ms
-64 bytes from 198.51.100.1: icmp_seq=2 ttl=64 time=0.678 ms
+	<para>Dans la copie d'écran ci-dessous, on constate qu'aucune règle de
+	filtrage n'a été appliquée au moment du test.</para>
 
---- 198.51.100.1 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1030ms
-rtt min/avg/max/mdev = 0.466/0.572/0.678/0.106 ms</screen>
-
-	<para>Les résultats ci-dessus sont obtenus avec les tables de routage
-		suivantes.</para>
-
-	<itemizedlist>
-	<listitem>
-	<para>Routeur <wordasword>Spoke</wordasword>&nbsp;:</para>
-
-<screen><prompt>$</prompt> ip route ls
-default dev ppp0 scope link <co xml:id='spoke-routing-default'/>
-198.51.100.0/28 dev dummy0 proto kernel scope link src 198.51.100.1 <co xml:id='spoke-routing-dummy'/>
-198.51.100.16/28 dev dummy1 proto kernel scope link src 198.51.100.17
-203.0.113.1 dev ppp0 proto kernel scope link src 203.0.113.4</screen>
-
-	<calloutlist>
-	<callout arearefs='spoke-routing-default'>
-	<para>La route par défaut du routeur <wordasword>Spoke</wordasword> désigne
-		bien le lien point à point vers le routeur
-		<wordasword>Hub</wordasword>.</para>
-	</callout>
-	<callout arearefs='spoke-routing-dummy'>
-	<para>dans cet exemple, les deux interfaces de type
-		<systemitem>dummy</systemitem> sont utilisées pour ajouter des entrées
-		dans la table de routage.</para>
-	</callout>
-	</calloutlist>
-	</listitem>
-	<listitem>
-	<para>Routeur <wordasword>Hub</wordasword>&nbsp;:</para>
-
-<screen><prompt>$</prompt> ip route ls
-default via 192.0.2.1 dev eth0 <co xml:id='hub-routing-default'/>
-192.0.2.0/26 dev eth0 proto kernel scope link src 192.0.2.8
-198.51.100.0/24 via 203.0.113.4 dev ppp0 <co xml:id='hub-routing-static'/>
-203.0.113.4 dev ppp0 proto kernel scope link src 203.0.113.1</screen>
-
-	<calloutlist>
-	<callout arearefs='hub-routing-default'>
-	<para>La route par défaut du routeur <wordasword>Hub</wordasword> désigne
-		bien son interface Ethernet.</para>
-	</callout>
-	<callout arearefs='hub-routing-static'>
-	<para>dans cet exemple, une route statique désigne le ou les réseaux locaux
-		desservis par le routeur <wordasword>Spoke</wordasword>.</para>
-	</callout>
-	</calloutlist>
-	</listitem>
-	</itemizedlist>
-	</answer>
-	</qandaentry>
-</qandadiv>
-</qandaset>
-</sect1>
-
-<sect1 xml:id='interco.netfilter.qa.tools'>
-	<title>Les outils de filtrage réseau</title>
-
-	<para>Sur un système GNU/Linux, les fonctions de filtrage réseau sont
-		réparties entre les espaces mémoire noyau
-		(<wordasword>kernelspace</wordasword>) et utilisateur
-		(<wordasword>userspace</wordasword>). En effet, les fonctions de
-		filtrage réseau sont disponibles sous forme de modules que l'on charge
-		dynamiquement dans la mémoire du système en cours d'exécution en
-		fonction de la syntaxe des règles de filtrage.</para>
-
-<qandaset defaultlabel='number'>
-<qandadiv>
-	<qandaentry>
-	<question>
-	<para><phrase>Quel est le paquet le plus important pour les manipulations
-		sur les fonctions de filtrage réseau&nbsp;?</phrase></para>
-
-	<para>Rechercher dans la liste des paquets les mots clés tels que
-		<option>iptables</option> ou <option>firewall</option>.</para>
-	</question>
-	<answer>
-	<para>La partie <wordasword>userspace</wordasword> des fonctions de
-		filtrage réseau s'appelle <application>iptables</application>. On lance
-		donc une recherche avec ce mot clé dans la base de données des paquets
-		Debian.</para>
-
-<screen><prompt>$</prompt> aptitude search ~iiptables
-i   iptables       - outils d'administration pour le filtrage de paquets et le NAT</screen>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Quelles sont les options de la commande
-		<command>iptables</command> qui permettent de visualiser les règles
-		de filtrage actives ainsi que les compteurs correspondants
-		?</phrase></para>
-
-	<para>Quelle option faut-il préciser pour spécifier la table consultée&nbsp;:
-		<option>raw</option>, <option>mangle</option>,
-		<option>netfilter</option> ou <option>nat</option>.</para>
-
-	<para>Consulter les pages de manuels via <userinput><prompt>#</prompt> man
-			iptables</userinput>.</para>
-	</question>
-	<answer>
-	<para>La consultation des pages de manuels permet de relever le jeu
-		d'options <option>-vnL</option>.</para>
-
-<screen><prompt>#</prompt> iptables -vnL
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
 Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
 
@@ -749,111 +830,109 @@ Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
 Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination</screen>
 
-    <para>La table <systemitem>netfilter</systemitem> est utilisée de façon
-    implicite alors que la table <systemitem>nat</systemitem> de traduction
-    d'adresses doit être appelée explicitement.</para>
+	<para>On ajoute les deux règles générales de suivi des conversations en
+	premier dans les chaînes <literal>INPUT</literal> et
+	<literal>FORWARD</literal>.</para>
 
-<screen><prompt>#</prompt> iptables -vnL -t nat
-Chain PREROUTING (policy ACCEPT 92 packets, 15174 bytes)
- pkts bytes target     prot opt in     out     source               destination
-
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
 Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
+    0     0 ACCEPT     all  --  any    any     anywhere             anywhere             ctstate RELATED,ESTABLISHED
 
-Chain OUTPUT (policy ACCEPT 171 packets, 33236 bytes)
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
+    0     0 ACCEPT     all  --  any    any     anywhere             anywhere             ctstate RELATED,ESTABLISHED
 
-Chain POSTROUTING (policy ACCEPT 77 packets, 16268 bytes)
- pkts bytes target     prot opt in     out     source               destination
-  182 26174 MASQUERADE  all  --  *      eth0    0.0.0.0/0            0.0.0.0/0</screen>
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination</screen>
+
+	<para>Maintenant que le trafic relatif ou appartenant à un flux enregistré
+	dans la table de suivi d'état est accepté, nous pouvons définir les
+	conditions dans lesquelles un nouveau flux entre de le système de suivi
+	d'état. Ici, on s'intéresse au protocole <acronym>ICMP</acronym> et au
+	module <citetitle>Limit</citetitle>. Voici un exemple de règle qui
+	restreint le trafic <acronym>ICMP</acronym> à 2 nouvelles entrées par
+	seconde sur les chaînes <literal>INPUT</literal> et
+	<literal>FORWARD</literal>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment visualiser les modules chargés dynamiquement en
-		fonction de l'utilisation des règles de filtrage réseau
-		?</phrase></para>
+	<para><phrase>Comment qualifier le fonctionnement des règles de limitation
+	du nombre de nouvelles requêtes
+	<acronym>ICMP</acronym>&nbsp;?</phrase></para>
 
-	<para>Utiliser la commande qui sert à lister les modules chargés en mémoire
-		avant et après avoir consulté les tables de filtrage réseau pour la
-		première fois.</para>
-    </question>
-	<answer>
-	<para>La commande <command>lsmod</command> sert à lister les modules
-		chargés en mémoire. En exécutant cette commande avant et après avoir
-		utilisé <command>iptables</command>, on visualise par différence les
-		nouveaux modules chargés par chaque appel. Voici un exemple de liste de
-		modules relatifs au filtrage.</para>
+	<para>Rechercher les options de la commande <command>hping3</command> qui
+	permettent de générer des flux <acronym>ICMP</acronym> en utilisant des
+	adresses <acronym>IPv4</acronym> source aléatoires.</para>
 
-<screen><prompt>#</prompt> lsmod | egrep '(ip_|nf_)' | fmt -t -w80
-nf_tables              86016  0
-nfnetlink              16384  3 nfnetlink_log,nfnetlink_queue,nf_tables
-nf_nat_masquerade_ipv4    16384  1 ipt_MASQUERADE
-nf_conntrack_ipv4      16384  2
-nf_defrag_ipv4         16384  1 nf_conntrack_ipv4
-nf_nat_ipv4            16384  1 iptable_nat
-nf_nat                 28672  2 nf_nat_masquerade_ipv4,nf_nat_ipv4
-nf_conntrack          131072  5
-   nf_conntrack_ipv4,ipt_MASQUERADE,nf_nat_masquerade_ipv4,nf_nat_ipv4,nf_nat
-libcrc32c              16384  2 nf_conntrack,nf_nat
-ip_tables              24576  2 iptable_filter,iptable_nat
-x_tables               36864  3 ip_tables,iptable_filter,ipt_MASQUERADE</screen>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Quels sont les outils de sauvegarde et de restauration des
-		jeux de règles de filtrage réseau fournis avec le paquet
-		<application>iptables</application>&nbsp;?</phrase></para>
-
-	<para>Consulter la liste des fichiers du paquet
-		<application>iptables</application>.</para>
+	<para>Attention&nbsp;! Il faut positionner la politique par défaut en mode "tout
+	ce qui n'est pas autorisé est interdit“ sur le routeur cible le temps du
+	test de qualification.</para>
 	</question>
 	<answer>
-	<para>La liste des fichiers du paquet fait apparaître les outils
-		<command>iptables-save</command> et <command>iptables-restore</command>
-		qui permettent respectivement de sauvegarder et de restaurer l'ensemble
-		des règles de toutes les tables utilisées.</para>
+	<para>On rappelle que dans le contexte de la maquette, les règles de
+	filtrage sont appliquées sur le routeur <citetitle>Spoke2Vert</citetitle>
+	et le trafic “malveillant“ est généré sur le routeur
+	<citetitle>HubBleu</citetitle> à destination des conteneurs du réseau local
+	du site distant.</para>
 
-	<para>Ces programmes sont indispensables pour éditer, insérer ou retirer
-		des règles sans avoir à se préoccuper de l'ordre de saisie. De plus, le
-		programme de restauration se charge de l'effacement des règles
-		précédentes.</para>
-	</answer>
-	</qandaentry>
+	<itemizedlist>
+	<listitem>
+	<para>On commence par modifier la politique par défaut dans la chaîne
+	<literal>FORWARD</literal> sur le routeur
+	<citetitle>Spoke2Vert</citetitle>.</para>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment visualiser les enregistrements d'états de suivi de
-		communication&nbsp;?</phrase></para>
+<screen><prompt>$</prompt> sudo iptables -P FORWARD DROP</screen>
+	</listitem>
+	<listitem>
+	<para>On lance la génération de trafic <acronym>ICMP</acronym> à partir du
+	routeur <citetitle>HubBleu</citetitle>. Dans l'exemple ci-dessous, ce sont
+	100 paquets <acronym>ICMP</acronym> <literal>echo-request</literal> qui
+	sont envoyés avec une adresse <acronym>IPv4</acronym> source
+	aléatoire à destination du conteneur <systemitem
+	class='ipaddress'>10.0.2.11</systemitem>.</para>
 
-	<para>Rechercher les entrées de l'arborescence <filename
-		class='directory'>/proc</filename> dont le nom comprend la chaîne
-		conntrack.</para>
+<screen><prompt>etu@HubBleu:~$</prompt> sudo hping3 -1 --rand-source --fast -c 100 10.0.2.11</screen>
 
-	<para>Rechercher la chaîne conntrack dans la liste des paquets.</para>
+	<para>À la fin de l'émission, les résultats montrent que 76% des 100
+	requêtes ont été rejetées.</para>
 
-	<para>La section <citetitle>«7.2 Les entrées de conntrack»</citetitle> du
-		&url.iptables-tutorial.fr; décrit précisément les différents champs du
-		suivi de communication.</para>
+<screen>--- 10.0.2.11 hping statistic ---
+100 packets transmitted, 24 packets received, <emphasis>76% packet loss</emphasis>
+round-trip min/avg/max = 1.1/5.0/9.3 ms</screen>
+	</listitem>
+	<listitem>
+	<para>On se place sur le routeur <citetitle>Spoke2Vert</citetitle> et on
+	affiche la liste des règles de la chaîne <literal>FORWARD</literal> avec
+	les compteurs de paquets.</para>
 
-    </question>
-    <answer>
-    <para>Les états sont directement consultables à partir du fichier virtuel
-    <filename>/proc/net/ip_conntrack</filename>. Par exemple&nbsp;:</para>
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL FORWARD
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+Chain FORWARD (policy <emphasis>DROP 127 packets</emphasis>, 3556 bytes)
+ pkts bytes target     prot opt in     out     source     destination
+  143  4004 ACCEPT     all  --  any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
+   72  2016 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5 ctstate NEW</screen>
 
-<screen><prompt>#</prompt> conntrack -L | fmt -t -w80
-conntrack v1.4.4 (conntrack-tools): 1 flow entries have been shown.
-udp      17 47 src=192.0.2.8 dst=192.0.2.1 sport=48386 dport=53 src=192.0.2.1
-   dst=192.0.2.8 sport=53 dport=48386 [ASSURED] mark=0 use=1</screen>
+	<para>Cet échantillon montre que 127 paquets ont été mis à la poubelle et
+	non routés jusqu'au conteneur.</para>
+	</listitem>
+	<listitem>
+	<para>Comme le jeu de règles sur le routeur
+	<citetitle>Spoke2Vert</citetitle> est trop restreint pour être acceptable
+	par les conteneurs, on replace la politique par défaut à
+	<literal>ACCEPT</literal> sur la chaîne <literal>FORWARD</literal>.</para>
 
-	<para>L'exemple ci-dessus donne l'état du suivi de communication d'une
-		requête <acronym>DNS</acronym> entre un poste client avec l'adresse
-		<systemitem class='ipaddress'>192.0.2.8</systemitem> et le port source
-		<systemitem>48386</systemitem> et un serveur avec l'adresse <systemitem
-		class='ipaddress'>192.0.2.1</systemitem>.</para> 
+<screen><prompt>$</prompt> sudo iptables -P FORWARD ACCEPT</screen>
+	</listitem>
+	</itemizedlist>
 	</answer>
 	</qandaentry>
 </qandadiv>
