@@ -1111,7 +1111,9 @@ Description : <emphasis>ban hosts that cause multiple authentication errors Fai
 	<acronym>SSH</acronym> sur les routeurs&nbsp;?</phrase></para>
 
 	<para>Il est important de connaître les caractéristiques du service qui
-	doit être surveillé par <citetitle>fail2ban</citetitle>.</para>
+	doit être surveillé par <citetitle>fail2ban</citetitle>. Rechercher dans la
+	liste des ports réseau ouverts celui qui concerne le service
+	<acronym>SSH</acronym>.</para>
 	</question>
 	<answer>
 	<para>Dans le contexte de la maquette, le service <acronym>SSH</acronym> a
@@ -1151,6 +1153,205 @@ LISTEN 0      128             [::]:2222         [::]:*</screen>
 
 <screen><prompt>$</prompt> grep ^Port /etc/ssh/sshd_config
 Port 2222</screen>
+
+	<para>Attention&nbsp;! Si on édite ce fichier de configuration, les
+	modifications ne sont prises en compte qu'au redémarrage du service via la
+	commande
+	<userinput>sudo&nbsp;systemctl&nbsp;restart&nbsp;ssh</userinput>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les deux fichiers de configuration principaux
+	fournis à l'installation du paquet
+	<systemitem>fail2ban</systemitem>&nbsp;?</phrase></para>
+
+	<para>Rechercher dans l'arborescence des fichiers de configuration, les
+	informations relatives aux traitements assurés en cas de détection
+	d'erreurs de connexion à n'importe quel service, puis les informations
+	spécifiques au service <acronym>SSH</acronym>.</para>
+	</question>
+	<answer>
+	<para>Dans le répertoire <filename
+	class='directory'>/etc/fail2ban</filename>, on identifie les deux fichiers
+	demandés.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Le fichier <filename>/etc/fail2ban/jail.conf</filename> donne la
+	liste des paramètres par défaut en cas de détection de tentatives de
+	connexions en erreur. Voici une extraction des premiers paramètres
+	généraux. Ici, le temps de maintien d'une adresse source en prison
+	(<literal>bantime</literal>) est de 10 minutes mais ce temps est multiplié
+	par deux en cas de récidive.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sed -n '/^\[DEF/,/fail2ban_agent/p' /etc/fail2ban/jail.conf | egrep -v '(^#|^$)'
+[DEFAULT]
+bantime.increment = true
+bantime.factor = 2
+ignoreself = true
+ignorecommand =
+bantime  = 10m
+findtime  = 10m
+maxretry = 5
+maxmatches = %(maxretry)s
+backend = auto
+usedns = warn
+logencoding = auto
+enabled = false
+mode = normal
+filter = %(__name__)s[mode=%(mode)s]
+destemail = root@localhost
+sender = root@&lt;fq-hostname>
+mta = sendmail
+protocol = tcp
+chain = &lt;known/chain>
+port = 0:65535
+fail2ban_agent = Fail2Ban/%(fail2ban_version)s</screen>
+	</listitem>
+	<listitem>
+	<para>Le fichier
+	<filename>/etc/fail2ban/jail.d/defaults-debian.conf</filename> contient les
+	paramètres par défaut pour la distribution avec une section spécifique au
+	service <acronym>SSH</acronym>. C'est ce fichier que l'on édite pour
+	l'adapter ua contexte des routeurs de la topologie. On spécifie le numéro
+	de port identifié dans les questions précédentes ainsi qu'un traitement
+	particulier. Voici un exemple de configuration appliqué à la
+	maquette.</para>
+
+<screen>[sshd]
+enabled = true
+port    = 2222
+filter  = sshd
+logpath  = /var/log/auth.log
+action = %(action_)s
+maxretry = 3
+banaction = iptables-new</screen>
+
+	<para>Là encore, les modifications effectuées sur la configuration ne sont
+	prises en compte qu'au redémarrage du service&nbsp;:
+	<userinput>sudo&nbsp;systemctl&nbsp;restart&nbsp;fail2ban</userinput>.</para>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment caractériser le fonctionnement du service
+	<application>fail2ban</application>&nbsp;?</phrase></para>
+
+	<para>Si le service a été installé et configuré sur un routeur
+	<wordasword>Spoke</wordasword>, il est possible de lancer plusieurs
+	tentatives de connexion <acronym>SSH</acronym> depuis le routeur
+	<wordasword>Hub</wordasword> en se trompant de mot de passe.</para>
+
+	<para>On peut alors afficher les règles de filtrage
+	<application>iptables</application> et consulter l'état de la prison
+	<application>fail2ban</application>.</para>
+	</question>
+	<answer>
+	<para>On commence par lancer plusieurs tentatives (au moins 3) de connexion
+	<acronym>SSH</acronym> à partir du routeur
+	<wordasword>Hub</wordasword>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> ssh -p 2222 etu@10.47.1.2
+etu@10.47.1.2's password:
+Permission denied, please try again.
+etu@10.47.1.2's password:
+Permission denied, please try again.
+etu@10.47.1.2's password:
+etu@10.47.1.2: Permission denied (publickey,password).
+<prompt>etu@HubBleu:~$</prompt> ssh -p 2222 etu@10.47.1.2
+ssh: connect to host 10.47.1.2 port 2222: <emphasis>Connection refused</emphasis></screen>
+
+	<para>On relève ensuite les résultats côté routeur
+	<wordasword>Spoke</wordasword>.</para>
+
+	<para>La liste des règles de filtrage montre qu'une nouvelle chaîne a été
+	ajoutée. Dans cette chaîne, on reconnaît l'adresse <acronym>IPv4</acronym>
+	du lien <acronym>PPP</acronym> côté <wordasword>Hub</wordasword>.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo iptables -vL
+Chain INPUT (policy ACCEPT 335K packets, 401M bytes)
+ pkts bytes target     prot opt in     out     source      destination
+    2   120 <emphasis>f2b-sshd</emphasis>   tcp  --  any    any     anywhere    anywhere   state NEW tcp dpt:2222
+
+Chain FORWARD (policy ACCEPT 60353 packets, 58M bytes)
+ pkts bytes target     prot opt in     out     source      destination
+
+Chain OUTPUT (policy ACCEPT 95465 packets, 5602K bytes)
+ pkts bytes target     prot opt in     out     source      destination
+
+<emphasis>Chain f2b-sshd (1 references)</emphasis>
+ pkts bytes target     prot opt in     out     source      destination
+    <emphasis>2   120 REJECT     all  --  any    any     10.47.1.1</emphasis>   anywhere   reject-with icmp-port-unreachable
+    0     0 RETURN     all  --  any    any     anywhere    anywhere</screen>
+
+	<para>Toujours sur le routeur <wordasword>Spoke</wordasword>, on relève
+	l'état du service <application>fail2ban</application> et plus
+	particulièrement celui de la "prison" spécifique au protocole
+	<acronym>SSH</acronym>.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo fail2ban-client status sshd
+Status for the jail: sshd
+|- Filter
+|  |- Currently failed:	0
+|  |- Total failed:	3
+|  `- File list:	/var/log/auth.log
+`- Actions
+   |- Currently banned:	1
+   |- Total banned:	1
+   `- Banned IP list:	10.47.1.1</screen>
+
+	<para>Enfin, on répète l'opération avec l'adresse <acronym>IPv6</acronym>
+	du routeur <wordasword>Spoke</wordasword> sur le lien
+	<acronym>PPP</acronym>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> ssh -p 2222 fe80::5c93:b536:53e7:f976%ppp0
+etu@fe80::5c93:b536:53e7:f976%ppp0's password:
+Permission denied, please try again.
+etu@fe80::5c93:b536:53e7:f976%ppp0's password:
+Permission denied, please try again.
+etu@fe80::5c93:b536:53e7:f976%ppp0's password:
+etu@fe80::5c93:b536:53e7:f976%ppp0: Permission denied (publickey,password).
+<prompt>etu@HubBleu:~$</prompt> ssh -p 2222 fe80::5c93:b536:53e7:f976%ppp0
+ssh: connect to host fe80::5c93:b536:53e7:f976%ppp0 port 2222: <emphasis>Connection refused</emphasis></screen>
+
+	<para>On voit apparaître une nouvelle adresse dans la liste sur le routeur
+	<wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo fail2ban-client status sshd
+Status for the jail: sshd
+|- Filter
+|  |- Currently failed:	1
+|  |- Total failed:	7
+|  `- File list:	/var/log/auth.log
+`- Actions
+   |- Currently banned:	2
+   |- Total banned:	2
+   `- Banned IP list:	10.47.1.1 <emphasis>fe80::490a:39d4:1a05:f33d</emphasis></screen>
+
+	<para>Les règles de filtrage pour le protocole <acronym>IPv6</acronym> ont
+	aussi été complétées.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo ip6tables -vL
+# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source    destination
+    3   240 f2b-sshd   tcp      any    any     anywhere  anywhere     state NEW tcp dpt:2222
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source    destination
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source    destination
+
+Chain f2b-sshd (1 references)
+ pkts bytes target     prot opt in     out     source    destination
+    <emphasis>2   160 REJECT     all      any    any     fe80::490a:39d4:1a05:f33d</emphasis>  anywhere   reject-with icmp6-port-unreachable
+    1    80 RETURN     all      any    any     anywhere  anywhere</screen>
 	</answer>
 	</qandaentry>
 </qandadiv>
