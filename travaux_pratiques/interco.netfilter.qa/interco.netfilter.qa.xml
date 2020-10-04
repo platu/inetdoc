@@ -132,6 +132,13 @@
 	privilèges du super utilisateur.</para>
 	</listitem>
 </itemizedlist>
+
+	<para>Le recours aux commandes <command>grep</command> et
+	<command>fmt</command> sert à optimiser la quantité et l'espace occupés
+	dans les copies d'écran données en réponse aux questions. Tous les “tubes“
+	utilisés pour les copies d'écran peuvent être supprimés de façon à afficher
+	toutes les informations sur un espace qui occupe toute la largeur de la
+	console.</para>
 </sect2>
 </sect1>
 
@@ -511,7 +518,6 @@ x_tables               53248  4 nft_compat,ip_tables,xt_limit,xt_MASQUERADE</scr
 	<para>La section <citetitle>«7.2 Les entrées de conntrack»</citetitle> du
 	&url.iptables-tutorial.fr; décrit précisément les différents champs du
 	suivi de communication.</para>
-
     </question>
     <answer>
 	<para>Voici un échantillon capturé sur le routeur
@@ -601,6 +607,8 @@ udp      17 27 src=10.0.2.11 dst=9.9.9.9 sport=43617 dport=53 src=9.9.9.9
 	</varlistentry>
 	</variablelist>
 
+<sect2 xml:id='interco.netfilter.qa.rp_filter'>
+	<title>Protection contre l'usurpation d'adresse source</title>
 
 <qandaset defaultlabel='number'>
 <qandadiv>
@@ -783,12 +791,50 @@ round-trip min/avg/max = 0.0/0.0/0.0 ms</screen>
 	correspondances.</para>
 
 <screen><prompt>etu@HubBleu:~$</prompt> sudo hping3 -1 --rand-source --fast -c 100 10.0.1.11</screen>
-
-	<para>On étudie l'utilisation de l'outil <command>hping3</command> avec le
-	protocole <acronym>TCP</acronym> dans une question suivante.</para>
 	</answer>
 	</qandaentry>
 
+	<qandaentry>
+	<question>
+	<para><phrase>Comment filtrer les tentatives d'usurpation d'adresses source
+	au plus tôt de façon à limiter le coût de traitement de ces paquets
+	falsifiés sur le système&nbsp;?</phrase></para>
+
+	<para>Identifier le nom de la table de filtrage sans état et rechercher la
+	fonction associée au filtrage des adresses sources usurpées. Rechercher
+	dans les pages de manuels <systemitem>iptables-extensions</systemitem> les
+	informations relatives au module <literal>rpfilter</literal>.</para>
+
+	<para>Ajouter une règle spécifique dans la table de traitement sans état
+	pour les protocoles <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym>.</para>
+	</question>
+	<answer>
+	<para>La table de filtrage sans état est appelée&nbsp;:
+	<literal>raw</literal>. Après consultation des exemples donnés dans les
+	pages de manuels, on aboutit aux deux règles suivantes que l'on applique
+	sur les routeurs <wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>$</prompt> sudo iptables -t raw -A PREROUTING -i ppp0 -m rpfilter --invert -m comment --comment "BCP38" -j DROP
+<prompt>$</prompt> sudo ip6tables -t raw -A PREROUTING -i ppp0 -m rpfilter --invert -m comment --comment "BCP38" -j DROP</screen>
+
+	<para>On peut ensuite sauvegarder ces règles dans les fichiers systèmes
+	utilisés par le service
+	<systemitem>iptables-persistent</systemitem>.</para>
+
+<screen><prompt>$</prompt> sudo sh -c "iptables-save >/etc/iptables/rules.v4"
+<prompt>$</prompt> sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect2>
+
+<sect2 xml:id='interco.netfilter.qa.limit'>
+	<title>Protection contre les dénis de service <acronym>ICMP</acronym></title>
+
+<qandaset>
+<qandadiv>
 	<qandaentry>
 	<question>
 	<para><phrase>Comment peut-on se protéger contre un nombre de
@@ -937,6 +983,72 @@ Chain FORWARD (policy <emphasis>DROP 127 packets</emphasis>, 3556 bytes)
 	</qandaentry>
 </qandadiv>
 </qandaset>
+</sect2>
+
+<sect2 xml:id='interco.netfilter.qa.fail2ban'>
+	<title>Protection contre les robots de connexion au service
+	<acronym>SSH</acronym></title>
+
+<qandaset>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est la fonction du paquet
+	<citetitle>fail2ban</citetitle>&nbsp;?</phrase></para>
+
+	<para>Afficher la description du paquet <citetitle>fail2ban</citetitle>
+	après l'avoir installé.</para>
+	</question>
+	<answer>
+<screen><prompt>$</prompt> apt install fail2ban</screen>
+
+<screen><prompt>$</prompt> sudo aptitude show fail2ban | grep -A2 Desc | fmt -t -w80
+Description : <emphasis>ban hosts that cause multiple authentication errors Fail2ban</emphasis>
+ monitors log files (e.g. /var/log/auth.log, /var/log/apache/access.log)
+ and temporarily or persistently bans failure-prone addresses by updating
+ existing firewall rules.  Fail2ban allows easy specification of different
+ actions to be taken such as to ban an IP using iptables or hostsdeny rules,
+ or simply to send a notification email.</screen>
+
+	<para>Le rôle du service <citetitle>fail2ban</citetitle> est de repérer les
+	erreurs d'authentification dans les journaux des différents services actifs
+	et de créer une chaîne <systemitem>iptables</systemitem> qui bloque les
+	tentatives de connexion suivantes.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le numéro de port utilisé par le service
+	<acronym>SSH</acronym> sur les routeurs&nbsp;?</phrase></para>
+
+	<para>Il est important de connaître les caractéristiques du service qui
+	doit être surveillé par <citetitle>fail2ban</citetitle>.</para>
+	</question>
+	<answer>
+	<para>Dans le contexte de la maquette, le service <acronym>SSH</acronym> a
+	été paramétré pour utiliser le port numéro 2222. On obtient la liste des
+	ports en écoute avec les commandes <command>lsof</command> ou
+	<command>ss</command>.</para>
+
+<screen><prompt>$</prompt> sudo lsof -i tcp:2222 -sTCP:listen
+COMMAND   PID USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME
+sshd    43975 root    3u  IPv4 7613072      0t0  TCP *:2222 (LISTEN)
+sshd    43975 root    4u  IPv6 7613074      0t0  TCP *:2222 (LISTEN)</screen>
+
+<screen><prompt>$</prompt> ss -tapl '( sport = :2222 )' | fmt -t -w80
+State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+LISTEN 0      128          0.0.0.0:2222      0.0.0.0:*
+LISTEN 0      128             [::]:2222         [::]:*</screen>
+
+	<para>Ce sont donc les tentatives de connexion au service
+	<acronym>SSH</acronym> sur le port numéro <emphasis>2222</emphasis> que le
+	service <citetitle>fail2ban</citetitle> doit surveiller.</para>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect2>
 </sect1>
 
 <sect1 xml:id='interco.netfilter.qa.common'>
@@ -1666,221 +1778,6 @@ COMMIT
       </answer>
     </qandaentry>
   </qandaset>
-</sect1>
-
-<sect1 xml:id='interco.netfilter.qa.extended'>
-  <title>Règles de filtrage avec identification des protocoles</title>
-
-  <para>Pour les deux configurations étudiées ci-avant, aucune distinction de
-  protocole n'a été effectuée. Pour affiner le processus d'enregistrement et de
-  suivi des communications réseau, il est possible de distinguer les
-  caractéristiques de chacun des protocoles autorisés.</para>
-
-  <sect2 xml:id='interco.netfilter.qa.extended.icmp'>
-    <title>Protocole ICMP</title>
-
-  <para>Le protocole <acronym>ICMP</acronym> décrit dans le document standard
-  &url.rfc792; est une pièce essentielle du modèle <acronym>TCP/IP</acronym>.
-  Il est principalement utilisé pour rapporter les conditions d'erreurs sur les
-  réseaux. Cependant, les caractéristiques actuelles du protocole ne
-  recommandent aucun contrôle de validation sur les messages d'erreur reçus. Ce
-  protocole laisse donc la porte ouverte à une grande variété d'attaques qui
-  peuvent être effectuées contre <acronym>TCP</acronym> à l'aide de messages
-  <acronym>ICMP</acronym>. Ces attaques comprennent la réinitialisation de
-  connexion, la réduction du débit de sortie, les dégradations de performances.
-  Toutes ces attaques peuvent être réalisées depuis des réseaux distants, sans
-  la nécessité d'analyser les paquets qui correspondent à la connexion
-  <acronym>TCP</acronym> attaquée.</para> 
-  
-  <para>Alors que les implications sur la sécurité du protocole
-  <acronym>ICMP</acronym> sont connues depuis longtemps, tous les systèmes
-  n'ont pas mis en application des contrôles de validation sur les messages
-  d'erreur reçus pour réduire au minimum l'impact de ces attaques.</para>
-
-  <para>Au niveau du noyau Linux, les responsables du sous-système réseau ont
-  décidé de ne plus traiter les messages de type 4
-  <option>source-quench</option>.</para>
-
-  <para>On dispose des ressources suivantes pour débuter l'étude du protocole
-  <acronym>ICMP</acronym>.</para> 
-
-  <itemizedlist>
-    <listitem>
-    <para>La liste des types de messages <acronym>ICMP</acronym> est
-    enregistrée par l'<citetitle>Internet Assigned Numbers
-    Authority</citetitle> (<acronym>IANA</acronym>)&nbsp;:
-    &url.icmp-types;.</para>
-    </listitem>
-    <listitem>
-    <para>Le &url.iptables-tutorial.fr; contient une section complète de
-    présentation des caractéristiques du protocole
-    <acronym>ICMP</acronym>.</para>
-    </listitem>
-  </itemizedlist>
-  </sect2>
-
-  <sect2 xml:id='interco.netfilter.qa.extended.common'>
-    <title>Règles de filtrage communes à toutes les configurations</title>
-
-  <itemizedlist>
-    <listitem>
-    <para>Avec le protocole <acronym>TCP</acronym>, il est possible
-    d'identifier les phases d'établissement, de maintien et de libération de
-    connexion.</para>
-    </listitem>
-    <listitem>
-    <para>Avec le protocole <acronym>UDP</acronym>, il n'y a pas grand chose à
-    identifier puisque ce protocole n'est pas orienté connexion et que le
-    nombre des champs de l'en-tête est très limité.</para>
-    </listitem>
-  </itemizedlist>
-
-  <qandaset>
-    <qandaentry>
-      <question>
-      <para><phrase>Quelle est la syntaxe d'appel de la commande
-      <command>iptables</command> qui permet d'afficher la liste des messages
-      <acronym>ICMP</acronym> et leurs types connus du système de filtrage
-      réseau&nbsp;?</phrase></para>
-      </question>
-      <answer>
-      <para>Après avoir recherché le mot clé <option>icmp</option> dans les
-      pages de manuels de la commande <command>iptables</command>, on obtient
-      l'instruction suivante&nbsp;:
-      <userinput># iptables -p icmp -h</userinput>.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les modifications à apporter sur le jeu de
-      règles communes pour distinguer les messages <acronym>ICMP</acronym> les
-      plus importants&nbsp;?</phrase></para>
-      </question>
-      <answer>
-      <para>On considère quatre types de messages
-      <acronym>ICMP</acronym>&nbsp;:</para>
-      <itemizedlist>
-	<listitem>
-	<para>Type de message 8&nbsp;: <option>echo-request</option>&nbsp;:
-	on autorise les nouvelles requêtes <wordasword>ping</wordasword> à
-	raison de 5 par seconde.</para>
-	</listitem>
-	<listitem>
-	<para>Type de message 0  <option>echo-reply</option>&nbsp;: on
-	autorise les réponses <wordasword>pong</wordasword> aux requêtes
-	<wordasword>ping</wordasword> enregistrées dans la machine d'état de
-	suivi de communication.</para>
-	</listitem>
-	<listitem>
-	<para>Type de message 3&nbsp;:
-	<option>destination-unreachable</option>&nbsp;: on autorise toutes les
-	notifications d'erreur sur la destination relatives à une demande émise
-	à partir de ce système.</para>
-	</listitem>
-	<listitem>
-	<para>Type de message 11&nbsp;: <option>time-exceeded</option>&nbsp;:
-	on autorise toutes les notification de débordement de temps relatives
-	au trafic émis à partir de ce système.</para>
-	</listitem>
-      </itemizedlist>
-
-<screen># cat iptables.common.txt
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT DROP [0:0]
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# I N P U T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/s -m conntrack --ctstate NEW -j ACCEPT
--A INPUT -p icmp --icmp-type echo-reply -m conntrack --ctstate ESTABLISHED -j ACCEPT
--A INPUT -p icmp --icmp-type destination-unreachable -m conntrack --ctstate RELATED -j ACCEPT
--A INPUT -p icmp --icmp-type time-exceeded -m conntrack --ctstate RELATED -j ACCEPT
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -i lo -j ACCEPT
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# O U T P U T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A OUTPUT -o lo -j ACCEPT
-COMMIT
-</screen>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les modifications à apporter sur le jeu de
-      règles communes pour distinguer les conditions sur les connexions
-      <acronym>TCP</acronym>&nbsp;?</phrase></para>
-      </question>
-      <answer>
-      <para>On distingue les demandes d'ouverture de connexion avec l'option
-      <option>--syn</option> des connexions déjà établies avec l'option inverse
-      <option>! --syn</option>.</para>
-
-<screen># cat iptables.common.txt
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT DROP [0:0]
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# I N P U T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/s -m conntrack --ctstate NEW -j ACCEPT
--A INPUT -p icmp --icmp-type echo-reply -m conntrack --ctstate ESTABLISHED -j ACCEPT
--A INPUT -p icmp --icmp-type destination-unreachable -m conntrack --ctstate RELATED -j ACCEPT
--A INPUT -p icmp --icmp-type time-exceeded -m conntrack --ctstate RELATED -j ACCEPT
--A INPUT -p tcp ! --syn -m conntrack --ctstate ESTABLISHED -j ACCEPT
--A INPUT -p tcp --syn -m conntrack --ctstate RELATED -j ACCEPT
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -i lo -j ACCEPT
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# O U T P U T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A OUTPUT -o lo -j ACCEPT
-COMMIT
-</screen>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles sont les modifications à apporter sur le jeu de
-      règles communes pour distinguer le protocole
-      <acronym>UDP</acronym>&nbsp;?</phrase></para>
-      </question>
-      <answer>
-
-<screen># cat iptables.common.txt
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT DROP [0:0]
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# I N P U T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/s -m conntrack --ctstate NEW -j ACCEPT
--A INPUT -p icmp --icmp-type echo-reply -m conntrack --ctstate ESTABLISHED -j ACCEPT
--A INPUT -p icmp --icmp-type destination-unreachable -m conntrack --ctstate RELATED -j ACCEPT
--A INPUT -p icmp --icmp-type time-exceeded -m conntrack --ctstate RELATED -j ACCEPT
--A INPUT -p tcp ! --syn -m conntrack --ctstate ESTABLISHED -j ACCEPT
--A INPUT -p tcp --syn -m conntrack --ctstate RELATED -j ACCEPT
--A INPUT -p udp -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
--A INPUT -i lo -j ACCEPT
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# O U T P U T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A OUTPUT -o lo -j ACCEPT
-COMMIT
-</screen>
-      </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
 </sect1>
 
 <sect1 xml:id='interco.netfilter.qa.refdocs'>
