@@ -80,36 +80,44 @@
 
 <itemizedlist>
 	<listitem>
-	<para><application>procps</application> - utilitaires pour le système de
-	fichiers /proc</para>
+	<para><application>procps</application>&nbsp;- utilitaires pour le système
+	de fichiers /proc</para>
 	</listitem>
 	<listitem>
-	<para><application>iproute2</application> - outils de contrôle du trafic et
-	du réseau</para>
+	<para><application>iproute2</application>&nbsp;- outils de contrôle du
+	trafic et du réseau</para>
 	</listitem>
 	<listitem>
-	<para><application>ifupdown</application> - outils de haut niveau pour
+	<para><application>ifupdown</application>&nbsp;- outils de haut niveau pour
 	configurer les interfaces réseau</para>
 	</listitem>
 	<listitem>
-	<para><application>iputils-ping</application> - outils pour tester
+	<para><application>iputils-ping</application>&nbsp;- outils pour tester
 	l'accessibilité de noeuds réseaux</para>
 	</listitem>
 	<listitem>
-	<para><application>hping3</application> - Active Network Smashing
+	<para><application>iputils-tracepath</application>&nbsp;- Tools to trace
+	the network path to a remote host</para>
+	</listitem>
+	<listitem>
+	<para><application>hping3</application>&nbsp;- Active Network Smashing
 	Tool</para>
 	</listitem>
 	<listitem>
-	<para><application>iptables</application> - outils d'administration pour le
-	filtrage de paquets et le NAT</para>
+	<para><application>thc-ipv6</application>&nbsp;- The Hacker Choice's IPv6
+	Attack Toolkit</para>
 	</listitem>
 	<listitem>
-	<para><application>iptstate</application> - top-like interface to your
+	<para><application>iptables</application>&nbsp;- outils d'administration
+	pour le filtrage de paquets et le NAT</para>
+	</listitem>
+	<listitem>
+	<para><application>iptstate</application>&nbsp;- top-like interface to your
 	netfilter connection-tracking table</para>
 	</listitem>
 	<listitem>
-	<para><application>conntrack</application> - programme pour modifier les
-	tables conntrack</para>
+	<para><application>conntrack</application>&nbsp;- programme pour modifier
+	les tables conntrack</para>
 	</listitem>
 </itemizedlist>
 </sect2>
@@ -826,6 +834,86 @@ round-trip min/avg/max = 0.0/0.0/0.0 ms</screen>
 <prompt>$</prompt> sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
 	</answer>
 	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment caractériser les nouvelles règles de
+	filtrage entre le routeur <wordasword>Hub</wordasword> et les routeurs
+	<wordasword>Spoke</wordasword>&nbsp;?</phrase></para> 
+
+	<para>Pour les tests <acronym>IPv4</acronym>, il suffit de reprendre les
+	mêmes tests que ceux effectués plus haut avec la commande
+	<command>hping3</command>.</para>
+
+	<para>Installer le paquet <systemitem>thc-ipv6</systemitem> sur le routeur
+	<wordasword>Hub</wordasword> pour disposer des outils de tests spécifiques
+	au protocole <acronym>IPv6</acronym>.</para>
+
+	<para>Rechercher dans les pages de manuels de la commande
+	<command>atk6-thcping6</command> les options qui permettent de générer du
+	trafic <acronym>ICMP</acronym> avec une adresse source falsifiée à
+	destination d'un conteneur hébergé sur un routeur
+	<wordasword>Spoke</wordasword>.</para>
+	</question>
+	<answer>
+	<para>Dans le contexte de la maquette, les requêtes falsifiées sont émises
+	depuis le routeur <wordasword>HubBleu</wordasword> à destination du routeur
+	<wordasword>Spoke1Vert</wordasword> sur lequel les règles de filtrage
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> ont été
+	implantées.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Pour le protocole <acronym>IPv4</acronym>, on reprend la commande
+	<command>hping3</command> avec les mêmes paramètres de dans la question sur
+	la protection au niveau du noyau Linux et on relève le compteur des paquets
+	“jetés“ sur le routeur <wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo hping3 -1 -a 10.0.2.12 --fast -c 100 10.0.2.11
+HPING 10.0.2.11 (ppp1 10.0.2.11): icmp mode set, 28 headers + 0 data bytes
+
+--- 10.0.2.11 hping statistic ---
+100 packets transmitted, 0 packets received, <emphasis>100% packet loss</emphasis>
+round-trip min/avg/max = 0.0/0.0/0.0 ms</screen>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo iptables -vL -t raw
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+Chain PREROUTING (policy ACCEPT 393K packets, 457M bytes)
+ pkts bytes target     prot opt in     out     source    destination
+   <emphasis>71  5304 DROP</emphasis>       all  --  any    any     anywhere  anywhere   rpfilter invert /* BCP38 */
+
+Chain OUTPUT (policy ACCEPT 94964 packets, 5522K bytes)
+ pkts bytes target     prot opt in     out     source    destination</screen>
+	</listitem>
+	<listitem>
+	<para>Pour le protocole <acronym>IPv6</acronym>, on utilise la commande
+	<command>atk6-thcping6</command> avec l'adresse d'un conteneur comme source
+	et l'adresse du routeur	<wordasword>Spoke</wordasword> dans le
+	<acronym>VLAN</acronym> supervision (violet) comme destination.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo atk6-thcping6 -n 10 enp0s6.470 fda0:7a62:1:0:216:3eff:feda:e1a fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+*** buffer overflow detected ***: terminated
+Abandon</screen>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo ip6tables -vL -t raw
+# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
+Chain PREROUTING (policy ACCEPT 37580 packets, 6219K bytes)
+ pkts bytes target     prot opt in     out     source     destination
+   <emphasis>14   784 DROP</emphasis>       all      any    any     anywhere   anywhere     rpfilter invert /* BCP38 */
+
+Chain OUTPUT (policy ACCEPT 7599 packets, 1505K bytes)
+ pkts bytes target     prot opt in     out     source     destination</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
 </qandadiv>
 </qandaset>
 </sect2>
@@ -845,7 +933,7 @@ round-trip min/avg/max = 0.0/0.0/0.0 ms</screen>
 	<citetitle>Limit</citetitle> qui permet de définir un seuil au delà duquel
 	les nouveaux flux réseau ne sont plus acceptés.</para>
 
-	<para>Il faut ajouter un régle spécifique au protocole
+	<para>Il faut ajouter une règle spécifique au protocole
 	<acronym>ICMP</acronym> après celle qui assure le traitement des flux déjà
 	enregistrés dans les tables de suivi d'état
 	(<wordasword>Stateful</wordasword>).</para>
@@ -885,15 +973,15 @@ Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
 <prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL
 # Warning: iptables-legacy tables present, use iptables-legacy to see them
 Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination
-    0     0 ACCEPT     all  --  any    any     anywhere             anywhere             ctstate RELATED,ESTABLISHED
+ pkts bytes target     prot opt in     out     source      destination
+    0     0 ACCEPT     all  --  any    any     anywhere    anywhere     ctstate RELATED,ESTABLISHED
 
 Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination
-    0     0 ACCEPT     all  --  any    any     anywhere             anywhere             ctstate RELATED,ESTABLISHED
+ pkts bytes target     prot opt in     out     source      destination
+    0     0 ACCEPT     all  --  any    any     anywhere    anywhere     ctstate RELATED,ESTABLISHED
 
 Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination</screen>
+ pkts bytes target     prot opt in     out     source      destination</screen>
 
 	<para>Maintenant que le trafic relatif ou appartenant à un flux enregistré
 	dans la table de suivi d'état est accepté, nous pouvons définir les
@@ -1044,6 +1132,25 @@ LISTEN 0      128             [::]:2222         [::]:*</screen>
 	<para>Ce sont donc les tentatives de connexion au service
 	<acronym>SSH</acronym> sur le port numéro <emphasis>2222</emphasis> que le
 	service <citetitle>fail2ban</citetitle> doit surveiller.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le fichier de configuration du service
+	<acronym>SSH</acronym> qui permet de définir le numéro de port en écoute
+	avec le protocole <acronym>TCP</acronym>&nbsp;?</phrase></para>
+
+	<para>Repérer le répertoire qui contient les éléments de configuration du
+	service <acronym>SSH</acronym>.</para>
+	</question>
+	<answer>
+	<para>C'est le fichier <filename>/etc/ssh/sshd_config</filename> qui
+	contient les paramètres du serveur. Dans le cas de ces manipulations, on a
+	décommenté la ligne avec le mot clé <literal>Port</literal>.</para>
+
+<screen><prompt>$</prompt> grep ^Port /etc/ssh/sshd_config
+Port 2222</screen>
 	</answer>
 	</qandaentry>
 </qandadiv>
@@ -1783,19 +1890,10 @@ COMMIT
 <sect1 xml:id='interco.netfilter.qa.refdocs'>
 	<title>Documents de référence</title>
 
-<sect2 xml:id='interco.netfilter.qa.refdocs.ietf'>
-	<title>IETF &amp; IANA</title>
+<bridgehead xml:id='interco.netfilter.qa.refdocs.ietf'
+	renderas='sect2'>IETF &amp; IANA</bridgehead>
 
 <variablelist>
-	<varlistentry xml:id='interco.netfilter.qa.refdocs.iana.icmp-types'>
-	<term><citetitle>Types de messages ICMP</citetitle></term>
-	<listitem>
-	<para>L'<citetitle>Internet Assigned Numbers Authority</citetitle> a
-		enregistré les types de messages <acronym>ICMP</acronym> à la page
-		&url.icmp-types;.</para>
-	</listitem>
-	</varlistentry>
-
 	<varlistentry xml:id='interco.netfilter.qa.refdocs.bcp38'>
 	<term><citetitle>Network Ingress Filtering: Defeating Denial of Service
 			Attacks which employ IP Source Address Spoofing</citetitle></term>
@@ -1810,10 +1908,9 @@ COMMIT
 	</listitem>
 	</varlistentry>
 </variablelist>
-</sect2>
 
-<sect2 xml:id='interco.netfilter.qa.refdocs.debian'>
-	<title>Distribution Debian GNU/Linux</title>
+<bridgehead xml:id='interco.netfilter.qa.refdocs.debian'
+	renderas='sect2'>Distribution Debian GNU/Linux</bridgehead>
 
   <variablelist>
     <varlistentry xml:id='interco.netfilter.qa.debian-reference.networking'>
@@ -1825,10 +1922,9 @@ COMMIT
       </listitem>
     </varlistentry>
 </variablelist>
-</sect2>
 
-<sect2 xml:id='interco.netfilter.qa.refdocs.inetdoc'>
-	<title>Site inetdoc.net</title>
+<bridgehead xml:id='interco.netfilter.qa.refdocs.inetdoc'
+	renderas='sect2'>Site inetdoc.net</bridgehead>
 
 <variablelist>
 	<varlistentry xml:id='interco.netfilter.qa.config.interface.lan'>
@@ -1868,6 +1964,5 @@ COMMIT
 	</listitem>
 	</varlistentry>
 </variablelist>
-</sect2>
 </sect1>
 </article>
