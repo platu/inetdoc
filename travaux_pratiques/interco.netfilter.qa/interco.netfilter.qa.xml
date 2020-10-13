@@ -1367,259 +1367,306 @@ Chain f2b-sshd (1 references)
   
 	<itemizedlist>
 	<listitem>
-	<para>Comme les équipements d'interconnexion mis en œuvre dans ces travaux
-		pratiques délimitent des périmètres de faible dimension, on a une
-		connaissance exhaustive des flux réseaux sur le système. On adopte donc
-		la règle&nbsp;: <emphasis>tout trafic réseau non autorisé est
-		interdit</emphasis>.</para>
+	<para>On considère que les équipements d'interconnexion mis en œuvre dans
+	ces travaux pratiques délimitent des périmètres de dimension moyenne. Par
+	conséquent, on a une connaissance exhaustive des flux réseaux sur le
+	système. On adopte donc la règle&nbsp;: <emphasis>tout trafic réseau non
+	autorisé est interdit</emphasis>.</para>
 	</listitem>
 
 	<listitem>
-	<para>Pour exploiter au mieux les fonctionnalités offertes par le noyau
-		Linux, on s'appuie sur le suivi de communication (<wordasword>stateful
-		inspection</wordasword>) pour obtenir un filtrage réseau le plus
-		efficace possible. On cherche donc à suivre la règle d'or d'écriture
-		des règles de filtrage qui consiste à <emphasis>décrire le plus
-		précisément possible le premier paquet qui doit être enregistré
-		dans la table de suivi de communication</emphasis>. Cette règle de
-		description du premier paquet doit être placée après celle(s) qui
-		laisse(nt) passer les flux réseau déjà enregistrés dans la machine
-		d'état de suivi de communication.</para>
+	<para>On fait le choix d'un filtrage basé sur le suivi de communication
+	(<wordasword>stateful inspection</wordasword>). On cherche donc à écrire
+	des règles qui <emphasis>décrivent le plus précisément possible le premier
+	paquet qui doit être enregistré dans la table de suivi de
+	communication</emphasis>. Ces règles de description du premier paquet
+	doivent être placées après celle qui laisse passer le trafic qui correspond
+	ou qui est relatif à une communication déjà enregistrée dans les
+	tables.</para>
 	</listitem>
 
 	<listitem>
-	<para>Dans le but de simplifier l'étude du filtrage, on adopte une
-		simplification sur les flux sortants émis par les deux routeurs
-		<wordasword>Hub</wordasword> et <wordasword>Spoke</wordasword>. On
-		laisse la politique par défaut à <option>ACCEPT</option> pour la chaîne
-		<option>OUTPUT</option>.</para>
+	<para>Dans le but de simplifier l'étude du filtrage, on fait le choix
+	d'autoriser tous les flux sortants émis par les routeurs
+	<wordasword>Hub</wordasword> et <wordasword>Spoke</wordasword>. On laisse
+	donc la politique par défaut à <option>ACCEPT</option> pour les chaînes
+	<option>OUTPUT</option> des routeurs.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>On commence par afficher les règles actives sur les différents
+	routeurs à l'issue des questions de la section précédente&nbsp;: <xref
+	linkend='interco.netfilter.qa.base'/>.</para>
+
+	<para>Attention&nbsp;! Les noms d'interfaces correspondent à la maquette de
+	test.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Régles de filtrage <acronym>IPv4</acronym> côté
+	<wordasword>Hub</wordasword>&nbsp;: fichier
+	<filename>/etc/iptables/rules.v4</filename>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A POSTROUTING -o enp0s6.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	<listitem>
+	<para>Régles de filtrage <acronym>IPv6</acronym> côté
+	<wordasword>Hub</wordasword>&nbsp;: fichier
+	<filename>/etc/iptables/rules.v6</filename>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A POSTROUTING -o enp0s6.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	<listitem>
+	<para>Régles de filtrage <acronym>IPv4</acronym> côté
+	<wordasword>Spoke</wordasword>&nbsp;: fichier
+	<filename>/etc/iptables/rules.v4</filename>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	<listitem>
+	<para>Régles de filtrage <acronym>IPv6</acronym> côté
+	<wordasword>Spoke</wordasword>&nbsp;: fichier
+	<filename>/etc/iptables/rules.v6</filename>.</para>
+
+	<para>À ce stade de la configuration, les règles pour le protocole
+	<acronym>IPv6</acronym> sont identiques à celles appliquées pour le
+	protocole <acronym>IPv4</acronym>.</para>
 	</listitem>
 	</itemizedlist>
 
 <qandaset defaultlabel='number'>
 <qandadiv>
-	<qandaentry>
-	<question>
-	<para><phrase>Quelle est la syntaxe qui définit la politique par défaut à
-		appliquer sur les chaînes de la table
-		<systemitem>netfilter</systemitem>&nbsp;?</phrase></para>
-
-	<para>Il s'agit d'appliquer le premier principe de filtrage énoncé
-		ci-dessus qui veut que tout trafic non autorisé soit interdit.</para> 
-
-	<para>La section <citetitle>«9.3. Commandes»</citetitle> du
-		&url.iptables-tutorial.fr; donne la syntaxe de configuration de
-		<emphasis>cible par défaut</emphasis> pour les chaînes élémentaires&nbsp;:
-		<option>INPUT</option>, <option>FORWARD</option> et
-		<option>OUTPUT</option>.</para>
-	</question>
-	<answer>
-	<para>De façon très classique, on consulte les pages de manuels de la
-		commande <command>iptables</command> et on recherche le mot clé
-		<option>policy</option>. La stratégie retenue suppose que l'on implante
-		règles d'autorisation des flux réseaux valides et que tout autre trafic
-		soit éliminé. La politique par défaut à appliquer sur les trois chaînes
-		est donc&nbsp;: <option>DROP</option>.</para>
-
-<screen><prompt>#</prompt> <emphasis>iptables -P INPUT DROP</emphasis>
-<prompt>#</prompt> <emphasis>iptables -P FORWARD DROP</emphasis>
-<prompt>#</prompt> <emphasis>iptables -P OUTPUT ACCEPT</emphasis>
-<prompt>#</prompt> iptables -vnL
-Chain INPUT (policy DROP 0 packets, 0 bytes)
- pkts bytes target   prot opt in    out   source     destination
-
-Chain FORWARD (policy DROP 0 packets, 0 bytes)
- pkts bytes target   prot opt in    out   source     destination
-
-Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target   prot opt in    out   source     destination</screen>
-	</answer>
-	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quelle est la syntaxe qui autorise le trafic réseau déjà
-		enregistré dans le suivi de communication sur la chaîne
-		<option>INPUT</option>&nbsp;?</phrase></para>
+	<para><phrase>Dans les jeux de règles déjà en place, comment identifier les
+	règles qui traitent les flux réseau dèjà enregistrés dans le suivi de
+	communication&nbsp;?</phrase></para>
 
 	<para>La section <citetitle>«7.3. États de l'espace
 		utilisateur»</citetitle> du &url.iptables-tutorial.fr; décrit les
 		correspondances entre les états et les flux réseau.</para>
 	</question>
 	<answer>
-	<para>La recherche de la correspondance <option>state</option> dans les
-		pages de manuel de la commande <command>iptables</command> permet de
-		sélectionner les états <option>ESTABLISHED</option> et
-		<option>RELATED</option> à appliquer sur les chaînes.</para>
+	<para>Le tableau de la section <citetitle>«7.3. États de l'espace
+	utilisateur»</citetitle> permet de sélectionner les états
+	<option>ESTABLISHED</option> et <option>RELATED</option> que l'on retrouve
+	en première position dans les chaînes <literal>INPUT</literal> et
+	<literal>FORWARD</literal>.</para>
 
-<screen><prompt>#</prompt> <emphasis>iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT</emphasis>
-<prompt>#</prompt> # iptables -vnL | fmt -t -w80
-Chain INPUT (policy DROP 0 packets, 0 bytes) pkts bytes target     prot
- opt in     out     source               destination
-    0     0 ACCEPT     all  --  *      *       0.0.0.0/0            0.0.0.0/0
- ctstate RELATED,ESTABLISHED
+	<para>Voici un exemple qui illustre l'utilisation de ces règles dans le
+	contexte de la maquette. L'évolution des compteurs, montre qu'une règle est
+	effectivement utilisée dans le traitement du trafic réseau.</para>
 
-Chain FORWARD (policy DROP 0 packets, 0 bytes) pkts bytes target     prot
- opt in     out     source               destination
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -vL
+# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
+Chain INPUT (policy ACCEPT 26 packets, 2192 bytes)
+ pkts bytes target     prot opt in     out     source     destination
+  <emphasis>591 54216</emphasis> ACCEPT     all      any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
+    0     0 ACCEPT     icmp     any    any     anywhere   anywhere     limit: avg 2/sec burst 5 ctstate NEW
 
-Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes) pkts bytes target     prot
- opt in     out     source               destination</screen>
+Chain FORWARD (policy ACCEPT 6 packets, 480 bytes)
+ pkts bytes target     prot opt in     out     source     destination
+    <emphasis>6   360</emphasis> ACCEPT     all      any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
+    0     0 ACCEPT     icmp     any    any     anywhere   anywhere     limit: avg 2/sec burst 5 ctstate NEW
 
-	<para>À partir de cette étape, on utilise les programmes
-		<command>iptables-save</command> et <command>iptables-restore</command>
-		pour optimiser les manipulations. Ces programmes présentent un grand
-		intérêt dans la mesure où l'affichage des règles de filtrage est plus
-		condensé.</para>
-
-<screen><prompt>#</prompt> mkdir /etc/iptables
-<prompt>#</prompt> iptables-save >/etc/iptables/rules.v4
-<prompt>#</prompt> vim /etc/iptables/rules.v4
-<prompt>#</prompt> iptables-restore &lt;/etc/iptables/rules.v4
-<prompt>#</prompt> grep -v '^# ' /etc/iptables/rules.v4
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-COMMIT</screen>
-
-	<para>La commande <command>iptables-restore</command> doit être utilisée
-		après chaque édition du fichier
-		<filename>/etc/iptables/rules.v4</filename>.</para>
+Chain OUTPUT (policy ACCEPT 505 packets, 97048 bytes)
+ pkts bytes target     prot opt in     out     source     destination</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>À partir des règles de filtrage précédentes, est-il possible
-		d'émettre ou de recevoir du trafic réseau non enregistré
-		?</phrase></para>
-
-	<para>Faire des tests <acronym>ICMP</acronym>, <acronym>DNS</acronym> et
-		<acronym>HTTP</acronym>. Conclure et justifier.</para>
-	</question>
-	<answer>
-	<para>La réponse est non. La politique par défaut sur la chaîne
-		<option>INPUT</option> étant positionnée à <option>DROP</option>, tout
-		nouveau paquet entrant ou sortant est rejeté. Pour qu'une communication
-		soit possible, il faudrait avoir enregistré un flux réseau dans la
-		machine d'état avant d'appliquer ce jeu de règles de filtrage.</para>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Quelle est la syntaxe qui autorise le trafic réseau depuis
-		et vers l'interface de boucle locale (chaîne <option>INPUT</option>)
-		?</phrase></para>
+	<para><phrase>Quelles règles faut-il ajouter pour autoriser les nouveaux
+	flux réseau depuis et vers l'interface de boucle locale (chaîne
+	<literal>INPUT</literal>)&nbsp;?</phrase></para>
 
 	<para>Pour que les processus locaux au système puissent communiquer entre
-		eux via la pile de protocole TCP/IP, il est
-		<emphasis>essentiel</emphasis> d'autoriser le trafic sur l'interface de
-		boucle locale <option>lo</option>.</para>
+	eux, il est <emphasis>essentiel</emphasis> d'autoriser le trafic sur
+	l'interface de boucle locale <literal>lo</literal>.</para>
     </question>
     <answer>
-	<para>La recherche de la correspondance <option>state</option> dans les
-		pages de manuel de la commande <command>iptables</command> permet de
-		sélectionner l'état <option>NEW</option> pour autoriser le premier
-		paquet depuis et vers cette interface.</para>
+	<para>On insère une nouvelle règle sur la chaîne <literal>INPUT</literal>
+	qui admet tous les nouveaux paquets entrant sur l'interface de
+	<literal>lo</literal> sans tenir compte de la table de suivi des
+	communications.</para>
 
-	<para>On ajoute une nouvelle règle sur la chaîne <option>INPUT</option> qui
-		admet tous les nouveaux paquets entrant sur l'interface de
-		<option>lo</option> dans la table de suivi des communications.</para>
+	<para>La même règle est insérée pour les protocoles <acronym>IPv4</acronym>
+	et <acronym>IPv6</acronym>. On utilise les numéros de lignes pour insérer
+	les nouvelles règles en postion 2.</para>
 
-<screen><prompt>#</prompt> grep -v '^# ' /etc/iptables/rules.v4
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -i lo -j ACCEPT
-COMMIT</screen>
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -I INPUT 2 -i lo -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -I INPUT 2 -i lo -j ACCEPT</screen>
+
+	<para>On relève un exemple de résultat en affichant la liste des règles
+	actives avec leurs numéros.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL --line-numbers
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+Chain INPUT (policy ACCEPT 939 packets, 364K bytes)
+num   pkts bytes target     prot opt in     out     source     destination
+1      955 1336K ACCEPT     all  --  any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
+2        0     0 ACCEPT     all  --  lo     any     anywhere   anywhere
+3        0     0 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5 ctstate NEW
+
+Chain FORWARD (policy ACCEPT 12 packets, 825 bytes)
+num   pkts bytes target     prot opt in     out     source     destination
+1      864  653K ACCEPT     all  --  any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
+2        0     0 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5 ctstate NEW
+
+Chain OUTPUT (policy ACCEPT 573 packets, 34052 bytes)
+num   pkts bytes target     prot opt in     out     source     destination</screen>
 
 	<para>À partir de ce jeu de règles, on peut lancer un test
-		<acronym>ICMP</acronym>&nbsp;: <userinput># ping -c 4
-		127.0.0.1</userinput>.</para>
+	<acronym>ICMP</acronym> et relever les compteurs d'utilisation de la
+	nouvelle règle.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> ping -q -c 4 ::1
+PING ::1(::1) 56 data bytes
+
+--- ::1 ping statistics ---
+4 packets transmitted, 4 received, <emphasis>0% packet loss</emphasis>, time 3074ms
+rtt min/avg/max/mdev = 0.116/0.139/0.162/0.022 ms</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -vL INPUT --line-numbers
+# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
+Chain INPUT (policy ACCEPT 33 packets, 2968 bytes)
+num   pkts bytes target     prot opt in     out     source    destination
+1     1445  131K ACCEPT     all      any    any     anywhere  anywhere     ctstate RELATED,ESTABLISHED
+2        <emphasis>2   208</emphasis> ACCEPT     all      lo     any     anywhere  anywhere
+3        0     0 ACCEPT     icmp     any    any     anywhere  anywhere     limit: avg 2/sec burst 5 ctstate NEW</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quelle est la syntaxe qui autorise le trafic
-		<acronym>ICMP</acronym> en entrée du système en limitant le nombre
-		des nouvelles requêtes à 5 par minute&nbsp;?</phrase></para>
+	<para><phrase>Quelles règles faut-il ajouter pour autoriser les nouvelles
+	connexions <acronym>SSH</acronym> et les intégrer dans la table de suivi
+	des communications&nbsp;?</phrase></para>
 
-	<para>Interdire tout trafic <acronym>ICMP</acronym> est une très mauvaise
-		idée du point de vue administration réseau. Pour autant, il est très
-		facile de se prémunir contre les tentatives de saturation du trafic sur
-		les interfaces en limitant le nombre de requêtes simultanées en entrée
-		sur toutes les interfaces. Dans un premier temps on se contente de
-		cette règle unique très simple même s'il est judicieux de valider les
-		types et les codes des messages <acronym>ICMP</acronym>.</para>
+	<para>Le protocole de couche transport utilisé est <acronym>TCP</acronym>
+	et le numéro de port utilisé par le service <acronym>SSH</acronym> est
+	<option>2222</option>.</para>
 
-	<para>On peut qualifier le fonctionnement de la limitation de trafic à
-		l'aide des commandes <command>ping</command> et
-		<command>hping3</command> à partir d'un hôte distant.</para>
+	<para>La section <citetitle>«7.3. États de l'espace
+	utilisateur»</citetitle> du &url.iptables-tutorial.fr; décrit les
+	correspondances entre les états et les flux réseau. Rechercher la clé
+	relative aux nouveaux flux entrants.</para>
 	</question>
 	<answer>
-	<para>La recherche de la correspondance <option>limit</option> dans les
-		pages de manuel de la commande <command>iptables</command> permet de
-		compléter la syntaxe de la règle d'autorisation du trafic
-		<acronym>ICMP</acronym> avec l'état <option>NEW</option> pour le suivi
-		de communication.</para>
+	<para>Le tableau de la section <citetitle>«7.3. États de l'espace
+	utilisateur»</citetitle> permet de sélectionner l'état
+	<option>NEW</option>.</para>
 
-<screen><prompt>#</prompt> grep -v '^# ' /etc/iptables/rules.v4
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -i lo -j ACCEPT
-<emphasis>-A INPUT -p icmp -m limit --limit 5/min -m conntrack --ctstate NEW -j ACCEPT</emphasis>
-COMMIT</screen>
+	<para>Voici un exemple d'ajout de règles dans le contexte de la
+	maquette.</para>
 
-	<para>Les tests de qualification de la nouvelle règle utilisent la commande
-		usuelle <command>ping</command> puis un outil beaucoup moins classique
-		qui offre de nombreuses «possibilités»,
-		<command>hping3</command>.</para>
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A INPUT -p tcp --syn --dport 2222 \
+  -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A INPUT -p tcp --syn --dport 2222 \
+  -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT</screen>
 
-<screen><prompt>$</prompt> ping -n -c 3 192.0.2.8
-PING 192.0.2.8 (192.0.2.8) 56(84) bytes of data.
-64 bytes from 192.0.2.8: icmp_seq=1 ttl=64 time=0.651 ms
-64 bytes from 192.0.2.8: icmp_seq=2 ttl=64 time=0.248 ms
-64 bytes from 192.0.2.8: icmp_seq=3 ttl=64 time=0.216 ms
+	<para>Comme précédemment, on peut relever les compteurs suite à une
+	nouvelle connexion <acronym>SSH</acronym>.</para>
 
---- 192.0.2.8 ping statistics ---
-3 packets transmitted, 3 received, <emphasis>0% packet loss</emphasis>, time 2041ms
-rtt min/avg/max/mdev = 0.216/0.371/0.651/0.199 ms
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -vL INPUT
+# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
+Chain INPUT (policy ACCEPT 41 packets, 3608 bytes)
+ pkts bytes target     prot opt in     out     source    destination
+ 2227  206K ACCEPT     all      any    any     anywhere  anywhere     ctstate RELATED,ESTABLISHED
+    2   208 ACCEPT     all      lo     any     anywhere  anywhere
+    0     0 ACCEPT     icmp     any    any     anywhere  anywhere     limit: avg 2/sec burst 5 ctstate NEW
+    <emphasis>1    80</emphasis> ACCEPT     tcp      any    any     anywhere  anywhere     tcp dpt:2222 flags:FIN,SYN,RST,ACK/SYN ctstate NEW /* SSH */</screen>
+	</answer>
+	</qandaentry>
 
-<prompt>$</prompt> sudo hping3 -1 --rand-source --fast -c 10 192.0.2.8
-HPING 192.0.2.8 (vlan30 192.0.2.8): icmp mode set, 28 headers + 0 data bytes
-len=28 ip=192.0.2.8 ttl=64 id=17823 icmp_seq=0 rtt=7.9 ms
-len=28 ip=192.0.2.8 ttl=64 id=31272 icmp_seq=1 rtt=3.7 ms
-len=28 ip=192.0.2.8 ttl=64 id=23466 icmp_seq=2 rtt=7.6 ms
-len=28 ip=192.0.2.8 ttl=64 id=18764 icmp_seq=3 rtt=3.5 ms
-len=28 ip=192.0.2.8 ttl=64 id=34593 icmp_seq=4 rtt=7.5 ms
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction qui définit la politique par défaut
+	à appliquer sur les chaînes de la table
+	<systemitem>netfilter</systemitem>&nbsp;?</phrase></para>
 
---- 192.0.2.8 hping statistic ---
-10 packets transmitted, 5 packets received, <emphasis>50% packet loss</emphasis>
-round-trip min/avg/max = 3.5/6.0/7.9 ms</screen>
+	<para>Il s'agit d'appliquer le principe de filtrage énoncé en début de
+	section qui veut que tout trafic non autorisé soit interdit.</para> 
 
-	<para>On constate que le premier test ne produit aucune erreur alors que la
-		tentative de <wordasword>spoofing</wordasword> rapide des adresses
-		<acronym>IP</acronym> source entraîne des pertes de paquets
-		<acronym>ICMP</acronym> dès que la limite fixée dans la règle de
-		filtrage est atteinte.</para>
+	<para>La section <citetitle>«9.3. Commandes»</citetitle> du
+	&url.iptables-tutorial.fr; donne la syntaxe de configuration de
+	<emphasis>cible par défaut</emphasis> pour les chaînes&nbsp;:
+	<literal>INPUT</literal>, <literal>FORWARD</literal> et
+	<literal>OUTPUT</literal>.</para>
+	</question>
+	<answer>
+	<para>On consulte la documentation et on relève la commande
+	<command>-P</command>. Ensuite, on sélectionne la politique par défaut
+	adaptée au contexte&nbsp;: <option>DROP</option>.</para>
 
-<screen><prompt>#</prompt> iptables -vnL INPUT | fmt -t -w80
-	Chain INPUT (policy <emphasis>DROP 4 packets, 112 bytes</emphasis>) pkts bytes target     prot
- opt in     out     source               destination
-    2   168 ACCEPT     all  --  *      *       0.0.0.0/0            0.0.0.0/0
- ctstate RELATED,ESTABLISHED
-    0     0 ACCEPT     all  --  lo     *       0.0.0.0/0            0.0.0.0/0
- ctstate NEW
-    6   224 ACCEPT     icmp --  *      *       0.0.0.0/0            0.0.0.0/0
- limit: avg 5/min burst 5 ctstate NEW</screen>
+	<para>Voici un exemple sur un routeur
+	<wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -P INPUT DROP
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -P INPUT DROP
+<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -P FORWARD DROP
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -P FORWARD DROP
+<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -P OUTPUT ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -P OUTPUT ACCEPT</screen>
 	</answer>
 	</qandaentry>
 </qandadiv>
