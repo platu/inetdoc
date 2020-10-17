@@ -11,17 +11,13 @@ SYMLINKS = \
 	$(MAIN_DIR)/common/author.xml \
 	$(MAIN_DIR)/common/legal.xml \
 	$(MAIN_DIR)/common/rfc.urls.xml \
-	$(MAIN_DIR)/common/inetdoc.urls.xml \
-	$(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/vm.xml
+	$(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
 	interco-dsl.set.xml \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \
-	addressing.xml \
-	dummies.xml \
-	vm.xml \
 	$(OUTPUT)/chapter-interco.kernel.qa.xml \
 	$(OUTPUT)/chapter-interco.rawip.qa.xml \
 	$(OUTPUT)/chapter-interco.ppp.qa.xml \
@@ -52,9 +48,3 @@ chapter-%.xml: $(CHAPTER_FILES) $(wildcard *.xml)
 		sed -f $(MAIN_DIR)/common/entity-extract.sed $$chapter >> $(OUTPUT)/chapter-entities.xml; \
 		sed -f $(MAIN_DIR)/common/article2chapter.sed $$chapter > $(OUTPUT)/chapter-`basename $$chapter`; \
 	done
-
-addressing.xml: ../interco.ospf-bird.qa/addressing.xml
-	sed "s/xml:id=['\"]/&chapter-/g; s/arearefs=\'/&chapter-/g; s/linkend='/&chapter-/g" $< > $@
-
-dummies.xml: ../interco.ospf-bird.qa/dummies.xml
-	sed "s/xml:id=['\"]/&chapter-/g; s/arearefs=\'/&chapter-/g; s/linkend='/&chapter-/g" $< > $@

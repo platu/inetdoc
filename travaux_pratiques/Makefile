@@ -48,7 +48,7 @@ SUBDIRS = \
 	interco.ovs.qa \
 	interco.ovs.q \
 	interco-dsl.cs \
-	interco-dsl.set
+#	interco-dsl.set
 
 # Type(s) de traitement
 PROCESS = subdirs symlink xml2xhtml xml2pdf
