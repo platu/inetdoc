@@ -1919,6 +1919,190 @@ tcp      6 300 ESTABLISHED src=fda0:7a62:2::1 dst=2a04:4e42:1d::432 sport=49156 
 			src=2a04:4e42:1d::432 dst=2001:678:3fc:12c::2 sport=443 dport=49156 [ASSURED] mark=0 use=2</screen>
 	</answer>
 	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment implanter les règles de traduction d'adresses
+		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> destination de façon
+		à rendre accessibles les services Web configurés dans les conteneurs
+		situés dans les réseaux desservis par les routeurs
+		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+		<para>Il faut rechercher la syntaxe des règles de la cible
+		<acronym>DNAT</acronym> à appliquer dans la table des règles de
+		traduction d'adresses (<acronym>nat</acronym>) ainsi que la syntaxe des
+		règles à ajouter dans la chaîne <literal>FORWARD</literal> de la table
+		<literal>netfilter</literal>.</para>
+
+		<para>Ces nouvelles règles doivent être conformes au tableau de
+		correspondance donné en début de section. Bien sûr, les adresses
+		doivent être modifiées en fonction du plan d'adressage du document
+		&url.interco.pppoe;.</para>
+	</question>
+	<answer>
+		<para>Comme indiqué dans l'énoncé de la question, l'ajout des règles
+		comprend deux parties&nbsp;: les règles de la table
+		<literal>nat</literal> et les règles de la table
+		<literal>netfilter</literal>.</para>
+
+		<para>Dans le contexte de la maquette, on a édité les fichiers
+		<filename>/etc/iptables/rules.v4</filename> et
+		<filename>/etc/iptables/rules.v6</filename>.</para>
+
+		<itemizedlist>
+		<listitem>
+		<para>Pour le protocole <acronym>IPv4</acronym>.</para>
+
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8010 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C0 -j DNAT --to 10.0.1.10:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8453 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C0 -j DNAT --to 10.0.1.10:443
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8011 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C1 -j DNAT --to 10.0.1.11:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8454 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C1 -j DNAT --to 10.0.1.11:443
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8012 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C2 -j DNAT --to 10.0.1.12:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8455 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C2 -j DNAT --to 10.0.1.12:443
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8020 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C0 -j DNAT --to 10.0.2.10:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8463 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C0 -j DNAT --to 10.0.2.10:443
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8021 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C1 -j DNAT --to 10.0.2.11:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8464 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C1 -j DNAT --to 10.0.2.11:443
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8022 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C2 -j DNAT --to 10.0.2.12:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8465 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C2 -j DNAT --to 10.0.2.12:443
+-A POSTROUTING -o enp0s6.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A INPUT -p tcp --syn --dport 2222 -m conntrack --ctstate NEW \
+		-m comment --comment SSH -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -p tcp --syn --dport 2222 -m conntrack --ctstate NEW \
+		-m comment --comment SSH -j ACCEPT
+-A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -d 10.0.1.10/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke1C0 -j ACCEPT
+-A FORWARD -d 10.0.1.11/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke1C1 -j ACCEPT
+-A FORWARD -d 10.0.1.12/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke1C2 -j ACCEPT
+-A FORWARD -d 10.0.2.10/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke2C0 -j ACCEPT
+-A FORWARD -d 10.0.2.11/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke2C1 -j ACCEPT
+-A FORWARD -d 10.0.2.12/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke2C2 -j ACCEPT
+COMMIT</screen>
+		</listitem>
+		<listitem>
+		<para>Pour le protocole <acronym>IPv6</acronym>.</para>
+
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8010 \
+		-m comment --comment Spoke1C0 -j DNAT --to [fda0:7a62:1:0:216:3eff:feda:e1a]:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8453 \
+		-m comment --comment Spoke1C0 -j DNAT --to [fda0:7a62:1:0:216:3eff:feda:e1a]:443
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8011 \
+		-m comment --comment Spoke1C1 -j DNAT --to [fda0:7a62:1:0:216:3eff:fec4:d325]:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8454 \
+		-m comment --comment Spoke1C1 -j DNAT --to [fda0:7a62:1:0:216:3eff:fec4:d325]:443
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8012 \
+		-m comment --comment Spoke1C2 -j DNAT --to [fda0:7a62:1:0:216:3eff:fe66:86fb]:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8455 \
+		-m comment --comment Spoke1C2 -j DNAT --to [fda0:7a62:1:0:216:3eff:fe66:86fb]:443
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8020 \
+		-m comment --comment Spoke2C0 -j DNAT --to [fda0:7a62:2:0:216:3eff:feda:e1a]:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8463 \
+		-m comment --comment Spoke2C0 -j DNAT --to [fda0:7a62:2:0:216:3eff:feda:e1a]:443
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8021 \
+		-m comment --comment Spoke2C1 -j DNAT --to [fda0:7a62:2:0:216:3eff:fec4:d325]:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8464 \
+		-m comment --comment Spoke2C1 -j DNAT --to [fda0:7a62:2:0:216:3eff:fec4:d325]:443
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8022 \
+		-m comment --comment Spoke2C2 -j DNAT --to [fda0:7a62:2:0:216:3eff:fe66:86fb]:80
+-A PREROUTING -i enp0s6.300 -p tcp --syn --dport 8465 \
+		-m comment --comment Spoke2C2 -j DNAT --to [fda0:7a62:2:0:216:3eff:fe66:86fb]:443
+-A POSTROUTING -o enp0s6.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -s fe80::/10 -j ACCEPT
+-A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A INPUT -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+-A INPUT -m limit --limit 1/sec -m conntrack --ctstate INVALID -j DROP
+-A INPUT -m limit --limit 1/sec -j NFLOG
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A FORWARD -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+-A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -d fda0:7a62:1:0:216:3eff:feda:e1a/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke1C0 -j ACCEPT
+-A FORWARD -d fda0:7a62:1:0:216:3eff:fec4:d325/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke1C1 -j ACCEPT
+-A FORWARD -d fda0:7a62:1:0:216:3eff:fe66:86fb/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke1C2 -j ACCEPT
+-A FORWARD -d fda0:7a62:2:0:216:3eff:feda:e1a/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke2C0 -j ACCEPT
+-A FORWARD -d fda0:7a62:2:0:216:3eff:fec4:d325/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke2C1 -j ACCEPT
+-A FORWARD -d fda0:7a62:2:0:216:3eff:fe66:86fb/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke2C2 -j ACCEPT
+-A FORWARD -m limit --limit 1/sec -m conntrack --ctstate INVALID -j DROP
+-A FORWARD -m limit --limit 1/sec -j NFLOG
+COMMIT</screen>
+		</listitem>
+		</itemizedlist>
+
+		<para>Pour rétablir les lignes des copies d'écran ci-dessus, il est
+		possible d'utiliser la commande ci-dessous avec laquelle le fichier
+		<filename>rules.txt</filename> contient les lignes coupées avec le
+		caractère <literal>\</literal>.</para>
+
+<screen><prompt>$</prompt> sudo sed '/^[ \-].*\\$/N;s/\\\n *//' rules.txt</screen>
+	</answer>
+	</qandaentry>
 	</qandaset>
 
 	<para>Comme pour toutes les autres sections, on n'oublie pas de sauvegarder
