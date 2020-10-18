@@ -956,17 +956,21 @@ Chain OUTPUT (policy ACCEPT 7599 packets, 1505K bytes)
 <screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL
 # Warning: iptables-legacy tables present, use iptables-legacy to see them
 Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination
+ pkts bytes target     prot opt in     out     source     destination
 
 Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination
+ pkts bytes target     prot opt in     out     source     destination
 
 Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination</screen>
+ pkts bytes target     prot opt in     out     source     destination</screen>
+
+	<para>Le résultat de la commande <userinput>sudo ip6tables -vL</userinput>
+	doit être identique à la copie d'écran ci-dessus.</para>
 
 	<para>On ajoute les deux règles générales de suivi des conversations en
 	premier dans les chaînes <literal>INPUT</literal> et
-	<literal>FORWARD</literal>.</para>
+	<literal>FORWARD</literal> pour le protocole
+	<acronym>IPv4</acronym>.</para>
 
 <screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 <prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
@@ -983,6 +987,12 @@ Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
 Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source      destination</screen>
 
+	<para>On ajoute aussi deux règles identiques pour le protocole
+	<acronym>IPv6</acronym>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT</screen>
+
 	<para>Maintenant que le trafic relatif ou appartenant à un flux enregistré
 	dans la table de suivi d'état est accepté, nous pouvons définir les
 	conditions dans lesquelles un nouveau flux entre de le système de suivi
@@ -992,8 +1002,20 @@ Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
 	seconde sur les chaînes <literal>INPUT</literal> et
 	<literal>FORWARD</literal>.</para>
 
+	<itemizedlist>
+	<listitem>
+	<para>Pour le protocole <acronym>IPv4</acronym>.</para>
+
 <screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
 <prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT</screen>
+	</listitem>
+	<listitem>
+	<para>Pour le protocole <acronym>IPv6</acronym>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT</screen>
+	</listitem>
+	</itemizedlist>
 	</answer>
 	</qandaentry>
 
@@ -1024,7 +1046,8 @@ Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
 	<literal>FORWARD</literal> sur le routeur
 	<citetitle>Spoke2Vert</citetitle>.</para>
 
-<screen><prompt>$</prompt> sudo iptables -P FORWARD DROP</screen>
+<screen><prompt>$</prompt> sudo iptables -P FORWARD DROP
+<prompt>$</prompt> sudo ip6tables -P FORWARD DROP</screen>
 	</listitem>
 	<listitem>
 	<para>On lance la génération de trafic <acronym>ICMP</acronym> à partir du
@@ -1064,7 +1087,8 @@ Chain FORWARD (policy <emphasis>DROP 127 packets</emphasis>, 3556 bytes)
 	par les conteneurs, on replace la politique par défaut à
 	<literal>ACCEPT</literal> sur la chaîne <literal>FORWARD</literal>.</para>
 
-<screen><prompt>$</prompt> sudo iptables -P FORWARD ACCEPT</screen>
+<screen><prompt>$</prompt> sudo iptables -P FORWARD ACCEPT
+<prompt>$</prompt> sudo ip6tables -P FORWARD ACCEPT</screen>
 	</listitem>
 	</itemizedlist>
 	</answer>
@@ -1455,9 +1479,10 @@ COMMIT
 :FORWARD ACCEPT [0:0]
 :OUTPUT ACCEPT [0:0]
 -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A INPUT -s fe80::/10 -j ACCEPT
+-A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
 -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
 COMMIT</screen>
 	</listitem>
 	<listitem>
@@ -1485,16 +1510,28 @@ COMMIT</screen>
 	<para>Régles de filtrage <acronym>IPv6</acronym> côté
 	<wordasword>Spoke</wordasword>&nbsp;: fichier
 	<filename>/etc/iptables/rules.v6</filename>.</para>
-
-	<para>À ce stade de la configuration, les règles pour le protocole
-	<acronym>IPv6</acronym> sont identiques à celles appliquées pour le
-	protocole <acronym>IPv4</acronym>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -s fe80::/10 -j ACCEPT
+-A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+COMMIT</screen>
 	</listitem>
 	</itemizedlist>
 
 <qandaset defaultlabel='number'>
 <qandadiv>
-
 	<qandaentry>
 	<question>
 	<para><phrase>Dans les jeux de règles déjà en place, comment identifier les
@@ -1521,12 +1558,12 @@ COMMIT</screen>
 Chain INPUT (policy ACCEPT 26 packets, 2192 bytes)
  pkts bytes target     prot opt in     out     source     destination
   <emphasis>591 54216</emphasis> ACCEPT     all      any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
-    0     0 ACCEPT     icmp     any    any     anywhere   anywhere     limit: avg 2/sec burst 5 ctstate NEW
+    0     0 ACCEPT     icmp     any    any     anywhere   anywhere     limit: avg 2/sec burst 5
 
 Chain FORWARD (policy ACCEPT 6 packets, 480 bytes)
  pkts bytes target     prot opt in     out     source     destination
     <emphasis>6   360</emphasis> ACCEPT     all      any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
-    0     0 ACCEPT     icmp     any    any     anywhere   anywhere     limit: avg 2/sec burst 5 ctstate NEW
+    0     0 ACCEPT     icmp     any    any     anywhere   anywhere     limit: avg 2/sec burst 5
 
 Chain OUTPUT (policy ACCEPT 505 packets, 97048 bytes)
  pkts bytes target     prot opt in     out     source     destination</screen>
@@ -1565,12 +1602,12 @@ Chain INPUT (policy ACCEPT 939 packets, 364K bytes)
 num   pkts bytes target     prot opt in     out     source     destination
 1      955 1336K ACCEPT     all  --  any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
 2        0     0 ACCEPT     all  --  lo     any     anywhere   anywhere
-3        0     0 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5 ctstate NEW
+3        0     0 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5
 
 Chain FORWARD (policy ACCEPT 12 packets, 825 bytes)
 num   pkts bytes target     prot opt in     out     source     destination
 1      864  653K ACCEPT     all  --  any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
-2        0     0 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5 ctstate NEW
+2        0     0 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5
 
 Chain OUTPUT (policy ACCEPT 573 packets, 34052 bytes)
 num   pkts bytes target     prot opt in     out     source     destination</screen>
@@ -1592,7 +1629,7 @@ Chain INPUT (policy ACCEPT 33 packets, 2968 bytes)
 num   pkts bytes target     prot opt in     out     source    destination
 1     1445  131K ACCEPT     all      any    any     anywhere  anywhere     ctstate RELATED,ESTABLISHED
 2        <emphasis>2   208</emphasis> ACCEPT     all      lo     any     anywhere  anywhere
-3        0     0 ACCEPT     icmp     any    any     anywhere  anywhere     limit: avg 2/sec burst 5 ctstate NEW</screen>
+3        0     0 ACCEPT     ipv6-icmp  any    any     anywhere  anywhere     limit: avg 2/sec burst 5</screen>
 	</answer>
 	</qandaentry>
 
@@ -1633,7 +1670,7 @@ Chain INPUT (policy ACCEPT 41 packets, 3608 bytes)
  pkts bytes target     prot opt in     out     source    destination
  2227  206K ACCEPT     all      any    any     anywhere  anywhere     ctstate RELATED,ESTABLISHED
     2   208 ACCEPT     all      lo     any     anywhere  anywhere
-    0     0 ACCEPT     icmp     any    any     anywhere  anywhere     limit: avg 2/sec burst 5 ctstate NEW
+    0     0 ACCEPT     ipv6-icmp  any    any     anywhere  anywhere     limit: avg 2/sec burst 5
     <emphasis>1    80</emphasis> ACCEPT     tcp      any    any     anywhere  anywhere     tcp dpt:2222 flags:FIN,SYN,RST,ACK/SYN ctstate NEW /* SSH */</screen>
 	</answer>
 	</qandaentry>
@@ -1676,101 +1713,264 @@ Chain INPUT (policy ACCEPT 41 packets, 3608 bytes)
 		réseau spécifiques à la topologie de travaux pratiques.</para>
 </sect1>
 
-<?custom-pagebreak?>
-<sect1 xml:id='interco.netfilter.qa.client'>
-	<title>Règles de filtrage sur le poste routeur
-		<wordasword>Spoke</wordasword></title>
+<sect1 xml:id='interco.netfilter.qa.hub'>
+	<title>Règles de filtrage sur le routeur
+	<wordasword>Hub</wordasword></title>
 
-	<para>Suivant le scénario, la première contrainte imposée au poste routeur
-		d'agence est de s'assurer que le trafic entrant sur son interface
-		<acronym>WAN</acronym> est bien relatif à une demande émise via cette
-		même interface.</para>
+	<para>Dans cette section, on doit compléter les règles de filtrage de façon
+	à ce que le routeur <wordasword>Hub</wordasword> autorise le trafic issu
+	des routeurs <wordasword>Spoke</wordasword> vers l'Internet.</para>
 
-	<para>La seconde contrainte consiste à implanter un service Web en écoute
-		sur l'interface de type <systemitem>dummy</systemitem> et à limiter les
-		accès aux ports <acronym>HTTP</acronym> et <acronym>HTTPS</acronym>
-		depuis le réseau public.</para>
+	<para>On commence par afficher le contenu des deux fichiers
+	<filename>rules.v4</filename> et <filename>rules.v6</filename> qui
+	correspondent à la situation initiale avant de traiter les questions de
+	cette section.</para>
 
-	<para>Il faut travailler à partir du fichier de règles de filtrage établi
-		dans la section précédente. Après chaque édition de ce fichier, la
-		commande <command>iptables-restore</command> permet d'appliquer le
-		nouveau jeu de règles après avoir effacé les règles précédentes et
-		remis les compteurs de paquets à zéro.</para>
-
-<qandaset>
-<qandadiv>
-	<qandaentry>
-	<question>
-	<para><phrase>Comment qualifier la protection contre l'usurpation des
-		adresses source avant et après l'application des règles de filtrage
-		?</phrase></para>
-
-	<para>Reprendre l'utilisation de la commande <command>hping3</command> vue
-		dans la section précédente et caractériser l'utilisation des paramètres
-		<option>rp_filter</option> et la journalisation des paquets
-		martiens.</para> 
-    </question>
-    <answer>
-	<para>Comme il s'agit de caractériser l'usurpation d'adresse source sur le
-		lien point à point, les tests doivent être effectués depuis le routeur
-		<wordasword>Hub</wordasword> vers le routeur
-		<wordasword>Spoke</wordasword>.</para>
-
-	<para>Sur le routeur <wordasword>Hub</wordasword>, on lance la commande
-		<command>hping3</command>.</para>
-
-<screen><prompt>$</prompt> sudo hping3 -1 --rand-source --fast -c 10 203.0.113.4
-HPING 203.0.113.4 (ppp0 203.0.113.4): icmp mode set, 28 headers + 0 data bytes
-len=28 ip=203.0.113.4 ttl=64 id=32172 icmp_seq=0 rtt=7.8 ms
-len=28 ip=203.0.113.4 ttl=64 id=50589 icmp_seq=1 rtt=3.6 ms
-len=28 ip=203.0.113.4 ttl=64 id=10168 icmp_seq=2 rtt=7.4 ms
-len=28 ip=203.0.113.4 ttl=64 id=37653 icmp_seq=4 rtt=7.2 ms
-len=28 ip=203.0.113.4 ttl=64 id=35382 icmp_seq=5 rtt=3.1 ms
-len=28 ip=203.0.113.4 ttl=64 id=28913 icmp_seq=6 rtt=7.0 ms
-len=28 ip=203.0.113.4 ttl=64 id=60162 icmp_seq=8 rtt=6.7 ms
-len=28 ip=203.0.113.4 ttl=64 id=4405 icmp_seq=9 rtt=2.6 ms
-
---- 203.0.113.4 hping statistic ---
-10 packets transmitted, 8 packets received, <emphasis>20% packet loss</emphasis>
-round-trip min/avg/max = 2.6/5.7/7.8 ms</screen>
-
-	<para>Sur le routeur <wordasword>Spoke</wordasword>, on relève les messages
-		dans les journaux.</para>
-
-<screen>IPv4: martian source 203.0.113.4 from 228.163.119.217, on dev ppp0
-ll header: 00000000: 45 00 00 1c 72 18 00 00 40 01 70 47 e4 a3 77 d9  E...r...@.pG..w.
-ll header: 00000010: cb 00 71 04 08 00                                ..q...</screen>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Quelle est la syntaxe qui autorise le trafic vers le service
-		web actif sur le réseau local desservi par le routeur
-		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
-
-	<para>Rechercher la règle qui permet d'ouvrir de nouvelles connexions vers
-		les port 80 et 443 du service web avec le protocole
-		<acronym>TCP</acronym> en couche transport.</para>
-	</question>
-	<answer>
-	<para>On ajoute deux nouvelles règles dans la chaîne
-		<option>FORWARD</option> en vérifiant que tout nouveau flux correspond
-		bien à une demande de connexion <acronym>TCP</acronym>.</para>
-
-<screen><prompt>#</prompt> grep -v '^# ' /etc/iptables/rules.v4 | fmt -t -w80
+	<itemizedlist>
+	<listitem>
+	<para>Jeu de règles pour le protocole <acronym>IPv4</acronym>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A POSTROUTING -o enp0s6.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
 *filter
 :INPUT DROP [0:0]
 :FORWARD DROP [0:0]
 :OUTPUT ACCEPT [0:0]
 -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 -A INPUT -i lo -j ACCEPT
--A INPUT -p icmp -m limit --limit 5/min -m conntrack --ctstate NEW -j ACCEPT
--A FORWARD -d 198.51.100.1 -m tcp -p tcp --syn --dport 80 -m conntrack
-   --ctstate NEW -j ACCEPT
--A FORWARD -d 198.51.100.1 -m tcp -p tcp --syn --dport 443 -m conntrack
-   --ctstate NEW -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
 COMMIT</screen>
+	</listitem>
+	<listitem>
+	<para>Jeu de règles pour le protocole <acronym>IPv6</acronym>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A POSTROUTING -o enp0s6.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -s fe80::/10 -j ACCEPT
+-A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	</itemizedlist>
+
+	<qandaset>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment autoriser et enregistrer dans le mécanisme de
+		suivi des états les flux entrants par les interfaces
+		<acronym>WAN</acronym> du routeur
+		<wordasword>Hub</wordasword>&nbsp;?</phrase></para>
+
+		<para>Rechercher dans les pages de manuels de la commande
+		<command>iptables</command> le moyen de désigner plusieurs interfaces
+		en une seule règle.</para>
+	</question>
+	<answer>
+		<para>C'est le symbole <literal>'+'</literal> qui permet de regrouper
+		les interfaces <literal>ppp0</literal> et <literal>ppp1</literal> dans
+		une même règle de filtrage.</para>
+
+		<para>On ajoute donc les deux règles suivantes sur le routeur
+		<wordasword>Hub</wordasword>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo iptables -A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT
+<prompt>etu@HubBleu:~$</prompt> sudo ip6tables -A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment valider l'utilisation de ces deux nouvelles
+		règles à partir d'un routeur
+		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+		<para>Il suffit de lancer un téléchargement depuis un routeur
+		<wordasword>Spoke</wordasword> en utilisant successivement les
+		protocoles <acronym>IPv4</acronym> et <acronym>IPv6</acronym>. Ensuite,
+		on relève les enregistrements sur le routeur
+		<wordasword>Hub</wordasword> à l'aide de la commande
+		<command>conntrack</command>.</para>
+	</question>
+	<answer>
+		<para>Voici un exemple de relevé avec un téléchargement suffisamment
+		volumineux pour collecter la liste des entrées de suivi d'état sur le
+		routeur <wordasword>Hub</wordasword>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> wget -4 -O /dev/null https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz</screen>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo conntrack -f ipv4 -L
+tcp      6 300 ESTABLISHED src=10.47.3.2 dst=151.101.121.176 sport=60962 dport=443 \
+			src=151.101.121.176 dst=10.141.0.162 sport=443 dport=60962 [ASSURED] mark=0 use=2</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> wget -6 -O /dev/null https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz</screen>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo conntrack -f ipv6 -L
+tcp      6 300 ESTABLISHED src=fda0:7a62:2::1 dst=2a04:4e42:1d::432 sport=49156 dport=443 \
+			src=2a04:4e42:1d::432 dst=2001:678:3fc:12c::2 sport=443 dport=49156 [ASSURED] mark=0 use=2</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.netfilter.qa.spoke'>
+	<title>Règles de filtrage sur le routeur
+	<wordasword>Spoke</wordasword></title>
+
+	<para>Comme pour le routeur <wordasword>Hub</wordasword>, on doit compléter
+	le jeu de règles de filtrage de façon à autoriser et enregistrer dans la
+	table de suivi d'état les flux réseaux issus du réseau des
+	conteneurs.</para>
+
+	<para>On commence par afficher le contenu des deux fichiers
+	<filename>rules.v4</filename> et <filename>rules.v6</filename> d'un routeur
+	<wordasword>Spoke</wordasword> qui correspondent à la situation initiale
+	avant de traiter les questions de cette section.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Jeu de règles pour le protocole <acronym>IPv4</acronym>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A INPUT -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	<listitem>
+	<para>Jeu de règles pour le protocole <acronym>IPv6</acronym>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -s fe80::/10 -j ACCEPT
+-A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A INPUT -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A FORWARD -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	</itemizedlist>
+
+	<qandaset>
+	<qandadiv>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment autoriser et enregistrer dans le mécanisme de
+		suivi des états les flux sortants par l'interface
+		<acronym>WAN</acronym> du routeur
+		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+		<para>Rechercher dans les pages de manuels de la commande
+		<command>iptables</command> le moyen de désigner une interface ainsi
+		que le sens des flux qui transitent par cette interface.</para>
+	</question>
+	<answer>
+		<para>C'est la directive <literal>-o</literal> qui permet de désigner
+		les flux sortants par l'intreface <literal>ppp0</literal>.</para>
+
+		<para>On ajoute donc les deux règles suivantes sur les routeurs
+		<wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A FORWARD -o ppp0 -m conntrack --ctstate NEW -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A FORWARD -o ppp0 -m conntrack --ctstate NEW -j ACCEPT</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment valider l'utilisation de ces deux nouvelles
+		règles à partir d'un routeur
+		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+		<para>Il suffit de lancer un téléchargement depuis un conteneur
+		desservi par le routeur <wordasword>Spoke</wordasword> en utilisant
+		successivement les protocoles <acronym>IPv4</acronym> et
+		<acronym>IPv6</acronym>. Ensuite, on relève les enregistrements sur le
+		même routeur <wordasword>Spoke</wordasword> à l'aide de la commande
+		<command>conntrack</command>.</para>
+	</question>
+	<answer>
+		<para>Voici un exemple de relevé avec un téléchargement suffisamment
+		volumineux pour collecter la liste des entrées de suivi d'état sur le
+		routeur <wordasword>Spoke</wordasword>.</para>
+
+		<para>On commence par s'assurer que le paquet
+		<application>wget</application> est bien installé sur le conteneur
+		depuis lequel on effectue le test.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec container0 -- apt install wget</screen>
+
+		<para>On passe ensuite au téléchargement et au relevé de la table de
+		suivi d'état.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec container0 -- wget -4 -O /dev/null https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz</screen>
+	
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo conntrack -f ipv4 -L
+tcp      6 2 CLOSE src=10.0.2.10 dst=151.101.113.176 sport=59888 dport=443 \
+				src=151.101.113.176 dst=10.0.2.10 sport=443 dport=59888 [ASSURED] mark=0 use=1</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec container0 -- wget -6 -O /dev/null https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo conntrack -f ipv6 -L
+tcp      6 300 ESTABLISHED src=fda0:7a62:2:0:216:3eff:feda:e1a dst=2a04:4e42:3::432 sport=38384 dport=443 \
+				src=2a04:4e42:3::432 dst=fda0:7a62:2:0:216:3eff:feda:e1a sport=443 dport=38384 [ASSURED] mark=0 use=1</screen>
 	</answer>
 	</qandaentry>
     
@@ -1795,44 +1995,6 @@ COMMIT</screen>
       et une seconde pour les paquets entrant par l'interface
       <acronym>LAN</acronym>.</para>
 
-<screen><prompt>#</prompt> grep -v '^# ' /etc/iptables/rules.v4
-*nat
-:PREROUTING ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
-#~~~~~~~~~~~~~~~~~~~~~:: POSTROUTING
--A POSTROUTING -o ippp0 -j MASQUERADE
-COMMIT
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT DROP [0:0]
-#~~~~~~~~~~~~~~~~~~~~~:: INPUT
--A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
--A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/min -m conntrack --ctstate NEW -j ACCEPT
--A INPUT -i lo -j ACCEPT
-<emphasis>#~~~~~~~~~~~~~~~~~~~~~:: FORWARD
--A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
--A FORWARD -i eth0 -m conntrack --ctstate NEW -j ACCEPT</emphasis>
-#~~~~~~~~~~~~~~~~~~~~~:: OUTPUT
--A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
--A OUTPUT -o lo -j ACCEPT
--A OUTPUT -o ippp0 -m conntrack --ctstate NEW -j ACCEPT
-COMMIT</screen>
-
-      <para>Cette configuration ne peut être qualifiée qu'avec un trafic devant
-      transiter entre deux interfaces. Avec la configuration de travaux
-      pratiques proposée, il faut connecter un poste supplémentaire sur le même
-      réseau local que celui de l'interface <acronym>LAN</acronym> du routeur
-      d'agence. C'est le trafic réseau initié par ce nouvel hôte réseau qui
-      utilise les deux règles de la chaîne <option>FORWARD</option> implantées
-      dans le script ci-dessus.</para>
-
-      <para>L'instruction
-      <userinput><prompt>#</prompt> iptables -vL FORWARD</userinput>
-      affiche les compteurs relatifs à la chaîne <option>FORWARD</option>. Ces
-      compteurs évoluent lorsqu'un nouveau trafic à destination d'un autre
-      réseau apparaît sur une interface.</para>
       </answer>
     </qandaentry>
 
@@ -1941,198 +2103,6 @@ COMMIT</screen>
     </qandaentry>
 </qandadiv>
 </qandaset>
-</sect1>
-
-<sect1 xml:id='interco.netfilter.qa.routeur'>
-  <title>Règles de filtrage sur le routeur central
-  (<wordasword>Hub</wordasword>)</title>
-
-  <para>Suivant le cahier des charges fixé, le routeur central doit autoriser
-  le trafic issu du poste client sur son interface <acronym>WAN</acronym> et le
-  router sur l'interface <acronym>LAN</acronym>.</para>
-
-  <para>Tout comme dans le cas du routeur d'agence, on utilise le jeu de
-  règles communes que l'on complète avec les besoins spécifiques à la
-  configuration d'un routeur qui doit faire transiter le trafic d'un interface
-  sur l'autre.</para>
-
-  <para>À la différence du routeur d'agence, le routeur central maîtrise
-  l'attribution des adresses <acronym>IP</acronym>. On peut donc inclure le
-  contrôle des adresses <acronym>IP</acronym> sources dans les règles de
-  filtrage réseau.</para>
-
-  <qandaset>
-    <qandaentry>
-      <question>
-      <para><phrase>Le jeu de règles communes est-il suffisant pour que le
-      poste se comporte comme un routeur&nbsp;?</phrase></para>
-
-      <para>Identifier les conditions nécessaires pour que la fonction routage
-      du noyau soit active et que le filtrage réseau autorise le transit de
-      l'interface <acronym>WAN</acronym> vers l'interface
-      <acronym>LAN</acronym>.</para>
-      </question>
-      <answer>
-      <para>Non. Il manque au moins 2 conditions pour que le routage et la
-      traduction d'adresses sources soient actifs.</para>
-      <itemizedlist>
-        <listitem>
-	<para>Pour qu'un paquet soit transmis d'une interface réseau vers une
-	autre, il faut s'assurer que le routage est actif au niveau du noyau.
-	Cette fonction est paramétrée par la variable d'état
-	<option>ip_forward</option> du système de fichiers virtuel <filename
-	class='directory'>/proc</filename>. La valeur <option>1</option>
-	indique que la fonction routage est active dans le noyau&nbsp;:</para>
-
-<screen># echo 1 > /proc/sys/net/ipv4/ip_forward
-</screen>
-	</listitem>
-	<listitem>
-	<para>Comme la politique par défaut sur la chaîne
-	<option>FORWARD</option> est <option>DROP</option>, aucun paquet ne
-	peut traverser les règles de filtrage et transiter d'une interface vers
-	l'autre. Sans règle supplémentaire, les tests <acronym>ICMP</acronym>
-	doivent incrémenter le compteur <option>DROP</option> de la chaîne
-	<option>FORWARD</option>.</para>
-	</listitem>
-      </itemizedlist>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quelle est la syntaxe de la commande
-      <command>iptables</command> qui autorise le transfert des paquets entrant
-      par l'interface <acronym>WAN</acronym> vers l'interface
-      <acronym>LAN</acronym>&nbsp;?</phrase></para>
-      </question>
-      <answer>
-      <para>Il faut implanter deux règles dans la chaîne
-      <option>FORWARD</option>. Une première règle qui correspond à ce qui a
-      déjà été vu dans la mise au point du jeu de règles communes pour les
-      chaînes <option>INPUT</option> et <option>OUTPUT</option>&nbsp;: tout
-      trafic relatif à une demande enregistrée dans la machine d'état de suivi
-      de communication est accepté. Une seconde règle qui accepte les paquets
-      entrants par l'interface <acronym>LAN</acronym> en enregistrant les
-      nouvelles communication dans la même machine d'état. On obtient le jeu de
-      règles suivant&nbsp;:</para>
-
-<screen># cat iptables.router
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# T a b l e   F I L T E R
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT DROP [0:0]
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# I N P U T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -p icmp -m limit --limit 5/sec -m conntrack --ctstate NEW -j ACCEPT
--A INPUT -i lo -j ACCEPT
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# F O R W A R D
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -i ippp0 -s 192.168.96.0/20 -m conntrack --ctstate NEW -j ACCEPT
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# O U T P U T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A OUTPUT -o lo -j ACCEPT
--A OUTPUT -o eth0 -m conntrack --ctstate NEW -j ACCEPT
-COMMIT
-</screen>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Après avoir initié des communications avec les différents
-      protocoles usuels (<acronym>ICMP</acronym>, <acronym>UDP</acronym> et
-      <acronym>TCP</acronym>), relever l'état des communications du routeur
-      d'agence distant avec l'outil
-      <application>iptsate</application></phrase>.</para>
-      </question>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Est-il possible de visualiser à l'aide de l'analyseur
-      réseau <application>wireshark</application> le trafic retour relatif aux
-      requêtes émises par le client
-      <acronym>WAN</acronym>&nbsp;?</phrase></para>
-      </question>
-      <answer>
-      <para>Non. Pour que le trafic retour aboutisse sur l'interface du client
-      <acronym>WAN</acronym>, il faudrait que la route vers le réseau étendu
-      soit connue du reste de l'Internet.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Sans protocole de routage dynamique assurant la publication
-      de la route vers le réseau étendu sur l'Internet, quelle est la solution
-      technique à utiliser pour que les postes clients distants puissent
-      accéder aux autres réseaux&nbsp;?</phrase></para>
-      </question>
-      <answer>
-      <para>C'est la traduction d'adresse source qui permet d'utiliser
-      l'adresse <acronym>IP</acronym> de l'interface <acronym>LAN</acronym> du
-      routeur comme la seule interface visible de l'Internet.</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-      <para><phrase>Quelle est la syntaxe de la règle d'implantation de la
-      traduction d'adresses <acronym>IP</acronym> source en sortie de
-      l'interface <acronym>LAN</acronym> du routeur
-      central&nbsp;?</phrase></para>
-      </question>
-      <answer>
-
-<screen># cat iptables.router
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# T a b l e   N A T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*nat
-:PREROUTING ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A POSTROUTING -o eth0 -j MASQUERADE
-COMMIT
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# T a b l e   F I L T E R
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT DROP [0:0]
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# I N P U T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -p icmp -m limit --limit 5/sec -m conntrack --ctstate NEW -j ACCEPT
--A INPUT -i lo -j ACCEPT
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# F O R W A R D
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -i ippp0 -s 192.168.96.0/20 -m conntrack --ctstate NEW -j ACCEPT
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# O U T P U T
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A OUTPUT -o lo -j ACCEPT
--A OUTPUT -o eth0 -m conntrack --ctstate NEW -j ACCEPT
-COMMIT
-</screen>
-      </answer>
-    </qandaentry>
-  </qandaset>
 </sect1>
 
 <sect1 xml:id='interco.netfilter.qa.refdocs'>
