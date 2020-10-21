@@ -2427,30 +2427,102 @@ systemctl status zebra
 	section <citetitle>Fonctions réseau d'une interface</citetitle> du support
 	&url.config.interface.lan;.</para>
 
-<screen><prompt>#</prompt> sysctl -p
+<screen><prompt>$</prompt> sudo sysctl --system
+* Applying /usr/lib/sysctl.d/50-pid-max.conf ...
+kernel.pid_max = 4194304
+* Applying /etc/sysctl.d/99-sysctl.conf ...
 net.ipv4.conf.default.rp_filter = 1
 net.ipv4.conf.all.rp_filter = 1
 <emphasis>net.ipv4.ip_forward = 1</emphasis>
 <emphasis>net.ipv6.conf.all.forwarding = 1</emphasis>
-net.ipv4.conf.all.secure_redirects = 1
+net.ipv4.conf.all.log_martians = 1
+* Applying /usr/lib/sysctl.d/protect-links.conf ...
+fs.protected_fifos = 1
+fs.protected_hardlinks = 1
+fs.protected_regular = 2
+fs.protected_symlinks = 1
+* Applying /etc/sysctl.conf ...
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
 net.ipv4.conf.all.log_martians = 1</screen>
 	</listitem>
 
 	<listitem xml:id='interco.ospf-quagga.prepare-config.subinterfaces'>
-	<para>Créer les sous-interfaces associées aux <acronym>VLAN</acronym>s sur
+	<para>Pour créer les interfaces associées aux <acronym>VLAN</acronym>s sur
 	chacun des routeurs <systemitem>R1</systemitem>,
-	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> à l'aide du
-	script suivant&nbsp;:</para>
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem>, on édite le
+	fichier <filename>/etc/network/interfaces</filename>.</para>
 
-<screen><?dbfo keep-together="auto" ?><xi:include href='files/subinterfaces.sh'
-parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	<para>Auparavant, on doit installer le paquet du commutateur virtuel qui
+	sert à raccorder des conteneurs du <acronym>VLAN</acronym> “vert“
+	d'hébergement.</para>
 
-	<para>Sur le routeur <systemitem>R1</systemitem>, on utilise le script avec
-	les numéros de <acronym>VLAN</acronym>s 12 et 13 par exemple.</para>
+<screen><prompt>$</prompt> sudo apt install openvswitch-switch</screen>
 
-<screen>R1:~# sh ./subinterfaces.sh 12 13</screen>
+	<para>Voici un exemple de fichier
+	<filename>/etc/network/interfaces</filename> pour le routeur
+	<systemitem>R1</systemitem> de la maquette.</para>
 
-	<para>On adapte l'utilisation du même script aux routeurs
+<screen># This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto enp0s6
+iface enp0s6 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+# uplink
+auto enp0s6.300
+iface enp0s6.300 inet static
+	address 10.141.0.162/27
+	gateway 10.141.0.161
+	dns-nameserver 9.9.9.9
+
+iface enp0s6.300 inet6 static
+	address 2001:678:3fc:12c::2/64
+	gateway 2001:678:3fc:12c::1
+
+# R1 -> R2
+auto enp0s6.280
+iface enp0s6.280 inet static
+	address 10.2.80.1/29
+
+# R1 -> R3
+auto enp0s6.281
+iface enp0s6.281 inet static
+	address 10.2.81.1/29
+
+# R1 -> lxd
+allow-ovs asw-host
+iface asw-host inet manual
+	ovs_type OVSBridge
+	ovs_ports sw-vlan282
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+allow-asw-host sw-vlan282
+iface sw-vlan282 inet static
+	ovs_type OVSBridge
+	ovs_bridge asw-host
+	ovs_options asw-host 282
+	address 10.2.82.1/24
+
+iface sw-vlan282 inet6 static
+	ovs_type OVSBridge
+	ovs_bridge asw-host
+	ovs_options asw-host 282
+	address 2001:678:3fc:11a::1/64</screen>
+
+	<para>On adapte la liste des interfaces pour les deux autres routeurs
 	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> avec les numéros
 	de <acronym>VLAN</acronym>s concernés.</para>
 	</listitem>
