@@ -39,17 +39,19 @@ tput sgr0
 ionice -c3 qemu-system-x86_64 \
 	-machine type=q35,accel=kvm:tcg \
 	-cpu max \
+	-device intel-iommu \
 	-daemonize \
 	-name $vm \
 	-m $memory \
-	-balloon virtio \
-	-smp 2,cores=2 \
+	-device virtio-balloon \
+	-smp 2,threads=2 \
 	-rtc base=localtime,clock=host \
 	-watchdog i6300esb \
 	-watchdog-action none \
 	-boot order=c,menu=on \
-	-drive if=none,id=drive0,aio=native,cache.direct=on,format=$image_format,media=disk,file=$vm \
-	-device virtio-blk,drive=drive0,scsi=off,config-wce=off \
+	-object "iothread,id=iothread.drive0" \
+	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=$image_format,media=disk,file=$vm \
+	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-k fr \
 	-vga qxl \
 	-spice port=$((5900 + $tapnum)),addr=localhost,disable-ticketing \
@@ -58,7 +60,8 @@ ionice -c3 qemu-system-x86_64 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
 	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
-	-soundhw hda \
+	-device intel-hda \
+	-device hda-duplex \
 	-device virtio-net,netdev=net0,mac="$macaddress" \
 	-netdev user,id=net0,hostfwd=tcp::$((2200 + $tapnum))-:22 \
 	$*

@@ -65,8 +65,8 @@ ionice -c3 qemu-system-x86_64 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
 	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
-	-soundhw hda \
-	-device virtio-net-pci,mq=on,vectors=6,netdev=net0,mac="$macaddress" \
-	-netdev tap,queues=2,ifname=tap$tapnum,id=net0,script=no,downscript=no,vhost=on \
+	-device intel-hda \
+	-device hda-duplex \
+	-device virtio-net-pci,mq=on,vectors=6,netdev=net$tapnum,mac="$macaddress" \
+	-netdev tap,queues=2,ifname=tap$tapnum,id=net$tapnum,script=no,downscript=no,vhost=on \
 	$*
-

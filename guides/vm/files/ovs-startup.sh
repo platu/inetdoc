@@ -64,7 +64,6 @@ ionice -c3 qemu-system-x86_64 \
 	-device intel-hda \
 	-device hda-duplex \
 	-serial telnet:localhost:$((2300 + $tapnum)),server,nowait \
-	-device virtio-net-pci,mq=on,vectors=6,netdev=net0,mac="$macaddress" \
-	-netdev tap,queues=2,ifname=tap$tapnum,id=net0,script=no,downscript=no,vhost=on \
+	-device virtio-net-pci,mq=on,vectors=6,netdev=net$tapnum,mac="$macaddress" \
+	-netdev tap,queues=2,ifname=tap$tapnum,id=net$tapnum,script=no,downscript=no,vhost=on \
 	$*
-
