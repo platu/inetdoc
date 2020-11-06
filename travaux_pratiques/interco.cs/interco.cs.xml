@@ -1,0 +1,991 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+	"/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"http://www.w3.org/2003/entities/2007/w3centities-f.ent">
+%w3centities-f;
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!-- urls -->
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+]>
+
+<article xml:id='interco.cs' xml:lang='fr'>
+
+<info>
+	<title>Étude de cas sur l'interconnexion LAN/WAN</title>
+
+	&author;
+	<abstract>
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='1*'/>
+	<colspec colwidth='1*'/>
+	<tbody>
+    <row>
+	<entry>
+	<inlinemediaobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/interco.cs.png' format='PNG' width='480px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/interco.cs.png' format='PNG' width='7cm' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+    <entry valign='top'>
+		<para>L'objectif de cette étude de cas est de faire la synthèse sur
+		l'ensemble du cycle de travaux pratiques sur le thème de l'interconnexion
+		réseau <acronym>LAN</acronym>/<acronym>WAN</acronym>. Côté réseaux
+		étendus, on retrouve les sessions <acronym>PPPoE</acronym> vers
+		chaque site distant avec son réseau d'extrémité représenté par
+		les conteneurs <acronym>LXD</acronym>. Côté réseaux locaux, les
+		routeurs <wordasword>Hub</wordasword> échangent leurs routes avec le
+		protocole de routage dynamique <acronym>OSPF</acronym>. Ces routeurs
+		constituent ainsi un réseau de “collecte“. Que l'on soit dans le
+		domaine <acronym>LAN</acronym> ou <acronym>WAN</acronym>, on fait un
+		usage massif des <acronym>VLAN</acronym>s.</para>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+	</abstract>
+
+	<keywordset>
+		<keyword>ospf</keyword>
+		<keyword>pppoe</keyword>
+		<keyword>routing</keyword>
+		<keyword>trunk</keyword>
+		<keyword>vlan</keyword>
+	</keywordset>
+</info>
+
+<sect1 xml:id='interco.cs.legal.meta'>
+	&legal;
+
+<bridgehead xml:id='infra.tp.meta' renderas='sect2'>Méta-information</bridgehead>
+
+	<para>Ce document est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+	sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+	format PDF : <link
+	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.cs.topologies'>
+	<title>Topologie réseau &amp; plan d'adressage</title>
+
+	<para>La topologie logique globale se présente comme une associations de
+	deux topologies triangulaires <wordasword>Hub &mp; Spoke</wordasword> dans
+	laquelle les routeurs <wordasword>Hub</wordasword> échangent leurs routes
+	via le protocole de routage dynamique <acronym>OSPF</acronym> et
+	fournissement l'accès Internet aux sites distants <acronym>WAN</acronym>.
+	Il faut noter que dans cette topologie les routeurs
+	<wordasword>Hub</wordasword> partagent la même passerelle vers
+	l'Internet.</para>
+
+	<mediaobject>
+		<imageobject role='fo'>
+		<imagedata format='PNG' fileref='images/interco.cs.png' width='15cm' scalefit='1' />
+		</imageobject>
+		<imageobject role='html'>
+		<imagedata format='PNG' fileref='images/interco.cs.png' width='640px' scalefit='1' />
+		</imageobject>
+		<textobject>
+		<phrase>Topologie logique de synthèse</phrase>
+		</textobject>
+	</mediaobject>
+
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.cs.wan'>
+	<title>Plan d'adressage WAN</title>
+
+	<para>Les connexions <acronym>RNIS</acronym> des routeurs
+	<citetitle>Hubs</citetitle> se font directement sur les ports de
+	l'autocommutateur <acronym>RNIS</acronym> sachant que ces connexions
+	utilisent les deux canaux B d'un port de type <acronym>BRI</acronym>.</para>
+
+	<para>Un routeur <citetitle>Spoke</citetitle> doit s'authentifier auprès d'un
+	routeur <citetitle>Hub</citetitle> via le protocole <acronym>PPP</acronym>
+	avec la méthode <acronym>CHAP</acronym>.</para>
+
+	<para>Un routeur <citetitle>Spoke</citetitle> doit aussi mettre en place un
+	réseau fictif qui héberge un service Web dans un espace de noms réseau
+	dédié.</para>
+
+	<table xml:id='wan.211.addressing' frame='all' pgwide='1'>
+		<title>Salle 211 - Affectation des rôles, des numéros de VLANs et des
+		adresses IP</title>
+	<tgroup cols='6' align='left' colsep='1' rowsep='1'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='2*'/>
+	<colspec colnum='3' colwidth='1*'/>
+	<colspec colnum='4' colwidth='1*'/>
+	<colspec colnum='5' colwidth='2*'/>
+	<colspec colnum='6' colwidth='3*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Groupe</entry>
+		<entry>Poste</entry>
+		<entry>Rôle</entry>
+		<entry>VLAN</entry>
+		<entry>Flux</entry>
+		<entry>Réseau/Authentification</entry>
+	</row>
+	</thead>
+	<tbody>
+		<row>
+			<entry morerows='10' valign='middle'>1</entry>
+			<entry morerows='2' valign='middle'>christophsis</entry>
+			<entry morerows='2' valign='middle'>Hub1</entry>
+			<entry valign='middle'>400</entry>
+			<entry valign='middle'>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:190::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>401</entry>
+			<entry>Data</entry>
+			<entry><systemitem class='ipaddress'>192.168.1.141:192.168.1.142</systemitem></entry>
+		</row>
+		<row>
+			<entry>402</entry>
+			<entry>Data</entry>
+			<entry><systemitem class='ipaddress'>192.168.1.145:192.168.1.146</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='3' valign='middle'>corellia</entry>
+			<entry morerows='3' valign='middle'>Spoke11</entry>
+			<entry>400</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:190::11/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>401</entry>
+			<entry>Data</entry>
+			<entry align='center'><systemitem>etu_s1 / Sp0k3.1</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='1' valign='middle'>&nbsp;</entry>
+			<entry morerows='1' valign='middle'>Branch</entry>
+			<entry><systemitem class='ipaddress'>10.4.0.1/26</systemitem></entry>
+		</row>
+		<row>
+			<entry><systemitem class='ipaddress'>2001:678:3fc:191::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='3' valign='middle'>delaya</entry>
+			<entry morerows='3' valign='middle'>Spoke12</entry>
+			<entry>400</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:190::12/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>402</entry>
+			<entry>Data</entry>
+			<entry align='center'><systemitem>etu_s2 / Sp0k3.2</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='1' valign='middle'>&nbsp;</entry>
+			<entry morerows='1' valign='middle'>Branch</entry>
+			<entry><systemitem class='ipaddress'>10.4.0.65/26</systemitem></entry>
+		</row>
+		<row>
+			<entry><systemitem class='ipaddress'>2001:678:3fc:192::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='10' valign='middle'>2</entry>
+			<entry morerows='2' valign='middle'>kashyyyk</entry>
+			<entry morerows='2' valign='middle'>Hub2</entry>
+			<entry>405</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:195::2/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>406</entry>
+			<entry>Data</entry>
+			<entry><systemitem class='ipaddress'>192.168.1.149:192.168.1.150</systemitem></entry>
+		</row>
+		<row>
+			<entry>407</entry>
+			<entry>Data</entry>
+			<entry><systemitem class='ipaddress'>192.168.1.153:192.168.1.154</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='3' valign='middle'>korriban</entry>
+			<entry morerows='3' valign='middle'>Spoke21</entry>
+			<entry>405</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:195::21/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>406</entry>
+			<entry>Data</entry>
+			<entry align='center'><systemitem>etu_s1 / Sp0k3.1</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='1' valign='middle'>&nbsp;</entry>
+			<entry morerows='1' valign='middle'>Branch</entry>
+			<entry><systemitem class='ipaddress'>10.4.0.129/26</systemitem></entry>
+		</row>
+		<row>
+			<entry><systemitem class='ipaddress'>2001:678:3fc:196::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='3' valign='middle'>kessel</entry>
+			<entry morerows='3' valign='middle'>Spoke22</entry>
+			<entry>405</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:195::22/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>407</entry>
+			<entry>Data</entry>
+			<entry align='center'><systemitem>etu_s2 / Sp0k3.2</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='1' valign='middle'>&nbsp;</entry>
+			<entry morerows='1' valign='middle'>Branch</entry>
+			<entry><systemitem class='ipaddress'>10.4.0.193/26</systemitem></entry>
+		</row>
+		<row>
+			<entry><systemitem class='ipaddress'>2001:678:3fc:197::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='10' valign='middle'>3</entry>
+			<entry morerows='2' valign='middle'>mygeeto</entry>
+			<entry morerows='2' valign='middle'>Hub3</entry>
+			<entry>410</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:19a::3/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>411</entry>
+			<entry>Data</entry>
+			<entry><systemitem class='ipaddress'>192.168.1.157:192.168.1.158</systemitem></entry>
+		</row>
+		<row>
+			<entry>412</entry>
+			<entry>Data</entry>
+			<entry><systemitem class='ipaddress'>192.168.1.161:192.168.1.162</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='3' valign='middle'>nelvaan</entry>
+			<entry morerows='3' valign='middle'>Spoke31</entry>
+			<entry>410</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:19a::31/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>411</entry>
+			<entry>Data</entry>
+			<entry align='center'><systemitem>etu_s1 / Sp0k3.1</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='1' valign='middle'>&nbsp;</entry>
+			<entry morerows='1' valign='middle'>Branch</entry>
+			<entry><systemitem class='ipaddress'>10.4.1.1/26</systemitem></entry>
+		</row>
+		<row>
+			<entry><systemitem class='ipaddress'>2001:678:3fc:19b::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='3' valign='middle'>rattatak</entry>
+			<entry morerows='3' valign='middle'>Spoke32</entry>
+			<entry>410</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:19a::32/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>412</entry>
+			<entry>Data</entry>
+			<entry align='center'><systemitem>etu_s2 / Sp0k3.2</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='1' valign='middle'>&nbsp;</entry>
+			<entry morerows='1' valign='middle'>Branch</entry>
+			<entry><systemitem class='ipaddress'>10.4.1.65/26</systemitem></entry>
+		</row>
+		<row>
+			<entry><systemitem class='ipaddress'>2001:678:3fc:19c::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='10' valign='middle'>4</entry>
+			<entry morerows='2' valign='middle'>saleucami</entry>
+			<entry morerows='2' valign='middle'>Hub4</entry>
+			<entry>415</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:19f::4/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>416</entry>
+			<entry>Data</entry>
+			<entry><systemitem class='ipaddress'>192.168.1.165:192.168.1.166</systemitem></entry>
+		</row>
+		<row>
+			<entry>417</entry>
+			<entry>Data</entry>
+			<entry><systemitem class='ipaddress'>192.168.1.169:192.168.1.170</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='3' valign='middle'>taris</entry>
+			<entry morerows='3' valign='middle'>Spoke41</entry>
+			<entry>415</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:19f::41/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>416</entry>
+			<entry>Data</entry>
+			<entry align='center'><systemitem>etu_s1 / Sp0k3.1</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='1' valign='middle'>&nbsp;</entry>
+			<entry morerows='1' valign='middle'>Branch</entry>
+			<entry><systemitem class='ipaddress'>10.4.1.129/26</systemitem></entry>
+		</row>
+		<row>
+			<entry><systemitem class='ipaddress'>2001:678:3fc:1a0::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='3' valign='middle'>teth</entry>
+			<entry morerows='3' valign='middle'>Spoke42</entry>
+			<entry>415</entry>
+			<entry>Management</entry>
+			<entry><systemitem class='ipaddress'>fe80:19f::42/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>417</entry>
+			<entry>Data</entry>
+			<entry align='center'><systemitem>etu_s2 / Sp0k3.2</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='1' valign='middle'>&nbsp;</entry>
+			<entry morerows='1' valign='middle'>Branch</entry>
+			<entry><systemitem class='ipaddress'>10.4.1.193/26</systemitem></entry>
+		</row>
+		<row>
+			<entry><systemitem class='ipaddress'>2001:678:3fc:1a1::1/64</systemitem></entry>
+		</row>
+	</tbody>
+	</tgroup>
+	</table>
+
+	<table xml:id='wan.213.addressing' frame='all' pgwide='1'>
+		<title>Salle 213 - Affectation des rôles, des numéros de bus S0 et des
+		adresses IP</title>
+		<tgroup cols='7' align='left' colsep='1' rowsep='1'>
+		<colspec colnum='1' colwidth='1*'/>
+		<colspec colnum='2' colwidth='2*'/>
+		<colspec colnum='3' colwidth='2*'/>
+		<colspec colnum='4' colwidth='1*'/>
+		<colspec colnum='5' colwidth='1*'/>
+		<colspec colnum='6' colwidth='2*'/>
+		<colspec colnum='7' colwidth='4*'/>
+		<thead>
+		<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+			<entry>Groupe</entry>
+			<entry>Poste</entry>
+			<entry>Rôle</entry>
+			<entry>Bus S0</entry>
+			<entry>N° Tél.</entry>
+			<entry>Interface</entry>
+			<entry>Réseau/Authentification</entry>
+		</row>
+		</thead>
+		<tbody>
+			<row>
+			<entry morerows='5' valign='middle'>1</entry>
+			<entry morerows='1' valign='middle'>alderaan</entry>
+			<entry morerows='1' valign='middle'>Hub1</entry>
+			<entry align='right'>S0.1</entry>
+			<entry>104</entry>
+			<entry>ippp0</entry>
+			<entry><systemitem class='ipaddress'>192.168.104.1:192.168.104.2</systemitem></entry>
+			</row>
+			<row>
+			<entry align='right'>S0.1</entry>
+			<entry>105</entry>
+			<entry>ippp1</entry>
+			<entry><systemitem class='ipaddress'>192.168.105.1:192.168.105.2</systemitem></entry>
+			</row>
+			<row>
+			<entry morerows='1' valign='middle'>bespin</entry>
+			<entry morerows='1' valign='middle'>Spoke11</entry>
+			<entry align='right'>S0.2</entry>
+			<entry>106</entry>
+			<entry>ippp0</entry>
+			<entry align='center'><systemitem>etu_s11 / Sp0k3.11</systemitem></entry>
+			</row>
+			<row>
+			<entry>&nbsp;</entry>
+			<entry>&nbsp;</entry>
+		<entry>veth0:<phrase role='green'>veth1</phrase></entry>
+		<entry><systemitem class='ipaddress'>10.106.0.1/30</systemitem>:
+			<phrase role='green'><systemitem class='ipaddress'>10.106.0.2/30</systemitem></phrase></entry>
+			</row>
+			<row>
+			<entry morerows='1' valign='middle'>centares</entry>
+			<entry morerows='1' valign='middle'>Spoke12</entry>
+			<entry align='right'>S0.2</entry>
+			<entry>107</entry>
+			<entry>ippp0</entry>
+			<entry align='center'><systemitem>etu_s12 / Sp0k3.12</systemitem></entry>
+			</row>
+			<row>
+			<entry>&nbsp;</entry>
+			<entry>&nbsp;</entry>
+		<entry>veth0:<phrase role='green'>veth1</phrase></entry>
+		<entry><systemitem class='ipaddress'>10.107.0.1/30</systemitem>:
+			<phrase role='green'><systemitem class='ipaddress'>10.107.0.2/30</systemitem></phrase></entry>
+			</row>
+			<row>
+			<entry morerows='5' valign='middle'>2</entry>
+			<entry morerows='1' valign='middle'>coruscant</entry>
+			<entry morerows='1' valign='middle'>Hub2</entry>
+			<entry align='right'>S0.3</entry>
+			<entry>108</entry>
+			<entry>ippp0</entry>
+			<entry><systemitem class='ipaddress'>192.168.107.1:192.168.107.2</systemitem></entry>
+			</row>
+			<row>
+			<entry align='right'>S0.3</entry>
+			<entry>109</entry>
+			<entry>ippp1</entry>
+			<entry><systemitem class='ipaddress'>192.168.108.1:192.168.108.2</systemitem></entry>
+			</row>
+			<row>
+			<entry morerows='1' valign='middle'>dagobah</entry>
+			<entry morerows='1' valign='middle'>Spoke21</entry>
+			<entry align='right'>S0.4</entry>
+			<entry>110</entry>
+			<entry>ippp0</entry>
+			<entry align='center'><systemitem>etu_s21 / Sp0k3.21</systemitem></entry>
+			</row>
+			<row>
+			<entry>&nbsp;</entry>
+			<entry>&nbsp;</entry>
+		<entry>veth0:<phrase role='green'>veth1</phrase></entry>
+		<entry><systemitem class='ipaddress'>10.110.0.1/30</systemitem>:
+			<phrase role='green'><systemitem class='ipaddress'>10.110.0.2/30</systemitem></phrase></entry>
+			</row>
+			<row>
+			<entry morerows='1' valign='middle'>endor</entry>
+			<entry morerows='1' valign='middle'>Spoke22</entry>
+			<entry align='right'>S0.4</entry>
+			<entry>111</entry>
+			<entry>ippp0</entry>
+			<entry align='center'><systemitem>etu_s22 / Sp0k3.22</systemitem></entry>
+			</row>
+			<row>
+			<entry>&nbsp;</entry>
+			<entry>&nbsp;</entry>
+		<entry>veth0:<phrase role='green'>veth1</phrase></entry>
+		<entry><systemitem class='ipaddress'>10.111.0.1/30</systemitem>:
+			<phrase role='green'><systemitem class='ipaddress'>10.111.0.2/30</systemitem></phrase></entry>
+			</row>
+			<row>
+			<entry morerows='5' valign='middle'>3</entry>
+			<entry morerows='1' valign='middle'>felucia</entry>
+			<entry morerows='1' valign='middle'>Hub3</entry>
+			<entry align='right'>S0.5</entry>
+			<entry>112</entry>
+			<entry>ippp0</entry>
+			<entry><systemitem class='ipaddress'>192.168.111.1:192.168.111.2</systemitem></entry>
+			</row>
+			<row>
+			<entry align='right'>S0.5</entry>
+			<entry>113</entry>
+			<entry>ippp1</entry>
+			<entry><systemitem class='ipaddress'>192.168.112.1:192.168.112.2</systemitem></entry>
+			</row>
+			<row>
+			<entry morerows='1' valign='middle'>geonosis</entry>
+			<entry morerows='1' valign='middle'>Spoke31</entry>
+			<entry align='right'>S0.6</entry>
+			<entry>114</entry>
+			<entry>ippp0</entry>
+			<entry align='center'><systemitem>etu_s31 / Sp0k3.31</systemitem></entry>
+			</row>
+			<row>
+			<entry>&nbsp;</entry>
+			<entry>&nbsp;</entry>
+		<entry>veth0:<phrase role='green'>veth1</phrase></entry>
+		<entry><systemitem class='ipaddress'>10.114.0.1/30</systemitem>:
+			<phrase role='green'><systemitem class='ipaddress'>10.114.0.2/30</systemitem></phrase></entry>
+			</row>
+			<row>
+			<entry morerows='1' valign='middle'>hoth</entry>
+			<entry morerows='1' valign='middle'>Spoke32</entry>
+			<entry align='right'>S0.6</entry>
+			<entry>115</entry>
+			<entry>ippp0</entry>
+			<entry align='center'><systemitem>etu_s32 / Sp0k3.32</systemitem></entry>
+			</row>
+			<row>
+			<entry>&nbsp;</entry>
+			<entry>&nbsp;</entry>
+		<entry>veth0:<phrase role='green'>veth1</phrase></entry>
+		<entry><systemitem class='ipaddress'>10.115.0.1/30</systemitem>:
+			<phrase role='green'><systemitem class='ipaddress'>10.115.0.2/30</systemitem></phrase></entry>
+			</row>
+			<row>
+			<entry morerows='5' valign='middle'>4</entry>
+			<entry morerows='1' valign='middle'>mustafar</entry>
+			<entry morerows='1' valign='middle'>Hub4</entry>
+			<entry align='right'>S0.7</entry>
+			<entry>116</entry>
+			<entry>ippp0</entry>
+			<entry><systemitem class='ipaddress'>192.168.115.1:192.168.115.2</systemitem></entry>
+			</row>
+			<row>
+			<entry align='right'>S0.7</entry>
+			<entry>117</entry>
+			<entry>ippp1</entry>
+			<entry><systemitem class='ipaddress'>192.168.116.1:192.168.116.2</systemitem></entry>
+			</row>
+			<row>
+			<entry morerows='1' valign='middle'>naboo</entry>
+			<entry morerows='1' valign='middle'>Spoke41</entry>
+			<entry align='right'>S0.8</entry>
+			<entry>118</entry>
+			<entry>ippp0</entry>
+			<entry align='center'><systemitem>etu_s41 / Sp0k3.41</systemitem></entry>
+			</row>
+			<row>
+			<entry>&nbsp;</entry>
+			<entry>&nbsp;</entry>
+		<entry>veth0:<phrase role='green'>veth1</phrase></entry>
+		<entry><systemitem class='ipaddress'>10.118.0.1/30</systemitem>:
+			<phrase role='green'><systemitem class='ipaddress'>10.118.0.2/30</systemitem></phrase></entry>
+			</row>
+			<row>
+			<entry morerows='1' valign='middle'>tatooine</entry>
+			<entry morerows='1' valign='middle'>Spoke42</entry>
+			<entry align='right'>S0.8</entry>
+			<entry>119</entry>
+			<entry>ippp0</entry>
+			<entry align='center'><systemitem>etu_s42 / Sp0k3.42</systemitem></entry>
+			</row>
+			<row>
+			<entry>&nbsp;</entry>
+			<entry>&nbsp;</entry>
+		<entry>veth0:<phrase role='green'>veth1</phrase></entry>
+		<entry><systemitem class='ipaddress'>10.119.0.1/30</systemitem>:
+			<phrase role='green'><systemitem class='ipaddress'>10.119.0.2/30</systemitem></phrase></entry>
+			</row>
+		</tbody>
+		</tgroup>
+	</table>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.cs.lan'>
+	<title>Plan d'adressage LAN</title>
+
+	<para>La section «Plan d'adressage» du document &url.infra.tp; donne les
+	adresses, dans le <acronym>VLAN</acronym> numéro 4, des deux routeurs ayant
+	accès au réseau du campus.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Routeur <systemitem
+	class='systemname'>cooper.stri</systemitem>&nbsp;: <systemitem
+	class='ipaddress'>172.16.16.1/20</systemitem> et <systemitem
+	class='ipaddress'>2001:678:3fc:4::1/64</systemitem></para>
+	</listitem>
+	<listitem>
+	<para>Routeur <systemitem
+	class='systemname'>casper.stri</systemitem>&nbsp;: <systemitem
+	class='ipaddress'>172.16.16.2/20</systemitem> et <systemitem
+	class='ipaddress'>2001:678:3fc:4::2/64</systemitem></para>
+	</listitem>
+	</itemizedlist>
+
+	<para>Tous les ports utilisés pour raccorder les routeurs ayant le rôle
+		<wordasword>Hub</wordasword> doivent être configurés en mode
+		<wordasword>trunk</wordasword> puisqu'ils servent à véhiculer le trafic
+		de plusieurs domaines de diffusion. On conserve le
+		<acronym>VLAN</acronym> natif numéro 1.</para>
+
+<table xml:id='interco.cs.211.switches' frame='all' pgwide='1'>
+    <title>Salle 211 - Affectation d'un commutateur par groupe</title>
+	<tgroup cols='2' align='center' colsep='1' rowsep='1'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='4*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Groupe</entry>
+		<entry>Commutateur</entry>
+	</row>
+    </thead>
+    <tbody>
+	<row>
+		<entry valign='middle'>1</entry>
+		<entry valign='middle'><systemitem
+			class='systemname'>asw05-211.infra.stri</systemitem></entry>
+	</row>
+	<row>
+		<entry valign='middle'>2</entry>
+		<entry valign='middle'><systemitem
+			class='systemname'>asw06-211.infra.stri</systemitem></entry>
+	</row>
+	<row>
+		<entry valign='middle'>3</entry>
+		<entry valign='middle'><systemitem
+			class='systemname'>asw07-211.infra.stri</systemitem></entry>
+	</row>
+	<row>
+		<entry valign='middle'>4</entry>
+		<entry valign='middle'><systemitem
+			class='systemname'>asw08-211.infra.stri</systemitem></entry>
+	</row>
+	</tbody>
+	</tgroup>
+</table>
+
+<table xml:id='lan.211.addressing' frame='all' pgwide='1'>
+	<title>Salle 211 - Affectation des rôles, des numéros de VLANs et des
+	adresses IP</title>
+	<tgroup cols='7' align='left' colsep='1' rowsep='1'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='2*'/>
+	<colspec colnum='3' colwidth='1*'/>
+	<colspec colnum='4' colwidth='2*'/>
+	<colspec colnum='5' colwidth='1*'/>
+	<colspec colnum='6' colwidth='2*'/>
+	<colspec colnum='7' colwidth='4*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Groupe</entry>
+		<entry>Poste</entry>
+		<entry>Rôle</entry>
+		<entry>OSPF router-id</entry>
+		<entry>VLAN</entry>
+		<entry>Interface</entry>
+		<entry>Réseau</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+		<entry morerows='5' valign='middle'>1</entry>
+		<entry morerows='5' valign='middle'>christophsis</entry>
+		<entry morerows='5' valign='middle'>Hub1</entry>
+		<entry morerows='5' valign='middle'>OSPFv2&nbsp;: 0.211.4.1
+		<?custom-linebreak?>OSPFv3&nbsp;: 0.211.6.1</entry>
+		<entry morerows='1' valign='middle' align='right'>421</entry>
+		<entry morerows='1' valign='middle'>eth0.421</entry>
+		<entry><systemitem class='ipaddress'>10.4.21.1/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:1a5::1</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>431</entry>
+		<entry morerows='1' valign='middle'>eth0.431</entry>
+		<entry><systemitem class='ipaddress'>10.4.31.1/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:1af::1</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>441</entry>
+		<entry morerows='1' valign='middle'>eth0.441</entry>
+		<entry><systemitem class='ipaddress'>10.4.41.1/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:1b9::1</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='5' valign='middle'>2</entry>
+		<entry morerows='5' valign='middle'>kashyyyk</entry>
+		<entry morerows='5' valign='middle'>Hub2</entry>
+		<entry morerows='5' valign='middle'>OSPFv2&nbsp;: 0.211.4.2
+		<?custom-linebreak?>OSPFv3&nbsp;: 0.211.6.2</entry>
+		<entry morerows='1' valign='middle' align='right'>4</entry>
+		<entry morerows='1' valign='middle'>eth0.4</entry>
+		<entry><systemitem class='ipaddress'>172.16.18.2/20</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:4::70a</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>421</entry>
+		<entry morerows='1' valign='middle'>eth0.421</entry>
+		<entry><systemitem class='ipaddress'>10.4.21.2/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:1a5::2</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>432</entry>
+		<entry morerows='1' valign='middle'>eth0.432</entry>
+		<entry><systemitem class='ipaddress'>10.4.32.2/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:1b0::2</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='5' valign='middle'>3</entry>
+		<entry morerows='5' valign='middle'>mygeeto</entry>
+		<entry morerows='5' valign='middle'>Hub3</entry>
+		<entry morerows='5' valign='middle'>OSPFv2&nbsp;: 0.211.4.3
+		<?custom-linebreak?>OSPFv3&nbsp;: 0.211.6.3</entry>
+		<entry morerows='1' valign='middle' align='right'>431</entry>
+		<entry morerows='1' valign='middle'>eth0.431</entry>
+		<entry><systemitem class='ipaddress'>10.4.31.3/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:1af::3</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>432</entry>
+		<entry morerows='1' valign='middle'>eth0.432</entry>
+		<entry><systemitem class='ipaddress'>10.4.32.3/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:1b0::3</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>443</entry>
+		<entry morerows='1' valign='middle'>eth0.443</entry>
+		<entry><systemitem class='ipaddress'>10.4.43.3/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:1bb::3</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='5' valign='middle'>4</entry>
+		<entry morerows='5' valign='middle'>saleucami</entry>
+		<entry morerows='5' valign='middle'>Hub4</entry>
+		<entry morerows='5' valign='middle'>OSPFv2&nbsp;: 0.211.4.4
+		<?custom-linebreak?>OSPFv3&nbsp;: 0.211.6.4</entry>
+		<entry morerows='1' valign='middle' align='right'>4</entry>
+		<entry morerows='1' valign='middle'>eth0.4</entry>
+		<entry><systemitem class='ipaddress'>172.16.18.4/20</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:4::70c</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>441</entry>
+		<entry morerows='1' valign='middle'>eth0.441</entry>
+		<entry><systemitem class='ipaddress'>10.4.41.4/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:1b9::4</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>443</entry>
+		<entry morerows='1' valign='middle'>eth0.443</entry>
+		<entry><systemitem class='ipaddress'>10.4.43.4/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:1bb::4</systemitem></entry>
+	</row>
+	</tbody>
+	</tgroup>
+</table>
+
+<table xml:id='interco.cs.213.switches' frame='all' pgwide='1'>
+	<title>Salle 213 - Affectation d'un commutateur par groupe</title>
+	<tgroup cols='2' align='center' colsep='1' rowsep='1'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='4*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Groupe</entry>
+		<entry>Commutateur</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+		<entry valign='middle'>1</entry>
+		<entry valign='middle'><systemitem
+			class='systemname'>asw05-213.infra.stri</systemitem></entry>
+	</row>
+	<row>
+		<entry valign='middle'>2</entry>
+		<entry valign='middle'><systemitem
+			class='systemname'>asw06-213.infra.stri</systemitem></entry>
+	</row>
+	<row>
+		<entry valign='middle'>3</entry>
+		<entry valign='middle'><systemitem
+			class='systemname'>asw07-213.infra.stri</systemitem></entry>
+	</row>
+	<row>
+		<entry valign='middle'>4</entry>
+		<entry valign='middle'><systemitem
+			class='systemname'>asw08-213.infra.stri</systemitem></entry>
+	</row>
+	</tbody>
+	</tgroup>
+</table>
+
+<table xml:id='lan.213.addressing' frame='all' pgwide='1'>
+	<title>Salle 213 - Affectation des rôles, des numéros de VLANs et des
+	adresses IP</title>
+	<tgroup cols='7' align='left' colsep='1' rowsep='1'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='2*'/>
+	<colspec colnum='3' colwidth='1*'/>
+	<colspec colnum='4' colwidth='2*'/>
+	<colspec colnum='5' colwidth='1*'/>
+	<colspec colnum='6' colwidth='2*'/>
+	<colspec colnum='7' colwidth='4*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Groupe</entry>
+		<entry>Poste</entry>
+		<entry>Rôle</entry>
+		<entry>OSPF router-id</entry>
+		<entry>VLAN</entry>
+		<entry>Interface</entry>
+		<entry>Réseau</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+		<entry morerows='5' valign='middle'>1</entry>
+		<entry morerows='5' valign='middle'>alderaan</entry>
+		<entry morerows='5' valign='middle'>Hub1</entry>
+		<entry morerows='5' valign='middle'>OSPFv2&nbsp;: 0.213.4.1
+		<?custom-linebreak?>OSPFv3&nbsp;: 0.213.6.1</entry>
+		<entry morerows='1' valign='middle' align='right'>221</entry>
+		<entry morerows='1' valign='middle'>eth0.221</entry>
+		<entry><systemitem class='ipaddress'>10.2.21.1/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:dd::1</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>231</entry>
+		<entry morerows='1' valign='middle'>eth0.231</entry>
+		<entry><systemitem class='ipaddress'>10.2.31.1/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:e7::1</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>241</entry>
+		<entry morerows='1' valign='middle'>eth0.241</entry>
+		<entry><systemitem class='ipaddress'>10.2.41.1/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:f1::1</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='5' valign='middle'>2</entry>
+		<entry morerows='5' valign='middle'>coruscant</entry>
+		<entry morerows='5' valign='middle'>Hub2</entry>
+		<entry morerows='5' valign='middle'>OSPFv2&nbsp;: 0.213.4.2
+		<?custom-linebreak?>OSPFv3&nbsp;: 0.213.6.2</entry>
+		<entry morerows='1' valign='middle' align='right'>4</entry>
+		<entry morerows='1' valign='middle'>eth0.4</entry>
+		<entry><systemitem class='ipaddress'>172.16.17.2/20</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:4::6a6</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>221</entry>
+		<entry morerows='1' valign='middle'>eth0.221</entry>
+		<entry><systemitem class='ipaddress'>10.2.21.2/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:dd::2</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>232</entry>
+		<entry morerows='1' valign='middle'>eth0.232</entry>
+		<entry><systemitem class='ipaddress'>10.2.32.2/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:e8::2</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='5' valign='middle'>3</entry>
+		<entry morerows='5' valign='middle'>felucia</entry>
+		<entry morerows='5' valign='middle'>Hub3</entry>
+		<entry morerows='5' valign='middle'>OSPFv2&nbsp;: 0.213.4.3
+		<?custom-linebreak?>OSPFv3&nbsp;: 0.213.6.3</entry>
+		<entry morerows='1' valign='middle' align='right'>231</entry>
+		<entry morerows='1' valign='middle'>eth0.231</entry>
+		<entry><systemitem class='ipaddress'>10.2.31.3/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:e7::3</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>232</entry>
+		<entry morerows='1' valign='middle'>eth0.232</entry>
+		<entry><systemitem class='ipaddress'>10.2.32.3/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:e8::3</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>243</entry>
+		<entry morerows='1' valign='middle'>eth0.243</entry>
+		<entry><systemitem class='ipaddress'>10.2.43.3/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:f3::3</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='5' valign='middle'>4</entry>
+		<entry morerows='5' valign='middle'>mustafar</entry>
+		<entry morerows='5' valign='middle'>Hub4</entry>
+		<entry morerows='5' valign='middle'>OSPFv2&nbsp;: 0.213.4.4
+		<?custom-linebreak?>OSPFv3&nbsp;: 0.213.6.4</entry>
+		<entry morerows='1' valign='middle' align='right'>4</entry>
+		<entry morerows='1' valign='middle'>eth0.4</entry>
+		<entry><systemitem class='ipaddress'>172.16.17.4/20</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:4::4</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>241</entry>
+		<entry morerows='1' valign='middle'>eth0.241</entry>
+		<entry><systemitem class='ipaddress'>10.2.41.4/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:f1::4</systemitem></entry>
+	</row>
+	<row>
+		<entry morerows='1' valign='middle' align='right'>243</entry>
+		<entry morerows='1' valign='middle'>eth0.243</entry>
+		<entry><systemitem class='ipaddress'>10.2.43.4/28</systemitem></entry>
+	</row>
+	<row>
+		<entry><systemitem class='ipaddress'>2001:678:3fc:f3::4</systemitem></entry>
+	</row>
+	</tbody>
+	</tgroup>
+</table>
+</sect1>
+</article>

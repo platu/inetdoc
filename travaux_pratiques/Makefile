@@ -45,10 +45,7 @@ SUBDIRS = \
 	interco.ospf-quagga.q \
 	interco.ospf-bird.qa \
 	interco.ospf-bird.q \
-	interco.ovs.qa \
-	interco.ovs.q \
-	interco-dsl.cs \
-#	interco-dsl.set
+	interco.cs
 
 # Type(s) de traitement
 PROCESS = subdirs symlink xml2xhtml xml2pdf
@@ -78,8 +75,7 @@ XML_FILES = \
 	interco.netfilter.q/$(ABSTRACT_FILE) \
 	interco.inter-vlan.qa/$(ABSTRACT_FILE) \
 	interco.ospf-quagga.q/$(ABSTRACT_FILE) \
-	interco.ovs.q/$(ABSTRACT_FILE) \
-	interco-dsl.cs/$(ABSTRACT_FILE) \
+	interco.cs/$(ABSTRACT_FILE) \
 	$(wildcard images/*.png)
 
 all: $(PROCESS)
