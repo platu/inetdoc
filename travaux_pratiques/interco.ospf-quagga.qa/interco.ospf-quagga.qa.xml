@@ -2528,31 +2528,27 @@ iface sw-vlan282 inet6 static
 	</listitem>
 
 	<listitem>
-	<para>Créer les fichiers de configuration de base pour les différents
-	démons et outils sur chaque routeur en utilisant les patrons livrés avec le
-	paquet <application>quagga-core</application>.</para>
-
-	<para>Créer aussi le dossier dédié aux journaux des trois démons de
-	routage&nbsp;: <filename
-	class='directory'>/var/log/quagga</filename>.</para>
+	<para>Créer des fichiers de configuration vides pour les différents démons.</para>
 
 	<para>La présence d'un fichier de configuration par démon est une condition
 	indispensable pour le lancement des services via
 	<application>systemd</application>.</para>
 
-<screen><prompt>#</prompt> touch /etc/quagga/zebra.conf /etc/quagga/ospfd.conf /etc/quagga/ospf6d.conf /etc/quagga/vtysh.conf
-<prompt>#</prompt> chown quagga.quagga /etc/quagga/*.conf
-<prompt>#</prompt> mkdir /var/log/quagga
-<prompt>#</prompt> chown quagga.adm /var/log/quagga
-<prompt>#</prompt> chmod 2750 /var/log/quagga</screen>
+<screen><prompt>$</prompt> sudo touch /etc/quagga/zebra.conf \
+/etc/quagga/ospfd.conf \
+/etc/quagga/ospf6d.conf \
+/etc/quagga/vtysh.conf</screen>
 	</listitem>
 
 	<listitem>
-	<para>Éditer le patron du fichier de configuration de l'outil
-	<command>vtysh</command>.</para>
+	<para>Éditer le fichier de configuration de la console “unifiée“
+	<command>vtysh</command> de façon à ce qu'il contienne les informations
+	minimales.</para>
 
-<screen><prompt>#</prompt> cat /etc/quagga/vtysh.conf
-!
+	<para>Voici un exemple pour le routeur <systemitem>R1</systemitem> de la
+	maquette.</para>
+
+<screen>!
 ! Configuration file for vtysh.
 !
 no service integrated-vtysh-config
@@ -2567,21 +2563,32 @@ username root nopassword</screen>
 	</listitem>
 
 	<listitem>
-	<para>Relancer les services correspondant aux trois démons&nbsp;:
+	<para>Ajouter l'utilisateur <systemitem>etu</systemitem> au groupe
+	<systemitem>quaggavty</systemitem> pour lui donner un accès direct à la
+	console de configuration des démons.</para>
+
+<screen><prompt>$</prompt> sudo adduser etu quaggavty</screen>
+
+	<para>Il ne faut pas oublier de se déconnecter/reconnecter pour bénéficier
+	de la nouvelle attribution de groupe.</para>
+	</listitem>
+
+	<listitem>
+	<para>Activer et relancer les services correspondant aux trois démons&nbsp;:
 	<application>zebra</application>, <application>ospfd</application> et
 	<application>ospf6d</application>.</para> 
 
-<screen><prompt>#</prompt> systemctl restart zebra
-
-<prompt>#</prompt> systemctl restart ospfd
-
-<prompt>#</prompt> systemctl restart ospf6d</screen>
+<screen><prompt>$</prompt>  for daemon in zebra ospfd ospf6d
+do
+	sudo systemctl enable $dameon
+	sudo systemctl restart $daemon
+done</screen>
 	</listitem>
 
 	<listitem>
 	<para>Vérifier que les services sont correctement lancés.</para>
 
-<screen><prompt>#</prompt> systemctl status zebra
+<screen><prompt>$</prompt> systemctl status zebra
 ● zebra.service - GNU Zebra routing manager
    Loaded: loaded (/lib/systemd/system/zebra.service; enabled; vendor preset: enabled)
    <emphasis>Active: active (running)</emphasis> since Fri 2018-10-12 08:55:58 UTC; 3min 12s ago
@@ -2599,7 +2606,7 @@ username root nopassword</screen>
 oct. 12 08:55:58 R3 systemd[1]: Starting GNU Zebra routing manager...
 oct. 12 08:55:58 R3 systemd[1]: Started GNU Zebra routing manager.
 
-<prompt>#</prompt> systemctl status ospfd
+<prompt>$</prompt> systemctl status ospfd
 ● ospfd.service - OSPF routing daemon
    Loaded: loaded (/lib/systemd/system/ospfd.service; enabled; vendor preset: enabled)
    <emphasis>Active: active (running)</emphasis> since Fri 2018-10-12 08:56:01 UTC; 4min 20s ago
@@ -2615,7 +2622,7 @@ oct. 12 08:55:58 R3 systemd[1]: Started GNU Zebra routing manager.
 oct. 12 08:56:01 R3 systemd[1]: Starting OSPF routing daemon...
 oct. 12 08:56:01 R3 systemd[1]: Started OSPF routing daemon.
 
-<prompt>#</prompt> systemctl status ospf6d
+<prompt>$</prompt> systemctl status ospf6d
 ● ospf6d.service - OSPF routing daemon for IPv6
    Loaded: loaded (/lib/systemd/system/ospf6d.service; enabled; vendor preset: enabled)
    <emphasis>Active: active (running)</emphasis> since Fri 2018-10-12 08:56:05 UTC; 5min ago
@@ -2640,7 +2647,7 @@ oct. 12 08:56:05 R3 systemd[1]: Started OSPF routing daemon for IPv6.</screen>
 	<para>Voici un exemple de séquence d'instructions pour configurer une
 	interface.</para>
 
-<screen><prompt>#</prompt> vtysh
+<screen><prompt>$</prompt> vtysh
 
 Hello, this is Quagga (version 1.2.4).
 Copyright 1996-2005 Kunihiro Ishiguro, et al.
@@ -2651,21 +2658,24 @@ R1(config-if)# bandwidth 1000000
 R1(config-if)# ^Z
 R1# copy run start
 Building Configuration...
-Integrated configuration saved to /etc/quagga/Quagga.conf
+Configuration saved to /etc/quagga/zebra.conf
+Configuration saved to /etc/quagga/ospfd.conf
+Configuration saved to /etc/quagga/ospf6d.conf
 [OK]</screen>
 
 	<para>Une fois revenu au système d'exploitation, on doit obtenir un
 	résultat équivalent à celui présenté ci-dessous. Les noms d'interfaces
 	dépendent du routeur concerné.</para> 
 	
-<screen><prompt>#</prompt> grep -1 bandwidth /etc/quagga/Quagga.conf
-interface eth0
+<screen><prompt>etu@R2-vert:~$</prompt> sudo grep -1 bandwidth /etc/quagga/zebra.conf
+interface enp0s6.280
  bandwidth 1000000
 !
-interface eth0.12
+interface enp0s6.283
  bandwidth 1000000
 !
-interface eth0.13
+--
+interface sw-vlan284
  bandwidth 1000000
 !</screen>
 
