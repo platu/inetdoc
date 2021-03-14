@@ -83,9 +83,9 @@
                    Fonts & Styles
     ################################################### -->      
 
-    <xsl:param name="title.font.family">SourceSerifPro-Semibold</xsl:param>
-    <xsl:param name="body.font.family">SourceSansPro-Light</xsl:param>
-    <xsl:param name="monospace.font.family">SourceCodePro-Regular</xsl:param>
+    <xsl:param name="title.font.family">IBMPlexSans-Medium</xsl:param>
+    <xsl:param name="body.font.family">IBMPlexSerif-Light</xsl:param>
+    <xsl:param name="monospace.font.family">IBMPlexMono-Light</xsl:param>
     <xsl:param name="symbol.font.family">OpenSymbol</xsl:param>
 
     <!-- Default Font size -->
