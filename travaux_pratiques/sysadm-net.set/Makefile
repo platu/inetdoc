@@ -2,7 +2,7 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
-SUBDIRS = files images
+SUBDIRS = images
 
 # Type(s) de traitement
 PROCESS = subdirs symlink xml2xhtml xml2pdf
@@ -38,7 +38,6 @@ include $(MAIN_DIR)/common/Makefile.Rules
 
 chapter-%.xml: $(CHAPTER_FILES) $(wildcard *.xml)
 	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
-	@if [ ! -L $(OUTPUT)/files ]; then cd $(OUTPUT) && ln -s ../files .; fi
 	@for chapter in $(CHAPTER_FILES); do \
 		sed -f $(MAIN_DIR)/common/entity-extract.sed $$chapter >> $(OUTPUT)/chapter-entities.xml; \
 		sed -f $(MAIN_DIR)/common/article2chapter.sed $$chapter > $(OUTPUT)/chapter-`basename $$chapter`; \
