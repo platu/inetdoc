@@ -485,6 +485,50 @@ p   resource-agents       - Cluster Resource Agents</screen>
 
 <sect2 xml:id='sysadm-net.iscsi.qa.storage.list'>
 	<title>Afficher la liste des unité de stockage</title>
+
+	<para>Pour commencer, il est utile de connaître la liste des unités de
+	stockage en mode bloc sur un système.</para>
+
+<qandaset defaultlabel='number'>
+	<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est la commande apparentée à <command>ls</command> qui
+	permet d'obtenir la liste des périphériques de stockage en mode
+	bloc&nbsp;?</phrase></para>
+
+	<para>Consulter la liste des outils forunis avec le paquet
+	<application>util-linux</application>.</para>
+	</question>
+	<answer>
+<screen><prompt>$</prompt> dpkg -L util-linux | grep bin/ls
+<emphasis>/bin/lsblk</emphasis>
+/usr/bin/lscpu
+/usr/bin/lsipc
+/usr/bin/lslocks
+/usr/bin/lslogins
+/usr/bin/lsmem
+/usr/bin/lsns</screen>
+
+	<para>Une fois que la commande <command>lsblk</command> est identifiée, on
+	l'utilise pour obtenir la liste voulue.</para>
+
+<screen><prompt>$</prompt> sudo lsblk
+NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sr0     11:0    1 1024M  0 rom
+vda    254:0    0   72G  0 disk
+├─vda1 254:1    0   68G  0 part /
+├─vda2 254:2    0    1K  0 part
+└─vda5 254:5    0    4G  0 part [SWAP]
+<emphasis>vdb    254:16   0   32G  0 disk</emphasis></screen>
+
+	<para>Dans le système de fichiers, c'est l'unité
+	<systemitem>/dev/vdb</systemitem> qui doit être utilisée pour les
+	manipulations de cette section.</para>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+</qandaset>
 </sect2>
 
 <sect2 xml:id='sysadm-net.iscsi.qa.storage.blank'>
@@ -499,14 +543,14 @@ p   resource-agents       - Cluster Resource Agents</screen>
 	<qandaentry>
 	<question>
 	<para><phrase>Quelle est la syntaxe d'appel de l'outil
-		<application>parted</application> qui permet de visualiser la table
-		de partition d'une unité de disque ?</phrase></para>
+	<application>parted</application> qui permet de visualiser la table de
+	partition d'une unité de disque&nbsp;?</phrase></para>
 
 	<para>Consulter la documentation de <application>parted</application> à
-		l'adresse &url.usingparted;.</para>
+	l'adresse &url.usingparted;.</para>
 	</question>
 	<answer>
-<screen><prompt>$</prompt> $ sudo parted /dev/vda print
+<screen><prompt>$</prompt> sudo parted /dev/vda print
 Model: Virtio Block Device (virtblk)
 Disk /dev/vda: 77,3GB
 Sector size (logical/physical): 512B/512B
@@ -523,15 +567,15 @@ Number  Start   End     Size    Type      File system     Flags
 	<qandaentry>
 	<question>
 	<para><phrase>Quelle est la syntaxe de la commande <command>dd</command>
-		qui permet d'effacer complètement la table des partitions d'une
-		unité de disque ?</phrase></para>
+	qui permet d'effacer complètement la table des partitions d'une unité de
+	disque&nbsp;?</phrase></para>
 
 	<para>Utiliser l'aide en ligne de la commande&nbsp;: <userinput>dd
-		--help</userinput>.</para>
+	--help</userinput>.</para>
 	</question>
 	<answer>
 	<para>La commande suivante écrit des 0 dans les 4 premiers blocs de 512
-		octets de l'unité de disque.</para>
+	octets de l'unité de disque.</para>
 
 <screen><prompt>$</prompt> sudo dd if=/dev/zero of=/dev/vdb bs=512 count=4
 4+0 enregistrements lus
@@ -552,7 +596,7 @@ Disk Flags:</screen>
 </sect2>
 
 <sect2 xml:id='sysadm-net.iscsi.qa.storage.setup'>
-	<title>Création de la table des partitions et formatage</title>
+	<title>Créer une table des partitions et formater</title>
 
 	<para>Une fois que l'on dispose d'une unité de disque vierge, on peut
 	passer à l'étape de création de la table des partitions. Cette opération
@@ -753,128 +797,141 @@ Checksum:                 0xa952ed62</screen>
 	</qandaset>
 	</sect2>
 
-  <sect2 xml:id='sysadm-net.iscsi.qa.storage.mount'>
-    <title>Montage manuel d'un volume de stockage</title>
+<sect2 xml:id='sysadm-net.iscsi.qa.storage.mount'>
+	<title>Monter manuellement un volume de stockage</title>
 
-  <para>Une fois qu'un volume de stockage a été partitionné et formaté, il faut
-  le <emphasis>monter</emphasis> dans l'arborescence du système de fichiers de
-  la machine de façon à lire et écrire des données dedans.</para>
+	<para>Une fois qu'un volume de stockage a été partitionné et formaté, on
+	peut le <emphasis>"monter"</emphasis> dans l'arborescence du système de
+	fichiers du système de façon à pouvoir lire et écrire des données.</para>
 
-  <qandaset>
-    <qandaentry>
-    <question>
-      <para><phrase>Comment obtenir l'identifiant du volume de stockage à
-      ajouter au système de fichiers ?</phrase></para>
+<qandaset>
+	<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment obtenir l'identifiant du volume de stockage à ajouter
+	au système de fichiers&nbsp;?</phrase></para>
 
-      <para>Consulter la liste des utilitaires fournis avec le paquet
-      <application>util-linux</application>. Il faut se rappeler que la
-      représentation fichier d'un périphérique de stockage se distingue par son
-      mode d'accès&nbsp;: le mode bloc.</para>
-    </question>
-    <answer>
-      <para>La commande à utiliser est <command>blkid</command>. Dans l'exemple
-      de la partition <systemitem>/dev/vdb1</systemitem>, on obtient le
-      résultat suivant.</para>
+	<para>Consulter la liste des utilitaires fournis avec le paquet
+	<application>util-linux</application>. Il faut se rappeler que la
+	représentation fichier d'un périphérique de stockage se distingue par son
+	mode d'accès&nbsp;: le mode bloc.</para>
+	</question>
+	<answer>
+	<para>La commande à utiliser est <command>blkid</command>. Dans l'exemple
+	de la partition <systemitem>/dev/vdb1</systemitem>, on obtient le résultat
+	suivant.</para>
 
-<screen><prompt>#</prompt> blkid /dev/vdb1
-/dev/vdb1: UUID="224f6aad-16c0-4923-8949-0628a8e10228" TYPE="ext4"</screen>
+<screen><prompt>$</prompt> sudo blkid /dev/vdb1
+/dev/vdb1: UUID="7c582ccd-ce99-43ec-b145-05f043c02fc6" BLOCK_SIZE="4096" TYPE="ext4" \
+		PARTLABEL="ext4" PARTUUID="244bacd9-38ca-44e4-8ab7-16d5f2c85f98"</screen>
+	</answer>
+	</qandaentry>
 
-      <para>C'est cet identifiant que l'on doit utiliser pour compléter la
-      configuration système et rendre le montage du périphérique de stockage
-      permanent.</para>
+	<qandaentry>
+	<question>
+	<para><phrase>Dans quel fichier de configuration trouve-t-on la liste des
+	périphériques montés lors de l'initialisation du
+	système&nbsp;?</phrase></para>
+
+	<para>Consulter la liste des fichiers du paquet
+	<application>util-linux</application>.</para>
+	</question>
+	<answer>
+	<para>Le fichier recherché est <filename>/etc/fstab</filename>. Il contient
+	la liste des points de montage. Dans l'exemple ci-dessous, la racine
+	et la partition d'échange utilisée en cas de saturation des ressources
+	<acronym>RAM</acronym> du système.</para>
+
+<screen><prompt>$</prompt> grep -v '^#' /etc/fstab
+UUID=8362b3e6-d426-4f1b-93eb-e1efc22f60f4 /       ext4    errors=remount-ro 0       1
+UUID=f3e18b95-7430-4fea-ace5-7dd4cea6398a none    swap    sw              0       0
+/dev/sr0        /media/cdrom0   udf,iso9660 user,noauto     0       0</screen>
     </answer>
     </qandaentry>
 
-    <qandaentry>
-    <question>
-      <para><phrase>Dans quel fichier de configuration trouve-t-on la liste des
-      périphériques montés lors de l'initialisation du système
-      ?</phrase></para>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est la commande qui donne la liste des montages en
+	cours d'utilisation sur le système&nbsp;? Quelle est l'option qui permet de
+	scruter les entrées du fichier recherché dans la question précédente et de
+	monter tous les points non encore utilisés&nbsp;?</phrase></para>
+	  
+	<para>La commande est fournie par le paquet du même nom.</para>
+	</question>
+	<answer>
+	<para>Le paquet <application>mount</application> fournit la commande du
+	même nom. Cette commande liste tous les montages actifs du système. La
+	liste comprend les systèmes de fichiers virtuels qui représentent l'état
+	courant des paramètres du noyau ainsi que les systèmes de fichiers
+	physiques qui correspondent aux volumes de stockage effectifs. En reprenant
+	l'exemple utilisé auparavant et en filtrant les systèmes de fichiers
+	virtuels, on obtient&nbsp;:</para>
 
-      <para>Consulter la liste des fichiers du paquet
-      <application>util-linux</application>.</para>
-    </question>
-    <answer>
-      <para>Le fichier recherché est <filename>/etc/fstab</filename>. Il
-      contient bien la liste des points de montage. Dans l'exemple ci-dessous,
-      la racine et la partition d'échange utilisée en cas de saturation des
-      ressources <acronym>RAM</acronym> du système.</para>
+<screen><prompt>$</prompt> mount | grep "/dev/vd"
+/dev/vda1 on / type ext4 (rw,relatime,errors=remount-ro)</screen>
 
-<screen><prompt>#</prompt> grep -v '^#' /etc/fstab
-UUID=78cc7982-fa2e-4498-af98-45272c7726c9 /    ext4    errors=remount-ro 0       1
-UUID=56c21189-6cb3-4a6e-a6f6-ccf3e28db8b0 none swap    sw              0       0</screen>
+	<para>L'option de montage des entrées inutilisées du fichier
+	<filename>/etc/fstab</filename> est <option>-a</option>. Elle doit être
+	utilisée dans la question suivante.</para>
     </answer>
     </qandaentry>
 
-    <qandaentry>
-    <question>
-      <para><phrase>Quelle est la commande qui donne la liste des montages en
-      cours d'utilisation sur le système ? Quelle est l'option qui permet de
-      scruter les entrées du fichier recherché dans la question précédente et
-      de monter tous les points non encore utilisés ?</phrase></para>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment monter manuellement le système de fichiers de la
+	partition <systemitem>/dev/vdb1</systemitem>&nbsp;?</phrase></para>
       
-      <para>La commande est fournie par le paquet du même nom.</para>
-    </question>
-    <answer>
-      <para>Le paquet <application>mount</application> fournit la commande du
-      même nom. Cette commande liste tous les montages actifs du système. La
-      liste comprend les systèmes de fichiers virtuels qui représentent l'état
-      courant des paramètres du noyau ainsi que les systèmes de fichiers
-      physiques qui correspondent aux volumes de stockage effectifs. En
-      reprenant l'exemple utilisé auparavant et en filtrant les systèmes de
-      fichiers virtuels, on obtient&nbsp;:</para>
+	<para>Le répertoire de test pour les montages temporaires est
+	historiquement <systemitem>/mnt/</systemitem>.</para>
 
-<screen><prompt>#</prompt> mount | grep "/dev/vd"
-/dev/vda1 on / type ext4 (rw,relatime,errors=remount-ro,data=ordered)</screen>
+	<para>Consulter les pages de manuels de la commande
+	<command>mount</command>.</para>
+	</question>
+	<answer>
+	<para>On dispose d'au moins deux solutions pour désigner la partition à monter.</para>
+	<itemizedlist>
+	<listitem>
+	<para>Utilser l'identifiant de partition unique.</para>
 
-      <para>L'option de montage des entrées inutilisées du fichier
-      <filename>/etc/fstab</filename> est <option>-a</option>. Elle doit être
-      utilisée dans la question suivante.</para>
-    </answer>
-    </qandaentry>
+<screen><prompt>$</prompt> sudo mount -U 7c582ccd-ce99-43ec-b145-05f043c02fc6 /mnt</screen>
+	</listitem>
+	<listitem>
+	<para>Utiliser le nom défini par <application>udev</application> dans le
+	système de fichiers.</para>
 
-    <qandaentry>
-    <question>
-      <para><phrase>Comment compléter la configuration système pour assurer le
-      montage du nouveau périphérique ?</phrase></para>
+<screen><prompt>$</prompt> sudo mount /dev/vdb1 /mnt</screen>
+	</listitem>
+	</itemizedlist>
+
+	<para>Pour terminer, on liste les montages pour vérifier que la nouvelle
+	partition est bien présente.</para> 
+
+<screen><prompt>$</prompt> mount | grep "/dev/vd"
+/dev/vda1 on / type ext4 (rw,relatime,errors=remount-ro)
+/dev/vdb1 on /mnt type ext4 (rw,relatime)</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment démonter manuellement le système de fichiers de la
+	partition <systemitem>/dev/vdb1</systemitem>&nbsp;?</phrase></para>
       
-      <para>Il faut utiliser les réponses aux questions précédentes pour valider
-      le nouveau point de montage.</para>
-    </question>
-    <answer>
-    <itemizedlist>
-      <listitem>
-      <para>Création du point de montage dans l'arborescence du système</para>
+	<para>Consulter les pages de manuels de la commande
+	<command>mount</command>.</para>
+	</question>
+	<answer>
+	<para>L'opérationd de démontage utilise l'arborescence du système de
+	fichiers pour désigner le volume de stockage.</para>
 
-<screen><prompt>#</prompt> mkdir /var/lib/iscsi-target</screen>
-      </listitem>
-      <listitem>
-      <para>Ajout d'une ligne dans le fichier <filename>/etc/fstab</filename>
-      avec l'identifiant du périphérique à ajouter</para>
-
-<screen><prompt>#</prompt> echo UUID=3ccc9115-f206-4a05-86f3-5902ac49b82d \
-  /var/lib/iscsi-target/ \
-  ext4 \
-  defaults \
-  0      2 >>/etc/fstab</screen>
-      </listitem>
-      <listitem>
-      <para>Montage du nouveau périphérique</para>
-
-<screen><prompt>#</prompt> mount -a</screen>
-      </listitem>
-      <listitem>
-      <para>Nouvelle liste des montages actifs</para>
-
-<screen><prompt>#</prompt> mount | grep "/dev/vd"
-/dev/vda1 on / type ext4 (rw,relatime,errors=remount-ro,data=ordered)
-<emphasis>/dev/vdb1 on /var/lib/iscsi-target type ext4 (rw,relatime,data=ordered)</emphasis></screen>
-      </listitem>
-    </itemizedlist>
-    </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
+<screen><prompt>$</prompt> sudo umount /mnt
+<prompt>$</prompt> mount | grep "/dev/vd"
+/dev/vda1 on / type ext4 (rw,relatime,errors=remount-ro)</screen>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+</qandaset>
+</sect2>
 </sect1>
 
 <sect1 xml:id='sysadm-net.iscsi.qa.initiator'>
