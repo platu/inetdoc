@@ -17,9 +17,9 @@ SYMLINKS = \
 
 XML_FILES = \
 	sysadm-net.xml \
-        author.xml \
-        legal.xml \
-        inetdoc.urls.xml \
+	author.xml \
+	legal.xml \
+	inetdoc.urls.xml \
 	sysadm-net.iscsi.abstract.xml \
 	sysadm-net.nfs.abstract.xml \
 	sysadm-net.ldap.abstract.xml \
@@ -31,17 +31,17 @@ all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
 
-sysadm-net.iscsi.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.iscsi.q/$(ABSTRACT_FILE)
+sysadm-net.iscsi.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.iscsi.qa/$(ABSTRACT_FILE)
 	ln -s $< $@
 
-sysadm-net.nfs.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.nfs.q/$(ABSTRACT_FILE)
+sysadm-net.nfs.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.nfs.qa/$(ABSTRACT_FILE)
 	ln -s $< $@
 
-sysadm-net.ldap.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.ldap.q/$(ABSTRACT_FILE)
+sysadm-net.ldap.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.ldap.qa/$(ABSTRACT_FILE)
 	ln -s $< $@
 
-sysadm-net.autofs-ldap-nfs.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.autofs-ldap-nfs.q/$(ABSTRACT_FILE)
+sysadm-net.autofs-ldap-nfs.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.autofs-ldap-nfs.qa/$(ABSTRACT_FILE)
 	ln -s $< $@
 
-sysadm-net.dns.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.dns.q/$(ABSTRACT_FILE)
+sysadm-net.dns.abstract.xml: $(MAIN_DIR)/travaux_pratiques/sysadm-net.dns.qa/$(ABSTRACT_FILE)
 	ln -s $< $@
