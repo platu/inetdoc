@@ -1088,68 +1088,62 @@ root        9838  0.0  1.1  11992 11940 ?        S&lt;Ls 15:34   0:00 /sbin/iscs
 	</answer>
 	</qandaentry>
 
-    <qandaentry>
-    <question>
-      <para><phrase>Quel est l'identifiant à communiquer ou à paramétrer pour
-      le système <wordasword>initiator</wordasword> soit reconnu côté système
-      <wordasword>target</wordasword> ?</phrase></para>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est l'identifiant à communiquer ou à paramétrer pour que
+	le système <wordasword>initiator</wordasword> soit reconnu côté système
+	<wordasword>target</wordasword>&nbsp;?</phrase></para>
 
-      <para>Rechercher les informations relatives au nommage
-      <acronym>iSCSI</acronym> dans les outils et les fichiers fournis avec le
-      paquet de gestion du rôle <wordasword>initiator</wordasword>.</para>
-    </question>
-    <answer>
-      <para>Le filtrage de la liste des fichiers fournis avec le paquet
-      <application>open-iscsi</application> donne le résultat suivant.</para>
+	<para>Rechercher les informations relatives au nommage
+	<acronym>iSCSI</acronym> dans les outils et les fichiers fournis avec le
+	paquet de gestion du rôle <wordasword>initiator</wordasword>.</para>
+	</question>
+	<answer>
+	<para>Le répertoire <systemitem>/etc/iscsi/</systemitem> contient les
+	paramètres de configuration du service.</para>
 
-<screen><prompt>#</prompt> dpkg -L open-iscsi | grep name
-/etc/iscsi/initiatorname.iscsi
-/usr/share/man/man8/iscsi-iname.8.gz
-/usr/sbin/iscsi-iname</screen>
+<screen><prompt>$</prompt> ls -p /etc/iscsi/
+<emphasis>initiatorname.iscsi</emphasis>  iscsid.conf  nodes/  send_targets/</screen>
 
-      <itemizedlist>
-      <listitem>
-      <para>Le fichier <filename>/etc/iscsi/initiatorname.iscsi</filename>
-      contient l'identifiant du système à communiquer au système
-      <wordasword>target</wordasword> pour que celui-ci l'associe dans la
-      rubrique des listes de contrôle d'accès&nbsp;: <option>acls</option>.</para>
+	<para>On consulte ou on édite ce fichier de façon à communiquer l'identité
+	du système <wordasword>initiator</wordasword> au système
+	<wordasword>target</wordasword> pour configurer le contrôle d'accès.</para>
 
-      <para>Dans le contexte de ces travaux pratiques, on se contente de
-      relever l'identifiant généré automatiquement lors de l'installation du
-      paquet et de l'implanter dans la liste de contrôle d'accès créée avec
-      <application>targetcli</application> sur le système
-      <wordasword>target</wordasword>.</para>
+	<para>Par exemple, l'identifiant unique donnée dans la copie d'écran
+	ci-dessous est à transmettre au système
+	<wordasword>target</wordasword>.</para>
 
-      <para>Côté <wordasword>initiator</wordasword>, on lit l'identifiant
-      <acronym>iqn</acronym></para>
+<screen><prompt>$</prompt> sudo grep -v ^#  /etc/iscsi/initiatorname.iscsi
+InitiatorName=iqn.2021-08.org.debian:01:b2875ad8c157</screen>
 
-<screen><prompt>#</prompt> grep -v ^# /etc/iscsi/initiatorname.iscsi 
-InitiatorName=<emphasis>iqn.1993-08.org.debian:01:9d11913c78ac</emphasis></screen>
+	<para>Côté <wordasword>target</wordasword>, on obtient le résultat suivant
+	après avoir créé le contrôle d'accès au volume réseau.</para>
 
-      <para>Côté <wordasword>target</wordasword>, on créé la liste de contrôle
-      d'accès qui associe l'unité logique <acronym>SCSI</acronym> au système
-      <wordasword>initiator</wordasword>.</para>
-
-<screen>/iscsi/iqn.20...18090566/tpg1> ls
-o- tpg1 ................................................................ [enabled]
-  o- acls ................................................................ [1 ACL]
-  | o- <emphasis>iqn.1993-08.org.debian:01:9d11913c78ac</emphasis> ..................... [1 Mapped LUN]
-  |   o- mapped_lun0 ................................................. [lun0 (rw)]
-  o- luns ................................................................ [1 LUN]
-  | o- lun0 ....................................... [iblock/initiator1 (/dev/vdb)]
-  o- portals ......................................................... [2 Portals]
-    o- 192.0.2.12:3260 ....................................... [OK, iser disabled]
-    o- 2001:db8:feb2:2:b8ad:ff:feca:fe00:3260 ................ [OK, iser disabled]</screen>
-      </listitem>
-      <listitem>
-      <para>La commande <command>iscsi-iname</command> sert à générer un nouvel
-      identifiant conforme au forat <acronym>iqn</acronym>. Elle permet de
-      fournir un nouvel identifiant compatible avec la nomenclature de
-      l'infrastructure de stockage d'un opérateur.</para>
-      </listitem>
-      </itemizedlist>
-    </answer>
-    </qandaentry>
+<screen>/> ls
+o- / ................................................................................................ [...]
+  o- backstores ..................................................................................... [...]
+  | o- block ......................................................................... [Storage Objects: 1]
+  | | o- blkvol1 ................................................ [/dev/vdb (32.0GiB) write-thru activated]
+  | |   o- alua .......................................................................... [ALUA Groups: 1]
+  | |     o- default_tg_pt_gp .............................................. [ALUA state: Active/optimized]
+  | o- fileio ........................................................................ [Storage Objects: 0]
+  | o- pscsi ......................................................................... [Storage Objects: 0]
+  | o- ramdisk ....................................................................... [Storage Objects: 0]
+  o- iscsi ................................................................................... [Targets: 1]
+  | o- iqn.2003-01.org.linux-iscsi.target-vm.x8664:sn.08520c22f192 .............................. [TPGs: 1]
+  |   o- tpg1 ...................................................................... [no-gen-acls, no-auth]
+  |     o- acls ................................................................................. [ACLs: 1]
+  |     | o- <emphasis>iqn.2021-08.org.debian:01:b2875ad8c157</emphasis> ...................................... [Mapped LUNs: 1]
+  |     |   o- mapped_lun0 ...................................................... [lun0 block/blkvol1 (rw)]
+  |     o- luns ................................................................................. [LUNs: 1]
+  |     | o- lun0 ........................................... [block/blkvol1 (/dev/vdb) (default_tg_pt_gp)]
+  |     o- portals ........................................................................... [Portals: 1]
+  |       o- [::0]:3260 .............................................................................. [OK]
+  o- loopback ................................................................................ [Targets: 0]
+  o- vhost ................................................................................... [Targets: 0]
+  o- xen-pvscsi .............................................................................. [Targets: 0]</screen>
+	</answer>
+	</qandaentry>
 
 	<qandaentry>
 	<question>
