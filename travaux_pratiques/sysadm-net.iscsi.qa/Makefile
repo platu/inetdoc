@@ -3,8 +3,7 @@ MAIN_DIR = $(HOME)/inetdoc
 endif
 
 # Liste des répertoires à traiter à partir de ce niveau
-SUBDIRS = \
-	images
+SUBDIRS = images
 
 # Type(s) de traitement
 PROCESS = subdirs symlink xml2xhtml xml2pdf

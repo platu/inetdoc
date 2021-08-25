@@ -19,6 +19,10 @@
 
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
+
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"http://www.w3.org/2003/entities/2007/w3centities-f.ent">
+%w3centities-f;
 ]>
 
 <article xml:id="sysadm-net.nfs" xml:lang="fr">
@@ -28,17 +32,17 @@
 
 	&author;
 	<abstract>
-    <para>L'objectif de ce support de travaux pratiques est l'étude du système
-    de fichiers réseau <acronym>NFS</acronym>. Il illustre les accès en «mode
-    fichier» à une unité de stockage réseau. Ce mode d'accès correspond à un
-    stockage de type <acronym>NAS</acronym> ou <wordasword>Network Attached
-    Storage</wordasword>. Le document débute avec l'étude du principe de
-    fonctionnement des appels de fonctions <acronym>RPC</acronym>
-    (<wordasword>Remotre Procedure Call</wordasword>) puis il poursuit avec la
-    configuration d'un serveur <acronym>NFS</acronym> qui exporte une
-    arborescence de comptes utilisateurs. Côté client, on étudie les accès au
-    système de fichiers réseau <acronym>NFS</acronym> suivant deux modes
-    distincts : le montage manuel puis l'automontage.</para>
+	<para>L'objectif de ce support de travaux pratiques est l'étude du système
+	de fichiers réseau <acronym>NFS</acronym>. Il illustre les accès en «mode
+	fichier» à une unité de stockage réseau. Ce mode d'accès correspond à un
+	stockage de type <acronym>NAS</acronym> ou <wordasword>Network Attached
+	Storage</wordasword>. Le document débute avec l'étude du principe de
+	fonctionnement des appels de fonctions <acronym>RPC</acronym>
+	(<wordasword>Remotre Procedure Call</wordasword>) puis il poursuit avec la
+	configuration d'un serveur <acronym>NFS</acronym> qui exporte une
+	arborescence de comptes utilisateurs. Côté client, on étudie les accès au
+	système de fichiers réseau <acronym>NFS</acronym> suivant deux modes
+	distincts&nbsp;: le montage manuel puis l'automontage.</para>
 	</abstract>
 
   <keywordset>
@@ -52,289 +56,184 @@
 </info>
 
 <sect1 xml:id='sysadm-net.nfs.legal.meta'>
-  &legal;
+	&legal;
+	<bridgehead xml:id='sysadm-net.nfs.meta'
+	renderas='sect2'>Méta-information</bridgehead>
 
-<?custom-pagebreak?>
-  <sect2 xml:id='sysadm-net.nfs.meta'>
-    <title>Méta-information</title>
-
-  <para>Ce document est écrit avec <link
-  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
-  sur un système <link xlink:href="https://www.debian.org"><citetitle>Debian
-  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
-  format PDF : <link
-  xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
-  </sect2>
+	<para>Ce document est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+	XML sur un système <link
+	xlink:href="https://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+	format PDF&nbsp;: <link
+	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
 </sect1>
 
-<sect1 xml:id='sysadm-net.nfs.affectation'>
-	<title>Adressage IP des postes de travail</title>
+<sect1 xml:id='sysadm-net.nfs.plan'>
+	<title>Topologie, scénario et plan d'adressage</title>
 
-<table frame='all' pgwide='1'>
-	<title>Affectation des adresses de passerelle pour les travaux pratiques à
-	distance</title>
+	<bridgehead xml:id='sysadm-net.nfs.logical-topology'
+	renderas='sect2'>Topologie logique</bridgehead>
+
+	<para>Les manipulations présentées dans ce support utilisent un domaine de
+	diffusion unique (<acronym>VLAN</acronym>) dans lequel on trouve au moins
+	deux systèmes virtuels ou physiques avec deux rôles distincts.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Le système <emphasis>serveur exporte</emphasis> une arborescence de
+	son système de fichiers local à destination des clients.</para>
+	</listitem>
+	<listitem>
+	<para>Le(s) système(s) <emphasis>client(s) montent</emphasis> le système de
+	fichiers réseau sur une arborescence locale.</para>
+	</listitem>
+	</itemizedlist>
+
+<mediaobject>
+	<imageobject role='fo'>
+	<imagedata fileref='images/nfs-logical-topology.png' format='PNG' contentwidth='15cm' width='15.5cm'/>
+	</imageobject>
+	<imageobject role='html'>
+	<imagedata fileref='images/nfs-logical-topology.png' format='PNG' contentwidth='700px' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie logique</phrase>
+	</textobject>
+	<caption>
+	<para><link xmlns="http://docbook.org/ns/docbook"
+		xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.nfs.qa/images/nfs-logical-topology.png'>Topologie
+		logique - vue complète</link></para>
+	</caption>
+</mediaobject>
+
+	<bridgehead xml:id='sysadm-net.nfs.scenario'
+	renderas='sect2'>Scénario</bridgehead>
+
+	<para>L'objectif des manipulations demandées dans ce document est
+	d'illustrer les fonctionnalités apportées par le protocole
+	<acronym>NFS</acronym>. Le séquencement des opérations à réaliser lors de
+	la séance de travaux pratiques est décrit dans le tableau ci-dessous. Après
+	le traitement de la première partie commune, les deux postes occupent
+	chacun un rôle distinct.</para>
+
+	<table frame='all' pgwide='1'>
+	<title>Attribution des rôles</title>
 	<tgroup cols='2' align='left' colsep='1' rowsep='1'>
+	<colspec colnum='1' colname='c1' colwidth='1*'/>
+	<colspec colnum='2' colname='c2' colwidth='1*'/>
 	<thead>
 	<row>
-		<?dbfo bgcolor="#333" ?>
-		<?dbfo color="#fff" ?>
-	<entry>Une planète pour deux machines virtuelles</entry>
-	<entry>Passerelle par défaut</entry>
+		<?dbfo bgcolor="#333"&nbsp;?>
+		<?dbfo color="#fff"&nbsp;?>
+	<entry>Client</entry>
+	<entry>Serveur</entry>
 	</row>
 	</thead>
 	<tbody>
 	<row>
-	<entry>christophsis</entry>
-	<entry><systemitem class='ipaddress'>10.30.6.65/28</systemitem></entry>
+	<entry namest='c1' nameend='c2' align='center'>Identification du mécanisme
+	des appels <acronym>RPC</acronym>. Installation et configuration des
+	paquets communs.</entry>
 	</row>
 	<row>
-	<entry>corellia</entry>
-	<entry><systemitem class='ipaddress'>10.9.10.129/26</systemitem></entry>
+	<entry>Identification des services disponibles sur le serveur. Création
+	d'un compte local sans répertoire utilisateur.</entry> <entry>Installation
+	du paquet spécifique au serveur et configuration du service en fonction de
+	l'arborescence à exporter.</entry>
 	</row>
 	<row>
-	<entry>delaya</entry>
-	<entry><systemitem class='ipaddress'>192.168.6.17/28</systemitem></entry>
+	<entry namest='c1' nameend='c2' align='center'>validation de l'accès au
+	système de fichiers réseau avec capture de trafic.</entry>
 	</row>
 	<row>
-	<entry>kashyyyk</entry>
-	<entry><systemitem class='ipaddress'>172.20.11.9/29</systemitem></entry>
-	</row>
-	<row>
-	<entry>korriban</entry>
-	<entry><systemitem class='ipaddress'>192.168.7.33/28</systemitem></entry>
-	</row>
-	<row>
-	<entry>kessel</entry>
-	<entry><systemitem class='ipaddress'>192.168.6.17/28</systemitem></entry>
-	</row>
-	<row>
-	<entry>mygeeto</entry>
-	<entry><systemitem class='ipaddress'>192.168.12.17/29</systemitem></entry>
-	</row>
-	<row>
-	<entry>nelvaan</entry>
-	<entry><systemitem class='ipaddress'>10.3.20.161/27</systemitem></entry>
-	</row>
-	<row>
-	<entry>rattatak</entry>
-	<entry><systemitem class='ipaddress'>172.20.12.17/29</systemitem></entry>
-	</row>
-	<row>
-	<entry>saleucami</entry>
-	<entry><systemitem class='ipaddress'>10.0.10.33/27</systemitem></entry>
-	</row>
-	<row>
-	<entry>taris</entry>
-	<entry><systemitem class='ipaddress'>192.168.37.9/29</systemitem></entry>
-	</row>
-	<row>
-	<entry>teth</entry>
-	<entry><systemitem class='ipaddress'>172.19.9.65/26</systemitem></entry>
-	</row>
-	<row>
-	<entry>utapau</entry>
-	<entry><systemitem class='ipaddress'>10.8.11.9/29</systemitem></entry>
-	</row>
-	<row>
-	<entry>yavin</entry>
-	<entry><systemitem class='ipaddress'>192.168.142.65/26</systemitem></entry>
-	</row>
-	<row>
-	<entry>alderaan</entry>
-	<entry><systemitem class='ipaddress'>192.168.110.129/25</systemitem></entry>
-	</row>
-	<row>
-	<entry>bespin</entry>
-	<entry><systemitem class='ipaddress'>10.137.0.1/27</systemitem></entry>
-	</row>
-	<row>
-	<entry>centares</entry>
-	<entry><systemitem class='ipaddress'>10.0.119.65/27</systemitem></entry>
-	</row>
-	<row>
-	<entry>coruscant</entry>
-	<entry><systemitem class='ipaddress'>172.19.115.193/26</systemitem></entry>
-	</row>
-	<row>
-	<entry>dagobah</entry>
-	<entry><systemitem class='ipaddress'>10.0.121.129/27</systemitem></entry>
-	</row>
-	<row>
-	<entry>endor</entry>
-	<entry><systemitem class='ipaddress'>192.168.126.65/28</systemitem></entry>
-	</row>
-	<row>
-	<entry>felucia</entry>
-	<entry><systemitem class='ipaddress'>172.19.114.129/26</systemitem></entry>
-	</row>
-	<row>
-	<entry>geonosis</entry>
-	<entry><systemitem class='ipaddress'>172.24.132.17/28</systemitem></entry>
-	</row>
-	<row>
-	<entry>hoth</entry>
-	<entry><systemitem class='ipaddress'>192.168.108.129/25</systemitem></entry>
-	</row>
-	<row>
-	<entry>jakku</entry>
-	<entry><systemitem class='ipaddress'>172.19.116.1/26</systemitem></entry>
-	</row>
-	<row>
-	<entry>kamino</entry>
-	<entry><systemitem class='ipaddress'>10.5.6.1/23</systemitem></entry>
-	</row>
-	<row>
-	<entry>mustafar</entry>
-	<entry><systemitem class='ipaddress'>10.0.117.1/27</systemitem></entry>
-	</row>
-	<row>
-	<entry>naboo</entry>
-	<entry><systemitem class='ipaddress'>10.3.2.1/23</systemitem></entry>
-	</row>
-	<row>
-	<entry>tatooine</entry>
-	<entry><systemitem class='ipaddress'>192.168.122.1/28</systemitem></entry>
+	<entry>Installation du paquet spécifique et configuration du service
+	d'automontage des répertoires utilisateurs.</entry>
+	<entry>&nbsp;</entry>
 	</row>
 	</tbody>
 	</tgroup>
-</table>
+	</table>
 
-<table frame='all' pgwide='1'>
-	<title>Affectation des adresses et des réseaux IP de la salle 211</title>
-	<tgroup cols='3' align='left' colsep='1' rowsep='1'>
-	<colspec colnum='1' colname='c1' colwidth='1*'/>
-	<colspec colnum='2' colname='c2' colwidth='1*'/>
-	<colspec colnum='3' colname='c3' colwidth='1*'/>
+	<para>Pour ces travaux pratiques, de nombreuses questions peuvent être
+	traitées à l'aide du document de référence&nbsp;: &url.nfsv4.config;. Il faut
+	cependant faire correspondre les configurations décrites dans ce document
+	avec les configurations proposées avec les paquets de la distribution
+	<citetitle>Debian GNU/Linux</citetitle>.</para>
+
+	<bridgehead xml:id='sysadm-net.nfs.addressing'
+	renderas='sect2'>Plan d'adressage</bridgehead>
+
+	<para>Partant de la topologie présentée ci-dessus, on utilise un plan
+	d'adressage pour chacun des rôles <acronym>iSCSI</acronym>.</para>
+
+	<para>Le tableau ci-dessous correspond au plan d'adressage de la maquette
+	qui a servi à traiter les questions des sections suivantes. Lors des
+	séances de travaux pratiques, un plan d'adressage spécifique est fourni à
+	chaque binôme d'étudiants. Il faut se référer au document
+	&url.infra.tp;.</para>
+
+	<table xml:id='sysadm-net.nfs.mockup-addressing' frame='all' pgwide='1'>
+		<title>Plan d'adressage de la maquette</title>
+	<tgroup cols='4'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='1*'/>
+	<colspec colnum='3' colwidth='3*'/>
+	<colspec colnum='4' colwidth='1*'/>
 	<thead>
 	<row>
-		<?dbfo bgcolor="#333" ?>
-		<?dbfo color="#fff" ?>
-	<entry>Poste 1</entry>
-	<entry>Poste 2</entry>
-	<entry>Passerelle par défaut</entry>
+		<?dbfo bgcolor="#333"&nbsp;?>
+		<?dbfo color="#fff"&nbsp;?>
+		<entry>Rôle</entry>
+		<entry>VLAN</entry>
+		<entry>Adresses IP</entry>
+		<entry>Interface tap</entry>
 	</row>
 	</thead>
 	<tbody>
 	<row>
-	<entry>christophsis</entry>
-	<entry>corellia</entry>
-	<entry><systemitem class='ipaddress'>10.30.6.65/28</systemitem></entry>
+		<entry>
+		<citetitle>Client NFS</citetitle>
+		</entry>
+		<entry>501</entry>
+		<entry>
+		<systemitem class='ipaddress'>194.168.51.194/27</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:1f5::195/64</systemitem>
+		</entry>
+		<entry>2</entry>
 	</row>
 	<row>
-	<entry>delaya</entry>
-	<entry>kasyyyk</entry>
-	<entry><systemitem class='ipaddress'>192.168.6.17/28</systemitem></entry>
-	</row>
-	<row>
-	<entry>korriban</entry>
-	<entry>kessel</entry>
-	<entry><systemitem class='ipaddress'>192.168.7.33/28</systemitem></entry>
-	</row>
-	<row>
-	<entry>mygeeto</entry>
-	<entry>nelvaan</entry>
-	<entry><systemitem class='ipaddress'>172.20.11.9/29</systemitem></entry>
-	</row>
-	<row>
-	<entry>rattatak</entry>
-	<entry>saleucami</entry>
-	<entry><systemitem class='ipaddress'>172.20.12.17/29</systemitem></entry>
-	</row>
-	<row>
-	<entry>taris</entry>
-	<entry>teth</entry>
-	<entry><systemitem class='ipaddress'>192.168.37.9/29</systemitem></entry>
-	</row>
-	<row>
-	<entry>utapau</entry>
-	<entry>yavin</entry>
-	<entry><systemitem class='ipaddress'>10.8.11.9/29</systemitem></entry>
+		<entry>
+		<citetitle>Serveur NFS</citetitle>
+		</entry>
+		<entry>501</entry>
+		<entry>
+		<systemitem class='ipaddress'>194.168.51.195/27</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:1f5::195/64</systemitem>
+		</entry>
+		<entry>3</entry>
 	</row>
 	</tbody>
 	</tgroup>
-</table>
+	</table>
 
-<table frame='all' pgwide='1'>
-	<title>Affectation des adresses et des réseaux IP de la salle 213</title>
-	<tgroup cols='3' align='left' colsep='1' rowsep='1'>
-	<colspec colnum='1' colname='c1' colwidth='1*'/>
-	<colspec colnum='2' colname='c2' colwidth='1*'/>
-	<colspec colnum='3' colname='c3' colwidth='1*'/>
-	<thead>
-	<row>
-		<?dbfo bgcolor="#333" ?>
-		<?dbfo color="#fff" ?>
-	<entry>Poste 1</entry>
-	<entry>Poste 2</entry>
-	<entry>Passerelle par défaut</entry>
-	</row>
-	</thead>
-    <tbody>
-      <row>
-      <entry>alderaan</entry>
-      <entry>bespin</entry>
-      <entry><systemitem class='ipaddress'>192.168.110.129/25</systemitem></entry>
-      </row>
-      <row>
-      <entry>centares</entry>
-      <entry>coruscant</entry>
-      <entry><systemitem class='ipaddress'>10.0.119.65/27</systemitem></entry>
-      </row>
-      <row>
-      <entry>dagobah</entry>
-      <entry>endor</entry>
-      <entry><systemitem class='ipaddress'>10.0.121.129/27</systemitem></entry>
-      </row>
-      <row>
-      <entry>felucia</entry>
-      <entry>geonosis</entry>
-      <entry><systemitem class='ipaddress'>172.19.114.129/26</systemitem></entry>
-      </row>
-      <row>
-      <entry>hoth</entry>
-      <entry>jakku</entry>
-      <entry><systemitem class='ipaddress'>192.168.108.129/25</systemitem></entry>
-      </row>
-      <row>
-      <entry>kamino</entry>
-      <entry>mustafar</entry>
-      <entry><systemitem class='ipaddress'>10.5.6.1/23</systemitem></entry>
-      </row>
-      <row>
-      <entry>naboo</entry>
-      <entry>tatooine</entry>
-      <entry><systemitem class='ipaddress'>10.3.2.1/23</systemitem></entry>
-      </row>
-    </tbody>
-    </tgroup>
-  </table>
-
-  <para>Pour ces travaux pratiques, de nombreuses questions peuvent être
-  traitées à l'aide du document de référence : &url.nfsv4.config;. Il faut
-  cependant faire correspondre les configurations décrites dans ce document
-  avec les configurations proposées avec les paquets de la distribution
-  <citetitle>Debian GNU/Linux</citetitle>.</para>
-
-  <para>Pour chaque paire de postes de travaux pratiques, il faut attribuer les
-  rôles serveur et client. Le serveur doit exporter une partie de son
-  arborescence locale de système de fichiers et le client doit pouvoir y
-  accéder de façon transparente via un montage du système de fichiers distant.
-  Ce support de travaux pratiques fait suite à la présentation :
-  &url.net-fs;.</para>
+	<para>Avant de traiter les questions des sections suivantes, il faut
+	rechercher dans le document &url.infra.tp; les éléments nécessaires au
+	raccordement des machines virtuelles ou physiques.</para>
 </sect1>
 
-<sect1 xml:id='sysadm-net.nfs.topology'>
-  <title>Protocole NFS et topologie de travaux pratiques</title>
+<sect1 xml:id='sysadm-net.nfs.protocol'>
+	<title>Protocole NFS</title>
 
-  <para>Cette section reprend les éléments spécifiques au protocole
-  <acronym>NFS</acronym> introduits lors de la présentation
-  &url.net-fs;.</para>
+	<para>Cette section reprend les éléments spécifiques au protocole
+	<acronym>NFS</acronym> introduits lors de la présentation
+	&url.net-fs;.</para>
 
-  <para>Plusieurs versions du protocole de système de fichiers réseau
-  <acronym>NFS</acronym> sont disponibles. Chacune correspond à une «époque» ou
-  à un mode d'exploitation. La vue ci-dessous illustre la distribution des
-  fonctionnalités de la version 4 entre les espaces noyau et
-  utilisateur.</para>
+	<para>Plusieurs versions du protocole de système de fichiers réseau
+	<acronym>NFS</acronym> sont disponibles. Chacune correspond à une «époque»
+	ou à un mode d'exploitation. La vue ci-dessous illustre la distribution des
+	fonctionnalités de la version 4 entre les espaces noyau et
+	utilisateur.</para>
 
   <mediaobject>
     <imageobject>
@@ -345,171 +244,129 @@
     </textobject>
   </mediaobject>
 
-  <para>La version 2 du protocole <acronym>NFS</acronym> a été la première à
-  être largement adoptée à la fin des années 80. Elle a été conçue pour fournir
-  un service de partage de fichiers entre les hôtes d'un même réseau local.
-  Elle s'appuie sur le protocole <acronym>UDP</acronym> au niveau transport et
-  sur le mécanisme d'appel de procédure distant (<acronym>RPC</acronym>) aux
-  niveaux supérieurs.</para>
+	<para>La version 2 du protocole <acronym>NFS</acronym> a été la première à
+	être largement adoptée à la fin des années 80. Elle a été conçue pour
+	fournir un service de partage de fichiers entre les hôtes d'un même réseau
+	local.  Elle s'appuie sur le protocole <acronym>UDP</acronym> au niveau
+	transport et sur le mécanisme d'appel de procédure distant
+	(<acronym>RPC</acronym>) aux niveaux supérieurs.</para>
 
-  <para>La version 3 du protocole, introduite au milieu des années 90, a
-  apporté de nombreuses améliorations en termes de fiabilité et de performances
-  relativement à la précédente. Avec la version 3 du protocole :</para>
+	<para>La version 3 du protocole, introduite au milieu des années 90, a
+	apporté de nombreuses améliorations en termes de fiabilité et de
+	performances relativement à la précédente. Avec la version 3 du
+	protocole&nbsp;:</para>
 
-  <itemizedlist>
-    <listitem>
-    <para>La taille maximum de fichier n'est plus limitée à 2Go.</para>
-    </listitem>
-    <listitem>
-    <para>Les écritures asynchrones sur le serveur sont possibles ; ce qui
-    améliore beaucoup les performances. Les requêtes en écriture des clients
-    sont gérées en mémoire cache. Le client n'a plus à attendre que les
-    demandes d'écritures soient effectivement appliquées sur les disques ce qui
-    améliore les temps de réponse.</para>
-    </listitem>
-    <listitem>
-    <para>Les contrôles d'accès sont effectués avant les manipulations sur les
-    fichiers.</para>
-    </listitem>
-    <listitem>
-    <para>La taille des données transférées n'est plus limitée à 8Ko.</para>
-    </listitem>
-    <listitem>
-    <para>Il est possible d'utiliser le protocole <acronym>TCP</acronym> au
-    niveau transport.</para>
-    </listitem>
-  </itemizedlist>
+	<itemizedlist>
+	<listitem>
+	<para>La taille maximum de fichier n'est plus limitée à 2Go.</para>
+	</listitem>
+	<listitem>
+	<para>Les écritures asynchrones sur le serveur sont possibles ; ce qui
+	améliore beaucoup les performances. Les requêtes en écriture des clients
+	sont gérées en mémoire cache. Le client n'a plus à attendre que les
+	demandes d'écritures soient effectivement appliquées sur les disques ce qui
+	améliore les temps de réponse.</para>
+	</listitem>
+	<listitem>
+	<para>Les contrôles d'accès sont effectués avant les manipulations sur les
+	fichiers.</para>
+	</listitem>
+	<listitem>
+	<para>La taille des données transférées n'est plus limitée à 8Ko.</para>
+	</listitem>
+	<listitem>
+	<para>Il est possible d'utiliser le protocole <acronym>TCP</acronym> au
+	niveau transport.</para>
+	</listitem>
+	</itemizedlist>
 
-  <para>La version 4 du protocole apporte de nouvelles fonctionnalités
-  relativement aux précédentes.</para>
+	<para>La version 4 du protocole apporte de nouvelles fonctionnalités
+	relativement aux précédentes.</para>
 
-  <para>Les identifiants d'utilisateur et de groupe
-  (<option>uid</option>/<option>gid</option>) sont représentés par des chaînes
-  de caractères. Un service, baptisé <systemitem
-  class='daemon'>idmapd</systemitem>, est utilisé sur le serveur pour faire les
-  correspondances entre les valeurs numériques locales et les chaînes de
-  caractères. Ces correspondances permettent d'utiliser de nouveaux contrôles
-  d'accès indépendants entre clients et serveurs.</para>
+	<para>Les identifiants d'utilisateur et de groupe
+	(<option>uid</option>/<option>gid</option>) sont représentés par des
+	chaînes de caractères. Un service, baptisé <systemitem
+	class='daemon'>idmapd</systemitem>, est utilisé sur le serveur pour faire
+	les correspondances entre les valeurs numériques locales et les chaînes de
+	caractères. Ces correspondances permettent d'utiliser de nouveaux contrôles
+	d'accès indépendants entre clients et serveurs.</para>
 
-  <para>Les serveurs maintiennent un pseudo système de fichiers qui assure la
-  cohérence du système de nommage avec les clients. Ainsi, un objet est nommé
-  de façon identique entre le serveur et ses clients. Pour respecter les
-  spécifications POSIX, un client qui a accès à un niveau d'arborescence peut
-  parcourir tous les niveaux inférieurs. Il n'est pas nécessaire d'exporter les
-  sous arborescences.</para>
+	<para>Les serveurs maintiennent un pseudo système de fichiers qui assure la
+	cohérence du système de nommage avec les clients. Ainsi, un objet est nommé
+	de façon identique entre le serveur et ses clients. Pour respecter les
+	spécifications POSIX, un client qui a accès à un niveau d'arborescence peut
+	parcourir tous les niveaux inférieurs. Il n'est pas nécessaire d'exporter
+	les sous arborescences.</para>
 
-  <para>Les appels de procédures distants n'utilisent plus le multiplexage de
-  ports. Un numéro de port unique a été attribué à la version 4 du protocole
-  <acronym>NFS</acronym> : tcp/2049. La version 3 doit utiliser plusieurs
-  ports pour les traitements de ses protocoles complémentaires ; ce qui
-  donne un assemblage plutôt complexe de ports et de couches avec des problèmes
-  de sécurité propres. Aujourd'hui, ce mode de fonctionnement est abandonné et
-  toutes les opérations de mise en œuvre de protocole complémentaire
-  précédemment exécutées via des ports individuels sont maintenant traitées
-  directement à partir d'un port unique connu.</para>
+	<para>Les appels de procédures distants n'utilisent plus le multiplexage de
+	ports. Un numéro de port unique a été attribué à la version 4 du protocole
+	<acronym>NFS</acronym>&nbsp;: tcp/2049. La version 3 doit utiliser
+	plusieurs ports pour les traitements de ses protocoles
+	complémentaires&nbsp;; ce qui donne un assemblage plutôt complexe de ports
+	et de couches avec des problèmes de sécurité propres. Aujourd'hui, ce mode
+	de fonctionnement est abandonné et toutes les opérations de mise en œuvre
+	de protocole complémentaire précédemment exécutées via des ports
+	individuels sont maintenant traitées directement à partir d'un port unique
+	connu.</para>
 
-  <para>Désormais, le mécanisme d'appel <acronym>RPC</acronym> n'est plus aussi
-  important et sert essentiellement d'enveloppe pour les opérations encapsulées
-  dans la pile <acronym>NFSv4</acronym>. Ce changement rend le protocole
-  beaucoup moins dépendant de la sémantique du système de fichiers sous-jacent.
-  Pour autant, les opérations de système de fichiers d'autres systèmes
-  d'exploitation n'ont pas été négligées. Par exemple, les systèmes
-  <trademark>Microsoft</trademark> exigent des appels
-  <wordasword>stateful</wordasword> ouverts. Le mécanisme de suivi d'état de
-  communication (<wordasword>statefulness</wordasword>) facilite l'analyse de
-  trafic et rend les opérations de système de fichiers beaucoup plus simples à
-  interpréter. Ce même mécanisme permet aux clients de gérer les données «en
-  l'état» en mémoire cache.</para>
+	<para>Désormais, le mécanisme d'appel <acronym>RPC</acronym> n'est plus
+	aussi important et sert essentiellement d'enveloppe pour les opérations
+	encapsulées dans la pile <acronym>NFSv4</acronym>. Ce changement rend le
+	protocole beaucoup moins dépendant de la sémantique du système de fichiers
+	sous-jacent. Pour autant, les opérations de système de fichiers d'autres
+	systèmes d'exploitation n'ont pas été négligées. Par exemple, les systèmes
+	<trademark>Microsoft</trademark> exigent des appels
+	<wordasword>stateful</wordasword> ouverts. Le mécanisme de suivi d'état de
+	communication (<wordasword>statefulness</wordasword>) facilite l'analyse de
+	trafic et rend les opérations de système de fichiers beaucoup plus simples
+	à interpréter. Ce même mécanisme permet aux clients de gérer les données
+	«en l'état» en mémoire cache.</para>
 
-  <para>La version 4 simplifie les requêtes en utilisant des opérations
-  composées ou groupées (<wordasword>compound</wordasword>) qui englobent un
-  grand nombre de traitements sur les objets du système de fichiers. L'effet
-  immédiat est, bien sûr, une diminution très importante des appels
-  <acronym>RPC</acronym> et des données qui doivent parcourir le réseau. Bien
-  que chaque appel <acronym>RPC</acronym> transporte beaucoup plus de données
-  en accomplit beaucoup plus de traitements, on considère qu'une requête
-  composée de la version 4 du protocole exige cinq fois moins d'interactions
-  client serveur qu'avec la version 3.</para>
-
-  <para>L'objectif des manipulations qui sont demandées dans ce document est
-  d'illustrer les nouvelles fonctionnalités apportées par la dernière version
-  du protocole <acronym>NFS</acronym>. Le séquencement des opérations à
-  réaliser lors de la séance de travaux pratiques est décrit dans le tableau
-  ci-dessous. Après le traitement de la première partie commune, les deux
-  postes occupent chacun un rôle distinct.</para>
-
-  <table frame='all' pgwide='1'>
-    <title>Attribution des rôles</title>
-    <tgroup cols='2' align='left' colsep='1' rowsep='1'>
-    <colspec colnum='1' colname='c1' colwidth='1*'/>
-    <colspec colnum='2' colname='c2' colwidth='1*'/>
-    <thead>
-      <row>
-		<?dbfo bgcolor="#333" ?>
-		<?dbfo color="#fff" ?>
-      <entry>Client</entry>
-      <entry>Serveur</entry>
-      </row>
-    </thead>
-    <tbody>
-      <row>
-      <entry namest='c1' nameend='c2' align='center'>Identification du
-      mécanisme des appels <acronym>RPC</acronym>. Installation et
-      configuration des paquets communs.</entry>
-      </row>
-      <row>
-      <entry>Identification des services disponibles sur le serveur. Création
-      d'un compte local sans répertoire utilisateur.</entry>
-      <entry>Installation du paquet spécifique au serveur et configuration du
-      service en fonction de l'arborescence à exporter.</entry>
-      </row>
-      <row>
-      <entry namest='c1' nameend='c2' align='center'>validation de l'accès au
-      système de fichiers réseau avec capture de trafic.</entry>
-      </row>
-      <row>
-      <entry>Installation du paquet spécifique et configuration du service
-      d'automontage des répertoires utilisateurs.</entry>
-      <entry> </entry>
-      </row>
-    </tbody>
-    </tgroup>
-  </table>
+	<para>La version 4 simplifie les requêtes en utilisant des opérations
+	composées ou groupées (<wordasword>compound</wordasword>) qui englobent un
+	grand nombre de traitements sur les objets du système de fichiers. L'effet
+	immédiat est, bien sûr, une diminution très importante des appels
+	<acronym>RPC</acronym> et des données qui doivent parcourir le réseau. Bien
+	que chaque appel <acronym>RPC</acronym> transporte beaucoup plus de données
+	en accomplit beaucoup plus de traitements, on considère qu'une requête
+	composée de la version 4 du protocole exige cinq fois moins d'interactions
+	client serveur qu'avec la version 3.</para>
 </sect1>
 
 <sect1 xml:id='sysadm-net.nfs.common'>
-  <title>Configuration commune au client et au serveur NFS</title>
+	<title>Configuration commune au client et au serveur NFS</title>
 
-  <para>Plusieurs services communs doivent être actifs pour que les accès au
-  système de fichiers réseau <acronym>NFS</acronym> soient utilisables. Le
-  mécanisme de gestion des appels de procédures distants appelé
-  <acronym>RPC</acronym> ou <wordasword>Remote Procedure Call</wordasword>
-  constitue le point de départ dans la mise œuvre de ces services
-  communs.</para>
+	<para>Plusieurs services communs doivent être actifs pour que les accès au
+	système de fichiers réseau <acronym>NFS</acronym> soient utilisables. Le
+	mécanisme de gestion des appels de procédures distants appelé
+	<acronym>RPC</acronym> ou <wordasword>Remote Procedure Call</wordasword>
+	constitue le point de départ dans la mise œuvre de ces services
+	communs.</para>
 
-  <para>Le logiciel de gestion des appels de procédures distants a évolué avec
-  les différentes versions du système de fichiers <acronym>NFS</acronym> et
-  l'arrivée du protocole réseau <acronym>IPv6</acronym>. La configuration
-  étudiée ici doit permettre de fonctionner de la façon la plus transparente
-  possible avec les versions 3 et 4 du système de fichiers
-  <acronym>NFS</acronym>.</para>
+	<para>Le logiciel de gestion des appels de procédures distants a évolué
+	avec les différentes versions du système de fichiers <acronym>NFS</acronym>
+	et l'arrivée du protocole réseau <acronym>IPv6</acronym>. La configuration
+	étudiée ici doit permettre de fonctionner de la façon la plus transparente
+	possible avec les versions 3 et 4 du système de fichiers
+	<acronym>NFS</acronym>.</para>
 
 <note>
-  <para>Les manipulations présentées ici ne traitent pas le volet
-  authentification et chiffrement des échanges sur le réseau. On considère que
-  les services <citetitle>Kerberos</citetitle>, <acronym>SPKM-3</acronym> et
-  <acronym>LIPKEY</acronym> ne sont pas actifs sur les systèmes étudiés.</para>
+	<para>Les manipulations présentées ici ne traitent pas le volet
+	authentification et chiffrement des échanges sur le réseau. On considère
+	que les services <citetitle>Kerberos</citetitle>, <acronym>SPKM-3</acronym>
+	et <acronym>LIPKEY</acronym> ne sont pas actifs sur les systèmes
+	étudiés.</para>
 </note>
 
-  <sect2 xml:id='sysadm-net.nfs.common.rpc'>
-    <title>Gestion des appels RPC</title>
+<sect2 xml:id='sysadm-net.nfs.common.rpc'>
+	<title>Gestion des appels RPC</title>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
       <question>
       <para><phrase>Quels sont les deux logiciels disponibles chargés de la
-      gestion des appels <acronym>RPC</acronym> ? Qu'est-ce qui les distinguent
-      ?</phrase></para>
+      gestion des appels <acronym>RPC</acronym>&nbsp;? Qu'est-ce qui les distinguent
+     &nbsp;?</phrase></para>
 
       <para>La présentation &url.net-fs; introduit les principes de
       fonctionnement des appels de procédures distants.</para>
@@ -523,12 +380,12 @@
       <answer>
       <para>Le support &url.nfs.howto; présente le service «historique» utilisé
       par <acronym>NFS</acronym> pour le multiplexage des appels de procédures
-      distants : <systemitem>portmap</systemitem>. Ce service est fourni
+      distants&nbsp;: <systemitem>portmap</systemitem>. Ce service est fourni
       par le paquet du même nom et est limité au protocole réseau
       <acronym>IPv4</acronym>.</para>
 
       <para>La page &url.ti-rpc; présente un nouveau logiciel de multiplexage
-      des mêmes appels de procédures distants :
+      des mêmes appels de procédures distants&nbsp;:
       <systemitem>rpcbind</systemitem>. Ce nouveau démon est aussi fourni par
       le paquet du même nom. Il se veut plus évolutif que le précédent et
       supporte le protocole réseau <acronym>IPv6</acronym>.</para>
@@ -537,12 +394,12 @@
 
     <qandaentry>
       <question>
-      <para><phrase>Quels sont les paquets qui correspondent à ces logiciels ?
+      <para><phrase>Quels sont les paquets qui correspondent à ces logiciels&nbsp;?
       Installer le paquet ouvrant les services de transport
       universels</phrase>.</para>
 
       <para>Utiliser les outils de recherche dans les répertoires de noms de
-      paquets et dans leurs descriptions : <command>apt-cache</command>,
+      paquets et dans leurs descriptions&nbsp;: <command>apt-cache</command>,
       <command>dpkg</command>, <command>aptitude</command>.</para>
       </question>
       <answer>
@@ -568,12 +425,12 @@ Les NOUVEAUX paquets suivants vont être installés :
 
     <qandaentry>
       <question>
-      <para><phrase>Quel est le numéro de port utilisé par le service ? Quel
+      <para><phrase>Quel est le numéro de port utilisé par le service&nbsp;? Quel
       est le principe de fonctionnement du service pour le traitement des
-      appels de procédures distants ?</phrase></para>
+      appels de procédures distants&nbsp;?</phrase></para>
 
       <para>Utiliser les commandes qui permettent d'obtenir les informations
-      sur :</para>
+      sur&nbsp;:</para>
       <itemizedlist>
         <listitem>
 	<para>La liste des processus actifs sur le système,</para>
@@ -592,7 +449,7 @@ Les NOUVEAUX paquets suivants vont être installés :
 	<para>La liste des processus actifs sur le système,</para>
 
 <screen><prompt>#</prompt> ps aux | grep rpc[b]ind
-root      2963  0.0  0.0  18956   724 ?        Ss   14:01   0:00 /sbin/rpcbind -w</screen>
+root      2963  0.0  0.0  18956   724&nbsp;?        Ss   14:01   0:00 /sbin/rpcbind -w</screen>
 	</listitem>
 	<listitem>
 	<para>Les numéros de ports en écoute sur les interfaces réseau,</para>
@@ -631,8 +488,8 @@ sunrpc          111/udp         portmapper</screen>
     <qandaentry>
       <question>
       <para><phrase>Quelle est a commande qui permet de lister les services
-      accessibles via un appel <acronym>RPC</acronym> ? À quel paquet
-      appartient cette commande ?</phrase></para>
+      accessibles via un appel <acronym>RPC</acronym>&nbsp;? À quel paquet
+      appartient cette commande&nbsp;?</phrase></para>
 
       <para>Rechercher dans le support &url.nfs.howto; et dans la liste
       des fichiers du paquet sélectionné pour la gestion des appels
@@ -664,7 +521,7 @@ program version(s) netid(s)                         service     owner
 
     <qandaentry>
       <question>
-      <para><phrase>Donner deux exemples d'exécution : un en local et un sur le
+      <para><phrase>Donner deux exemples d'exécution&nbsp;: un en local et un sur le
       poste de travaux pratiques voisin.</phrase></para>
 
       <para>Reprendre la commande utilisée dans la question précédente en
@@ -689,7 +546,7 @@ program version(s) netid(s)                         service     owner
     <qandaentry>
       <question>
       <para><phrase>Réaliser une capture à l'aide de l'analyseur réseau lors de
-      l'exécution de la commande et relever : le protocole de transport
+      l'exécution de la commande et relever&nbsp;: le protocole de transport
       utilisé, les numéros de ports caractéristiques de cette transaction ainsi
       que le nom de la procédure <acronym>RPC</acronym>
       utilisée.</phrase></para>
@@ -728,7 +585,7 @@ Capturing on 'eth0'
 		<systemitem>sunrpc/111</systemitem>.</para>
 	</listitem>
 	<listitem>
-		<para>Le sous-programme distant appelé est : <option>Portmap V3	DUMP
+		<para>Le sous-programme distant appelé est&nbsp;: <option>Portmap V3	DUMP
 		Call</option>.</para>
 	</listitem>
 	</itemizedlist>
@@ -743,14 +600,14 @@ Capturing on 'eth0'
   <qandaset defaultlabel='number' xml:id='sysadm-net.nfs.common-package'>
     <qandaentry xml:id='sysadm-net.nfs.synthese.nfs-common-package'>
       <question>
-      <para><phrase>Quel est le paquet commun au client et au serveur ?
+      <para><phrase>Quel est le paquet commun au client et au serveur&nbsp;?
       Identifier le jeu de commandes fournies par ce paquet.</phrase></para>
 
       <para>Rechercher dans la liste des paquets disponibles, ceux dont le nom
       débute par <option>nfs</option>.</para>
       </question>
       <answer>
-<screen><prompt>#</prompt> aptitude search ?name"(^nfs)"
+<screen><prompt>#</prompt> aptitude search&nbsp;?name"(^nfs)"
 v   nfs-client         -
 p   <emphasis>nfs-common</emphasis>         - NFS support files common to client and server
 p   nfs-kernel-server  - support for NFS kernel server
@@ -799,7 +656,7 @@ p   nfswatch           - Program to monitor NFS traffic for the console</screen>
       <question>
       <para><phrase>Est-ce que la liste des services accessibles via le
       mécanisme d'appel de procédure distant (<acronym>RPC</acronym>) a évolué
-      ?</phrase></para>
+     &nbsp;?</phrase></para>
 
       <para>Réaliser une capture réseau lors de l'exécution des
       commandes et relever les protocoles et les numéros de ports
@@ -858,7 +715,7 @@ p   nfswatch           - Program to monitor NFS traffic for the console</screen>
       <question>
       <para><phrase>Quelle est la commande qui permet de tester la
       disponibilité du service de montage <acronym>NFS</acronym> sur un hôte
-      distant ?</phrase></para>
+      distant&nbsp;?</phrase></para>
 
       <para>Reprendre l'utilisation de la commande identifiée dans la section
       précédente.</para>
@@ -882,7 +739,7 @@ program version(s) netid(s)                         service     owner
       <question>
       <para><phrase>Quelle est la commande qui permet d'identifier
       l'arborescence disponible à l'exportation sur le serveur
-      NFS ?</phrase></para>
+      NFS&nbsp;?</phrase></para>
 
       <para>Rechercher dans la liste des fichiers du paquet de service
       commun <acronym>NFS</acronym>.</para>
@@ -905,9 +762,9 @@ Export list for 198.51.100.2:
     <qandaentry>
       <question>
       <para><phrase>Quelle est la commande à utiliser pour les opérations de
-      montage manuel ? À quel paquet appartient cette commande ? Cette commande
+      montage manuel&nbsp;? À quel paquet appartient cette commande&nbsp;? Cette commande
       est-elle exclusivement liée au protocole <acronym>NFS</acronym>
-      ?</phrase></para>
+     &nbsp;?</phrase></para>
 
       <para>Après avoir consulté le support &url.nfs.howto;, interroger la base
       de données des paquets, rechercher dans le contenus des paquets et
@@ -936,7 +793,7 @@ mount: /bin/mount</screen>
       répertoires utilisateurs exportés depuis le serveur
       <acronym>NFS</acronym>. Quelle est la syntaxe de la commande permettant
       de <emphasis>monter</emphasis> le répertoire exporté par le serveur
-      <acronym>NFS</acronym> sur ce nouveau répertoire ?</phrase></para>
+      <acronym>NFS</acronym> sur ce nouveau répertoire&nbsp;?</phrase></para>
 
       <para>Rechercher dans le support &url.nfs.howto;.</para>
       </question>
@@ -959,13 +816,13 @@ rpc_pipefs on /var/lib/nfs/rpc_pipefs type rpc_pipefs (rw,relatime)
     <qandaentry>
       <question>
       <para><phrase>Quelles sont les options de montage disponibles avec le
-      protocole <acronym>NFS</acronym> ? Relever la signification des options
-      principales ?</phrase></para>
+      protocole <acronym>NFS</acronym>&nbsp;? Relever la signification des options
+      principales&nbsp;?</phrase></para>
 
       <para>Consulter la documentation &url.nfs.howto;.</para>
       </question>
       <answer>
-      <para>Les options caractéristiques sont : choix du protocole de
+      <para>Les options caractéristiques sont&nbsp;: choix du protocole de
       transport, taille des blocs de données et version <acronym>NFS</acronym>.
       On peut aussi consulter les pages de manuels de la catégorie 5 concernant
       les formats de fichiers à l'aide de la commande <userinput>man 5
@@ -978,7 +835,7 @@ rpc_pipefs on /var/lib/nfs/rpc_pipefs type rpc_pipefs (rw,relatime)
       <para><phrase>Réaliser une capture lors de l'exécution des commandes et
       relever les numéros de ports caractéristiques de ces transactions. Est-il
       possible de retrouver les informations échangées dans les données de
-      capture ?</phrase></para>
+      capture&nbsp;?</phrase></para>
 
 <screen> Client                                                   Serveur
 ---------------------------------------------------------------------
@@ -1005,7 +862,7 @@ rpc_pipefs on /var/lib/nfs/rpc_pipefs type rpc_pipefs (rw,relatime)
       <question>
       <para><phrase>Quelles seraient les opérations à effectuer pour configurer
       le système et rendre un montage <acronym>NFS</acronym> statique permanent
-      ?</phrase></para>
+     &nbsp;?</phrase></para>
 
       <para>Rechercher le fichier de configuration système responsable des
       montages statiques des partitions.</para>
@@ -1050,7 +907,7 @@ rpc_pipefs on /var/lib/nfs/rpc_pipefs type rpc_pipefs (rw,relatime)
     <qandaentry>
       <question>
       <para><phrase>Quel est le paquet qui contient les outils nécessaires au
-      fonctionnement de l'automontage ?</phrase></para>
+      fonctionnement de l'automontage&nbsp;?</phrase></para>
 
       <para>Interroger les méta données dans le cache du gestionnaire de
       paquets en cherchant le mot clé <command>automount</command>.</para>
@@ -1083,7 +940,7 @@ p   udisks-glue    - simple automount daemon with support for user-defined actio
       <systemitem>etu-nfs</systemitem> avec un répertoire utilisateur situé
       sous la racine <filename class='directory'>/ahome</filename> dont les
       fichiers ét répertoires sont placés sur le serveur <acronym>NFS</acronym>
-      ?</phrase></para>
+     &nbsp;?</phrase></para>
       </question>
       <answer>
       <para>Après consultation des pages de manuels de la commande
@@ -1108,7 +965,7 @@ uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
       <para><phrase>Quels sont les fichiers de configuration du service
       d'automontage à éditer ou créer pour que l'utilisateur
       <systemitem>etu-nfs</systemitem> ait accès à ses données personnelles
-      ?</phrase></para>
+     &nbsp;?</phrase></para>
 
       <para>Utiliser les fichiers exemples fournis avec le paquet, les pages de
       manuels associées et créer un fichier spécifique pour la gestion des
@@ -1117,10 +974,10 @@ uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
       <answer>
       <para>La liste des fichiers du paquet <systemitem>autofs</systemitem>
       montre qu'il existe une page de manuel consacrée au fichier principal de
-      configuration du service : <filename>/etc/auto.master</filename>. Ces
+      configuration du service&nbsp;: <filename>/etc/auto.master</filename>. Ces
       informations permettent de configurer un point de montage au dessous
       duquel doivent se trouver les répertoires utilisateurs. Ces derniers
-      utilisent un fichier de configuration propre :
+      utilisent un fichier de configuration propre&nbsp;:
       <filename>/etc/auto.home</filename>.</para>
 
       <orderedlist>
@@ -1146,7 +1003,7 @@ uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
         <itemizedlist>
 	  <listitem>
 	  <para>Le premier paramètre est le symbole <keycap>*</keycap> qui se
-	  substitue au nom d'utilisateur : <systemitem>etu-nfs</systemitem>
+	  substitue au nom d'utilisateur&nbsp;: <systemitem>etu-nfs</systemitem>
 	  dans notre exemple.</para>
 	  </listitem>
 	  <listitem>
@@ -1171,7 +1028,7 @@ uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
 	  </listitem>
 	  <listitem>
 	  <para>Le symbole <keycap>&amp;</keycap> indique la répétition du
-	  premier paramètre : le nom d'utilisateur.</para>
+	  premier paramètre&nbsp;: le nom d'utilisateur.</para>
 	  </listitem>
 	</itemizedlist>
       </listitem>
@@ -1184,7 +1041,7 @@ uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
       <para><phrase>Quelles sont les conditions à respecter sur le client et le
       serveur <acronym>NFS</acronym> pour que l'utilisateur
       <systemitem>etu-nfs</systemitem> ait la capacité à écrire dans son
-      répertoire personnel ?</phrase></para>
+      répertoire personnel&nbsp;?</phrase></para>
 
       <para>Rechercher les attributs d'un compte utilisateur qui correspondent
       aux propriétés des objets d'un système de fichiers au sens
@@ -1202,7 +1059,7 @@ uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
       <question>
       <para><phrase>Comment prendre l'identité de l'utilisateur
       <systemitem>etu-nfs</systemitem> pour tester la validité du montage
-      ?</phrase></para>
+     &nbsp;?</phrase></para>
 
       <para>Cette validation suppose que l'utilisateur puisse atteindre son
       répertoire et que l'on visualise l'automontage avec les commandes
@@ -1260,7 +1117,7 @@ rpc_pipefs on /var/lib/nfs/rpc_pipefs type rpc_pipefs (rw,relatime)
       <para><phrase>Réaliser une capture réseau lors de l'exécution des
       commandes et relever les numéros de ports caractéristiques de ces
       transactions. Est-il possible de retrouver les informations échangées
-      dans les données de capture ?</phrase></para>
+      dans les données de capture&nbsp;?</phrase></para>
 
       <para>La marche à suivre est identique à celle de la <link
       linkend='sysadm-net.nfs.server.capture'>même question côté
@@ -1292,7 +1149,7 @@ rpc_pipefs on /var/lib/nfs/rpc_pipefs type rpc_pipefs (rw,relatime)
     <qandaentry>
       <question>
       <para><phrase>Quel est le paquet qui contient les outils nécessaires au
-      fonctionnement du serveur <acronym>NFS</acronym> ? Installez ce
+      fonctionnement du serveur <acronym>NFS</acronym>&nbsp;? Installez ce
       paquet.</phrase></para>
 
       <para>Interroger les méta données du gestionnaire de paquets pour
@@ -1317,7 +1174,7 @@ v   nfs-server</screen>
     <qandaentry>
       <question>
       <para><phrase>Quel est le fichier de configuration principal de gestion
-      des exportations <acronym>NFS</acronym> ?</phrase></para>
+      des exportations <acronym>NFS</acronym>&nbsp;?</phrase></para>
 
       <para>Rechercher dans le support &url.nfs.howto;.</para>
       </question>
@@ -1336,7 +1193,7 @@ v   nfs-server</screen>
       <para><phrase>Créer le répertoire <filename
       class='directory'>/home/exports/home</filename>. Quelle est la syntaxe à
       utiliser dans le fichier de configuration pour «exporter» ce répertoire
-      ?</phrase></para>
+     &nbsp;?</phrase></para>
 
       <para>Rechercher dans les supports &url.nfs.howto; et &url.nfsv4.config;.
       On peut aussi utiliser les pages de manuels fournies avec le paquet du
@@ -1363,7 +1220,7 @@ v   nfs-server</screen>
   travaux pratiques autonomes et indépendantes implique que l'étude de la
   configuration <citetitle>Kerberos</citetitle> soit repoussée en dernière
   étape. En effet, le service <citetitle>Kerberos</citetitle> intervient à tous
-  les niveaux : <acronym>LDAP</acronym>, <acronym>NFS</acronym> et
+  les niveaux&nbsp;: <acronym>LDAP</acronym>, <acronym>NFS</acronym> et
   authentification. Il peut faire l'objet d'une étude de synthèse
   supplémentaire une fois que les configurations des différentes fonctions ont
   été validées l'une après l'autre.</para>
@@ -1371,35 +1228,35 @@ v   nfs-server</screen>
 
       <para>En ce qui concerne les options entre parenthèses, elles sont
       documentées dans les pages de manuels
-      <systemitem>exports</systemitem> :
+      <systemitem>exports</systemitem>&nbsp;:
       <userinput><prompt>#</prompt> man 5 exports</userinput>.
       Les éléments suivants en sont extraits.</para>
 
       <itemizedlist>
 	<listitem>
-	<para><literal>rw</literal> : autoriser les requêtes en
+	<para><literal>rw</literal>&nbsp;: autoriser les requêtes en
 	lecture et en écriture sur le volume NFS. Le comportement par défaut
 	est d'interdire toute requête qui modifierait le système de
 	fichiers.</para>
 	</listitem>
 	<listitem>
-	<para><literal>sync</literal> : ne répondre aux requêtes qu'après
+	<para><literal>sync</literal>&nbsp;: ne répondre aux requêtes qu'après
 	l'exécution de tous les changements sur le support réel.</para>
 	</listitem>
 	<listitem>
-	<para><literal>fsid=0</literal> : avec NFSv4, un système de
+	<para><literal>fsid=0</literal>&nbsp;: avec NFSv4, un système de
 	fichiers particulier est la racine de tous les systèmes de fichiers
 	partagés. Il est défini par fsid=root ou fsid=0, qui veulent tous deux
 	dire exactement la même chose.</para>
 	</listitem>
 	<listitem>
-	<para><literal>crossmnt</literal> : cette option permet aux
+	<para><literal>crossmnt</literal>&nbsp;: cette option permet aux
 	clients de se déplacer du système de fichiers marqué
 	<literal>crossmnt</literal> aux systèmes de fichiers partagés montés
 	dessus. Voir l'option <acronym>nohide</acronym>.</para>
 	</listitem>
 	<listitem>
-	<para><literal>no_subtree_check</literal> : cette option neutralise la
+	<para><literal>no_subtree_check</literal>&nbsp;: cette option neutralise la
 		vérification de sous-répertoires, ce qui a des subtiles implications au
 		niveau de la sécurité, mais peut améliorer la fiabilité dans certains
 		cas. Si un sous-répertoire dans un système de fichiers est partagé,
@@ -1482,7 +1339,7 @@ v   nfs-server</screen>
 	<para>Une fois la configuration validée, on peut intégrer ce montage
 	local dans la configuration système pour que l'opération soit effectuée
 	à chaque initialisation. Il faut alors éditer le fichier de
-	configuration dédié aux montages des volumes locaux du système :
+	configuration dédié aux montages des volumes locaux du système&nbsp;:
 	<filename>/etc/fstab</filename>. Voici un exemple donnant les dernières
 	lignes d'un fichier <filename>/etc/fstab</filename> de serveur.</para>
 
@@ -1499,7 +1356,7 @@ UUID=15fb1316-1260-44bf-8931-ff052d99d315 /boot           ext2    defaults      
     <qandaentry>
       <question>
       <para><phrase>Quelle est la commande qui permet de visualiser l'état
-      courant de l'arborescence exportée ?</phrase></para>
+      courant de l'arborescence exportée&nbsp;?</phrase></para>
 
       <para>Rechercher dans la liste des fichiers du paquet relatif au serveur
       <acronym>NFS</acronym>.</para>
@@ -1535,16 +1392,16 @@ UUID=15fb1316-1260-44bf-8931-ff052d99d315 /boot           ext2    defaults      
     <qandaentry>
       <question>
       <para><phrase>Quelles sont les principales options disponibles pour
-      l'exportation d'une arborescence ? Relever la signification des
+      l'exportation d'une arborescence&nbsp;? Relever la signification des
       paramètres.</phrase></para>
 
       <para>Rechercher dans le support &url.nfs.howto;. On doit s'intéresser
-      plus particulièrement aux options : <option>(rw|ro)</option>,
+      plus particulièrement aux options&nbsp;: <option>(rw|ro)</option>,
       <option>(sync|async)</option> et <option>*squash</option>.</para>
       </question>
       <answer>
       <para>Voici quelques éléments de réponse issus des pages de
-      manuels : <userinput><prompt>#</prompt> man 5 exports</userinput></para>
+      manuels&nbsp;: <userinput><prompt>#</prompt> man 5 exports</userinput></para>
       <itemizedlist>
         <listitem>
 	<para>L'option <option>rw</option> autorise les requêtes en lecture et
@@ -1580,7 +1437,7 @@ UUID=15fb1316-1260-44bf-8931-ff052d99d315 /boot           ext2    defaults      
       <question xml:id='sysadm-net.nfs.server.user'>
       <para><phrase>Comment créer un compte utilisateur local baptisé
       <systemitem>etu-nfs</systemitem> avec un répertoire utilisateur situé
-      sous la racine /ahome ?</phrase></para>
+      sous la racine /ahome&nbsp;?</phrase></para>
       </question>
       <answer>
       <para>Après consultation des pages de manuels de la commande
@@ -1603,7 +1460,7 @@ uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
       <para><phrase>Réaliser une capture et relever les numéros de ports
       caractéristiques de des transactions de montage. Est-il possible de
       retrouver les informations échangées dans les données de capture
-      ?</phrase></para>
+     &nbsp;?</phrase></para>
       <para>Pour réaliser cette capture, il faut synchroniser les opérations
       entre les postes client et serveur. On commence par le lancement du
       l'analyseur réseau puis on effectue un montage manuel par exemple pour
@@ -1688,7 +1545,7 @@ Export list for 198.51.100.2:
 198.51.100.2    198.51.100.3   TCP      66     nfs > 755 [FIN, ACK] Seq=2501 Ack=1902
 198.51.100.3    198.51.100.2   TCP      66     755 > nfs [ACK] Seq=1902 Ack=2502</screen>
 
-      <para>Les points caractéristiques illustrés par cette capture sont :
+      <para>Les points caractéristiques illustrés par cette capture sont&nbsp;:
       l'utilisation du protocole <acronym>TCP</acronym>, l'utilisation du port
       enregistré <systemitem>2049/nfs</systemitem>, les appels de
       sous-programmes par lots.</para>
@@ -1726,7 +1583,7 @@ Export list for 198.51.100.2:
       <para><phrase>Quelles sont les valeurs numériques des identifiants
       <option>uid</option> et <option>gid</option> du compte utilisateur
       <systemitem>etu-nfs</systemitem> sur le client et sur le serveur
-      <acronym>NFS</acronym> ?</phrase></para>
+      <acronym>NFS</acronym>&nbsp;?</phrase></para>
 
       <para>Si les valeurs différent entre le client et le serveur, il faut
       détruire ces comptes utilisateurs et reprendre les options de la commande
@@ -1755,9 +1612,9 @@ Export list for 198.51.100.2:
       <para><phrase>Sur quel poste peut-on créer des fichiers et des
       répertoires avec des masques de permissions ayant d'autres valeurs
       <option>uid</option> et <option>gid</option> que celles de l'utilisateur
-      <systemitem>etu-nfs</systemitem> ? Quelles sont les options des commandes
+      <systemitem>etu-nfs</systemitem>&nbsp;? Quelles sont les options des commandes
       <command>chmod</command> et <command>chown</command> à utiliser pour
-      réaliser ces opérations ?</phrase></para>
+      réaliser ces opérations&nbsp;?</phrase></para>
 
       <para>Utiliser les pages de manuels des commandes.</para>
       </question>
@@ -1790,21 +1647,20 @@ touch: impossible de faire un touch « ThisOneIsNotMine »: Permission non acc
       </answer>
     </qandaentry>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quel est le service qui assure la conformité des
-      identifiants entre serveur et client <acronym>NFS</acronym> ?</phrase></para>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le service qui assure la conformité des identifiants
+	entre serveur et client <acronym>NFS</acronym>&nbsp;?</phrase></para>
 
-      <para>Reprendre la liste des service <acronym>RPC</acronym> actifs sur
-      les deux systèmes.</para>
-      </question>
-      <answer>
-      <para>Voir <xref linkend='sysadm-net.nfs.topology'/>. Le démon
-      <systemitem class='daemon'>rpc.idmapd</systemitem> est fourni avec le
-      paquet <systemitem>nfs-common</systemitem>.</para>
-      </answer>
-    </qandaentry>
-  </qandaset>
+	<para>Reprendre la liste des service <acronym>RPC</acronym> actifs sur les
+	deux systèmes.</para>
+	</question>
+	<answer>
+	<para>Le démon <systemitem class='daemon'>rpc.idmapd</systemitem> est
+	fourni avec le paquet <systemitem>nfs-common</systemitem>.</para>
+	</answer>
+	</qandaentry>
+	</qandaset>
 </sect1>
 
 <sect1 xml:id='sysadm-net.nfs.security'>
@@ -1831,7 +1687,7 @@ touch: impossible de faire un touch « ThisOneIsNotMine »: Permission non acc
   <acronym>NFS</acronym>, des fonctions d'authentification basées sur la
   technologie <citetitle>Kerberos</citetitle> ont été introduites.
   L'affectation dynamique est abandonnée au profit d'un numéro de port
-  unique : tcp/2049.</para>
+  unique&nbsp;: tcp/2049.</para>
 </sect1>
 
 <sect1 xml:id='sysadm-net.nfs.refdocs'>
@@ -1839,20 +1695,19 @@ touch: impossible de faire un touch « ThisOneIsNotMine »: Permission non acc
 
   <variablelist>
     <varlistentry xml:id='sysadm-net.nfs.fs'>
-    <term><citetitle>Systèmes de fichiers réseau : NFS &amp;
+    <term><citetitle>Systèmes de fichiers réseau&nbsp;: NFS &amp;
     CIFS</citetitle></term>
     <listitem>
-    <para>&url.net-fs; : présentation des modes de fonctionnement
-    des systèmes de fichiers réseau <acronym>NFS</acronym> &amp;
-    <acronym>CIFS</acronym>. Cette présentation est a consulter avant d'aborder
-    la <xref linkend='sysadm-net.nfs.topology'/>.</para>
+	<para>&url.net-fs;&nbsp;: présentation des modes de fonctionnement des
+	systèmes de fichiers réseau <acronym>NFS</acronym> &amp;
+	<acronym>CIFS</acronym>.</para>
     </listitem>
     </varlistentry>
 
     <varlistentry xml:id='sysadm-net.nfs.howto'>
     <term><citetitle>Linux NFS-HOWTO</citetitle></term>
     <listitem>
-    <para>&url.nfs.howto; : documentation historique complète sur la
+    <para>&url.nfs.howto;&nbsp;: documentation historique complète sur la
     configuration  d'un serveur et d'un client <acronym>NFS</acronym> jusqu'à
     la version 3 inclue.</para>
     </listitem>
@@ -1861,8 +1716,8 @@ touch: impossible de faire un touch « ThisOneIsNotMine »: Permission non acc
     <varlistentry xml:id='sysadm-net.nfsv4.config'>
     <term><citetitle>Nfsv4 configuration</citetitle></term>
     <listitem>
-    <para>&url.nfsv4.config; : traduction française extraite des pages du
-    projet <acronym>CITI</acronym> de l'université du Michigan.</para>
+	<para>&url.nfsv4.config;&nbsp;: traduction française extraite des pages du
+	projet <acronym>CITI</acronym> de l'université du Michigan.</para>
     </listitem>
     </varlistentry>
   </variablelist>

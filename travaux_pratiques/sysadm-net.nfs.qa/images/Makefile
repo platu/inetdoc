@@ -2,11 +2,12 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
-# Type(s) de traitement
-PROCESS = symlink
+PNGTARGET = $(addsuffix .png,$(basename $(wildcard *.odg)))
 
-SYMLINKS = $(MAIN_DIR)/travaux_pratiques/sysadm-net.nfs.qa/images/*.png
+# Type(s) de traitement
+PROCESS = $(PNGTARGET)
 
 all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
+
