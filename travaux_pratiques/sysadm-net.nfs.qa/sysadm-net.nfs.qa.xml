@@ -730,7 +730,7 @@ p  nfswatch - Program to monitor NFS traffic for the console</screen>
 <sect2 xml:id='sysadm-net.nfs.client.manual'>
 	<title>Opérations manuelles de (montage|démontage) NFS</title>
 
-	<qandaset defaultlabel='number'>
+<qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
 	<para><phrase>Quelle est la commande qui permet de tester la disponibilité
@@ -866,61 +866,102 @@ mount/testing,now 2.37.2-1 amd64  [installé]
 	</answer>
 	</qandaentry>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Réaliser une capture lors de l'exécution des commandes et
-      relever les numéros de ports caractéristiques de ces transactions. Est-il
-      possible de retrouver les informations échangées dans les données de
-      capture&nbsp;?</phrase></para>
+	<qandaentry>
+	<question>
+	<para><phrase>Réaliser une capture lors de l'exécution de la commande
+	<command>ls -lAh /ahome</command> et relever les numéros de ports
+	caractéristiques de ces transactions. Est-il possible de retrouver les
+	informations échangées dans les données de capture&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>La marche à suivre est identique à celle de la <link
+	linkend='sysadm-net.nfs.server.capture'>même question côté serveur</link>
+	<acronym>NFS</acronym>.</para>
 
-<screen> Client                                                   Serveur
----------------------------------------------------------------------
- mount                    --- requête RPC --->            portmapper
+	<orderedlist>
+	<listitem>
+	<para>On lance la capture de trafic côté serveur
+	<acronym>NFS</acronym>.</para>
+<screen><prompt>$</prompt> tshark -i enp0s6 -f "! port 22" -w /var/tmp/ls-nfs.pcap</screen>
+	</listitem>
+	<listitem>
+	<para>On exécute la commande <command>ls -lAh /ahome</command> côté client
+	<acronym>NFS</acronym>.</para>
+	</listitem>
+	<listitem>
+	<para>Retour côté serveur pour exploiter les résultats.</para>
+<screen><prompt>$</prompt> Capturing on 'enp0s6'
+12 ^C
+<prompt>$</prompt> tshark -V -r /var/tmp/ls-nfs.pcap -Y "frame.number == 11"</screen>
+	</listitem>
+	</orderedlist>
 
- mount                    &lt;--- numéro port ---            portmapper
+	<para>L'analyse montre que le protocole <acronym>NFS</acronym> en version 4
+	utilise bien le mode <option>COMPOUND</option> de traitement par lot des
+	appels de procédure distants <acronym>RPC</acronym>. On ne relève dans
+	cette capture que les métadonnées système sur les attributs et les
+	permissions relatives à l'arborescence lue.</para>
 
- mount                    --- requête RPC --->            mountd
+	<para>Si on reprend la même démarche avec la commande
+	<command>cat</command> d'un fichier texte par exemple, le contenu de ce
+	fichier apparaît en clair dans la capture de trafic.</para>
+	</answer>
+	</qandaentry>
 
- mount                    &lt;-- réponse --------            mountd
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles <emphasis>seraient</emphasis> les opérations à
+	effectuer pour configurer le système et rendre un montage
+	<acronym>NFS</acronym> statique permanent&nbsp;?</phrase></para>
 
- lecture/écriture         ---- I/O ------------>          nfsd
+	<para>Rechercher le fichier de configuration système responsable des
+	montages statiques des partitions.</para>
 
- lecture/écriture         &lt;- ACK fin opération -          nfsd</screen>
-      </question>
-      <answer>
-      <para>La marche à suivre est identique à celle de la <link
-      linkend='sysadm-net.nfs.server.capture'>même question côté
-      serveur</link> <acronym>NFS</acronym>.</para>
-      </answer>
-    </qandaentry>
+	<para>Il est inutile de modifier les fichiers de configuration du système
+	sachant que l'on change de méthode de montage dans la section
+	suivante.</para>
+	</question>
+	<answer>
+	<para>Il faudrait éditer le fichier <filename>/etc/fstab</filename> pour
+	effectuer un montage statique à chaque initialisation du système. On
+	pourrait par exemple insérer une ligne du type suivant à la fin du
+	fichier.</para>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quelles seraient les opérations à effectuer pour configurer
-      le système et rendre un montage <acronym>NFS</acronym> statique permanent
-     &nbsp;?</phrase></para>
+	<itemizedlist>
+	<listitem>
+	<para>Avec le protocole <acronym>IPv4</acronym>&nbsp;:</para>
+<screen>192.168.51.195:/home   /ahome   nfs4    0   0</screen>
+	</listitem>
+	<listitem>
+	<para>Avec le protocole <acronym>IPv6</acronym>&nbsp;:</para>
+<screen>[2001:678:3fc:1f5:baad:caff:fefe:3]:/home   /ahome   nfs4    0   0</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
 
-      <para>Rechercher le fichier de configuration système responsable des
-      montages statiques des partitions.</para>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est la commande à utiliser pour
+	<emphasis>démonter</emphasis> le dossier <filename
+	class='directory'>/ahome</filename>&nbsp;?</phrase></para>
 
-      <para>Il est inutile de modifier les fichiers de configuration du système
-      sachant que l'on change de méthode de montage dans la section
-      suivante.</para>
-      </question>
-      <answer>
-      <para>Il faudrait éditer le fichier <filename>/etc/fstab</filename> pour
-      effectuer un montage statique à chaque initialisation du système. On
-      pourrait par exemple insérer une ligne du type suivant à la fin du
-      fichier.</para>
+	<para>Rechercher cette commande dans la liste des outils forunis avec le
+	paquet <systemitem>mount</systemitem>.</para>
+	</question>
+	<answer>
+	<para>C'est la commande <command>umount</command> qu'il faut utiliser pour
+	&laquo;détacher&raquo; un dispositif de stockage du système de fichiers.
+	Dans le cas de cette section, la syntaxe est la suivante.</para>
 
-<screen>198.51.100.2:/home   /ahome   nfs4    0   0</screen>
-      </answer>
-    </qandaentry>
-  </qandaset>
-  </sect2>
+<screen><prompt>$</prompt> sudo umount /ahome</prompt>
+	</answer>
+	</qandaentry>
+</qandaset>
+</sect2>
 
-  <sect2 xml:id='sysadm-net.nfs.client.auto'>
-    <title>Opérations automatisées de (montage|démontage) NFS</title>
+<sect2 xml:id='sysadm-net.nfs.client.auto'>
+	<title>Opérations automatisées de (montage|démontage) NFS</title>
 
   <note>
     <para>Il existe plusieurs implémentations libres pour le service
