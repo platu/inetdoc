@@ -67,6 +67,7 @@
 	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='sysadm-net.nfs.plan'>
 	<title>Topologie, scénario et plan d'adressage</title>
 
@@ -963,155 +964,200 @@ mount/testing,now 2.37.2-1 amd64  [installé]
 <sect2 xml:id='sysadm-net.nfs.client.auto'>
 	<title>Opérations automatisées de (montage|démontage) NFS</title>
 
-  <note>
-    <para>Il existe plusieurs implémentations libres pour le service
-    d'automontage. On se limite ici au logiciel lié au noyau Linux.</para>
-  </note>
+	<para>Dans cette section, on reprend le processus de montage précédent en
+	utilisant le service d'automontage. L'objectif étant de rendre les
+	opérations d'accès au système de fichiers réseau totalement transparentes
+	pour l'utilisateur, le recours au montage manuel doit être évité le plus
+	possible.</para>
 
-  <warning>
-    <para>Les montages manuels et le service d'automontage ne font pas bon
-    ménage ! Il faut absolument démonter tous les systèmes de fichiers
-    <acronym>NFS</acronym> avant d'aborder cette partie.</para>
-  </warning>
+	<para>Il existe plusieurs implémentations libres pour le service
+	d'automontage. On se limite ici au logiciel lié au noyau Linux.</para>
 
-  <para>Dans cette section, on reprend le processus de montage précédent en
-  utilisant le service d'automontage. L'objectif étant de rendre les opérations
-  d'accès au système de fichiers réseau totalement transparentes pour
-  l'utilisateur, le recours au montage manuel doit être évité le plus
-  possible.</para>
+<warning>
+	<para>Les montages manuels et le service d'automontage ne font pas bon
+	ménage&nbsp;! Il faut absolument démonter tous les systèmes de fichiers
+	<acronym>NFS</acronym> avant d'aborder cette partie.</para>
+</warning>
 
-  <qandaset defaultlabel='number'>
-    <qandaentry>
-      <question>
-      <para><phrase>Quel est le paquet qui contient les outils nécessaires au
-      fonctionnement de l'automontage&nbsp;?</phrase></para>
+<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le paquet qui contient les outils nécessaires au
+	fonctionnement de l'automontage&nbsp;?</phrase></para>
 
-      <para>Interroger les méta données dans le cache du gestionnaire de
-      paquets en cherchant le mot clé <command>automount</command>.</para>
-      </question>
-      <answer>
-      <para>La recherche dans le champ description du catalogue des paquets
-      disponibles donne les résultats suivants.</para>
+	<para>Rechercher le mot clé <command>automount</command> dans les
+	descriptions du gestionnaire de paquets.</para>
+	</question>
+	<answer>
+<screen><prompt>$</prompt> aptitude search "?description(automount)"
+p   afuse                           - automounting file system implemented in user-space
+p   autodir                         - Automatically creates home and group directories
+<emphasis>p   autofs                          - kernel-based automounter for Linux</emphasis>
+p   autofs-hesiod                   - Hesiod map support for autofs
+p   autofs-ldap                     - LDAP map support for autofs
+p   fusiondirectory-plugin-autofs   - autofs plugin for FusionDirectory
+p   libnss-cache                    - NSS module for using nsscache-generated fi
+p   libunix-configfile-perl         - Perl interface to various Unix configurati
+p   nsscache                        - asynchronously synchronise local NSS databases
+p   pmount                          - mount removable devices as normal user
+i   systemd                         - system and service manager
+i   systemd-sysv                    - system and service manager - SysV links
+p   udevil                          - Alternative storage media interface
+p   udiskie                         - automounter for removable media for Python
+p   vfu                             - Versatile text-based file-manager</screen>
 
-<screen><prompt>#</prompt> aptitude search "?description(automount)"
-p   autodir        - Automatically creates home and group directories for LDAP/NIS/SQL/local accounts
-p   <emphasis>autofs</emphasis>         - kernel-based automounter for Linux
-p   autofs-hesiod  - Hesiod map support for autofs
-p   autofs-ldap    - LDAP map support for autofs
-p   halevt         - generic handler for HAL events
-p   libamu-dev     - Support library for amd the 4.4BSD automounter (development)
-p   libamu4        - Support library for amd the 4.4BSD automounter (runtime)
-p   libnss-cache   - NSS module for using nsscache-generated files
-p   ltspfsd        - Fuse based remote filesystem hooks for LTSP thin clients
-p   nsscache       - asynchronously synchronise local NSS databases with remote directory services
-p   udisks-glue    - simple automount daemon with support for user-defined actions</screen>
+	<para>Dans le contexte de ces manipulations, c'est le paquet
+	<systemitem>autofs</systemitem> qui nous intéresse.</para>
 
-      <para>Dans le contexte de ces manipulations, c'est le paquet
-      <systemitem>autofs</systemitem> qui nous intéresse.</para>
-      </answer>
-    </qandaentry>
+<screen><prompt>$</prompt> sudo apt install autofs</screen>
+	</answer>
+	</qandaentry>
 
-    <qandaentry>
-      <question xml:id='sysadm-net.nfs.client.auto.user'>
-      <para><phrase>Comment créer un compte utilisateur local baptisé
-      <systemitem>etu-nfs</systemitem> avec un répertoire utilisateur situé
-      sous la racine <filename class='directory'>/ahome</filename> dont les
-      fichiers ét répertoires sont placés sur le serveur <acronym>NFS</acronym>
-     &nbsp;?</phrase></para>
-      </question>
-      <answer>
-      <para>Après consultation des pages de manuels de la commande
-      <command>adduser</command>, on dispose des options de création de compte
-      respectant les deux critères énoncés. L'option <option>--home</option>
-      permet de désigner le répertoire utilisateur dans l'arborescence système
-      et l'option <option>--no-create-home</option> évite la création de ce
-      répertoire sur le système local.</para>
+	<qandaentry>
+	<question xml:id='sysadm-net.nfs.client.auto.user'>
+	<para><phrase>Comment créer un compte utilisateur local baptisé
+	<systemitem>etu-nfs</systemitem> avec un répertoire utilisateur situé sous
+	la racine <filename class='directory'>/ahome</filename> dont les fichiers
+	et répertoires sont placés sur le serveur
+	<acronym>NFS</acronym>&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>Après consultation des pages de manuels de la commande
+	<command>adduser</command>, on dispose des options de création de compte
+	respectant les deux critères énoncés. L'option <option>--home</option>
+	permet de désigner le répertoire utilisateur dans l'arborescence système et
+	l'option <option>--no-create-home</option> évite la création de ce
+	répertoire sur le système local.</para>
 
-<screen><prompt>#</prompt> adduser --no-create-home --home /ahome/etu-nfs etu-nfs
-<prompt>#</prompt> id etu-nfs
+<screen><prompt>$</prompt> sudo adduser --no-create-home --home /ahome/etu-nfs etu-nfs
+<emphasis>Attention ! Impossible d'accéder au répertoire personnel que vous avez indiqué (/ahome/etu-nfs) : No such file or directory.</emphasis>
+Ajout de l'utilisateur « etu-nfs » ...
+Ajout du nouveau groupe « etu-nfs » (1001) ...
+Ajout du nouvel utilisateur « etu-nfs » (1001) avec le groupe « etu-nfs » ...
+<emphasis>Le répertoire personnel « /ahome/etu-nfs » n'a pas été créé.</emphasis>
+Nouveau mot de passe :
+Retapez le nouveau mot de passe :
+passwd: password updated successfully
+Changing the user information for etu-nfs
+Enter the new value, or press ENTER for the default
+        Full Name []: Etudiant NFS
+        Room Number []:
+        Work Phone []:
+        Home Phone []:
+        Other []:
+Cette information est-elle correcte ? [O/n]
+
+<prompt>$</prompt> id etu-nfs
 uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
 
-      <para>Les identifiants numériques <systemitem>uid/gid</systemitem> jouent
-      un rôle important dans la suite des manipulations. Voir <xref
-      linkend='sysadm-net.nfs.perm'/>.</para>
-      </answer>
-    </qandaentry>
+	<para>Les identifiants numériques <systemitem>uid/gid</systemitem> jouent
+	un rôle important dans la suite des manipulations. Voir <xref
+	linkend='sysadm-net.nfs.perm'/>.</para>
+	</answer>
+	</qandaentry>
 
-    <qandaentry>
-      <question>
-      <para><phrase>Quels sont les fichiers de configuration du service
-      d'automontage à éditer ou créer pour que l'utilisateur
-      <systemitem>etu-nfs</systemitem> ait accès à ses données personnelles
-     &nbsp;?</phrase></para>
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les fichiers de configuration du service
+	d'automontage à éditer ou créer pour que l'utilisateur
+	<systemitem>etu-nfs</systemitem> ait accès à ses données
+	personnelles&nbsp;?</phrase></para>
 
-      <para>Utiliser les fichiers exemples fournis avec le paquet, les pages de
-      manuels associées et créer un fichier spécifique pour la gestion des
-      comptes utilisateurs.</para>
-      </question>
-      <answer>
-      <para>La liste des fichiers du paquet <systemitem>autofs</systemitem>
-      montre qu'il existe une page de manuel consacrée au fichier principal de
-      configuration du service&nbsp;: <filename>/etc/auto.master</filename>. Ces
-      informations permettent de configurer un point de montage au dessous
-      duquel doivent se trouver les répertoires utilisateurs. Ces derniers
-      utilisent un fichier de configuration propre&nbsp;:
-      <filename>/etc/auto.home</filename>.</para>
+	<para>Utiliser les fichiers exemples fournis avec le paquet, les pages de
+	manuels associées et créer un fichier spécifique pour la gestion des
+	comptes utilisateurs.</para>
+	</question>
+	<answer>
+	<para>La liste des fichiers du paquet <systemitem>autofs</systemitem>
+	montre qu'il existe une page de manuel consacrée au fichier principal de
+	configuration du service&nbsp;: <filename>/etc/auto.master</filename>. Ces
+	informations permettent de configurer un point de montage au dessous duquel
+	doivent se trouver les répertoires utilisateurs. Ces derniers utilisent un
+	fichier de configuration propre&nbsp;:
+	<filename>/etc/auto.home</filename>.</para>
 
-      <orderedlist>
-      <listitem>
+	<orderedlist>
+	<listitem>
 	<para>On définit la racine de montage <filename
 	class='directory'>/ahome</filename> dans le fichier de configuration
 	principal <filename>/etc/auto.master</filename>. Cette racine de
 	montage pointe vers le fichier de configuration dédié au montage
 	automatique des répertoires des utilisateurs.</para>
 
-<screen><prompt>#</prompt> grep -v ^# /etc/auto.master
-/ahome  /etc/auto.home</screen>
-      </listitem>
-      <listitem>
-	<para>Le fichier <filename>/etc/auto.home</filename> utilise une
-	syntaxe particulière pour que le montage du système de fichiers du
+	<para>Après analyse des commentaires présents dans le fichier
+	<filename>/etc/auto.master</filename>, on créé un fichier spécifique à
+	notre contexte dans le dossier <filename
+	class='directory'>/etc/auto.master.d/</filename> avec le suffixe
+	<filename>.autofs</filename>.</para>
+
+<screen><prompt>$</prompt> echo "/ahome  /etc/auto.home" | \
+sudo tee -a /etc/auto.master.d/ahome.autofs</screen>
+	</listitem>
+	<listitem>
+	<para>On créé le fichier <filename>/etc/auto.home</filename> qui utilise
+	une syntaxe particulière pour que le montage du système de fichiers du
 	serveur soit générique et indépendant du nombre des comptes
 	utilisateurs.</para>
 
-<screen><prompt>#</prompt> cat /etc/auto.home
-*       -fstype=nfs4    198.51.100.2:/home/&amp;</screen>
-
-        <itemizedlist>
-	  <listitem>
-	  <para>Le premier paramètre est le symbole <keycap>*</keycap> qui se
-	  substitue au nom d'utilisateur&nbsp;: <systemitem>etu-nfs</systemitem>
-	  dans notre exemple.</para>
-	  </listitem>
-	  <listitem>
-	  <para>Le deuxième paramètre <option>-fstype=nfs4</option> correspond
-	  à une option de montage qui privilégie la version 4 du protocole
-	  <acronym>NFS</acronym>. Le jeu des options de montage est le même que
-	  pour un montage statique.</para>
-	  </listitem>
-	  <listitem>
-	  <para>Le troisième paramètre est l'adresse <acronym>IP</acronym> du
-	  serveur. Comme on ne dispose pas d'un service <acronym>DNS</acronym>
-	  à ce stade de la progression des travaux pratiques, on utilise
-	  directement les adresses <acronym>IP</acronym>.</para>
-	  </listitem>
-	  <listitem>
-	  <para>Le répertoire <filename class='directory'>/home/</filename>
-	  correspond à la configuration de l'exportation <acronym>NFS</acronym>
-	  <link linkend='sysadm-net.nfs.server.exports'>sur le
-	  serveur.</link> Le répertoire <filename
-	  class='directory'>/home/</filename> est situé sous la racine
-	  d'exportation qui est uniquement connue du serveur.</para>
-	  </listitem>
-	  <listitem>
-	  <para>Le symbole <keycap>&amp;</keycap> indique la répétition du
-	  premier paramètre&nbsp;: le nom d'utilisateur.</para>
-	  </listitem>
+<screen><prompt>$</prompt> echo "*    -fstype=nfs4    [2001:678:3fc:1f5:baad:caff:fefe:3]:/home/&amp;" | \
+sudo tee -a /etc/auto.home</screen>
+	<itemizedlist>
+	<listitem>
+	<para>Le premier paramètre est le symbole <keycap>*</keycap> qui se
+	substitue au nom d'utilisateur&nbsp;: <systemitem>etu-nfs</systemitem> dans
+	notre exemple.</para>
+	</listitem>
+	<listitem>
+	<para>Le deuxième paramètre <option>-fstype=nfs4</option> correspond à une
+	option de montage qui privilégie la version 4 du protocole
+	<acronym>NFS</acronym>. Le jeu des options de montage est le même que pour
+	un montage statique.</para>
+	</listitem>
+	<listitem>
+	<para>Le troisième paramètre est l'adresse <acronym>IPv4</acronym> ou
+	<acronym>IPv6</acronym> du serveur. Comme on ne dispose pas d'un service
+	<acronym>DNS</acronym> à ce stade de la progression des travaux pratiques,
+	on utilise directement les adresses <acronym>IP</acronym>.</para>
+	</listitem>
+	<listitem>
+	<para>Le répertoire <filename class='directory'>/home/</filename>
+	correspond à la configuration de l'exportation <acronym>NFS</acronym> <link
+	linkend='sysadm-net.nfs.server.exports'>sur le serveur.</link> Le
+	répertoire <filename class='directory'>/home/</filename> est situé sous la
+	racine d'exportation qui est uniquement connue du serveur.</para>
+	</listitem>
+	<listitem>
+	<para>Le symbole <keycap>&amp;</keycap> indique la répétition du premier
+	paramètre&nbsp;: le nom d'utilisateur.</para>
+	</listitem>
 	</itemizedlist>
-      </listitem>
-      </orderedlist>
-      </answer>
-    </qandaentry>
+	</listitem>
+	<listitem>
+	<para>Une fois les fichiers de configuration en place, il ne faut pas
+	oublier de redémarrer le service et de contrôler son bon
+	fonctionnement.</para>
+
+<screen><prompt>$</prompt> sudo systemctl restart autofs
+
+<prompt>$</prompt> systemctl status autofs
+● autofs.service - Automounts filesystems on demand
+     Loaded: loaded (/lib/systemd/system/autofs.service; enabled; vendor preset: enabled)
+     Active: <emphasis>active</emphasis> (running) since Sun 2021-08-29 09:42:16 CEST; 51s ago
+       Docs: man:autofs(8)
+    Process: 8027 ExecStart=/usr/sbin/automount $OPTIONS --pid-file /var/run/autofs.pid (code=exited, status=0/SUCCESS)
+   Main PID: 8028 (automount)
+      Tasks: 4 (limit: 1131)
+     Memory: 1.0M
+        CPU: 29ms
+     CGroup: /system.slice/autofs.service
+             └─8028 /usr/sbin/automount --pid-file /var/run/autofs.pid
+
+août 29 09:42:16 client-nfs systemd[1]: Starting Automounts filesystems on demand...
+août 29 09:42:16 client-nfs systemd[1]: Started Automounts filesystems on demand.</screen>
+	</listitem>
+	</orderedlist>
+	</answer>
+	</qandaentry>
 
     <qandaentry>
       <question>
