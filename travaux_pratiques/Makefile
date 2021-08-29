@@ -19,9 +19,7 @@ SUBDIRS = \
 	sysadm-net.autofs-ldap-nfs.qa \
 	sysadm-net.autofs-ldap-nfs.q \
 	sysadm-net.nis.qa \
-	sysadm-net.nis.q \
 	sysadm-net.autofs-nis-nfs.qa \
-	sysadm-net.autofs-nis-nfs.q \
 	sysadm-net.dns.qa \
 	sysadm-net.dns.q \
 	sysadm-net.set \
@@ -62,8 +60,8 @@ XML_FILES = \
 	sysadm-net.nfs.qa/$(ABSTRACT_FILE) \
 	sysadm-net.ldap.q/$(ABSTRACT_FILE) \
 	sysadm-net.autofs-ldap-nfs.q/$(ABSTRACT_FILE) \
-	sysadm-net.nis.q/$(ABSTRACT_FILE) \
-	sysadm-net.autofs-nis-nfs.q/$(ABSTRACT_FILE) \
+	sysadm-net.nis.qa/$(ABSTRACT_FILE) \
+	sysadm-net.autofs-nis-nfs.qa/$(ABSTRACT_FILE) \
 	sysadm-net.dns.q/$(ABSTRACT_FILE) \
 	interco.kernel.q/$(ABSTRACT_FILE) \
 	interco.rawip.q/$(ABSTRACT_FILE) \
