@@ -15,7 +15,6 @@ SUBDIRS = \
 	sysadm-net.iscsi.qa \
 	sysadm-net.nfs.qa \
 	sysadm-net.ldap.qa \
-	sysadm-net.ldap.q \
 	sysadm-net.autofs-ldap-nfs.qa \
 	sysadm-net.autofs-ldap-nfs.q \
 	sysadm-net.nis.qa \
@@ -26,7 +25,6 @@ SUBDIRS = \
 	interco.kernel.qa \
 	interco.kernel.q \
 	interco.rawip.qa \
-	interco.rawip.q \
 	interco.ppp.qa \
 	interco.ppp.q \
 	interco.pppoe.qa \
@@ -58,13 +56,13 @@ XML_FILES = \
 	intro.analyse/$(ABSTRACT_FILE) \
 	sysadm-net.iscsi.qa/$(ABSTRACT_FILE) \
 	sysadm-net.nfs.qa/$(ABSTRACT_FILE) \
-	sysadm-net.ldap.q/$(ABSTRACT_FILE) \
+	sysadm-net.ldap.qa/$(ABSTRACT_FILE) \
 	sysadm-net.autofs-ldap-nfs.q/$(ABSTRACT_FILE) \
 	sysadm-net.nis.qa/$(ABSTRACT_FILE) \
 	sysadm-net.autofs-nis-nfs.qa/$(ABSTRACT_FILE) \
 	sysadm-net.dns.q/$(ABSTRACT_FILE) \
 	interco.kernel.q/$(ABSTRACT_FILE) \
-	interco.rawip.q/$(ABSTRACT_FILE) \
+	interco.rawip.qa/$(ABSTRACT_FILE) \
 	interco.ppp.q/$(ABSTRACT_FILE) \
 	interco.pppoe.q/$(ABSTRACT_FILE) \
 	interco.pppoe-cloud.q/$(ABSTRACT_FILE) \
