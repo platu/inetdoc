@@ -20,13 +20,10 @@ SUBDIRS = \
 	sysadm-net.nis.qa \
 	sysadm-net.autofs-nis-nfs.qa \
 	sysadm-net.dns.qa \
-	sysadm-net.dns.q \
 	sysadm-net.set \
 	interco.kernel.qa \
-	interco.kernel.q \
 	interco.rawip.qa \
 	interco.ppp.qa \
-	interco.ppp.q \
 	interco.pppoe.qa \
 	interco.pppoe.q \
 	interco.pppoe-cloud.qa \
@@ -38,7 +35,7 @@ SUBDIRS = \
 	interco.ospf-quagga.qa \
 	interco.ospf-quagga.q \
 	interco.ospf-bird.qa \
-	interco.ospf-bird.q \
+	interco.ovs.qa \
 	interco.cs
 
 # Type(s) de traitement
@@ -60,15 +57,17 @@ XML_FILES = \
 	sysadm-net.autofs-ldap-nfs.q/$(ABSTRACT_FILE) \
 	sysadm-net.nis.qa/$(ABSTRACT_FILE) \
 	sysadm-net.autofs-nis-nfs.qa/$(ABSTRACT_FILE) \
-	sysadm-net.dns.q/$(ABSTRACT_FILE) \
-	interco.kernel.q/$(ABSTRACT_FILE) \
+	sysadm-net.dns.qa/$(ABSTRACT_FILE) \
+	interco.kernel.qa/$(ABSTRACT_FILE) \
 	interco.rawip.qa/$(ABSTRACT_FILE) \
-	interco.ppp.q/$(ABSTRACT_FILE) \
+	interco.ppp.qa/$(ABSTRACT_FILE) \
 	interco.pppoe.q/$(ABSTRACT_FILE) \
 	interco.pppoe-cloud.q/$(ABSTRACT_FILE) \
 	interco.netfilter.q/$(ABSTRACT_FILE) \
 	interco.inter-vlan.qa/$(ABSTRACT_FILE) \
-	interco.ospf-quagga.q/$(ABSTRACT_FILE) \
+	interco.ospf-quagga.qa/$(ABSTRACT_FILE) \
+	interco.ospf-bird.qa/$(ABSTRACT_FILE) \
+	interco.ovs.qa/$(ABSTRACT_FILE) \
 	interco.cs/$(ABSTRACT_FILE) \
 	$(wildcard images/*.png)
 
