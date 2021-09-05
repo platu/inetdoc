@@ -16,7 +16,6 @@ SUBDIRS = \
 	sysadm-net.nfs.qa \
 	sysadm-net.ldap.qa \
 	sysadm-net.autofs-ldap-nfs.qa \
-	sysadm-net.autofs-ldap-nfs.q \
 	sysadm-net.nis.qa \
 	sysadm-net.autofs-nis-nfs.qa \
 	sysadm-net.dns.qa \
@@ -54,7 +53,7 @@ XML_FILES = \
 	sysadm-net.iscsi.qa/$(ABSTRACT_FILE) \
 	sysadm-net.nfs.qa/$(ABSTRACT_FILE) \
 	sysadm-net.ldap.qa/$(ABSTRACT_FILE) \
-	sysadm-net.autofs-ldap-nfs.q/$(ABSTRACT_FILE) \
+	sysadm-net.autofs-ldap-nfs.qa/$(ABSTRACT_FILE) \
 	sysadm-net.nis.qa/$(ABSTRACT_FILE) \
 	sysadm-net.autofs-nis-nfs.qa/$(ABSTRACT_FILE) \
 	sysadm-net.dns.qa/$(ABSTRACT_FILE) \
