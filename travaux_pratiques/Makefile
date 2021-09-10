@@ -24,9 +24,7 @@ SUBDIRS = \
 	interco.rawip.qa \
 	interco.ppp.qa \
 	interco.pppoe.qa \
-	interco.pppoe.q \
 	interco.pppoe-cloud.qa \
-	interco.pppoe-cloud.q \
 	interco.netfilter.qa \
 	interco.netfilter.q \
 	interco.inter-vlan.qa \
@@ -60,8 +58,8 @@ XML_FILES = \
 	interco.kernel.qa/$(ABSTRACT_FILE) \
 	interco.rawip.qa/$(ABSTRACT_FILE) \
 	interco.ppp.qa/$(ABSTRACT_FILE) \
-	interco.pppoe.q/$(ABSTRACT_FILE) \
-	interco.pppoe-cloud.q/$(ABSTRACT_FILE) \
+	interco.pppoe.qa/$(ABSTRACT_FILE) \
+	interco.pppoe-cloud.qa/$(ABSTRACT_FILE) \
 	interco.netfilter.q/$(ABSTRACT_FILE) \
 	interco.inter-vlan.qa/$(ABSTRACT_FILE) \
 	interco.ospf-quagga.qa/$(ABSTRACT_FILE) \
