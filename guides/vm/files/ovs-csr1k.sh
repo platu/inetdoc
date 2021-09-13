@@ -5,7 +5,7 @@
 # It starts a qemu/kvm x86 CSR 1000v router which ports are plugged to Open
 # VSwitch ports through already existing tap interfaces named tap???.
 #
-# Here, the CSR1000v has two GigabitEthernet ports: the first one is considered
+# The CSR1000v has two GigabitEthernet ports: the first one is considered
 # as the mgmt OOB port and the second one as the in band user traffic port. 
 # 
 # The script should be run by a normal user account which belongs to the kvm
@@ -28,9 +28,9 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-RED='\e[5;31m'
-GREEN='\e[5;32m'
-BLUE='\e[5;34m'
+RED='\e[1;31m'
+GREEN='\e[1;32m'
+BLUE='\e[1;34m'
 NC='\e[0m' # No Color
 
 vm=$1
@@ -42,7 +42,7 @@ tap_g2=$1
 shift
 
 # Are the 3 parameters there ?
-if [[ -z "$vm" || -z "$tap_mgmt" || -z "$tap_g2" ]]
+if [[ -z "${vm}" || -z "${tap_mgmt}" || -z "${tap_g2}" ]]
 then
 	echo -e "${RED}ERROR : missing parameter.${NC}"
 	echo -e "${GREEN}Usage : $0 [image file] [mgmt tap interface number] [in band tap interface number]${NC}"
@@ -50,9 +50,9 @@ then
 fi
 
 # Does the VM image file exist ?
-if [[ ! -f "$vm" ]]
+if [[ ! -f "${vm}" ]]
 then
-	echo -e "${RED}ERROR : the $vm image file does not exist.${NC}"
+	echo -e "${RED}ERROR : the ${vm} image file does not exist.${NC}"
 	exit 1
 fi
 
@@ -66,10 +66,10 @@ fi
 # OOB port mgmt0
 spice=$((7900 + ${tap_mgmt}))
 telnet=$((7000 + ${tap_mgmt}))
-second_rightmost_byte=$(printf "%02x" $(expr $tap_mgmt / 256))
-rightmost_byte=$(printf "%02x" $(expr $tap_mgmt % 256))
+second_rightmost_byte=$(printf "%02x" $(expr ${tap_mgmt} / 256))
+rightmost_byte=$(printf "%02x" $(expr ${tap_mgmt} % 256))
 macaddressG1="f8:ad:ca:fe:$second_rightmost_byte:$rightmost_byte"
-lladdress="fe80::faad:caff:fefe:$(printf "%x" $tap_mgmt)"
+lladdress="fe80::faad:caff:fefe:$(printf "%x" ${tap_mgmt})"
 vlan_mode="$(sudo ovs-vsctl list port tap${tap_mgmt} | grep vlan_mode | egrep -o '(access|trunk)')"
 
 if [[ "$vlan_mode" == "access" ]]
@@ -80,8 +80,8 @@ else
 fi
 
 # In band GigabitEthernet2
-second_rightmost_byte=$(printf "%02x" $(expr $(($tap_g2)) / 256))
-rightmost_byte=$(printf "%02x" $(expr $(($tap_g2)) % 256))
+second_rightmost_byte=$(printf "%02x" $(expr $((${tap_g2})) / 256))
+rightmost_byte=$(printf "%02x" $(expr $((${tap_g2})) % 256))
 macaddressG2="f8:ad:ca:fe:$second_rightmost_byte:$rightmost_byte"
 
 # RAM size
@@ -103,8 +103,8 @@ ionice -c3 qemu-system-x86_64 \
 	-cpu max,l3-cache=on \
 	-device intel-iommu \
 	-daemonize \
-	-name $vm \
-	-m $memory \
+	-name ${vm} \
+	-m ${memory} \
 	--device virtio-balloon \
 	-smp 8,threads=2 \
 	-rtc base=localtime,clock=host \
@@ -116,7 +116,7 @@ ionice -c3 qemu-system-x86_64 \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-k fr \
 	-vga qxl \
-	-spice port=${spice},addr=localhost,disable-ticketing \
+	-spice port=${spice},addr=localhost,disable-ticketing=on \
 	-device virtio-serial-pci \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \

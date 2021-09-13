@@ -4,8 +4,13 @@
 # 
 # It starts a qemu/kvm x86 Nexus 9000v swicth which ports are plugged to Open
 # VSwitch ports through already existing tap interfaces named nxtap???.
-# It should be run by a normal user account which belongs to the kvm system
-# group and is able to run the ovs-vsctl command via sudo.
+# 
+# Nexus 9000v qcow2 uses EFI BIOS. You can get the OVMF_CODE-pure-efi.fd file
+# following the recipe given at this address:
+# https://fabianlee.org/2018/09/12/kvm-building-the-latest-ovmf-firmware-for-virtual-machines/ 
+#
+# The script should be run by a normal user account which belongs to the kvm
+# system group and is able to run the ovs-vsctl command via sudo.
 #
 # Nexus to OvS port mapping is given by a yaml description file which is
 # parsed with the shyaml python tool.
@@ -40,9 +45,9 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-RED='\e[5;31m'
-GREEN='\e[5;32m'
-BLUE='\e[5;34m'
+RED='\e[1;31m'
+GREEN='\e[1;32m'
+BLUE='\e[1;34m'
 NC='\e[0m' # No Color
 
 vm="$1"
@@ -52,7 +57,7 @@ yamldesc="$1"
 shift
 
 # Are the 2 parameters there ?
-if [[ -z "$vm" || -z "$yamldesc"  ]]
+if [[ -z "${vm}" || -z "${yamldesc}"  ]]
 then
 	echo -e "${RED}ERROR : missing parameter.${NC}"
 	echo -e "${GREEN}Usage : $0 [image file] [port list yaml file]${NC}"
@@ -60,13 +65,13 @@ then
 fi
 
 # Does the VM image file exist ?
-if [[ ! -f "$vm" ]]
+if [[ ! -f "${vm}" ]]
 then
-	echo -e "${RED}ERROR : the $vm image file does not exist.${NC}"
+	echo -e "${RED}ERROR : the ${vm} image file does not exist.${NC}"
 	exit 1
 fi
 
-# Est-ce que l'outil shyaml est disponible ?
+# Is shyaml available ?
 if [[ -z "$(pip3 list --user | grep shyaml)" ]]
 then
 	echo -e "${RED}~> shyaml tool install with pip3.${NC}"
@@ -81,7 +86,7 @@ tap_mgmt=$(cat ${yamldesc} | shyaml get-value switch.mgmt0)
 spice=$((9900 + ${tap_mgmt}))
 telnet=$((9000 + ${tap_mgmt}))
 
-# Is the tap interface connected to mgmt0 free ?
+# Is the mgmt0 OOB interface mapped to a free tap interface ?
 if [[ ! -z "$(ps aux | grep =[n]xtap${tap_mgmt}, )" ]]
 then
 	echo -e "${RED}Interface nxtap${tap_mgmt} is already in use.${NC}"
@@ -93,7 +98,7 @@ tapNum=${#tapList[@]}
 tapNum=$((tapNum - 1))
 ethPorts=""
 
-# Are the tap interfaces connected to Ethernet ports free ?
+# Are the Ethernet interfaces mapped to free tap interfaces ?
 for i in $(seq 0 $tapNum)
 do
 	if [[ ! -z "$(ps aux | grep =[n]xtap${tapList[$i]}, )" ]]
@@ -103,16 +108,13 @@ do
 	fi
 done
 
-# Nexus ports setup
-
 # The last 2 bytes of MAC address are generated from mgmt0 port
 # tap interface number
 second_rightmost_byte=$(printf "%02x" $(expr ${tap_mgmt} / 256))
 rightmost_byte=$(printf "%02x" $(expr ${tap_mgmt} % 256))
 
 # The OUI part of the Ethernet ports MAC address is random as each nexus VM
-# must use a different one.
-# In a unicast MAC address, the rightmost bit is set to 0
+# must use a different one. The rightmost bit of a unicast interface is set to 0
 oui=$(printf "%02x:" $(shuf -i 1-256 -n 3) | sed -e 's/^\(.\)[13579bdf]/\10/')
 
 for i in $(seq 0 $tapNum)
@@ -123,7 +125,7 @@ do
 done
 
 # RAM size
-memory=8192
+memory=16384
 
 # EFI BIOS
 bios=$HOME/masters/bios/OVMF_CODE-pure-efi.fd
@@ -147,7 +149,7 @@ ionice -c3 qemu-system-x86_64 \
 	-cpu max,l3-cache=on \
 	-bios $bios \
 	-daemonize \
-	-m $memory \
+	-m ${memory} \
 	--device virtio-balloon \
 	-smp 8,threads=2 \
 	-rtc base=localtime,clock=host \
@@ -167,7 +169,7 @@ ionice -c3 qemu-system-x86_64 \
 	-device ahci,id=ahci0 \
 	-drive file=${vm},aio=native,cache.direct=on,if=none,id=drive-sata-disk0,id=drive-sata-disk0,format=${image_format},media=disk \
 	-device ide-hd,bus=ahci0.0,drive=drive-sata-disk0,id=drive-sata-disk0 \
-	-spice port=${spice},addr=localhost,disable-ticketing \
+	-spice port=${spice},addr=localhost,disable-ticketing=on \
 	-device virtio-serial-pci \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \

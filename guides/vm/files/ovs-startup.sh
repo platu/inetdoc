@@ -24,9 +24,9 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-RED='\e[5;31m'
-GREEN='\e[5;32m'
-BLUE='\e[5;34m'
+RED='\e[1;31m'
+GREEN='\e[1;32m'
+BLUE='\e[1;34m'
 NC='\e[0m' # No Color
 
 vm=$1
@@ -37,7 +37,7 @@ tapnum=$1
 shift
 
 # Are the 3 parameters there ?
-if [[ -z "$vm" || -z "$memory" || -z "$tapnum" ]]
+if [[ -z "${vm}" || -z "${memory}" || -z "${tapnum}" ]]
 then
 	echo -e "${RED}ERROR : missing parameter.${NC}"
 	echo -e "${GREEN}Usage : $0 [image file] [RAM size in MB] [tap interface number]${NC}"
@@ -45,9 +45,9 @@ then
 fi
 
 # Does the VM image file exist ?
-if [[ ! -f "$vm" ]]
+if [[ ! -f "${vm}" ]]
 then
-	echo -e "${RED}ERROR : the $vm image file does not exist.${NC}"
+	echo -e "${RED}ERROR : the ${vm} image file does not exist.${NC}"
 	exit 1
 fi
 
@@ -66,10 +66,10 @@ then
 	exit 1
 fi
 
-second_rightmost_byte=$(printf "%02x" $(expr $tapnum / 256))
-rightmost_byte=$(printf "%02x" $(expr $tapnum % 256))
+second_rightmost_byte=$(printf "%02x" $(expr ${tapnum} / 256))
+rightmost_byte=$(printf "%02x" $(expr ${tapnum} % 256))
 macaddress="b8:ad:ca:fe:$second_rightmost_byte:$rightmost_byte"
-lladdress="fe80::baad:caff:fefe:$(printf "%x" $tapnum)"
+lladdress="fe80::baad:caff:fefe:$(printf "%x" ${tapnum})"
 vlan_mode="$(sudo ovs-vsctl list port tap${tapnum} | grep vlan_mode | egrep -o '(access|trunk)')"
 
 if [[ "$vlan_mode" == "access" ]]
@@ -81,8 +81,8 @@ fi
 
 image_format="${vm##*.}"
 
-spice=$((5900 + $tapnum))
-telnet=$((2300 + $tapnum))
+spice=$((5900 + ${tapnum}))
+telnet=$((2300 + ${tapnum}))
 
 echo -e "~> Virtual machine filename   : ${RED}${vm}${NC}"
 echo -e "~> RAM size                   : ${RED}${memory}MB${NC}"
@@ -98,8 +98,11 @@ ionice -c3 qemu-system-x86_64 \
 	-cpu max,l3-cache=on,+vmx \
 	-device intel-iommu \
 	-daemonize \
-	-name $vm \
-	-m $memory \
+	-name ${vm} \
+	-m ${memory} \
+	-device virtio-net-pci,mq=on,vectors=6,netdev=net${tapnum},mac="${macaddress}" \
+	-netdev tap,queues=2,ifname=tap${tapnum},id=net${tapnum},script=no,downscript=no,vhost=on \
+	-serial telnet:localhost:${telnet},server,nowait \
 	-device virtio-balloon \
 	-smp 8,threads=2 \
 	-rtc base=localtime,clock=host \
@@ -107,20 +110,15 @@ ionice -c3 qemu-system-x86_64 \
 	-watchdog-action none \
 	-boot order=c,menu=on \
 	-object "iothread,id=iothread.drive0" \
-	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=$image_format,media=disk,file=$vm \
+	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,file=${vm} \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-k fr \
 	-vga qxl \
-	-spice port=$spice,addr=localhost,disable-ticketing \
+	-spice port=${spice},addr=localhost,disable-ticketing=on \
 	-device virtio-serial-pci \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
 	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
-	-device intel-hda \
-	-device hda-duplex \
-	-serial telnet:localhost:$telnet,server,nowait \
-	-device virtio-net-pci,mq=on,vectors=6,netdev=net$tapnum,mac="$macaddress" \
-	-netdev tap,queues=2,ifname=tap$tapnum,id=net$tapnum,script=no,downscript=no,vhost=on \
 	$*
 
