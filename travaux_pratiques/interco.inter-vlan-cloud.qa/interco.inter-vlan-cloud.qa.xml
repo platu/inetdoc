@@ -223,7 +223,7 @@
 	<itemizedlist>
 	<listitem>
 	<para>Pour le port de raccordement du routeur, on obtient&nbsp;:</para>
-<screen><prompt>$</prompt> sudo ovs-vsctl list port tap100 | grep vlan_mode
+<screen><prompt>$</prompt> sudo ovs-vsctl list port tap200 | grep vlan_mode
 vlan_mode           : <emphasis>trunk</emphasis></screen>
 	</listitem>
 	<listitem>
@@ -277,7 +277,7 @@ tag                 : <emphasis>430</emphasis></screen>
 RAM=1024
 
 echo "Lancement VM rôle routeur"
-CORDON_TRUNK=100
+CORDON_TRUNK=200
 
 sudo ovs-vsctl set port tap$CORDON_TRUNK vlan_mode=trunk
 
@@ -339,7 +339,7 @@ $HOME/vm/scripts/ovs-startup.sh serveur.qcow2 $RAM $CORDON_ACCES</screen>
 		<systemitem class='ipaddress'>10.141.0.161/27</systemitem><?custom-linebreak?>
 		<systemitem class='ipaddress'>2001:678:3fc:12c::1/64</systemitem>
 		</entry>
-		<entry>100</entry>
+		<entry>200</entry>
 	</row>
 	<row>
 		<entry>
@@ -824,7 +824,6 @@ sept. 13 22:39:34 rtr systemd[1]: Started Router advertisement daemon for IPv6.<
 	</sect2>
 </sect1>
 
-<?custom-pagebreak?>
 <sect1 xml:id='interco.inter-vlan.qa.server'>
 	<title>Rôle serveur de conteneurs</title>
 
@@ -925,6 +924,111 @@ iface enp0s2 inet static
 	<application>snapd</application>.</para>
 
 <screen><prompt>$</prompt> sudo apt install snapd</screen>
+
+	<para>Au moment de la rédaction de cette réponse, le service
+	<application>snapd</application> ne s'initialise pas correctement. Le
+	confinement strict appliqué par le système de contrôle d'accès
+	<application>apparmor</application> bloque l'initialisation du
+	<wordasword>socket.</wordasword>.</para>
+
+<screen><prompt>$</prompt> systemctl status snapd.socket
+● snapd.socket - Socket activation for snappy daemon
+     Loaded: loaded (/lib/systemd/system/snapd.socket; enabled; vendor preset: enabled)
+     Active: <emphasis>inactive (dead)</emphasis> since Tue 2021-09-14 10:45:50 CEST; 14min ago
+   Triggers: ● snapd.service
+     Listen: /run/snapd.socket (Stream)
+             /run/snapd-snap.socket (Stream)
+        CPU: 577us
+
+sept. 14 10:45:50 srvr systemd[1]: Starting Socket activation for snappy daemon.
+sept. 14 10:45:50 srvr systemd[1]: Listening on Socket activation for snappy daemon.
+sept. 14 10:45:50 srvr systemd[1]: snapd.socket: Succeeded.
+sept. 14 10:45:50 srvr systemd[1]: Closed Socket activation for snappy daemon.
+sept. 14 10:45:50 srvr systemd[1]: Stopping Socket activation for snappy daemon.
+sept. 14 10:45:50 srvr systemd[1]: snapd.socket: Socket service snapd.service already active, refusing.
+sept. 14 10:45:50 srvr systemd[1]: <emphasis>Failed to listen on Socket activation for snappy daemon.</emphasis></screen>
+
+	<para>Pour contourner le problème, il faut passer le service
+	<application>snapd</application> en mode relâché de façon à pourvoir
+	activer le service.</para>
+
+	<para>On commence par relever l'état courant du service.</para>
+
+<screen><prompt>$</prompt> sudo aa-status
+apparmor module is loaded.
+9 profiles are loaded.
+9 profiles are in enforce mode.
+   /usr/bin/man
+   <emphasis>/usr/lib/snapd/snap-confine</emphasis>
+   /usr/lib/snapd/snap-confine//mount-namespace-capture-helper
+   /usr/sbin/haveged
+   lsb_release
+   man_filter
+   man_groff
+   nvidia_modprobe
+   nvidia_modprobe//kmod
+0 profiles are in complain mode.
+0 profiles are in kill mode.
+0 profiles are in unconfined mode.
+1 processes have profiles defined.
+1 processes are in enforce mode.
+   /usr/sbin/haveged (317)
+0 processes are in complain mode.
+0 processes are unconfined but have a profile defined.
+0 processes are in mixed mode.
+0 processes are in kill mode.</screen>
+
+	<para>On effectue le basculement du système de contrôle d'accès en mode
+	relâché.</para>
+
+<screen><prompt>$</prompt> sudo aa-complain /usr/lib/snapd/snap-confine
+Setting /usr/lib/snapd/snap-confine to complain mode.</screen>
+
+	<para>On vérifie le changement de mode.</para>
+
+<screen><prompt>$</prompt> sudo aa-status
+apparmor module is loaded.
+9 profiles are loaded.
+7 profiles are in enforce mode.
+   /usr/bin/man
+   /usr/sbin/haveged
+   lsb_release
+   man_filter
+   man_groff
+   nvidia_modprobe
+   nvidia_modprobe//kmod
+2 profiles are in <emphasis>complain mode</emphasis>.
+   <emphasis>/usr/lib/snapd/snap-confine</emphasis>
+   /usr/lib/snapd/snap-confine//mount-namespace-capture-helper
+0 profiles are in kill mode.
+0 profiles are in unconfined mode.
+1 processes have profiles defined.
+1 processes are in enforce mode.
+   /usr/sbin/haveged (317)
+0 processes are in complain mode.
+0 processes are unconfined but have a profile defined.
+0 processes are in mixed mode.
+0 processes are in kill mode.</screen>
+
+	<para>Enfin, on redémarre le service en défaut et vérifie son
+	statut.</para>
+
+<screen><prompt>$</prompt> sudo systemctl restart snapd.socket</screen>
+
+<screen><prompt>$</prompt> sudo systemctl status snapd.socket
+● snapd.socket - Socket activation for snappy daemon
+     Loaded: loaded (/lib/systemd/system/snapd.socket; enabled; vendor preset: enabled)
+     Active: <emphasis>active (listening)</emphasis> since Tue 2021-09-14 11:10:19 CEST; 5s ago
+   Triggers: ● snapd.service
+     Listen: /run/snapd.socket (Stream)
+             /run/snapd-snap.socket (Stream)
+      Tasks: 0 (limit: 1131)
+     Memory: 0B
+        CPU: 602us
+     CGroup: /system.slice/snapd.socket
+
+sept. 14 11:10:19 srvr systemd[1]: Starting Socket activation for snappy daemon.
+sept. 14 11:10:19 srvr systemd[1]: <emphasis>Listening on Socket activation for snappy daemon</emphasis>.</screen>
 	</answer>
 	</qandaentry>
 
@@ -940,20 +1044,16 @@ iface enp0s2 inet static
 	<application>lxd</application>.</para>
 
 <screen><prompt>$</prompt> sudo snap install lxd
-2020-09-13T22:59:46+02:00 INFO Waiting for automatic snapd restart...
-Warning: /snap/bin was not found in your $PATH. If you've not restarted your session since you
-         installed snapd, try doing that. Please see https://forum.snapcraft.io/t/9469 for more
-         details.
-
-lxd 4.4 from Canonical✓ installed</screen>
+2021-09-14T11:10:40+02:00 INFO Waiting for automatic snapd restart...
+lxd 4.18 from Canonical✓ installed</screen>
 
 	<para>On peut lister les <wordasword>snaps</wordasword> installés.</para>
 
 <screen><prompt>$</prompt> snap list
 Name    Version   Rev    Tracking       Publisher   Notes
-core18  20200724  1885   latest/stable  canonical✓  base
-lxd     4.4       16926  latest/stable  canonical✓  -
-snapd   2.45.3.1  8790   latest/stable  canonical✓  snapd</screen>
+core20  20210702  1081   latest/stable  canonical✓  base
+lxd     4.18      21497  latest/stable  canonical✓  -
+snapd   2.51.4    12883  latest/stable  canonical✓  snapd</screen>
 	</answer>
 	</qandaentry>
 
@@ -1001,20 +1101,21 @@ etu adm cdrom floppy sudo audio dip video plugdev staff netdev <emphasis>lxd</em
 	<para>Voici une copie d'écran de son exécution.</para>
 
 <screen><prompt>$</prompt> lxd init
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
 Would you like to use LXD clustering? (yes/no) [default=no]:
 Do you want to configure a new storage pool? (yes/no) [default=yes]:
 Name of the new storage pool [default=default]:
 Name of the storage backend to use (ceph, btrfs, dir, lvm) [default=btrfs]:
 Create a new BTRFS pool? (yes/no) [default=yes]:
-Would you like to use an existing empty disk or partition? (yes/no) [default=no]:
+Would you like to use an existing empty block device (e.g. a disk or partition)? (yes/no) [default=no]:
 Size in GB of the new loop device (1GB minimum) [default=13GB]:
 Would you like to connect to a MAAS server? (yes/no) [default=no]:
 Would you like to create a new local network bridge? (yes/no) [default=yes]: <emphasis>no</emphasis>
 Would you like to configure LXD to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
 Name of the existing bridge or host interface: <emphasis>enp0s2</emphasis>
-Would you like LXD to be available over the network? (yes/no) [default=no]:
+Would you like the LXD server to be available over the network? (yes/no) [default=no]:
 Would you like stale cached images to be updated automatically? (yes/no) [default=yes]
-Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]: yes
+Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]: <emphasis>yes</emphasis>
 config: {}
 networks: []
 storage_pools:
@@ -1029,7 +1130,7 @@ profiles:
   devices:
     eth0:
       name: eth0
-      <emphasis>nictype: macvlan</emphasis>
+      nictype: macvlan
       parent: enp0s2
       type: nic
     root:
@@ -1037,6 +1138,7 @@ profiles:
       pool: default
       type: disk
   name: default
+projects: []
 cluster: null</screen>
 	</answer>
 	</qandaentry>
@@ -1053,8 +1155,7 @@ cluster: null</screen>
 	<para>Voici un exemple d'exécution.</para>
 
 <screen><prompt>$</prompt> lxc profile show default
-To start your first instance, try: lxc launch ubuntu:18.04
-
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
 config: {}
 description: Default LXD profile
 devices:
@@ -1085,15 +1186,93 @@ used_by: []</screen>
 	<answer>
 	<para>Voici un exemple d'exécution.</para>
 
-<screen><prompt>$</prompt> lxc launch images:debian/bullseye container0
+<screen><prompt>$</prompt> for i in {0..2}
+do
+lxc launch images:debian/bullseye container$i
+done
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
 Creating container0
 Starting container0
-<prompt>$</prompt> lxc ls
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+Creating container1
+Starting container1
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+Creating container2
+Starting container2</screen>
+
+<screen><prompt>$</prompt> lxc ls
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
 +------------+---------+------+-------------------------------------------+-----------+-----------+
 |    NAME    |  STATE  | IPV4 |                   IPV6                    |   TYPE    | SNAPSHOTS |
 +------------+---------+------+-------------------------------------------+-----------+-----------+
-| container0 | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fe22:6075 (eth0) | CONTAINER | 0         |
+| container0 | RUNNING |      | fda0:7a62:1ae:0:216:3eff:feac:5f23 (eth0) | CONTAINER | 0         |
++------------+---------+------+-------------------------------------------+-----------+-----------+
+| container1 | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fedd:3b71 (eth0) | CONTAINER | 0         |
++------------+---------+------+-------------------------------------------+-----------+-----------+
+| container2 | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fe80:acb (eth0)  | CONTAINER | 0         |
 +------------+---------+------+-------------------------------------------+-----------+-----------+</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment vérifier la connectivité réseau depuis les
+	conteneurs&nbsp;?</para>
+
+	<para>La question précédente montre qu'à ce stade de la configuration les
+	conteneurs ne disposent que d'adresses <acronym>IPv6</acronym>. C'est donc
+	sur ce protocole que les tests doivent porter.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple de test <acronym>ICMP</acronym>.</para>
+
+<screen><prompt>$</prompt> for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> container$i"
+lxc exec container$i -- ping -c2 2620:fe::fe
+done
+>>>>>>>>>>>>>>>>> container0
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=44.0 ms
+64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=41.9 ms
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 41.880/42.932/43.984/1.052 ms
+>>>>>>>>>>>>>>>>> container1
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=41.6 ms
+64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=40.3 ms
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1002ms
+rtt min/avg/max/mdev = 40.307/40.945/41.583/0.638 ms
+>>>>>>>>>>>>>>>>> container2
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=40.6 ms
+64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=40.6 ms
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1002ms
+rtt min/avg/max/mdev = 40.559/40.571/40.584/0.012 ms</screen>
+
+	<para>On peut ensuite passer à la gestion de paquets après paramétrage du
+	<wordasword>resolver</wordasword> <acronym>DNS</acronym>.</para>
+
+<screen><prompt>$</prompt> for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> container$i"
+lxc exec container$i -- sh -c "echo 'nameserver 2620:fe::fe' > /etc/resolv.conf"
+done</screen>
+
+<screen><prompt>$</prompt> for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> container$i"
+lxc exec container$i -- apt update
+done</screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
