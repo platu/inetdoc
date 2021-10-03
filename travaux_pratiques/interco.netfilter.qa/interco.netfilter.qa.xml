@@ -59,10 +59,10 @@
 </info>
 
 <sect1 xml:id='interco.netfilter.legal.meta'>
-&legal;
+	&legal;
 
-<sect2 xml:id='interco.netfilter.meta'>
-	<title>Méta-information</title>
+	<bridgehead xml:id='interco.netfilter.meta'
+	renderas='sect2'>Méta-information</bridgehead>
     
 	<para>Cet article est écrit avec <link
 	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
@@ -120,10 +120,9 @@
 	les tables conntrack</para>
 	</listitem>
 </itemizedlist>
-</sect2>
 
-<sect2 xml:id='interco.netfilter.convtypo'>
-	<title>Conventions typographiques</title>
+	<bridgehead xml:id='interco.netfilter.convtypo'
+	renderas='sect2'>Conventions typographiques</bridgehead>
 
 	<para>Tous les exemples d'exécution des commandes sont précédés d'une
 	invite utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau
@@ -147,10 +146,8 @@
 	utilisés pour les copies d'écran peuvent être supprimés de façon à afficher
 	toutes les informations sur un espace qui occupe toute la largeur de la
 	console.</para>
-</sect2>
 </sect1>
 
-<?custom-pagebreak?>
 <sect1 xml:id='interco.netfilter.archi'>
 	<title>Architecture réseau étudiée et filtrage</title>
 
@@ -258,6 +255,77 @@
 	fonctionnement du routage et de la traduction des adresses sources en
 	sortie du routeur <wordasword>Hub</wordasword> vers l'Internet.</para>
 
+	<para>Pour traiter les questions, on doit effectuer quelques opérations de
+	vérification et de préparation.</para>
+
+<orderedlist>
+	<listitem>
+	<para>On doit d'abord s'assurer que les réseaux des conteneurs de chaque
+	branche de la topologie sont en place. On affiche la liste des conteneurs
+	de chaque routeur <wordasword>Spoke</wordasword>.</para> 
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> lxc ls
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
++----------+---------+------------------+-----------------------+-----------+-----------+
+|   NAME   |  STATE  |       IPV4       |         IPV6          |   TYPE    | SNAPSHOTS |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke1C0 | RUNNING | 10.0.1.10 (eth0) | fda0:7a62:1::a (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke1C1 | RUNNING | 10.0.1.11 (eth0) | fda0:7a62:1::b (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke1C2 | RUNNING | 10.0.1.12 (eth0) | fda0:7a62:1::c (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc ls
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
++----------+---------+------------------+-----------------------+-----------+-----------+
+|   NAME   |  STATE  |       IPV4       |         IPV6          |   TYPE    | SNAPSHOTS |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke2C0 | RUNNING | 10.0.2.10 (eth0) | fda0:7a62:2::a (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke2C1 | RUNNING | 10.0.2.11 (eth0) | fda0:7a62:2::b (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke2C2 | RUNNING | 10.0.2.12 (eth0) | fda0:7a62:2::c (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+</screen>
+	</listitem>
+	<listitem>
+	<para>On configure le <wordasword>shell</wordasword> par défaut dans les
+	conteneurs des deux routeurs <wordasword>Spoke</wordasword> de façon à
+	pouvoir exécuter des scripts dans ces conteneurs.</para>
+
+<itemizedlist>
+	<listitem>
+	<para>Création du script qui définit <application>bash</application> comme
+	<wordasword>shell</wordasword> par défaut.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> cat &lt;&lt; EOF &gt; setBashasSh.sh
+#!/bin/sh
+
+# make /bin/sh symlink to bash instead of dash:
+echo "dash dash/sh boolean false" | debconf-set-selections
+DEBIAN_FRONTEND=noninteractive dpkg-reconfigure dash
+EOF</screen>
+	</listitem>
+	<listitem>
+	<para>Copie du script dans chaque conteneur.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> for i in {0..2}
+do
+	lxc file push setBashasSh.sh spoke1C$i/root/
+done</screen>
+	</listitem>
+	<listitem>
+	<para>Exécution du script dans chaque conteneur.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> for i in {0..2}
+do
+	lxc exec spoke1C$i -- sh /root/setBashasSh.sh
+done</screen>
+	</listitem>
+</itemizedlist>
+	</listitem>
+</orderedlist>
+
 <qandaset defaultlabel='number'>
 <qandadiv>
 	<qandaentry>
@@ -272,70 +340,49 @@
 	trafic réseau.</para>
     </question>
     <answer>
-	<para>Partant de la topologie de la maquette, on commence par se placer sur
-	le routeur <citetitle>Spoke2Vert</citetitle> et on accède à la console du
-	<citetitle>container2</citetitle>.</para>
+	<para>Par exemple, on se place sur le routeur
+	<citetitle>Spoke2Vert</citetitle> et on installe le paquet
+	<systemitem>iputils-tracepath</systemitem> dans les conteneurs avant de
+	lancer les relevés du chemin de bout en bout.</para> 
 
-<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc ls
-+------------+---------+------------------+-----------------------------------------+-----------+-----------+
-|    NAME    |  STATE  |       IPV4       |                  IPV6                   |   TYPE    | SNAPSHOTS |
-+------------+---------+------------------+-----------------------------------------+-----------+-----------+
-| container0 | RUNNING | 10.0.2.10 (eth0) | fda0:7a62:2:0:216:3eff:feda:e1a (eth0)  | CONTAINER | 0         |
-+------------+---------+------------------+-----------------------------------------+-----------+-----------+
-| container1 | RUNNING | 10.0.2.11 (eth0) | fda0:7a62:2:0:216:3eff:fec4:d325 (eth0) | CONTAINER | 0         |
-+------------+---------+------------------+-----------------------------------------+-----------+-----------+
-| container2 | RUNNING | 10.0.2.12 (eth0) | fda0:7a62:2:0:216:3eff:fe66:86fb (eth0) | CONTAINER | 0         |
-+------------+---------+------------------+-----------------------------------------+-----------+-----------+</screen>
+<screen><prompt>etu@Spoke2Vert:~$</prompt> for i in {0..2}
+do
+	lxc exec spoke1C$i -- apt install iputils-tracepath
+done</screen>
 
-<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec container2 -- /bin/bash
-<prompt>root@container2:~#</prompt> apt install iputils-tracepath</screen>
+	<para>une fois le paquet installé, on doit pouvoir contacter les adresses
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> des conteneurs situés à
+	l'autre extrémité de la topologie <wordasword>Hub &amp;
+	Spoke</wordasword>.</para>
 
-	<para>une fois le paquet <systemitem>iputils-tracepath</systemitem>
-	installé, on peut contacter les adresses <acronym>IPv4</acronym> et
-	<acronym>IPv6</acronym> du <citetitle>container0</citetitle> desservi par
-	le routeur <citetitle>Spoke1Vert</citetitle>.</para> 
+	<para>Par exemple, on relève le chemin entre les conteneurs
+	<systemitem>spoke2C2</systemitem> et
+	<systemitem>spoke1C0</systemitem>.</para>
 
-	<para>Toujours dans le contexte de la maquette, on affiche la liste des
-	adresses des conteneurs côté <citetitle>Spoke1Vert</citetitle>.</para>
-
-<screen><prompt>etu@Spoke1Vert:~$</prompt> lxc ls
-+------------+---------+------------------+-----------------------------------------+-----------+-----------+
-|    NAME    |  STATE  |       IPV4       |                  IPV6                   |   TYPE    | SNAPSHOTS |
-+------------+---------+------------------+-----------------------------------------+-----------+-----------+
-| container0 | RUNNING | 10.0.1.10 (eth0) | fda0:7a62:1:0:216:3eff:feda:e1a (eth0)  | CONTAINER | 0         |
-+------------+---------+------------------+-----------------------------------------+-----------+-----------+
-| container1 | RUNNING | 10.0.1.11 (eth0) | fda0:7a62:1:0:216:3eff:fec4:d325 (eth0) | CONTAINER | 0         |
-+------------+---------+------------------+-----------------------------------------+-----------+-----------+
-| container2 | RUNNING | 10.0.1.12 (eth0) | fda0:7a62:1:0:216:3eff:fe66:86fb (eth0) | CONTAINER | 0         |
-+------------+---------+------------------+-----------------------------------------+-----------+-----------+</screen>
-
-	<para>On connait maintenant les adresses à contacter depuis le conteneur
-	numéro 2 côté <citetitle>Spoke2Vert</citetitle>.</para>
-
-<screen><prompt>root@container2:~#</prompt> tracepath 10.0.1.10
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec spoke2C2 -- tracepath 10.0.1.10
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
  1?: [LOCALHOST]                      pmtu 1500
- 1:  10.0.2.1                                              0.937ms
- 1:  10.0.2.1                                              0.115ms
- 2:  10.0.2.1                                              0.306ms pmtu 1492
- 2:  10.47.3.1                                             0.843ms
- 3:  10.47.1.2                                             1.853ms
- 4:  10.0.1.10                                             2.506ms reached
+ 1:  10.0.2.1                                              0.798ms
+ 1:  10.0.2.1                                              0.100ms
+ 2:  10.0.2.1                                              0.156ms pmtu 1492
+ 2:  10.47.3.1                                             1.086ms
+ 3:  10.47.1.2                                             1.489ms
+ 4:  10.0.1.10                                             2.518ms reached
      Resume: pmtu 1492 hops 4 back 4</screen>
 
-<screen><prompt>root@container2:~#</prompt> tracepath fda0:7a62:1:0:216:3eff:feda:e1a
- 1?: [LOCALHOST]                        0.046ms pmtu 1500
- 1:  fda0:7a62:2::1                                        1.403ms
- 1:  fda0:7a62:2::1                                        0.292ms
- 2:  fda0:7a62:2::1                                        0.315ms pmtu 1492
- 2:  2001:678:3fc:12c::2                                   0.788ms
- 3:  fda0:7a62:1::1                                        2.491ms
- 4:  fda0:7a62:1:0:216:3eff:feda:e1a                       2.539ms reached
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec spoke2C2 -- tracepath fda0:7a62:1::a
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+ 1?: [LOCALHOST]                        0.043ms pmtu 1492
+ 1:  fda0:7a62:2::1                                        1.183ms
+ 1:  fda0:7a62:2::1                                        0.205ms
+ 2:  2001:678:3fc:12c::2                                   1.059ms
+ 3:  fda0:7a62:1::1                                        2.003ms
+ 4:  fda0:7a62:1::a                                        3.453ms reached
      Resume: pmtu 1492 hops 4 back 4</screen>
 	
 	<para>Les résultats obtenus avec l'exécution de la commande
 	<command>tracepath</command> montrent que le routage des paquets
-	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> est fonctionnel sur la
-	topologie <wordasword>Hub &amp; Spoke</wordasword>.</para>
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> est fonctionnel.</para>
 	</answer>
 	</qandaentry>
 
@@ -355,20 +402,21 @@
 	</question>
 
 	<answer>
-	<para>On se place sur le routeur <wordasword>Hub</wordasword> de la
-	maquette et on installe le paquet
+	<para>On ouvre une console sur le routeur <wordasword>Hub</wordasword> de
+	la maquette et on installe le paquet
 	<systemitem>conntrack</systemitem>.</para>
 
-<screen><prompt>etu@HubBleu:~$</prompt> sudo apt install conntrack</screen>
+<screen><prompt>etu@HubBleu:~$</prompt> sudo apt -y install conntrack</screen>
 
-	<para>Dans le même temps, on accède au conteneur numéro 0 desservi par le
-	routeur <citetitle>Spoke1Vert</citetitle>. C'est à partir de cette console
+	<para>Dans le même temps, on ouvre une autre console sur le routeur <citetitle>Spoke1Vert</citetitle>. C'est à partir de cette console
 	que l'on lance des téléchargements depuis le serveur
 	<citetitle>inetdoc.net</citetitle> à l'aide de la commande
 	<command>wget</command>.</para>
 
-<screen><prompt>etu@Spoke1Vert:~$</prompt> lxc exec container0 -- /bin/bash
-root@container0:~# apt install wget</screen>
+<screen><prompt>etu@Spoke1Vert:~$</prompt> for i in {0..2}
+do
+	lxc exec spoke1C$i -- apt -y install wget
+done</screen>
 
 	<para>Sur le routeur <wordasword>Hub</wordasword>, on affiche la liste des
 	enregistrements de la table <acronym>NAT</acronym>.</para>
