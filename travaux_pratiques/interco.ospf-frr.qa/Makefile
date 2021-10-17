@@ -14,7 +14,7 @@ SYMLINKS = \
 	$(MAIN_DIR)/common/rfc.urls.xml
 
 XML_FILES = \
-	interco.ospf-quagga.qa.xml \
+	interco.ospf-frr.qa.xml \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \

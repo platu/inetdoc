@@ -15,7 +15,6 @@ SYMLINKS = \
 
 XML_FILES = \
 	interco.ospf-bird.qa.xml \
-	addressing.xml \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \

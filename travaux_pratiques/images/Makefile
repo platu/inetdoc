@@ -16,8 +16,8 @@ SYMLINKS = \
 	$(MAIN_DIR)/travaux_pratiques/interco.pppoe.qa/images/WAN-FTTH-Topology.png \
 	$(MAIN_DIR)/travaux_pratiques/interco.pppoe-cloud.qa/images/pppoe-cloud-logical-topology.png \
 	$(MAIN_DIR)/travaux_pratiques/interco.pppoe.qa/images/pppoe-hub-and-spoke-logical-topology.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.ospf-quagga.qa/images/ospf-cloud-logical-topology.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.ospf-quagga.qa/images/interco.ospf.physical-topology.png \
+	$(MAIN_DIR)/travaux_pratiques/interco.ospf-frr.qa/images/ospf-cloud-logical-topology.png \
+	$(MAIN_DIR)/travaux_pratiques/interco.ospf-frr.qa/images/interco.ospf.physical-topology.png \
 	$(MAIN_DIR)/travaux_pratiques/interco.cs/images/interco.cs.png \
 	$(MAIN_DIR)/articles/inter-vlan-routing-openvswitch/images/ovs-vm.png
 
