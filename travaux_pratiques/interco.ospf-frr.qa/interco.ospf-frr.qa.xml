@@ -9,10 +9,10 @@
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
 
-<!ENTITY url.frr-command-index
+<!ENTITY url.frr-documentation
 	'<link xmlns="http://docbook.org/ns/docbook"
-	xlink:href="https://www.nongnu.org/frr/docs/docs-multi/Command-Index.html">
-	<citetitle>FRRouting Command Index</citetitle></link>'>
+	xlink:href="https://http://docs.frrouting.org">
+	<citetitle>FRRouting User Guide</citetitle></link>'>
 
 <!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
 	"http://www.w3.org/2003/entities/2007/w3centities-f.ent">
@@ -69,7 +69,6 @@
 	</keywordset>
 </info>
 
-<?custom-pagebreak?>
 <sect1 xml:id='interco.ospf-frr.legal.meta'>
 	&legal;
 	<bridgehead xml:id='interco.ospf-frr.meta'
@@ -165,7 +164,6 @@
 	</itemizedlist>
 </sect1>
 
-<?custom-pagebreak?>
 <sect1 xml:id='interco.ospf-frr.archi'>
 	<title>Topologie réseau étudiée</title>
 
@@ -358,9 +356,11 @@
 </table>
 </sect1>
 
-<?custom-pagebreak?>
 <sect1 xml:id='interco.ospf-frr.prepare-config'>
 	<title>Préparer les systèmes pour le routage IPv4 et IPv6</title>
+
+	<para>Les manipulations de ce support s'appuient sur la documentation du
+	projet&nbsp;: &url.frr-documentation;</para>
 
 	<para>La première étape consiste à installer les outils sur les trois
 	routeurs, à appliquer une configuration commune et à mettre en place la
@@ -368,41 +368,60 @@
 
 	<orderedlist>
 	<listitem>
-	<para>Installer le paquet <application>frr</application>.</para>
+	<para>Pour installer le paquet <application>frr</application>, on doit
+	ajouter un nouveau dépôt au système.</para>
+
+	<para>On commence par ajouter la clé de signature des paquets à la
+	configuration du gestionnaire.</para>
+
+<screen><prompt>$</prompt> wget -qO - https://deb.frrouting.org/frr/keys.asc | sudo apt-key add -
+Warning: apt-key is deprecated. Manage keyring files in trusted.gpg.d instead (see apt-key(8)).
+<emphasis>OK</emphasis></screen>
+
+	<para>On créé une nouvelle entrée dans la liste des sources de
+	paquets et on lance la mise à jour du catalogue.</para>
+
+<screen><prompt>$</prompt> echo deb https://deb.frrouting.org/frr bullseye frr-stable | \
+sudo tee -a /etc/apt/sources.list.d/frr.list 
+
+<prompt>$</prompt> sudo apt update</screen>
 
 <screen><prompt>$</prompt> sudo apt install frr
-<prompt>$</prompt> aptitude search ^frr$
-i   frr              - FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)</screen>
+
+<prompt>$</prompt> sudo aptitude -w 80 versions frr
+p   7.5.1-1.1                                     testing                   500
+i   8.0.1-0~deb11u1                               stable                    500</screen>
 
 	<para>Sans configuration particulière, le service
 	<application>zebra</application> est lancé, mais sans aucun protocole de
-	rouatge.</para>
+	routage dynamique.</para>
 
 <screen><prompt>$</prompt> systemctl status frr
 ● frr.service - FRRouting
      Loaded: loaded (/lib/systemd/system/frr.service; enabled; vendor preset: enabled)
-     Active: active (running) since Sun 2021-10-17 20:46:11 CEST; 16min ago
+     Active: active (running) since Sun 2021-10-24 14:26:28 CEST; 2min 45s ago
        Docs: https://frrouting.readthedocs.io/en/latest/setup.html
-    Process: 352 ExecStart=/usr/lib/frr/frrinit.sh start (code=exited, status=0/SUCCESS)
+    Process: 2954 ExecStart=/usr/lib/frr/frrinit.sh start (code=exited, status=0/SUCCESS)
+   Main PID: 2963 (watchfrr)
      Status: "FRR Operational"
       Tasks: 7 (limit: 1121)
-     Memory: 16.7M
-        CPU: 510ms
+     Memory: 9.0M
+        CPU: 323ms
      CGroup: /system.slice/frr.service
-             ├─420 /usr/lib/frr/watchfrr -d -F traditional zebra staticd
-             ├─442 /usr/lib/frr/zebra -d -F traditional -A 127.0.0.1 -s 90000000
-             └─452 /usr/lib/frr/staticd -d -F traditional -A 127.0.0.1
+             ├─2963 /usr/lib/frr/watchfrr -d -F traditional zebra staticd
+             ├─2976 /usr/lib/frr/zebra -d -F traditional -A 127.0.0.1 -s 90000000
+             └─2981 /usr/lib/frr/staticd -d -F traditional -A 127.0.0.1
 
-oct. 17 20:46:11 R1-rouge watchfrr[420]: Forked background command [pid 423]: /usr/lib/frr/watchfrr.sh restart all
-oct. 17 20:46:11 R1-rouge zebra[442]: client 27 says hello and bids fair to announce only static routes vrf=0
-oct. 17 20:46:11 R1-rouge watchfrr[420]: zebra state -> up : connect succeeded
-oct. 17 20:46:11 R1-rouge watchfrr[420]: staticd state -> up : connect succeeded
-oct. 17 20:46:11 R1-rouge watchfrr[420]: all daemons up, doing startup-complete notify
-oct. 17 20:46:11 R1-rouge frrinit.sh[352]: Started watchfrr.
-oct. 17 20:46:11 R1-rouge systemd[1]: Started FRRouting.
-oct. 17 20:46:27 R1-rouge zebra[442]: if_zebra_speed_update: enp0s1.300 old speed: 0 new speed: 4294967295
-oct. 17 20:46:29 R1-rouge zebra[442]: if_zebra_speed_update: enp0s1.290 old speed: 0 new speed: 4294967295
-oct. 17 20:46:29 R1-rouge zebra[442]: if_zebra_speed_update: enp0s1.291 old speed: 0 new speed: 4294967295</screen>
+oct. 24 14:26:27 R1-rouge watchfrr[2963]: [YFT0P-5Q5YX] Forked background command [pid 2964]: /usr/lib/frr/watchfrr.sh restart all
+oct. 24 14:26:27 R1-rouge watchfrr.sh[2972]: Cannot stop staticd: pid file not found
+oct. 24 14:26:27 R1-rouge watchfrr.sh[2974]: Cannot stop zebra: pid file not found
+oct. 24 14:26:28 R1-rouge zebra[2976]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+oct. 24 14:26:28 R1-rouge staticd[2981]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+oct. 24 14:26:28 R1-rouge watchfrr[2963]: [QDG3Y-BY5TN] zebra state -> up : connect succeeded
+oct. 24 14:26:28 R1-rouge watchfrr[2963]: [QDG3Y-BY5TN] staticd state -> up : connect succeeded
+oct. 24 14:26:28 R1-rouge watchfrr[2963]: [KWE5Q-QNGFC] all daemons up, doing startup-complete notify
+oct. 24 14:26:28 R1-rouge frrinit.sh[2954]: Started watchfrr.
+oct. 24 14:26:28 R1-rouge systemd[1]: Started FRRouting.</screen>
 	</listitem>
 
 	<listitem xml:id='interco.ospf-frr.prepare-config.routing'>
@@ -413,6 +432,13 @@ oct. 17 20:46:29 R1-rouge zebra[442]: if_zebra_speed_update: enp0s1.291 old spee
 	fixer les valeurs des paramètres de configuration du routage. Voir la
 	section <citetitle>Fonctions réseau d'une interface</citetitle> du support
 	&url.config.interface.lan;.</para>
+
+<screen><prompt>$</prompt> $ egrep -v '(^#|^$)' /etc/sysctl.conf
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+net.ipv4.conf.all.log_martians = 1</screen>
 
 <screen><prompt>$</prompt> sudo sysctl --system
 * Applying /usr/lib/sysctl.d/50-pid-max.conf ...
@@ -452,12 +478,7 @@ net.ipv4.conf.all.log_martians = 1</screen>
 	<filename>/etc/network/interfaces</filename> pour le routeur
 	<systemitem>R1</systemitem> de la maquette.</para>
 
-<screen># This file describes the network interfaces available on your system
-# and how to activate them. For more information, see interfaces(5).
-
-source /etc/network/interfaces.d/*
-
-# The loopback network interface
+<screen># The loopback network interface
 auto lo
 iface lo inet loopback
 
@@ -522,12 +543,8 @@ iface sw-vlan292 inet6 static
 	<para>Voici un exemple pour le routeur <systemitem>R1</systemitem> de la
 	maquette.</para>
 
-<screen><prompt>$</prompt> cat &lt;&lt; EOF | sudo tee /etc/frr/vtysh.conf
-service integrated-vtysh-config
-!
-hostname R1
-username root nopassword
-EOF</screen>
+<screen><prompt>$</prompt> echo service integrated-vtysh-config | \
+sudo tee /etc/frr/vtysh.conf</screen>
 
 	<para>Cet outil offre une console unifiée pour les trois démons :
 	<application>zebra</application>, <application>ospfd</application> et
@@ -535,80 +552,79 @@ EOF</screen>
 	</listitem>
 
 	<listitem>
-	<para>Ajouter l'utilisateur <systemitem>etu</systemitem> au groupe
+	<para>Ajouter l'utilisateur <systemitem>etu</systemitem> aux groupes
 	<systemitem>frrvty</systemitem> pour lui donner un accès direct à la
-	console de configuration des démons.</para>
+	console de configuration des démons et aux fichiers de
+	configuration.</para>
 
-<screen><prompt>$</prompt> sudo adduser etu frrvty</screen>
+<screen><prompt>$</prompt> sudo adduser etu frrvty
+
+<prompt>$</prompt> sudo adduser etu frr
+</screen>
 
 	<para>Il ne faut pas oublier de se déconnecter/reconnecter pour bénéficier
 	de la nouvelle attribution de groupe.</para>
 	</listitem>
 
 	<listitem>
-	<para>Activer et relancer les services correspondant aux trois démons&nbsp;:
-	<application>zebra</application>, <application>ospfd</application> et
-	<application>ospf6d</application>.</para> 
+	<para>Activer les deux démons relatifs au protocole <acronym>OSPF</acronym>
+	dans le fichier de configuration&nbsp;:
+	<filename>/etc/frr/daemons</filename>.</para>
 
-<screen><prompt>$</prompt>  for daemon in zebra ospfd ospf6d
-do
-	sudo systemctl enable $daemon
-	sudo systemctl restart $daemon
-done</screen>
-	</listitem>
+	<para>Une fois la modification du fichier effectuée on obtient le résultat
+	suivant.</para>
 
-	<listitem>
-	<para>Vérifier que les services sont correctement lancés.</para>
+<screen><prompt>$</prompt> sudo grep ^ospf /etc/frr/daemons
+ospfd=yes
+ospf6d=yes
+ospfd_options="  -A 127.0.0.1"
+ospf6d_options=" -A ::1"</screen>
 
-<screen><prompt>$</prompt> systemctl status zebra
-● zebra.service - GNU Zebra routing manager
-   Loaded: loaded (/lib/systemd/system/zebra.service; enabled; vendor preset: enabled)
-   <emphasis>Active: active (running)</emphasis> since Fri 2018-10-12 08:55:58 UTC; 3min 12s ago
-     Docs: man:zebra
-  Process: 2521 ExecStart=/usr/sbin/zebra -d -A 127.0.0.1 -f /etc/frr/zebra.conf (code=exited, status=0/SUCCESS)
-  Process: 2520 ExecStartPre=/bin/chown -f frr:frrvty /etc/frr/vtysh.conf (code=exited, status=0/SUCCESS)
-  Process: 2519 ExecStartPre=/bin/chown -f frr:frr /etc/frr/zebra.conf (code=exited, status=0/SUCCESS)
-  Process: 2518 ExecStartPre=/bin/chmod -f 640 /etc/frr/vtysh.conf /etc/frr/zebra.conf (code=exited, status=0/SUCCESS)
-  Process: 2517 ExecStartPre=/sbin/ip route flush proto zebra (code=exited, status=0/SUCCESS)
- Main PID: 2522 (zebra)
-   Memory: 1.3M
-   CGroup: /system.slice/zebra.service
-           └─2522 /usr/sbin/zebra -d -A 127.0.0.1 -f /etc/frr/zebra.conf
+	<para>On peut alors relancer le service et vérifier que les nouveaux démons
+	de routage dynamique <acronym>OSPF</acronym> sont bien activés.</para>
 
-oct. 12 08:55:58 R3 systemd[1]: Starting GNU Zebra routing manager...
-oct. 12 08:55:58 R3 systemd[1]: Started GNU Zebra routing manager.
+<screen><prompt>$</prompt> sudo systemctl restart frr
 
-<prompt>$</prompt> systemctl status ospfd
-● ospfd.service - OSPF routing daemon
-   Loaded: loaded (/lib/systemd/system/ospfd.service; enabled; vendor preset: enabled)
-   <emphasis>Active: active (running)</emphasis> since Fri 2018-10-12 08:56:01 UTC; 4min 20s ago
-     Docs: man:ospfd
-  Process: 2527 ExecStart=/usr/sbin/ospfd -d -A 127.0.0.1 -f /etc/frr/ospfd.conf (code=exited, status=0/SUCCESS)
-  Process: 2526 ExecStartPre=/bin/chown -f frr:frr /etc/frr/ospfd.conf (code=exited, status=0/SUCCESS)
-  Process: 2525 ExecStartPre=/bin/chmod -f 640 /etc/frr/ospfd.conf (code=exited, status=0/SUCCESS)
- Main PID: 2528 (ospfd)
-   Memory: 1.1M
-   CGroup: /system.slice/ospfd.service
-           └─2528 /usr/sbin/ospfd -d -A 127.0.0.1 -f /etc/frr/ospfd.conf
+<prompt>$</prompt> sudo systemctl status frr
+● frr.service - FRRouting
+     Loaded: loaded (/lib/systemd/system/frr.service; enabled; vendor preset: enabled)
+     Active: active (running) since Sun 2021-10-24 14:41:35 CEST; 5s ago
+       Docs: https://frrouting.readthedocs.io/en/latest/setup.html
+    Process: 3326 ExecStart=/usr/lib/frr/frrinit.sh start (code=exited, status=0/SUCCESS)
+   Main PID: 3336 (watchfrr)
+     Status: "FRR Operational"
+      Tasks: 11 (limit: 1121)
+     Memory: 17.7M
+        CPU: 366ms
+     CGroup: /system.slice/frr.service
+             ├─3336 /usr/lib/frr/watchfrr -d -F traditional zebra ospfd ospf6d staticd
+             ├─3358 /usr/lib/frr/zebra -d -F traditional -A 127.0.0.1 -s 90000000
+             ├─3363 /usr/lib/frr/<emphasis>ospfd -d -F traditional -A 127.0.0.1</emphasis>
+             ├─3366 /usr/lib/frr/<emphasis>ospf6d -d -F traditional -A ::1</emphasis>
+             └─3369 /usr/lib/frr/staticd -d -F traditional -A 127.0.0.1
 
-oct. 12 08:56:01 R3 systemd[1]: Starting OSPF routing daemon...
-oct. 12 08:56:01 R3 systemd[1]: Started OSPF routing daemon.
+oct. 24 14:41:35 R1-rouge ospfd[3363]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+oct. 24 14:41:35 R1-rouge ospf6d[3366]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+oct. 24 14:41:35 R1-rouge staticd[3369]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+oct. 24 14:41:35 R1-rouge watchfrr[3336]: [QDG3Y-BY5TN] zebra state -> up : connect succeeded
+oct. 24 14:41:35 R1-rouge watchfrr[3336]: [QDG3Y-BY5TN] <emphasis>ospfd state -> up : connect succeeded</emphasis>
+oct. 24 14:41:35 R1-rouge watchfrr[3336]: [QDG3Y-BY5TN] <emphasis>ospf6d state -> up : connect succeeded</emphasis>
+oct. 24 14:41:35 R1-rouge watchfrr[3336]: [QDG3Y-BY5TN] staticd state -> up : connect succeeded
+oct. 24 14:41:35 R1-rouge watchfrr[3336]: [KWE5Q-QNGFC] all daemons up, doing startup-complete notify
+oct. 24 14:41:35 R1-rouge frrinit.sh[3326]: Started watchfrr.
+oct. 24 14:41:35 R1-rouge systemd[1]: Started FRRouting.</screen>
 
-<prompt>$</prompt> systemctl status ospf6d
-● ospf6d.service - OSPF routing daemon for IPv6
-   Loaded: loaded (/lib/systemd/system/ospf6d.service; enabled; vendor preset: enabled)
-   <emphasis>Active: active (running)</emphasis> since Fri 2018-10-12 08:56:05 UTC; 5min ago
-     Docs: man:ospf6d
-  Process: 2533 ExecStart=/usr/sbin/ospf6d -d -A ::1 -f /etc/frr/ospf6d.conf (code=exited, status=0/SUCCESS)
-  Process: 2532 ExecStartPre=/bin/chown -f frr:frr /etc/frr/ospf6d.conf (code=exited, status=0/SUCCESS)
-  Process: 2531 ExecStartPre=/bin/chmod -f 640 /etc/frr/ospf6d.conf (code=exited, status=0/SUCCESS)
- Main PID: 2534 (ospf6d)
-   Memory: 1.0M
-   CGroup: /system.slice/ospf6d.service
-           └─2534 /usr/sbin/ospf6d -d -A ::1 -f /etc/frr/ospf6d.conf
+	<para>On peut aussi lister les démons actifs à partir de la console du
+	service.</para>
 
-oct. 12 08:56:05 R3 systemd[1]: Starting OSPF routing daemon for IPv6...
-oct. 12 08:56:05 R3 systemd[1]: Started OSPF routing daemon for IPv6.</screen>
+<screen><prompt>$</prompt> vtysh
+
+Hello, this is FRRouting (version 8.0.1).
+Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+R1-rouge# sh daemons
+ zebra <emphasis>ospfd ospf6d</emphasis> watchfrr staticd
+R1-rouge#</screen>
 	</listitem>
 
 	<listitem>
@@ -616,40 +632,86 @@ oct. 12 08:56:05 R3 systemd[1]: Started OSPF routing daemon for IPv6.</screen>
 	<command>vtysh</command> de façon à fixer la bande passante de chaque
 	interface active à 1Gbps.</para>
 
-	<para>Voici un exemple de séquence d'instructions pour configurer une
-	interface.</para>
+	<para>Voici un exemple de séquence d'instructions pour configurer les
+	interfaces du routeur rouge de la maquette.</para>
+
+	<para>On commence par lister les interfaces actives à partir de la
+	console.</para>
 
 <screen><prompt>$</prompt> vtysh
 
-Hello, this is FRRouting (version 1.2.4).
+Hello, this is FRRouting (version 8.0.1).
 Copyright 1996-2005 Kunihiro Ishiguro, et al.
 
-R1# conf t
-R1(config)# int eth0
-R1(config-if)# bandwidth 1000000
-R1(config-if)# ^Z
-R1# copy run start
+R1-rouge# sh int brief
+Interface       Status  VRF             Addresses
+---------       ------  ---             ---------
+asw-host        up      default
+enp0s2          up      default
+enp0s2.290      up      default         10.2.90.1/29
+enp0s2.291      up      default         10.2.91.1/29
+enp0s2.300      up      default         10.141.0.162/27
+                                        + 2001:678:3fc:12c::2/64
+lo              up      default
+ovs-system      down    default
+sw-vlan292      up      default         10.2.92.1/24
+                                        + 2001:678:3fc:124::1/64</screen>
+
+	<para>Pour l'interface <systemitem>enp0s2.290</systemitem>, on ajoute le
+	paramètre <systemitem>bandwidth</systemitem>.</para>
+	
+<screen>R1-rouge# conf t
+R1-rouge(config)# int enp0s2.290
+R1-rouge(config-if)# bandwidth ?
+  (1-100000)  Bandwidth in megabits
+R1-rouge(config-if)# bandwidth 1000
+R1-rouge(config-if)# ^Z
+R1-rouge# sh int enp0s2.290
+Interface enp0s2.290 is up, line protocol is up
+  Link ups:       0    last: (never)
+  Link downs:     0    last: (never)
+  vrf: default
+  index 4 metric 0 mtu 1500 speed 4294967295
+  flags: &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Type: Ethernet
+  HWaddr: b8:ad:ca:fe:00:64
+  <emphasis>bandwidth 1000 Mbps</emphasis>
+  inet 10.2.90.1/29
+  inet6 fe80::baad:caff:fefe:64/64
+  Interface Type Vlan
+  Interface Slave Type None
+  VLAN Id 290
+  protodown: off
+  Parent interface: enp0s2
+R1-rouge# copy run start
+Note: this version of vtysh never writes vtysh.conf
 Building Configuration...
-Configuration saved to /etc/frr/zebra.conf
-Configuration saved to /etc/frr/ospfd.conf
-Configuration saved to /etc/frr/ospf6d.conf
+Integrated configuration saved to /etc/frr/frr.conf
 [OK]</screen>
 
-	<para>Une fois revenu au système d'exploitation, on doit obtenir un
-	résultat équivalent à celui présenté ci-dessous. Les noms d'interfaces
-	dépendent du routeur concerné.</para> 
-	
-<screen><prompt>etu@R2-vert:~$</prompt> sudo grep -1 bandwidth /etc/frr/zebra.conf
+	<para>Une fois la configuration complétée, les paramètres apparaissent dans
+	la configuration du service.</para>
+
+<screen>R1-rouge# sh run
+Building configuration...
+
+Current configuration:
+!
+frr version 8.0.1
+frr defaults traditional
+hostname R1-rouge
+log syslog informational
+service integrated-vtysh-config
+!
 interface enp0s2.290
- bandwidth 1000000
+ <emphasis>bandwidth 1000</emphasis>
 !
-interface enp0s2.293
- bandwidth 1000000
+interface enp0s2.291
+ <emphasis>bandwidth 1000</emphasis>
 !
---
-interface sw-vlan294
- bandwidth 1000000
-!</screen>
+line vty
+!
+end</screen>
 
 	<note>
 	<para>Contrairement à un routeur «intégré» avec un système d'exploitation
@@ -660,8 +722,7 @@ interface sw-vlan294
 		l'application «service de routage» n'a aucun moyen de connaître le
 		débit exact de l'interface. C'est la raison pour laquelle il est
 		nécessaire de paramétrer manuellement les débits de chaque interface
-		dans la	configuration du démon <systemitem
-		class='daemon'>zebra</systemitem>.</para> 
+		dans la	configuration.</para>
 	</note>
 
 	<warning>
@@ -681,7 +742,6 @@ interface sw-vlan294
 	ensuite les protocoles de routage dynamique <acronym>OSPF</acronym>.</para>
 </sect1>
 
-<?custom-pagebreak?>
 <sect1 xml:id='interco.ospf-frr.pointopoint'>
 	<title>Valider les communications entre routeurs</title>
 
@@ -717,21 +777,19 @@ interface sw-vlan294
 ::1 dev lo metric 256 pref medium
 2001:678:3fc:124::/64 dev sw-vlan292 metric 256 pref medium
 2001:678:3fc:12c::/64 dev enp0s2.300 metric 256 pref medium
-fe80::/64 dev sw-vlan292 metric 256 pref medium
-fe80::/64 dev asw-host metric 256 pref medium
 fe80::/64 dev enp0s2 metric 256 pref medium
 fe80::/64 dev enp0s2.300 metric 256 pref medium
 fe80::/64 dev enp0s2.290 metric 256 pref medium
-fe80::/64 dev enp0s2.291 metric 256 pref medium</screen>
+fe80::/64 dev enp0s2.291 metric 256 pref medium
+fe80::/64 dev sw-vlan292 metric 256 pref medium
+fe80::/64 dev asw-host metric 256 pref medium</screen>
 
 <screen><prompt>etu@R1-rouge:~$</prompt> ip neigh ls | grep 'enp0s2\.'
-10.141.0.161 dev enp0s2.300 lladdr b0:90:7e:56:63:c2 REACHABLE
-10.2.91.3 dev enp0s2.291 lladdr b0:ad:ca:fe:00:65 STALE
-10.2.90.2 dev enp0s2.290 lladdr b0:ad:ca:fe:00:66 STALE
-fe80::b290:7eff:fe56:63c2 dev enp0s2.300 lladdr b0:90:7e:56:63:c2 router STALE
-fe80::b2ad:caff:fefe:66 dev enp0s2.290 lladdr b0:ad:ca:fe:00:66 router STALE
-2001:678:3fc:12c::1 dev enp0s2.300 lladdr b0:90:7e:56:63:c2 router STALE
-fe80::b2ad:caff:fefe:65 dev enp0s2.291 lladdr b0:ad:ca:fe:00:65 router STALE</screen>
+10.2.90.2 dev enp0s2.290 lladdr b8:ad:ca:fe:00:65 STALE
+10.141.0.161 dev enp0s2.300 lladdr b0:90:7e:56:63:c2 STALE
+fe80:12c::1 dev enp0s2.300 lladdr b0:90:7e:56:63:c2 router STALE
+fe80::baad:caff:fefe:65 dev enp0s2.290 lladdr b8:ad:ca:fe:00:65 STALE
+2001:678:3fc:12c::1 dev enp0s2.300 lladdr b0:90:7e:56:63:c2 router STALE</screen>
 	</answer>
 	</qandaentry>
 
@@ -776,34 +834,37 @@ rtt min/avg/max/mdev = 0.444/0.523/0.603/0.079 ms</screen>
 	<para>Dans le contexte de la maquette, on obtient les résultats suivants
 	pour le routeur <systemitem>R2</systemitem>.</para>
 
-<screen><prompt>R2#</prompt> sh ip route connected
+<screen><prompt>R2-vert#</prompt> R2-vert# sh ip route connected
 Codes: K - kernel route, C - connected, S - static, R - RIP,
-       O - OSPF, I - IS-IS, B - BGP, P - PIM, A - Babel, N - NHRP,
-       > - selected route, * - FIB route
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
 
-C>* 10.2.90.0/29 is directly connected, enp0s2.290
-C>* 10.2.93.0/29 is directly connected, enp0s2.293
-C>* 10.2.94.0/24 is directly connected, sw-vlan294
-C>* 127.0.0.0/8 is directly connected, lo</screen>
+C>* 10.2.90.0/29 is directly connected, enp0s2.290, 00:03:59
+C>* 10.2.93.0/29 is directly connected, enp0s2.293, 00:03:59
+C>* 10.2.94.0/24 is directly connected, sw-vlan294, 00:03:59</screen>
 
-<screen><prompt>R2#</prompt> sh ipv6 route connected
+<screen><prompt>R2-vert#</prompt> sh ipv6 route connected
 Codes: K - kernel route, C - connected, S - static, R - RIPng,
-       O - OSPFv6, I - IS-IS, B - BGP, A - Babel, N - NHRP,
-       > - selected route, * - FIB route
+       O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
+       v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
 
-C>* ::1/128 is directly connected, lo
-C>* 2001:678:3fc:126::/64 is directly connected, sw-vlan294
-C * fe80::/64 is directly connected, enp0s2.293
-C * fe80::/64 is directly connected, enp0s2.290
-C * fe80::/64 is directly connected, enp0s2
-C * fe80::/64 is directly connected, asw-host
-C>* fe80::/64 is directly connected, sw-vlan294</screen>
+C>* 2001:678:3fc:126::/64 is directly connected, sw-vlan294, 00:05:00
+C * fe80::/64 is directly connected, sw-vlan294, 00:05:00
+C * fe80::/64 is directly connected, asw-host, 00:05:00
+C * fe80::/64 is directly connected, enp0s2.293, 00:05:00
+C * fe80::/64 is directly connected, enp0s2.290, 00:05:00
+C>* fe80::/64 is directly connected, enp0s2, 00:05:00</screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
 </sect1>
 
-<?custom-pagebreak?>
 <sect1 xml:id='interco.ospf-frr.protocol-config'>
 	<title>Configurer les démons OSPF FRRouting</title>
 
@@ -1623,9 +1684,9 @@ K>* <emphasis>::/0 via fe80::dc02:44ff:fe64:4834, eth0</emphasis></screen>
 		pour <acronym>IPv4</acronym>&nbsp;?</phrase></para>
 
 		<para>Parmi toutes les méthodes de redistribution de routes disponibles
-		avec protocole <acronym>OSPFv2</acronym>, il en existe une dédiée à
-		l'injection de route par défaut dans une aire normale&nbsp;: Voir <xref
-		linkend='interco.ospf-frr.refdocs.frr-command-index' />.</para>
+		avec le protocole <acronym>OSPFv2</acronym>, il en existe une dédiée à
+		l'injection de route par défaut dans une aire normale. Consulter le
+		guide &url.frr-documentation;.</para>
 
 		<para>Rechercher le mot clé <option>default</option> dans
 		l'index.</para>
@@ -2180,8 +2241,8 @@ Sauvegarde en : « /dev/null »
 		lien à 10Gbps&nbsp;?</phrase></para>
 
 		<para>Rechercher le mot clé <wordasword>reference</wordasword> dans
-		l'index des instructions de configuration. Voir <xref
-		linkend='interco.ospf-frr.refdocs.frr-command-index' />.</para>
+		l'index des instructions de configuration. Consulter la documentation
+		&url.frr-documentation;.</para>
 	</question>
 	<answer>
 		<para>C'est l'instruction <command>auto-cost
@@ -2346,11 +2407,11 @@ Routing entry for 10.1.3.0/30
 	</listitem>
 	</varlistentry>
 
-	<varlistentry xml:id='interco.ospf-frr.refdocs.frr-command-index'>
-		<term><citetitle>Index des commandes FRRouting</citetitle></term>
+	<varlistentry xml:id='interco.ospf-frr.refdocs.frr-documentation'>
+		<term><citetitle>Documentation FRRouting</citetitle></term>
 	<listitem>
-		<para>La page à l'adresse&nbsp;: &url.frr-command-index; liste
-		toutes les instructions utilisables dans console unifiée
+		<para>La page à l'adresse&nbsp;: &url.frr-documentation; fournit toutes
+		les instructions utilisables dans console unifiée
 		<command>vtysh</command>.</para>
 
 		<para>Ces commandes sont largement inspirées du système d'exploitation
