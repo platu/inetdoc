@@ -960,6 +960,7 @@ R1# sh daemons
 		<member><command>router&nbsp;ospf</command></member>
 		<member><command>router&nbsp;ospf6</command></member>
 		<member><command>ospf&nbsp;router-id&nbsp;X.X.X.X</command></member>
+		<member><command>ospf6&nbsp;router-id&nbsp;X.X.X.X</command></member>
 		<member><command>log&nbsp;detail</command></member>
 	</simplelist>
     </question>
@@ -1057,304 +1058,315 @@ end</screen>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quelles sont les opérations à effectuer pour activer le
-	protocole de routage <acronym>OSPFv2</acronym> pour les réseaux
-	d'interconnexion de chaque routeur&nbsp;?</phrase></para>
+	<para><phrase>Quelles sont les opérations à effectuer pour activer les
+	protocoles de routage <acronym>OSPFv2</acronym> et
+	<acronym>OSPFv3</acronym> pour les réseaux d'interconnexion de chaque
+	routeur&nbsp;?</phrase></para>
 
-	<para>Il faut ajouter une entrée pour chaque préfixe réseau
-		<acronym>IPv4</acronym> de la topologie logique connu du routeur. On
-		peut lister les entrées marquées <option>C</option> de la table de
-		routage.</para>
+	<para>Il faut activer le protocole de routage dynamique sur chaque
+	interface de la topologie qui participe à la construction du
+	triangle.</para>
 
-		<para>La liste des commandes utiles en mode console et en mode
-		configuration dans <application>vtysh</application> est la
-		suivante.</para>
+	<para>La liste des commandes utiles en mode console et en mode
+	configuration dans <application>vtysh</application> est la suivante.</para>
 
-		<simplelist type='horiz'>
-		<member><command>show ip route connected</command></member>
-		<member><command>router ospf</command></member>
-		<member><command>network A.B.C.D/MM area 0</command></member>
-		</simplelist>
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;ip&nbsp;route&nbsp;connected</command></member>
+		<member><command>show&nbsp;ip&nbsp;route&nbsp;ospf</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;route&nbsp;connected</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;route&nbsp;ospf</command></member>
+		<member><command>ip&nbsp;ospf&nbsp;area&nbsp;0</command></member>
+		<member><command>ipv6&nbsp;ospf&nbsp;area&nbsp;0</command></member>
+	</simplelist>
 	</question>
 	<answer>
-		<para>Voici une exemple de séquence d'instructions pour le routeur
-		<systemitem>R1</systemitem>.</para>
+	<para>Voici un exemple de séquence d'instructions pour le routeur
+	<systemitem>R1-rouge</systemitem>.</para>
 
-<screen><prompt>R1#</prompt> show ip route connected
+	<para>On commence par lister les entrées marquées <emphasis>C</emphasis> ou
+	<wordasword>connected</wordasword> de la table de routage
+	<acronym>IPv4</acronym> de façon à reconnaître les deux côtés de la
+	topologie triangle connus du "sommet"
+	<systemitem>R1-rouge</systemitem>.</para>  
+
+<screen><prompt>R1-rouge#</prompt> sh ip route connected
 Codes: K - kernel route, C - connected, S - static, R - RIP,
-       O - OSPF, I - IS-IS, B - BGP, P - PIM, A - Babel, N - NHRP,
-       > - selected route, * - FIB route
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
 
-<emphasis>C>* 10.1.12.0/26 is directly connected, eth0.12</emphasis>
-<emphasis>C>* 10.1.13.0/26 is directly connected, eth0.13</emphasis>
-C>* 127.0.0.0/8 is directly connected, lo
-C>* 192.0.2.0/27 is directly connected, eth0</screen>
+<emphasis>C>* 10.2.90.0/29 is directly connected, enp0s2.290</emphasis>, 1d00h04m
+<emphasis>C>* 10.2.91.0/29 is directly connected, enp0s2.291</emphasis>, 1d00h04m
+C>* 10.2.92.0/24 is directly connected, sw-vlan292, 1d00h04m
+C>* 10.141.0.160/27 is directly connected, enp0s2.300, 1d00h04m</screen>
 
-<screen><prompt>R1#</prompt> conf t
-<prompt>R1(config)#</prompt> router ospf
-<prompt>R1(config-router)#</prompt> network 10.1.12.0/26 area 0
-<prompt>R1(config-router)#</prompt> network 10.1.13.0/26 area 0
-<prompt>R1(config-router)#</prompt> ^Z</screen>
-	</answer>
-	</qandaentry>
+	<para>À partir de cette identification, on doit activer le protocole
+	<acronym>OSPFv2</acronym> pour les deux interfaces&nbsp;:
+	<systemitem>enp0s2.290</systemitem> et
+	<systemitem>enp0s2.291</systemitem>.</para>
 
-	<qandaentry>
-	<question>
-		<para><phrase>Quelles sont les opérations à effectuer pour activer le
-		protocole de routage <acronym>OSPFv3</acronym> pour les réseaux
-		<acronym>IPv6</acronym> connus de chaque routeur&nbsp;?</phrase></para>
+<screen><prompt>R1-rouge#</prompt> conf t
+R1-rouge(config)# interface enp0s2.290
+R1-rouge(config-if)# ip ospf area 0
+R1-rouge(config-if)# exit
+R1-rouge(config)# interface enp0s2.291
+R1-rouge(config-if)# ip ospf area 0
+R1-rouge(config-if)# ^Z
+R1-rouge#</screen>
 
-		<para>Il faut ajouter une entrée pour chaque interface active de la
-		topologie logique connue du routeur.</para>
+	<para>On reprend le même processus pour le protocole
+	<acronym>OSPFv3</acronym>. Voici une copie des entrées connectées de la
+	table de routage <acronym>IPv6</acronym>.</para>
 
-		<para>La liste des commandes utiles en mode console et en mode
-		configuration dans <application>vtysh</application> est la
-		suivante.</para>
-
-		<simplelist type='horiz'>
-		<member><command>show ipv6 route connected</command></member>
-		<member><command>router ospf6</command></member>
-		<member><command>interface eth0.XX area 0.0.0.0</command></member>
-		</simplelist>
-	</question>
-	<answer>
-		<para>Voici une exemple de séquence d'instructions pour le routeur
-		<systemitem>R1</systemitem>.</para>
-
-<screen><prompt>R1#</prompt> sh ipv6 route connected
+<screen><prompt>R1-rouge#</prompt> sh ipv6 route connected
 Codes: K - kernel route, C - connected, S - static, R - RIPng,
-       O - OSPFv6, I - IS-IS, B - BGP, A - Babel, N - NHRP,
-       > - selected route, * - FIB route
+       O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
+       v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
 
-C>* ::1/128 is directly connected, lo
-C>* 2001:678:3fc:a::/64 is directly connected, eth0
-<emphasis>C>* 2001:678:3fc:c::/64 is directly connected, eth0.12</emphasis>
-<emphasis>C>* 2001:678:3fc:d::/64 is directly connected, eth0.13</emphasis>
-C * fe80::/64 is directly connected, eth0
-<emphasis>C * fe80::/64 is directly connected, eth0.13</emphasis>
-<emphasis>C>* fe80::/64 is directly connected, eth0.12</emphasis></screen>
+C>* 2001:678:3fc:124::/64 is directly connected, sw-vlan292, 1d00h14m
+C>* 2001:678:3fc:12c::/64 is directly connected, enp0s2.300, 1d00h14m
+C * fe80::/64 is directly connected, asw-host, 1d00h14m
+<emphasis>C * fe80::/64 is directly connected, enp0s2.290</emphasis>, 1d00h14m
+<emphasis>C * fe80::/64 is directly connected, enp0s2.291</emphasis>, 1d00h14m
+C * fe80::/64 is directly connected, sw-vlan292, 1d00h14m
+C * fe80::/64 is directly connected, enp0s2.300, 1d00h14m
+C>* fe80::/64 is directly connected, enp0s2, 1d00h14m</screen>
 
-<screen><prompt>R1#</prompt> conf t
-<prompt>R1(config)#</prompt> router ospf6
-<prompt>R1(config-ospf6)#</prompt> interface eth0.12 area 0.0.0.0
-<prompt>R1(config-ospf6)#</prompt> interface eth0.13 area 0.0.0.0
-<prompt>R1(config-ospf6)#</prompt> ^Z</screen>
+	<para>On active le protocole <acronym>OSPFv3</acronym> sur les mêmes
+	interfaces.</para> 
+
+<screen><prompt>R1-rouge#</prompt> conf t
+R1-rouge(config)# interface enp0s2.290
+R1-rouge(config-if)# ipv6 ospf6 area 0
+R1-rouge(config-if)# exit
+R1-rouge(config)# interface enp0s2.291
+R1-rouge(config-if)# ipv6 ospf6 area 0
+R1-rouge(config-if)# ^Z</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment visualiser l'état	des interfaces actives pour
-		chaque processus de protocole de routage dynamique
-		<acronym>OSPFv2</acronym> ou
-		<acronym>OSPFv3</acronym>&nbsp;?</phrase></para>
+	<para><phrase>Comment visualiser l'état	des interfaces actives pour chaque
+	processus de protocole de routage dynamique <acronym>OSPFv2</acronym> ou
+	<acronym>OSPFv3</acronym>&nbsp;?</phrase></para>
 
-		<para>Les interfaces sont dites actives pour <acronym>OSPFv2</acronym>
-		dès qu'une entrée de réseau correspondant à l'adresse
-		<acronym>IPv4</acronym> d'interface est présente dans la configuration
-		du protocole de routage.</para>
+	<para>Les interfaces sont dites actives pour les protocoles
+	<acronym>OSPFv2</acronym> ou <acronym>OSPFv3</acronym> dès qu'elles ont été
+	ajoutées aux processus de routage dynamique en précisant l'aire à laquelle
+	elles appartiennent.</para>
 
-		<para>Pour <acronym>OSPFv3</acronym>, c'est plus simple. Les interfaces
-		sont explicitement activées dans la configuration du protocole de
-		routage.</para>
+	<para>La liste des commandes utiles dans la console
+	<application>vtysh</application> est la suivante.</para>
 
-		<para>La liste des commandes utiles dans la console
-		<application>vtysh</application> est la suivante.</para>
-
-		<simplelist type='horiz'>
-		<member><command>show ip ospf interface</command></member>
-		<member><command>show ipv6 ospf6 interface</command></member>
-		</simplelist>
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;ip&nbsp;ospf&nbsp;interface</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;ospf6&nbsp;interface</command></member>
+	</simplelist>
 	</question>
 	<answer>
-		<para>En reprenant l'exemple du routeur R1, on obtient les résultats
-		suivants.</para>
+	<para>En reprenant l'exemple du routeur <systemitem>R1-rouge</systemitem>,
+	on obtient les résultats suivants.</para>
 
-<screen><prompt>R1#</prompt> show ip ospf interface
-eth0 is up
-  ifindex 19, MTU 1500 bytes, BW 1000000 Kbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
-  <emphasis>OSPF not enabled on this interface</emphasis>
-eth0.12 is up
-  ifindex 2, MTU 1500 bytes, BW 1000000 Kbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
-  Internet Address 10.1.12.1/26, Broadcast 10.1.12.63, Area 0.0.0.0
-  MTU mismatch detection:enabled
-  <emphasis>Router ID 0.0.1.4, Network Type BROADCAST, Cost: 1</emphasis>
+<screen><prompt>R1-rouge#</prompt> sh ip ospf interface
+<emphasis>enp0s2.290 is up</emphasis>
+  ifindex 4, MTU 1500 bytes, <emphasis>BW 1000 Mbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.2.90.1/29, Broadcast 10.2.90.7, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  <emphasis>Router ID 7.0.4.1, Network Type BROADCAST, Cost: 1</emphasis>
   Transmit Delay is 1 sec, State Backup, Priority 1
-  Designated Router (ID) 0.0.2.4, Interface Address 10.1.12.2
-  Backup Designated Router (ID) 0.0.1.4, Interface Address 10.1.12.1
-  Saved Network-LSA sequence number 0x80000039
+  Designated Router (ID) 7.0.4.2 Interface Address 10.2.90.2/29
+  Backup Designated Router (ID) 7.0.4.1, Interface Address 10.2.90.1
   Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
-  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
-    Hello due in 8.958s
-  Neighbor Count is 1, Adjacent neighbor count is 1
-eth0.13 is up
-  ifindex 3, MTU 1500 bytes, BW 1000000 Kbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
-  Internet Address 10.1.13.1/26, Broadcast 10.1.13.63, Area 0.0.0.0
-  MTU mismatch detection:enabled
-  <emphasis>Router ID 0.0.1.4, Network Type BROADCAST, Cost: 1</emphasis>
+  <emphasis>Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5</emphasis>
+    Hello due in 9.193s
+  <emphasis>Neighbor Count is 1, Adjacent neighbor count is 1</emphasis>
+<emphasis>enp0s2.291 is up</emphasis>
+  ifindex 5, MTU 1500 bytes, <emphasis>BW 1000 Mbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.2.91.1/29, Broadcast 10.2.91.7, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 7.0.4.1, Network Type BROADCAST, Cost: 1
   Transmit Delay is 1 sec, State Backup, Priority 1
-  Designated Router (ID) 0.0.3.4, Interface Address 10.1.13.3
-  Backup Designated Router (ID) 0.0.1.4, Interface Address 10.1.13.1
-  Saved Network-LSA sequence number 0x80000029
+  Designated Router (ID) 7.0.4.3 Interface Address 10.2.91.3/29
+  Backup Designated Router (ID) 7.0.4.1, Interface Address 10.2.91.1
   Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
-  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
-    Hello due in 1.767s
-  Neighbor Count is 1, Adjacent neighbor count is 1
-lo is up
-  ifindex 1, MTU 65536 bytes, BW 0 Kbit &lt;UP,LOOPBACK,RUNNING>
-  <emphasis>OSPF not enabled on this interface</emphasis></screen>
+  <emphasis>Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5</emphasis>
+    Hello due in 9.193s
+  <emphasis>Neighbor Count is 1, Adjacent neighbor count is 1</emphasis></screen>
 
-<screen><prompt>R1#</prompt> show ipv6 ospf6 interface
-eth0 is up, type BROADCAST
-  Interface ID: 19
-   <emphasis>OSPF not enabled on this interface</emphasis>
-eth0.12 is up, type BROADCAST
-  Interface ID: 2
+	<para>La copie d'écran ci-dessus permet d'identifier les éléments
+	suivants&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>L'indicateur <emphasis>is up</emphasis> confirme que l'interface est
+	bien active pour le protocole de routage.</para>
+	</listitem>
+	<listitem>
+	<para>L'identifiant de routeur correspond bien à celui défini dans le
+	processus <acronym>OSPFv2</acronym> et le type de réseau du protocole
+	indique un réseau de diffusion Ethernet.</para>
+	</listitem>
+	<listitem>
+	<para>Les paquets <emphasis>Hello</emphasis> sont bien émis toutes les 10
+	secondes pour un réseau de diffusion.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>On reprend la même démarche pour le protocole
+	<acronym>OSPFv3</acronym>. On extrait de liste complète les interfaces des
+	deux côtés du triangle.</para>
+
+<screen><prompt>R1-rouge#</prompt> sh ipv6 ospf6 interface enp0s2.290
+<emphasis>enp0s2.290 is up, type BROADCAST</emphasis>
+  Interface ID: 4
   Internet Address:
-    inet : 10.1.12.1/26
-    inet6: fe80::c828:72ff:fedf:3608/64
-    inet6: 2001:678:3fc:c::1/64
+    inet : 10.2.90.1/29
+    inet6: fe80::baad:caff:fefe:64/64
   Instance ID 0, Interface MTU 1500 (autodetect: 1500)
   MTU mismatch detection: enabled
   <emphasis>Area ID 0.0.0.0, Cost 1</emphasis>
   State BDR, Transmit Delay 1 sec, Priority 1
   Timer intervals configured:
    Hello 10, Dead 40, Retransmit 5
-  DR: 0.0.2.6 BDR: 0.0.1.6
+  DR: 7.0.6.2 BDR: 7.0.6.1
   Number of I/F scoped LSAs is 2
     0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
     0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
-eth0.13 is up, type BROADCAST
-  Interface ID: 3
+
+<prompt>R1-rouge#</prompt> sh ipv6 ospf6 interface enp0s2.291
+<emphasis>enp0s2.291 is up, type BROADCAST</emphasis>
+  Interface ID: 5
   Internet Address:
-    inet : 10.1.13.1/26
-    inet6: fe80::c828:72ff:fedf:3608/64
-    inet6: 2001:678:3fc:d::1/64
+    inet : 10.2.91.1/29
+    inet6: fe80::baad:caff:fefe:64/64
   Instance ID 0, Interface MTU 1500 (autodetect: 1500)
   MTU mismatch detection: enabled
   <emphasis>Area ID 0.0.0.0, Cost 1</emphasis>
   State BDR, Transmit Delay 1 sec, Priority 1
   Timer intervals configured:
    Hello 10, Dead 40, Retransmit 5
-  DR: 0.0.3.6 BDR: 0.0.1.6
+  DR: 7.0.6.3 BDR: 7.0.6.1
   Number of I/F scoped LSAs is 2
     0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
-    0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
-lo is up, type LOOPBACK
-  Interface ID: 1
-   <emphasis>OSPF not enabled on this interface</emphasis></screen>
+    0 Pending LSAs for LSAck in Time 00:00:00 [thread off]</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment retrouver l'identifiant de
-		routeur&nbsp;?</phrase></para>
+	<para><phrase>Comment vérifier que l'identifiant de routeur a correctement
+	été attribué&nbsp;?</phrase></para>
 		
-		<para>À partir des résultats des questions précédentes, rechercher
-		l'information demandée.</para>
+	<para>À partir des résultats des questions précédentes, rechercher
+	l'information demandée.</para>
 	</question>
 	<answer>
-		<para>Quelque soit la version du protocole <acronym>OSPF</acronym>,
-		l'identifiant de routeur est toujours codé sous la forme d'une adresse
-		<acronym>IPv4</acronym>.</para>
+	<para>Quelque soit la version du protocole <acronym>OSPF</acronym>,
+	l'identifiant de routeur est toujours codé sous la forme d'une adresse
+	<acronym>IPv4</acronym>.</para>
 
-<screen><prompt>R1#</prompt> sh ip ospf
- OSPF Routing Process, <emphasis>Router ID: 0.0.1.4</emphasis></screen>
+<screen><prompt>R1-rouge#</prompt> sh ip ospf
+ OSPF Routing Process, <emphasis>Router ID: 7.0.4.1</emphasis></screen>
 
-<screen><prompt>R1#</prompt> sh ipv6 ospf6
- OSPFv3 Routing Process (0) with <emphasis>Router-ID 0.0.1.6</emphasis></screen>
+<screen><prompt>R1-rouge#</prompt> sh ipv6 ospf6
+ OSPFv3 Routing Process (0) with <emphasis>Router-ID 7.0.6.1</emphasis></screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment identifier le type de réseau d'une
-		interface&nbsp;?</phrase></para>
+	<para><phrase>Comment identifier le type de réseau d'une
+	interface&nbsp;?</phrase></para>
 		
-		<para>À partir des résultats des questions précédentes, rechercher
-		l'information demandée.</para>
+	<para>À partir des résultats des questions précédentes, rechercher
+	l'information demandée.</para>
 	</question>
 	<answer>
-		<para>Comme on utilise uniquement des liens Ethernet dans ce contexte
-		de travaux pratiques, le type de réseau est nécessairement
-		diffusion.</para>
+	<para>Comme on utilise uniquement des liens Ethernet dans ce contexte de
+	travaux pratiques, le type de réseau est nécessairement diffusion ou
+	<wordasword>BROADCAST</wordasword>.</para>
 
-<screen><prompt>R1#</prompt> show ip ospf interface eth0.12
-eth0.12 is up
-  ifindex 2, MTU 1500 bytes, BW 1000000 Kbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
-  Internet Address 10.1.12.1/26, Broadcast 10.1.12.63, Area 0.0.0.0
-  MTU mismatch detection:enabled
-  Router ID 0.0.1.4, <emphasis>Network Type BROADCAST</emphasis>, Cost: 1</screen>
+<screen><prompt>R1-rouge#</prompt> sh ip ospf interface enp0s2.290
+enp0s2.290 is up
+  ifindex 4, MTU 1500 bytes, BW 1000 Mbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.2.90.1/29, Broadcast 10.2.90.7, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 7.0.4.1, <emphasis>Network Type BROADCAST</emphasis>, Cost: 1</screen>
 
-<screen><prompt>R1#</prompt> show ipv6 ospf6 interface eth0.12
-eth0.12 is up, <emphasis>type BROADCAST</emphasis></screen>
+<screen><prompt>R1-rouge#</prompt> sh ipv6 ospf6 interface enp0s2.290
+enp0s2.290 is up, <emphasis>type BROADCAST</emphasis></screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment obtenir la liste du ou des routeurs voisins pour
-		chaque processus de protocole de routage dynamique
-		<acronym>OSPFv2</acronym> ou
-		<acronym>OSPFv3</acronym>&nbsp;?</phrase></para>
+	<para><phrase>Comment obtenir la liste du ou des routeurs voisins pour
+	chaque processus de protocole de routage dynamique
+	<acronym>OSPFv2</acronym> ou
+	<acronym>OSPFv3</acronym>&nbsp;?</phrase></para>
 
-		<para>Dès qu'une interface est active, il y a émission de paquets
-		<option>HELLO</option> et si un routeur avec un démon
-		<acronym>OSPF</acronym> envoie aussi des paquets
-		<option>HELLO</option> dans le même <acronym>VLAN</acronym>, les deux
-		routeurs cherchent à former une adjacence.</para> 
+	<para>Dès qu'une interface est active, il y a émission de paquets
+	<option>HELLO</option> et si un routeur avec un démon
+	<acronym>OSPF</acronym> envoie aussi des paquets <option>HELLO</option>
+	dans le même <acronym>VLAN</acronym>, les deux routeurs cherchent à former
+	une adjacence.</para> 
 
-		<para>La liste des commandes utiles dans la console
-		<application>vtysh</application> est la suivante.</para>
+	<para>La liste des commandes utiles dans la console
+	<application>vtysh</application> est la suivante.</para>
 
-		<simplelist type='horiz'>
-		<member><command>show ip ospf neighbor</command></member>
-		<member><command>show ipv6 ospf6 neighbor</command></member>
-		</simplelist>
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;ip&nbsp;ospf&nbsp;neighbor</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;ospf6&nbsp;neighbor</command></member>
+	</simplelist>
 	</question>
 	<answer>
-		<para>À nouveau sur le routeur <systemitem>R1</systemitem>, voici un
-		exemple de liste de routeurs <acronym>OSPF</acronym> voisins dans
-		laquelle on reconnaît les identifiants des routeurs
-		<systemitem>R2</systemitem> et <systemitem>R3</systemitem>.</para>
+	<para>Toujours à partir du routeur <systemitem>R1-rouge</systemitem>, voici
+	un exemple de liste de routeurs <acronym>OSPF</acronym> voisins dans
+	laquelle on reconnaît les identifiants des routeurs
+	<systemitem>R2-vert</systemitem> et
+	<systemitem>R3-bleu</systemitem>.</para>
 
-<screen><prompt>R1#</prompt> show ip ospf neighbor
+<screen><prompt>R1-rouge#</prompt> sh ip ospf neighbor
 
-Neighbor ID     Pri State           Dead Time Address         Interface            RXmtL RqstL DBsmL
-0.0.2.4           1 Full/DR           32.395s 10.1.12.2       eth0.12:10.1.12.1        0     0     0
-0.0.3.4           1 Full/DR           38.317s 10.1.13.3       eth0.13:10.1.13.1        0     0     0</screen>
+Neighbor ID  Pri State      Dead Time Address      Interface                RXmtL RqstL DBsmL
+<emphasis>7.0.4.2</emphasis>        1 Full/DR      34.442s 10.2.90.2    enp0s2.290:10.2.90.1         0     0     0
+<emphasis>7.0.4.3</emphasis>        1 Full/DR      34.442s 10.2.91.3    enp0s2.291:10.2.91.1         0     0     0</screen>
 
-<screen><prompt>R1#</prompt> show ipv6 ospf6 neighbor
-Neighbor ID     Pri    DeadTime  State/IfState         Duration I/F[State]
-0.0.2.6           1    00:00:31   Full/DR              02:04:11 eth0.12[BDR]
-0.0.3.6           1    00:00:31   Full/DR              02:04:01 eth0.13[BDR]</screen>
+<screen><prompt>R1-rouge#</prompt> sh ipv6 ospf6 neighbor
+Neighbor ID     Pri    DeadTime    State/IfState         Duration I/F[State]
+<emphasis>7.0.6.2</emphasis>           1    00:00:35     Full/DR            1d01:05:34 enp0s2.290[BDR]
+<emphasis>7.0.6.3</emphasis>           1    00:00:35     Full/DR            1d01:05:33 enp0s2.291[BDR]</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment identifier le rôle des différentes interfaces des
-		routeurs pour chacun des liens du triangle de la topologie
-		logique&nbsp;?</phrase></para>
+	<para><phrase>Comment identifier le rôle des différentes interfaces des
+	routeurs pour chacun des liens du triangle de la topologie
+	logique&nbsp;?</phrase></para>
 
-	<warning>
-		<para>La réponse à cette question suppose que les démons
-		<acronym>OSPF</acronym> des trois routeurs de la topologie logique en
-		triangle aient convergé. On doit repérer l'état <option>Full</option>
-		pour les listes de routeurs voisins.</para>
+<warning>
+	<para>La réponse à cette question suppose que les démons
+	<acronym>OSPF</acronym> des trois routeurs de la topologie logique en
+	triangle aient convergé. On doit repérer l'état <option>Full</option> pour
+	les listes de routeurs voisins.</para>
 
-		<para>De plus, la réponse varie en fonction de l'ordre d'activation des
-		démons <acronym>OSPF</acronym> des différents routeurs. En effet, un
-		routeur peut être élu routeur désigné (<acronym>DR</acronym>) en
-		l'absence de routeurs voisins. Cette élection n'est pas remise en cause
-		tant qu'il n'y pas de changement d'état de lien.</para>
-	</warning>
+	<para>De plus, la réponse varie en fonction de l'ordre d'activation des
+	démons <acronym>OSPF</acronym> des différents routeurs. En effet, un
+	routeur peut être élu routeur désigné (<acronym>DR</acronym>) en l'absence
+	de routeurs voisins. Cette élection n'est pas remise en cause tant qu'il
+	n'y pas de changement d'état de lien.</para>
+</warning>
 
-		<para>À partir des résultats des questions précédentes sur les
-		interfaces actives, il est possible de compléter le schéma de la
-		topologie étudiée avec l'état des interfaces pour chacun des trois
-		liens.</para>
+	<para>À partir des résultats des questions précédentes sur les interfaces
+	actives, il est possible de compléter le schéma de la topologie étudiée
+	avec l'état des interfaces pour chacun des trois liens.</para>
 	</question>
 	<answer>
 	<mediaobject>
