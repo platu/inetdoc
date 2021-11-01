@@ -103,7 +103,7 @@
             <xsl:value-of select="$monospace.font.family"/>
         </xsl:attribute>
         <xsl:attribute name="font-size">
-          <xsl:value-of select="$body.font.master * 0.75"/>
+          <xsl:value-of select="$body.font.master * 0.72"/>
           <xsl:text>pt</xsl:text>
 	</xsl:attribute>
     </xsl:attribute-set>
@@ -195,7 +195,7 @@
 		</fo:block>
 
 		<fo:block color="#fff" background-color="#cc0033" text-align="left"
-		font-family="SourceSansPro-It" font-style="italic" font-size="9pt" padding="3pt">
+		font-family="IBMPlexMono" font-size="9pt" padding="3pt">
 		<xsl:text>https://www.inetdoc.net</xsl:text>
 		</fo:block>
 
