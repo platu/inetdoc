@@ -2018,6 +2018,45 @@ R    7.0.4.1               [1] area: 0.0.0.0, ASBR
 	défaut ont été apprises via le protocole <acronym>OSPF</acronym>.</para>
 	</answer>
 	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment assurer la traduction d'adresses source sur
+	l'interface de sortie du routeur <systemitem
+	class='systemname'>R1-rouge</systemitem> vers l'Internet&nbsp;?</phrase></para>
+
+	<para>Reprendre la section <citetitle>Rôle routeur</citetitle> du support
+	&url.interco.inter-vlan-cloud;.</para>
+	</question>
+	<answer>
+	<para>Dans le cas de la maquette, c'est l'interface
+	<systemitem>enp0s2.300</systemitem> qui assure l'interconnexion avec
+	l'Internet. Voici une copie de chaque fichier de configuration après
+	installation du paquet
+	<application>iptables-persistent</application>.</para> 
+
+<screen><prompt>etu@R1-rouge:~$</prompt> aptitude versions iptables-persistent
+i   1.0.15                    testing                   500</screen>
+
+<screen><prompt>etu@R1-rouge:~$</prompt> sudo cat /etc/iptables/rules.v4
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+-A POSTROUTING -o enp0s2.300 -j MASQUERADE
+COMMIT</screen>
+
+<screen><prompt>etu@R1-rouge:~$</prompt> sudo cat /etc/iptables/rules.v6
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+-A POSTROUTING -o enp0s2.300 -j MASQUERADE
+COMMIT</screen>
+	</answer>
+	</qandaentry>
 	</qandaset>
 </sect1>
 
@@ -2335,6 +2374,60 @@ lxc exec c$i -- apt update
 done</screen>
 	</listitem>
 	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment vérifier que tous les réseaux de conteneurs sont bien
+	visiblede la topologie <acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+	<para>Afficher les tables de routage <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> de l'un des trois routeurs et vérifier la présence
+	des trois réseaux de conteneurs.</para>
+	</question>
+	<answer>
+	<para>Voici le résultat obtenu depuis la console du routeur <systemitem
+	class='systemname'>R3-bleu</systemitem>.</para>
+
+<screen><prompt>R3-bleu#</prompt> sh ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+O>* 0.0.0.0/0 [110/10] via 10.2.91.1, enp0s2.291, weight 1, 08:47:38
+O>* 10.2.90.0/29 [110/2] via 10.2.91.1, enp0s2.291, weight 1, 09:18:07
+  *                      via 10.2.93.2, enp0s2.293, weight 1, 09:18:07
+O   10.2.91.0/29 [110/1] is directly connected, enp0s2.291, weight 1, 09:19:07
+C>* 10.2.91.0/29 is directly connected, enp0s2.291, 09:19:07
+<emphasis>O>* 10.2.92.0/24 [110/2] via 10.2.91.1, enp0s2.291,</emphasis> weight 1, 00:00:38
+O   10.2.93.0/29 [110/1] is directly connected, enp0s2.293, weight 1, 09:19:07
+C>* 10.2.93.0/29 is directly connected, enp0s2.293, 09:19:07
+<emphasis>O>* 10.2.94.0/24 [110/2] via 10.2.93.2, enp0s2.293,</emphasis> weight 1, 09:18:17
+O   10.2.95.0/24 [110/1] is directly connected, sw-vlan295, weight 1, 09:19:07
+<emphasis>C>* 10.2.95.0/24 is directly connected, sw-vlan295,</emphasis> 09:19:07</screen>
+
+<screen><prompt>R3-bleu#</prompt> sh ipv6 route
+Codes: K - kernel route, C - connected, S - static, R - RIPng,
+       O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
+       v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+O>* ::/0 [110/10] via fe80::baad:caff:fefe:64, enp0s2.291, weight 1, 08:56:32
+<emphasis>O>* 2001:678:3fc:124::/64 [110/2] via fe80::baad:caff:fefe:64, enp0s2.291,</emphasis> weight 1, 00:09:40
+<emphasis>O>* 2001:678:3fc:126::/64 [110/2] via fe80::baad:caff:fefe:65, enp0s2.293,</emphasis> weight 1, 09:27:27
+O   2001:678:3fc:127::/64 [110/1] is directly connected, sw-vlan295, weight 1, 09:28:12
+<emphasis>C>* 2001:678:3fc:127::/64 is directly connected, sw-vlan295,</emphasis> 09:28:12
+C * fe80::/64 is directly connected, asw-host, 09:28:11
+C * fe80::/64 is directly connected, enp0s2.293, 09:28:12
+C * fe80::/64 is directly connected, enp0s2, 09:28:12
+C * fe80::/64 is directly connected, enp0s2.291, 09:28:13
+C>* fe80::/64 is directly connected, sw-vlan295, 09:28:13</screen>
 	</answer>
 	</qandaentry>
 </qandadiv>
