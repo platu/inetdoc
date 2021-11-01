@@ -1062,7 +1062,7 @@ end</screen>
 		<member><command>show&nbsp;ipv6&nbsp;route&nbsp;connected</command></member>
 		<member><command>show&nbsp;ipv6&nbsp;route&nbsp;ospf</command></member>
 		<member><command>ip&nbsp;ospf&nbsp;area&nbsp;0</command></member>
-		<member><command>ipv6&nbsp;ospf&nbsp;area&nbsp;0</command></member>
+		<member><command>ipv6&nbsp;ospf6&nbsp;area&nbsp;0</command></member>
 	</simplelist>
 	</question>
 	<answer>
@@ -2032,226 +2032,315 @@ R    7.0.4.1               [1] area: 0.0.0.0, ASBR
 	<para>Une fois ces réseaux en place, il est possible de réaliser des tests
 	de connectivité entre conteneurs et d'optimiser les métriques.</para>
 
+	<para>Cette partie reprend le contenu de la section <citetitle>Rôle serveur
+	de conteneurs</citetitle> du support de travaux pratiques
+	&url.interco.inter-vlan-cloud;.</para>
+
 <qandaset>
 <qandadiv>
 	<qandaentry>
 	<question>
-	<para><phrase>Comment créer et configurer une interface réseau virtuelle de
-	type <wordasword>dummy</wordasword>&nbsp;?</phrase></para>
+	<para><phrase>Quelle est la suite de commande à exécuter pour mettre en
+	place de gestionnaire de conteneurs
+	<citetitle>LXD</citetitle>&nbsp;?</phrase></para>
 
-	<para>Consulter les pages de manuels de la commande <command>ip</command>
-	au niveau liaison <command>man ip-link</command> et rechercher les
-	information sur le type <systemitem>dummy</systemitem>.</para>
-
-	<para>Vérifier la présence d'une nouvelle entrée dans la table de routage
-	au niveau système.</para>
+	<para>consulter la section <citetitle>rôle serveur de
+	conteneurs</citetitle>.</para>
 	</question>
 	<answer>
-	<para>Sur le routeur <systemitem class='systemname'>R1</systemitem>, on
-	créé une nouvelle interface avec des adresses appartenant à deux nouveaux
-	préfixes réseau définis les tableaux du plan d'adressage.</para>
+	<para>Voici un exemple pour le routeur <systemitem
+	class='systemname'>R2-vert</systemitem>.</para>
 
-<screen><prompt>#</prompt> ip link add dummy0 type dummy
-<prompt>#</prompt> ip link set dev dummy0 up
-<prompt>#</prompt> ip addr add 10.1.1.1/29 brd + dev dummy0
-<prompt>#</prompt> ip -6 addr add 2001:678:3fc:b::1/64 dev dummy0</screen>
+<screen><prompt>$</prompt> sudo apt install snapd
+<prompt>$</prompt> sudo snap install lxd
+<prompt>$</prompt> sudo adduser etu lxd
+<prompt>$</prompt> snap list
+Name    Version   Rev    Tracking       Publisher   Notes
+core20  20210928  1169   latest/stable  canonical✓  base
+lxd     4.19      21780  latest/stable  canonical✓  -
+snapd   2.52.1    13640  latest/stable  canonical✓  snapd</screen>
 
-<screen><prompt>R1:~#</prompt> ip route ls dev dummy0
-10.1.1.0/29 proto kernel scope link src 10.1.1.1</screen>
+	<para>Après déconnexion - reconnexion, on peut passer à l'étape de
+	définition du profil par défaut pour la création des conteneurs.</para>
 
-<screen><prompt>R1:~#</prompt> ip -6 route ls dev dummy0
-2001:678:3fc:b::/64 proto kernel metric 256 pref medium
-fe80::/64 proto kernel metric 256 pref medium</screen>
+<screen><prompt>etu@R2-vert:~$</prompt> lxd init
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+Would you like to use LXD clustering? (yes/no) [default=no]:
+Do you want to configure a new storage pool? (yes/no) [default=yes]:
+Name of the new storage pool [default=default]:
+Name of the storage backend to use (ceph, btrfs, dir, lvm) [default=btrfs]:
+Create a new BTRFS pool? (yes/no) [default=yes]:
+Would you like to use an existing empty block device (e.g. a disk or partition)? (yes/no) [default=no]:
+Size in GB of the new loop device (1GB minimum) [default=13GB]:
+Would you like to connect to a MAAS server? (yes/no) [default=no]:
+Would you like to create a new local network bridge? (yes/no) [default=yes]: <emphasis>no</emphasis>
+Would you like to configure LXD to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
+Name of the existing bridge or host interface: <emphasis>sw-vlan294</emphasis>
+Would you like the LXD server to be available over the network? (yes/no) [default=no]:
+Would you like stale cached images to be updated automatically? (yes/no) [default=yes]
+Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]:
 
-		<para>Cette nouvelle interface apparaît automatiquement dans la console
-		unifiée <command>vtysh</command> des démons de routage de la suite
-		<citetitle>FRRouting</citetitle>.</para>
+<prompt>etu@R2-vert:~$</prompt> lxc profile device set default eth0 nictype bridged</screen>
 
-<screen><prompt>R1#</prompt> sh interface dummy0
-<emphasis>Interface dummy0 is up, line protocol is up</emphasis>
-  Link ups:       1  last: Mon, 15 Oct 2018 12:01:14 +0000
-  Link downs:     0  last: (never)
-  vrf: 0
-  index 4 metric 0 mtu 1500
-  flags: &lt;UP,BROADCAST,RUNNING,NOARP>
-  Type: Unknown
-  HWaddr: d2:57:b1:cb:be:32
-  inet 10.1.1.1/29 broadcast 10.1.1.7
-  inet6 fe80::d057:b1ff:fecb:be32/64
-  inet6 2001:678:3fc:b::1/64</screen>
+	<para>Voici une copie du profil après configuration.</para>
+
+<screen><prompt>etu@R2-vert:~$</prompt> lxc profile show default
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+config: {}
+description: Default LXD profile
+devices:
+  eth0:
+    name: eth0
+    nictype: bridged
+    parent: sw-vlan294
+    type: nic
+  root:
+    path: /
+    pool: default
+    type: disk
+name: default
+used_by: []</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment publier les préfixes réseau correspondant à
-		l'interface <option>dummy0</option> via <acronym>OSPF</acronym> avec un
-		débit binaire de lien à 100Mbps&nbsp;?</phrase></para>
+	<para><phrase>Comment créer 3 conteneurs avec un adressage
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> conforme au plan
+	défini&nbsp;?</phrase></para>
 
-		<para>Une fois la console <application>vtysh</application> ouverte,
-		accéder en mode configuration de l'interface puis des deux démons de
-		routage.</para>
-
-		<simplelist type='horiz'>
-		<member><command>interface dummyX</command></member>
-		<member><command>bandwidth</command></member>
-		<member><command>router ospf</command></member>
-		<member><command>network A.B.C.D/MM area 0</command></member>
-		<member><command>router ospf6</command></member>
-		<member><command>interface dummyX area 0.0.0.0</command></member>
-		</simplelist>
+	<para>consulter la section <citetitle>rôle serveur de
+	conteneurs</citetitle>.</para>
 	</question>
 	<answer>
-		<para>On commence par la définition du débit binaire au niveau de
-		l'interface.</para>
+	<para>On commence par la création des 3 conteneurs demandés.</para>
 
-<screen><prompt>R1#</prompt> conf t
-R1(config)# int dummy0
-R1(config-if)# bandwidth 100000
-R1(config-if)# ^Z</screen>
+<screen><prompt>etu@R2-vert:~$</prompt> for i in {0..2}
+do
+lxc launch images:debian/bullseye c$i
+done
+<prompt>etu@R2-vert:~$</prompt> lxc ls
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
++------+---------+------+------+-----------+-----------+
+| NAME |  STATE  | IPV4 | IPV6 |   TYPE    | SNAPSHOTS |
++------+---------+------+------+-----------+-----------+
+| c0   | RUNNING |      |      | CONTAINER | 0         |
++------+---------+------+------+-----------+-----------+
+| c1   | RUNNING |      |      | CONTAINER | 0         |
++------+---------+------+------+-----------+-----------+
+| c2   | RUNNING |      |      | CONTAINER | 0         |
++------+---------+------+------+-----------+-----------+</screen>
 
-		<para>On peut ensuite publier les préfixes réseau
-		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> au niveau de chaque
-		instance de protocole de routage <acronym>OSPF</acronym>.</para> 
+		<para>Les conteneurs sont bien lancés. On peut passer à l'adressage. On
+		commence par <acronym>IPv6</acronym> et le paquet
+		<application>radvd</application>.</para>
 
-<screen><prompt>R1#</prompt> conf t
-R1(config)# router ospf
-R1(config-router)# network 10.1.1.0/29 area 0
-R1(config-router)# ^Z</screen>
+<screen><prompt>etu@R2-vert:~$</prompt> sudo apt install radvd</screen>
 
-<screen><prompt>R1#</prompt> conf t
-R1(config)# router ospf6
-R1(config-ospf6)# interface dummy0 area 0.0.0.0
-R1(config-ospf6)# ^Z</screen>
+<screen><prompt>etu@R2-vert:~$</prompt> cat &lt;&lt; EOF | sudo tee /etc/radvd.conf
+interface sw-vlan294
+{
+        AdvSendAdvert on;
 
-		<para>Enfin, on vérifie la présence des deux préfixes réseau dans les
-		bases <acronym>OSPF</acronym>.</para>
+        prefix 2001:678:3fc:126::/64
+        {
+                AdvOnLink on;
+                AdvAutonomous on;
+                AdvRouterAddr on;
+        };
 
-<screen><prompt>R1#</prompt> sh ip route 10.1.1.0/29
-Routing entry for 10.1.1.0/29
-  <emphasis>Known via "ospf", distance 110, metric 10, tag 0, vrf 0</emphasis>
-  Last update 00:03:45 ago
-  >  directly connected, dummy0
+        RDNSS 2620:fe::fe
+        {
+        };
+};
+EOF</screen>
 
-Routing entry for 10.1.1.0/29
-  Known via "connected", distance 0, metric 0, tag 0, vrf 0, best, fib
-  >* directly connected, dummy0</screen>
+<screen><prompt>etu@R2-vert:~$</prompt> sudo systemctl restart radvd
+<prompt>etu@R2-vert:~$</prompt> sudo systemctl status radvd</screen>
 
-<screen><prompt>R1#</prompt> sh ipv6 route 2001:678:3fc:b::/64
-Routing entry for 2001:678:3fc:b::/64
-  <emphasis>Known via "ospf6", distance 110, metric 10, tag 0, vrf 0</emphasis>
-  Last update 00:04:20 ago
-  >  directly connected, dummy0
+	<para>Pour terminer avec l'adressage <acronym>IPv6</acronym>, on désigne le
+	<wordasword>resolver</wordasword> <acronym>DNS</acronym>.</para>
 
-Routing entry for 2001:678:3fc:b::/64
-  Known via "connected", distance 0, metric 0, tag 0, vrf 0, best, fib
-  >* directly connected, dummy0</screen>
+<screen><prompt>$</prompt> for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> c$i"
+lxc exec c$i -- sh -c "echo 'nameserver 2620:fe::fe' > /etc/resolv.conf"
+done</screen>
+
+	<para>Suivant le préfixe réseau attribué, on obtient le résultat analogue à
+	la copie d'écran ci-dessous.</para>
+
+<screen><prompt>$</prompt> lxc ls
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
++------+---------+------+--------------------------------------------+-----------+-----------+
+| NAME |  STATE  | IPV4 |                    IPV6                    |   TYPE    | SNAPSHOTS |
++------+---------+------+--------------------------------------------+-----------+-----------+
+| c0   | RUNNING |      | 2001:678:3fc:126:216:3eff:fe41:6129 (eth0) | CONTAINER | 0         |
++------+---------+------+--------------------------------------------+-----------+-----------+
+| c1   | RUNNING |      | 2001:678:3fc:126:216:3eff:fe10:c004 (eth0) | CONTAINER | 0         |
++------+---------+------+--------------------------------------------+-----------+-----------+
+| c2   | RUNNING |      | 2001:678:3fc:126:216:3eff:fe82:ad5b (eth0) | CONTAINER | 0         |
++------+---------+------+--------------------------------------------+-----------+-----------+</screen>
+
+	<para>Pour l'adressage <acronym>IPv4</acronym>, on passe en “mode manuel“
+	en définissant un nouveau contenu pour le fichier
+	<filename>/etc/network/interfaces</filename> de chaque conteneur.</para>
+
+<screen><prompt>$</prompt> for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> c$i"
+content=$(cat &lt;&lt; EOF
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto eth0
+iface eth0 inet static
+        address 10.2.94.$((i + 10))/24
+        gateway 10.2.94.1
+EOF
+)
+lxc exec c$i -- sh -c " echo \"${content}\" | tee /etc/network/interfaces"
+done</screen>
+
+	<para>Le résultat de cette nouvelle configuration n'est visible qu'après un
+	redémarrage des conteneurs.</para>
+
+<screen><prompt>$</prompt> for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> c$i"
+lxc restart c$i
+done</screen>
+
+<screen><prompt>$</prompt> lxc ls
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
++------+---------+-------------------+--------------------------------------------+-----------+-----------+
+| NAME |  STATE  |       IPV4        |                    IPV6                    |   TYPE    | SNAPSHOTS |
++------+---------+-------------------+--------------------------------------------+-----------+-----------+
+| c0   | RUNNING | 10.2.94.10 (eth0) | 2001:678:3fc:126:216:3eff:fe41:6129 (eth0) | CONTAINER | 0         |
++------+---------+-------------------+--------------------------------------------+-----------+-----------+
+| c1   | RUNNING | 10.2.94.11 (eth0) | 2001:678:3fc:126:216:3eff:fe10:c004 (eth0) | CONTAINER | 0         |
++------+---------+-------------------+--------------------------------------------+-----------+-----------+
+| c2   | RUNNING | 10.2.94.12 (eth0) | 2001:678:3fc:126:216:3eff:fe82:ad5b (eth0) | CONTAINER | 0         |
++------+---------+-------------------+--------------------------------------------+-----------+-----------+</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment installer un service Web en écoute exclusivement sur
-	les adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym> de
-	l'interface <option>dummy0</option>&nbsp;?</phrase></para>
+	<para><phrase>Comment publier les réseaux de conteneurs dans l'aire
+	<acronym>OSPF</acronym>&nbsp;?</phrase></para>
 
-	<para>Installer le paquet <systemitem>lighttpd</systemitem> et modifier sa
-	configuration pour que le service ne soit accessible que sur les adresses
-	de l'interface <systemitem>dummy0</systemitem>.</para>
+	<para>Ajouter chaque interface <acronym>SVI</acronym> dans l'aire
+	<acronym>OSPF</acronym> et s'assurer qu'aucune annonce de protocole de
+	routage n'est émise en direction des conteneurs.</para> 
+
+	<para>La liste des commandes utiles en mode console et en mode
+	configuration dans <application>vtysh</application> est la suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>ip&nbsp;ospf&nbsp;area&nbsp;0</command></member>
+		<member><command>ipv6&nbsp;ospf6&nbsp;area&nbsp;0</command></member>
+		<member><command>ip&nbsp;ospf&nbsp;passive</command></member>
+		<member><command>ipv6&nbsp;ospf6&nbsp;passive</command></member>
+	</simplelist>
 	</question>
 	<answer>
-<screen><prompt>#</prompt> aptitude install lighttpd
-&lt;snipped/></screen>
+	<para>Voici un exemple de configuration pour le routeur <systemitem
+	class='systemname'>R2-vert</systemitem>.</para>
 
-	<para>On modifie ensuite le fichier de configuration
-	<filename>/etc/lighttpd/lighttpd.conf</filename> de façon à limiter l'accès
-	aux adresses voulues.</para>
+<screen><prompt>R2-vert#</prompt> conf t
+R2-vert(config)# int sw-vlan294
+R2-vert(config-if)# ip ospf area 0
+R2-vert(config-if)# ip ospf passive
+R2-vert(config-if)# ipv6 ospf6 area 0
+R2-vert(config-if)# ipv6 ospf6 passive
+R2-vert(config-if)# ^Z
+R2-vert#</screen>
 
-<screen><?dbfo keep-together="auto" ?><xi:include href='files/lighttpd.conf.patch'
-parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	<para>On vérifie que l'interface est bien active pour chacun des deux
+	protocoles de routage dynamique.</para>
 
-	<para>Après avoir redémarré l'instance de serveur Web, on vérifie que la
-	nouvelle configuration est bien en place.</para>
+<screen><prompt>R2-vert#</prompt> sh ip ospf interface sw-vlan294
+<emphasis>sw-vlan294 is up</emphasis>
+  ifindex 4, MTU 1500 bytes, BW 0 Mbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.2.94.1/24, Broadcast 10.2.94.255, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 7.0.4.2, Network Type BROADCAST, Cost: 1
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 7.0.4.2 Interface Address 10.2.94.1/24
+  No backup designated router on this network
+  Multicast group memberships: &lt;None>
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    <emphasis>No Hellos (Passive interface)</emphasis>
+  Neighbor Count is 0, Adjacent neighbor count is 0</screen>
 
-<screen><prompt>#</prompt> systemctl restart lighttpd
-&lt;snipped>
-<prompt>#</prompt> ss -nlt '( src :80 )'
-State       Recv-Q Send-Q       Local Address:Port      Peer Address:Port
-LISTEN      0      128               10.1.1.1:80             0.0.0.0:*
-LISTEN      0      128    [2001:678:3fc:b::1]:80                [::]:*</screen>
+<screen><prompt>R2-vert#</prompt> sh ipv6 ospf6 interface sw-vlan294
+<emphasis>sw-vlan294 is up, type BROADCAST</emphasis>
+  Interface ID: 4
+  Internet Address:
+    inet : 10.2.94.1/24
+    inet6: fe80::106d:34ff:fe1e:7d4d/64
+    inet6: 2001:678:3fc:126::1/64
+  Instance ID 0, Interface MTU 1500 (autodetect: 1500)
+  MTU mismatch detection: enabled
+  Area ID 0.0.0.0, Cost 1
+  State DR, Transmit Delay 1 sec, Priority 1
+  Timer intervals configured:
+   Hello 10, Dead 40, Retransmit 5
+  DR: 7.0.6.2 BDR: 0.0.0.0
+  Number of I/F scoped LSAs is 1
+    0 Pending LSAs for LSUpdate in Time 00:00:00 [<emphasis>thread off</emphasis>]
+    0 Pending LSAs for LSAck in Time 00:00:00 [<emphasis>thread off</emphasis>]</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment valider l'accès à ce service Web depuis les
-		autres réseaux&nbsp;?</phrase></para>
+	<para><phrase>Comment valider l'accès à l'Internet depuis les
+	conteneurs&nbsp;?</phrase></para>
 
-		<para>En respectant l'ordre des protocoles de la pile
-		<acronym>TCP/IP</acronym>, on commence par valider la connectivité au
-		niveau réseau avant de passer à la couche application.</para>
+	<para>On reprend la liste des tests <acronym>ICMP</acronym> pour valider
+	l'acheminement du trafic au niveau de la couche réseau et on lance une mise
+	à jour du catalogue des paquets pour valider la résolution des noms.</para>
 	</question>
 	<answer>
-		<para>À partir du routeur <systemitem
-		class='systemname'>R2</systemitem>, on utilise la séquence
-		suivante&nbsp;:</para>
+	<para>À partir du routeur <systemitem class='systemname'>R2</systemitem>,
+	on utilise les séquences suivantes&nbsp;:</para>
 
-		<itemizedlist>
-		<listitem>
-			<para>Test <acronym>ICMP</acronym> au niveau réseau&nbsp;:</para>
+	<itemizedlist>
+	<listitem>
+	<para>Tests <acronym>ICMP</acronym> au niveau réseau&nbsp;:</para>
 
-<screen><prompt>R2:~#</prompt> ping -c2 10.1.1.1
-PING 10.1.1.1 (10.1.1.1) 56(84) bytes of data.
-64 bytes from 10.1.1.1: icmp_seq=1 ttl=64 time=0.648 ms
-64 bytes from 10.1.1.1: icmp_seq=2 ttl=64 time=0.090 ms
+<screen><prompt>$</prompt> for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> c$i"
+lxc exec c$i -- ping -c2 9.9.9.9
+done</screen>
 
---- 10.1.1.1 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 26ms
-rtt min/avg/max/mdev = 0.090/0.369/0.648/0.279 ms</screen>
+<screen><prompt>$</prompt> for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> c$i"
+lxc exec c$i -- ping -c2 2620:fe::fe
+done</screen>
+	</listitem>
+	<listitem>
+	<para>Tests au niveau application avec résolution des noms&nbsp;:</para>
 
-<screen><prompt>R2:~#</prompt> ping -c2 2001:678:3fc:b::1
-PING 2001:678:3fc:b::1(2001:678:3fc:b::1) 56 data bytes
-64 bytes from 2001:678:3fc:b::1: icmp_seq=1 ttl=64 time=0.567 ms
-64 bytes from 2001:678:3fc:b::1: icmp_seq=2 ttl=64 time=0.086 ms
-
---- 2001:678:3fc:b::1 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 24ms
-rtt min/avg/max/mdev = 0.086/0.326/0.567/0.241 ms</screen>
-		</listitem>
-		<listitem>
-			<para>Test <acronym>HTTP</acronym> au niveau
-			application&nbsp;:</para>
-
-<screen><prompt>R2:~#</prompt> wget -O /dev/null http://10.1.1.1
---2018-10-15 17:00:47--  http://10.1.1.1/
-Connexion à 10.1.1.1:80… connecté.
-requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
-Taille : 3378 (3,3K) [text/html]
-Sauvegarde en : « /dev/null »
-
-/dev/null    100%[======================>]   3,30K  --.-KB/s    ds 0s
-
-2018-10-15 17:00:47 (298 MB/s) — « /dev/null » sauvegardé [3378/3378]</screen>
-
-<screen><prompt>R2:~#</prompt> wget -O /dev/null http://[2001:678:3fc:b::1]
---2018-10-15 17:02:17--  http://[2001:678:3fc:b::1]/
-Connexion à [2001:678:3fc:b::1]:80… connecté.
-requête HTTP transmise, en attente de la réponse… 200 OK
-Taille : 3378 (3,3K) [text/html]
-Sauvegarde en : « /dev/null »
-
-/dev/null    100%[======================>]   3,30K  --.-KB/s    ds 0s
-
-2018-10-15 17:02:17 (154 MB/s) — « /dev/null » sauvegardé [3378/3378]</screen>
-		</listitem>
-		</itemizedlist>
+<screen><prompt>$</prompt> for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> c$i"
+lxc exec c$i -- apt update
+done</screen>
+	</listitem>
+	</itemizedlist>
 	</answer>
 	</qandaentry>
 </qandadiv>
 </qandaset>
 </sect1>
 
-<?custom-pagebreak?>
 <sect1 xml:id='interco.ospf-frr.auto-cost'>
 	<title>Adapter de la métrique de lien au débit</title>
 
