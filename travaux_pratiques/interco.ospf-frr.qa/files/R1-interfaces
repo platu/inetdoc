@@ -2,27 +2,50 @@
 auto lo
 iface lo inet loopback
 
-auto eth0
-iface eth0 inet static
-        address 192.0.2.7/27
-        gateway 192.0.2.1
-        dns-nameservers 192.0.2.1 9.9.9.9
+# The primary network interface
+auto enp0s2
+iface enp0s2 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
 
-iface eth0 inet6 static
-        address 2001:678:3fc:a::7/64
-        gateway fe80::dc02:44ff:fe64:4834
-        dns-nameservers 2001:678:3fc:a::1 2620:fe::fe
+# uplink
+auto enp0s2.300
+iface enp0s2.300 inet static
+	address 10.141.0.162/27
+	gateway 10.141.0.161
+	dns-nameserver 172.16.0.2
 
-auto eth0.12
-iface eth0.12 inet static
-        address 10.1.12.1/26
+iface enp0s2.300 inet6 static
+	address 2001:678:3fc:12c::2/64
+	gateway 2001:678:3fc:12c::1
 
-iface eth0.12 inet6 static
-        address 2001:678:3fc:c::1/64
+# R1 -> R2
+auto enp0s2.290
+iface enp0s2.290 inet static
+	address 10.2.90.1/29
 
-auto eth0.13
-iface eth0.13 inet static
-        address 10.1.13.1/26
+# R1 -> R3
+auto enp0s2.291
+iface enp0s2.291 inet static
+	address 10.2.91.1/29
 
-iface eth0.13 inet6 static
-        address 2001:678:3fc:d::1/64
+# R1 -> lxd
+auto asw-host
+iface asw-host inet manual
+	ovs_type OVSBridge
+	ovs_ports sw-vlan292
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+allow-asw-host sw-vlan292
+iface sw-vlan292 inet static
+	ovs_type OVSBridge
+	ovs_bridge asw-host
+	ovs_options asw-host 292
+	address 10.2.92.1/24
+
+iface sw-vlan292 inet6 static
+	ovs_type OVSBridge
+	ovs_bridge asw-host
+	ovs_options asw-host 292
+	address 2001:678:3fc:124::1/64

@@ -464,57 +464,8 @@ net.ipv4.conf.all.log_martians = 1</screen>
 	<filename>/etc/network/interfaces</filename> pour le routeur
 	<systemitem>R1</systemitem> de la maquette.</para>
 
-<screen># The loopback network interface
-auto lo
-iface lo inet loopback
-
-# The primary network interface
-auto enp0s2
-iface enp0s2 inet manual
-	up ip link set dev $IFACE up
-	down ip link set dev $IFACE down
-
-# uplink
-auto enp0s2.300
-iface enp0s2.300 inet static
-	address 10.141.0.162/27
-	gateway 10.141.0.161
-	dns-nameserver 172.16.0.2
-
-iface enp0s2.300 inet6 static
-	address 2001:678:3fc:12c::2/64
-	gateway 2001:678:3fc:12c::1
-
-# R1 -> R2
-auto enp0s2.290
-iface enp0s2.290 inet static
-	address 10.2.90.1/29
-
-# R1 -> R3
-auto enp0s2.291
-iface enp0s2.291 inet static
-	address 10.2.91.1/29
-
-# R1 -> lxd
-auto asw-host
-iface asw-host inet manual
-	ovs_type OVSBridge
-	ovs_ports sw-vlan292
-	up ip link set dev $IFACE up
-	down ip link set dev $IFACE down
-
-allow-asw-host sw-vlan292
-iface sw-vlan292 inet static
-	ovs_type OVSBridge
-	ovs_bridge asw-host
-	ovs_options asw-host 292
-	address 10.2.92.1/24
-
-iface sw-vlan292 inet6 static
-	ovs_type OVSBridge
-	ovs_bridge asw-host
-	ovs_options asw-host 292
-	address 2001:678:3fc:124::1/64</screen>
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R1-interfaces'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 
 	<para>On adapte la liste des interfaces pour les deux autres routeurs
 	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> avec les numéros
@@ -2038,23 +1989,59 @@ R    7.0.4.1               [1] area: 0.0.0.0, ASBR
 <screen><prompt>etu@R1-rouge:~$</prompt> aptitude versions iptables-persistent
 i   1.0.15                    testing                   500</screen>
 
-<screen><prompt>etu@R1-rouge:~$</prompt> sudo cat /etc/iptables/rules.v4
+<screen><prompt>etu@R1-rouge:~$</prompt> cat &lt;&lt; EOF | sudo tee /etc/iptables/rules.v4
 *nat
 :PREROUTING ACCEPT [0:0]
 :INPUT ACCEPT [0:0]
 :OUTPUT ACCEPT [0:0]
 :POSTROUTING ACCEPT [0:0]
 -A POSTROUTING -o enp0s2.300 -j MASQUERADE
-COMMIT</screen>
+COMMIT
+EOF</screen>
 
-<screen><prompt>etu@R1-rouge:~$</prompt> sudo cat /etc/iptables/rules.v6
+<screen><prompt>etu@R1-rouge:~$</prompt> cat &lt;&lt; EOF | sudo tee /etc/iptables/rules.v6
 *nat
 :PREROUTING ACCEPT [0:0]
 :INPUT ACCEPT [0:0]
 :OUTPUT ACCEPT [0:0]
 :POSTROUTING ACCEPT [0:0]
 -A POSTROUTING -o enp0s2.300 -j MASQUERADE
-COMMIT</screen>
+COMMIT
+EOF</screen>
+
+<screen><prompt>etu@R1-rouge:~$</prompt> sudo sh -c "iptables-restore &lt; /etc/iptables/rules.v4
+<prompt>etu@R1-rouge:~$</prompt> sudo sh -c "ip6tables-restore &lt; /etc/iptables/rules.v6</screen>
+
+	<para>Une fois le jeu de règles en place, on peut vérifier leur utilisation
+	à partir du relevé des compteurs de paquets traités.</para>
+
+<screen><prompt>etu@R1-rouge:~$</prompt> sudo iptables -t nat -vnL
+Chain PREROUTING (policy ACCEPT 520 packets, 35528 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain INPUT (policy ACCEPT 8 packets, 1023 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain OUTPUT (policy ACCEPT 192 packets, 12619 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain POSTROUTING (policy ACCEPT 29 packets, 2112 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+  <emphasis>671 44852</emphasis> MASQUERADE  all  --  *      enp0s2.300  0.0.0.0/0            0.0.0.0/0</screen>
+
+ <screen><prompt>etu@R1-rouge:~$</prompt> sudo ip6tables -t nat -vnL
+Chain PREROUTING (policy ACCEPT 1174 packets, 129K bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain INPUT (policy ACCEPT 163 packets, 25980 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain OUTPUT (policy ACCEPT 23 packets, 2324 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain POSTROUTING (policy ACCEPT 20 packets, 1976 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+  <emphasis>122 10096</emphasis> MASQUERADE  all      *      enp0s2.300  ::/0                 ::/0</screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
@@ -2665,5 +2652,33 @@ Routing entry for 2001:678:3fc:127::/64
 	</listitem>
 	</varlistentry>
 	</variablelist>
+</sect1>
+
+<sect1 xml:id='interco.ospf-frr.conf'>
+	<title>Sauvegarder les fichiers de configuration</title>
+
+	<para>Voici une copie des fichiers de configuration des trois routeurs une
+	fois toutes les manipulations réalisées.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Routeur <systemitem class='systemname'>R1-rouge</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R1-frr.conf'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	</listitem>
+	<listitem>
+	<para>Routeur <systemitem class='systemname'>R2-vert</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R2-frr.conf'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	</listitem>
+	<listitem>
+	<para>Routeur <systemitem class='systemname'>R3-bleu</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R3-frr.conf'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	</listitem>
+	</itemizedlist>
 </sect1>
 </article>
