@@ -86,7 +86,7 @@
     <xsl:param name="title.font.family">IBMPlexSans-Medium</xsl:param>
     <xsl:param name="body.font.family">IBMPlexSerif-Light</xsl:param>
     <xsl:param name="monospace.font.family">IBMPlexMono-Light</xsl:param>
-    <xsl:param name="symbol.font.family">OpenSymbol</xsl:param>
+    <xsl:param name="symbol.font.family">IBMPlexSans</xsl:param>
 
     <!-- Default Font size -->
     <xsl:param name="body.font.master">11</xsl:param>
@@ -152,20 +152,20 @@
 	<fo:block>
 		<fo:block background-color="#333" padding="3pt">
 		<fo:block color="#fff" text-align="right"
-			font-family="SourceSansPro-Bold" font-weight="bold" font-size="18pt" margin-right="10mm">
+			font-family="IBMPlexSans" font-weight="bold" font-size="18pt" margin-right="10mm">
 		<xsl:value-of select="d:title|d:info/d:title" />
 		</fo:block>
 
 		<xsl:for-each select="d:info/*/d:author">
 		<fo:block color="#eee" text-align="right"
-			font-family="SourceSansPro-Bold" font-size="10pt"
+			font-family="IBMPlexSans" font-size="10pt"
 			font-weight="bold" margin-right="10mm">
 		<xsl:value-of select="d:personname/d:firstname"/>
 		<xsl:text> </xsl:text>
 		<xsl:value-of select="d:personname/d:surname"/>
 		</fo:block>
 		<fo:block color="#ddd" text-align="right"
-			font-family="SourceSansPro-Regular" font-style="normal" font-size="9pt" margin-right="10mm">
+			font-family="IBMPlexSans" font-style="normal" font-size="9pt" margin-right="10mm">
 		<xsl:value-of select="d:affiliation/d:address/d:email"/> 
 		</fo:block>
 		</xsl:for-each>
@@ -173,7 +173,7 @@
 		<xsl:choose>
 		<xsl:when test="d:info/*/d:editor|d:info/d:editor">
 		<fo:block color="#ddd" text-align="right" 
-			font-family="SourceSansPro-It" font-style="italic" margin-right="50mm">
+			font-family="IBMPlexSans-Italic" font-style="italic" margin-right="50mm">
 		<xsl:text>Publié par :</xsl:text>
 		</fo:block>
 		</xsl:when>
@@ -181,13 +181,13 @@
 
 		<xsl:for-each select="d:info/*/d:editor">
 		<fo:block color="#eee" text-align="right"
-			font-family="SourceSansPro-Bold" font-weight="bold" font-size="10pt" margin-right="10mm">
+			font-family="IBMPlexSans-Medium" font-weight="bold" font-size="10pt" margin-right="10mm">
 		<xsl:value-of select="d:personname/d:firstname"/>
 		<xsl:text> </xsl:text>
 		<xsl:value-of select="d:personname/d:surname"/>
 		</fo:block>
 		<fo:block color="#ddd" text-align="right"
-		font-family="SourceSansPro" font-size="9pt"
+		font-family="IBMPlexSans" font-size="9pt"
 			margin-right="10mm">
 		<xsl:value-of select="d:affiliation/d:address/d:email"/> 
 		</fo:block>
