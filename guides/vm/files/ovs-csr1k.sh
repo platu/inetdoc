@@ -4,12 +4,16 @@
 # 
 # It starts a qemu/kvm x86 CSR 1000v router which ports are plugged to Open
 # VSwitch ports through already existing tap interfaces named tap???.
+# It should be run by a normal user account which belongs to the kvm system
+# group and is able to run the ovs-vsctl command via sudo
 #
 # The CSR1000v has two GigabitEthernet ports: the first one is considered
 # as the mgmt OOB port and the second one as the in band user traffic port. 
 # 
-# The script should be run by a normal user account which belongs to the kvm
-# system group and is able to run the ovs-vsctl command via sudo.
+# This version of virtual machine startup script uses UEFI boot sequence based
+# on the files provided by the ovmf package.
+# The qemu parameters used here come from ovml package readme file
+# Source: https://github.com/tianocore/edk2/blob/master/OvmfPkg/README
 #
 # File: ovs-csr1k.sh
 # Author: Philippe Latu
@@ -63,6 +67,17 @@ then
 	exit 1
 fi
 
+# Are the OVMF symlink and file copy there ?
+if [[ ! -L "./OVMF_CODE.fd" ]]
+then
+	ln -s /usr/share/OVMF/OVMF_CODE.fd .
+fi
+
+if [[ ! -f "${vm}_OVMF_VARS.fd" ]]
+then
+	cp /usr/share/OVMF/OVMF_VARS.fd ${vm}_OVMF_VARS.fd
+fi
+
 # OOB port mgmt0
 spice=$((7900 + ${tap_mgmt}))
 telnet=$((7000 + ${tap_mgmt}))
@@ -99,7 +114,7 @@ echo -e "~> IPv6 LL address            : ${BLUE}${lladdress}%${svi}${NC}"
 tput sgr0
 
 ionice -c3 qemu-system-x86_64 \
-	-machine type=q35,accel=kvm \
+	-machine type=q35,accel=kvm:tcg \
 	-cpu max,l3-cache=on \
 	-device intel-iommu \
 	-daemonize \
@@ -108,14 +123,17 @@ ionice -c3 qemu-system-x86_64 \
 	--device virtio-balloon \
 	-smp 8,threads=2 \
 	-rtc base=localtime,clock=host \
-	-watchdog i6300esb \
-	-watchdog-action none \
+	-device i6300esb \
+	-watchdog-action poweroff \
 	-boot order=c,menu=on \
 	-object "iothread,id=iothread.drive0" \
 	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,file=${vm} \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
+	-global driver=cfi.pflash01,property=secure,value=on \
+	-drive if=pflash,format=raw,unit=0,file=OVMF_CODE.fd,readonly=on \
+	-drive if=pflash,format=raw,unit=1,file=${vm}_OVMF_VARS.fd \
 	-k fr \
-	-vga qxl \
+	-vga none \
 	-spice port=${spice},addr=localhost,disable-ticketing=on \
 	-device virtio-serial-pci \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \

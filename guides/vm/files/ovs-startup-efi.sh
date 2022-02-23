@@ -7,9 +7,14 @@
 # It should be run by a normal user account which belongs to the kvm system
 # group and is able to run the ovs-vsctl command via sudo
 #
-# File: ovs-startup.sh
+# This version of virtual machine startup script uses UEFI boot sequence based
+# on the files provided by the ovmf package.
+# The qemu parameters used here come from ovml package readme file
+# Source: https://github.com/tianocore/edk2/blob/master/OvmfPkg/README
+#
+# File: ovs-startup-efi.sh
 # Author: Philippe Latu
-# Source: https://github.com/platu/inetdoc/blob/master/guides/vm/files/ovs-startup.sh
+# Source: https://github.com/platu/inetdoc/blob/master/guides/vm/files/ovs-startup-efi.sh
 #
 #	This program is free software: you can redistribute it and/or modify
 #	it under the terms of the GNU General Public License as published by
@@ -66,6 +71,17 @@ then
 	exit 1
 fi
 
+# Are the OVMF symlink and file copy there ?
+if [[ ! -L "./OVMF_CODE.fd" ]]
+then
+	ln -s /usr/share/OVMF/OVMF_CODE.fd .
+fi
+
+if [[ ! -f "${vm}_OVMF_VARS.fd" ]]
+then
+	cp /usr/share/OVMF/OVMF_VARS.fd ${vm}_OVMF_VARS.fd
+fi
+
 second_rightmost_byte=$(printf "%02x" $(expr ${tapnum} / 256))
 rightmost_byte=$(printf "%02x" $(expr ${tapnum} % 256))
 macaddress="b8:ad:ca:fe:$second_rightmost_byte:$rightmost_byte"
@@ -112,6 +128,9 @@ ionice -c3 qemu-system-x86_64 \
 	-object "iothread,id=iothread.drive0" \
 	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,file=${vm} \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
+	-global driver=cfi.pflash01,property=secure,value=on \
+	-drive if=pflash,format=raw,unit=0,file=OVMF_CODE.fd,readonly=on \
+	-drive if=pflash,format=raw,unit=1,file=${vm}_OVMF_VARS.fd \
 	-k fr \
 	-vga none \
 	-device qxl-vga,vgamem_mb=32 \

@@ -77,7 +77,7 @@ then
 	echo -e "${RED}~> shyaml tool install with pip3.${NC}"
 	echo -e "${GREEN}Restart this script after relogging to the hypervisor.${NC}"
 	tput sgr0
-	pip3 install shyaml
+	pip3 install shyaml --user
 	exit 1
 fi
 
@@ -127,8 +127,16 @@ done
 # RAM size
 memory=16384
 
-# EFI BIOS
-bios=$HOME/masters/bios/OVMF_CODE-pure-efi.fd
+# Are the OVMF symlink and file copy there ?
+if [[ ! -L "./OVMF_CODE.fd" ]]
+then
+	ln -s /usr/share/OVMF/OVMF_CODE.fd .
+fi
+
+if [[ ! -f "${vm}_OVMF_VARS.fd" ]]
+then
+	cp /usr/share/OVMF/OVMF_VARS.fd ${vm}_OVMF_VARS.fd
+fi
 
 echo -e "${RED}---${NC}"
 echo -e "~> Switch name                : ${RED}$(cat ${yamldesc} | shyaml get-value switch.hostname)${NC}"
@@ -147,15 +155,17 @@ tput sgr0
 ionice -c3 qemu-system-x86_64 \
 	-machine type=q35,accel=kvm \
 	-cpu max,l3-cache=on \
-	-bios $bios \
 	-daemonize \
 	-m ${memory} \
 	--device virtio-balloon \
 	-smp 8,threads=2 \
 	-rtc base=localtime,clock=host \
 	-boot order=c,menu=on \
+	-global driver=cfi.pflash01,property=secure,value=on \
+	-drive if=pflash,format=raw,unit=0,file=OVMF_CODE.fd,readonly=on \
+	-drive if=pflash,format=raw,unit=1,file=${vm}_OVMF_VARS.fd \
 	-k fr \
-	-vga qxl \
+	-vga none \
 	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
 	-device i82801b11-bridge,id=dmi-pci-bridge \
@@ -171,8 +181,6 @@ ionice -c3 qemu-system-x86_64 \
 	-device ide-hd,bus=ahci0.0,drive=drive-sata-disk0,id=drive-sata-disk0 \
 	-spice port=${spice},addr=localhost,disable-ticketing=on \
 	-device virtio-serial-pci \
-	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
-	-chardev spicevmc,id=spicechannel0,name=vdagent \
 	-serial telnet:localhost:${telnet},server,nowait \
 	-netdev tap,ifname=nxtap${tap_mgmt},script=no,downscript=no,id=mgmt0 \
 	-device e1000,bus=bridge-1,addr=1.0,netdev=mgmt0,mac=${oui}ae:${second_rightmost_byte}:${rightmost_byte},multifunction=on,romfile= \

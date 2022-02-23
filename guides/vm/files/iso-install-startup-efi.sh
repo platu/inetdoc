@@ -11,6 +11,8 @@
 # Author: Philippe Latu
 # Source: https://github.com/platu/inetdoc/blob/master/guides/vm/files/ovs-startup.sh
 #
+# UEFI: https://github.com/tianocore/edk2/blob/master/OvmfPkg/README
+#
 #	This program is free software: you can redistribute it and/or modify
 #	it under the terms of the GNU General Public License as published by
 #	the Free Software Foundation, either version 3 of the License, or
@@ -31,16 +33,18 @@ NC='\e[0m' # No Color
 
 vm=$1
 shift
+iso=$1
+shift
 memory=$1
 shift
 tapnum=$1
 shift
 
-# Are the 3 parameters there ?
-if [[ -z "${vm}" || -z "${memory}" || -z "${tapnum}" ]]
+# Are the 4 parameters there ?
+if [[ -z "${vm}" || -z "${iso}" || -z "${memory}" || -z "${tapnum}" ]]
 then
 	echo -e "${RED}ERROR : missing parameter.${NC}"
-	echo -e "${GREEN}Usage : $0 [image file] [RAM size in MB] [tap interface number]${NC}"
+	echo -e "${GREEN}Usage : $0 [image file] [iso file] [RAM size in MB] [tap interface number]${NC}"
 	exit 1
 fi
 
@@ -108,10 +112,16 @@ ionice -c3 qemu-system-x86_64 \
 	-rtc base=localtime,clock=host \
 	-device i6300esb \
 	-watchdog-action poweroff \
-	-boot order=c,menu=on \
+	-boot once=d,menu=on \
+	-device ahci,id=ahci0 \
+	-device ide-cd,bus=ahci0.0,drive=drive-sata0-0-0,id=sata0-0-0 \
+	-drive media=cdrom,if=none,file=$iso,id=drive-sata0-0-0 \
 	-object "iothread,id=iothread.drive0" \
 	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,file=${vm} \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
+	-global driver=cfi.pflash01,property=secure,value=on \
+	-drive if=pflash,format=raw,unit=0,file=OVMF_CODE.fd,readonly=on \
+	-drive if=pflash,format=raw,unit=1,file=copy_of_OVMF_VARS.fd \
 	-k fr \
 	-vga none \
 	-device qxl-vga,vgamem_mb=32 \
