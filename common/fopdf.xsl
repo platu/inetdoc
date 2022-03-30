@@ -34,13 +34,13 @@
   xmlns:xlink="http://www.w3.org/1999/xlink"
   xmlns:fo="http://www.w3.org/1999/XSL/Format"
   xmlns:d="http://docbook.org/ns/docbook" exclude-result-prefixes="d">
-                
+
 <xsl:import href="&db_xsl_path;/fo/docbook.xsl"/>
 <xsl:import href="&db_xsl_path;/fo/highlight.xsl"/>
 
 <!--###################################################
                    Custom Settings
-    ################################################### --> 
+    ################################################### -->
 
     <xsl:param name="draft.mode" select="'no'" />
     <!-- Alignement du texte a gauche
@@ -81,7 +81,7 @@
 
 <!--###################################################
                    Fonts & Styles
-    ################################################### -->      
+    ################################################### -->
 
     <xsl:param name="title.font.family">IBMPlexSans-Medium</xsl:param>
     <xsl:param name="body.font.family">IBMPlexSerif-Light</xsl:param>
@@ -146,8 +146,8 @@
 
 <!--###################################################
                    Custom Article Title Page
-    ################################################### --> 
-    
+    ################################################### -->
+
 	<xsl:template name="article.titlepage.recto">
 	<fo:block>
 		<fo:block background-color="#333" padding="3pt">
@@ -166,13 +166,13 @@
 		</fo:block>
 		<fo:block color="#ddd" text-align="right"
 			font-family="IBMPlexSans" font-style="normal" font-size="9pt" margin-right="10mm">
-		<xsl:value-of select="d:affiliation/d:address/d:email"/> 
+		<xsl:value-of select="d:affiliation/d:address/d:email"/>
 		</fo:block>
 		</xsl:for-each>
 
 		<xsl:choose>
 		<xsl:when test="d:info/*/d:editor|d:info/d:editor">
-		<fo:block color="#ddd" text-align="right" 
+		<fo:block color="#ddd" text-align="right"
 			font-family="IBMPlexSans-Italic" font-style="italic" margin-right="50mm">
 		<xsl:text>Publié par :</xsl:text>
 		</fo:block>
@@ -189,7 +189,7 @@
 		<fo:block color="#ddd" text-align="right"
 		font-family="IBMPlexSans" font-size="9pt"
 			margin-right="10mm">
-		<xsl:value-of select="d:affiliation/d:address/d:email"/> 
+		<xsl:value-of select="d:affiliation/d:address/d:email"/>
 		</fo:block>
 		</xsl:for-each>
 		</fo:block>
@@ -211,7 +211,7 @@
 
 <!--###################################################
                    Custom Book Title Page
-    ################################################### --> 
+    ################################################### -->
 
 	<xsl:template name="book.titlepage.recto">
 	<fo:block>
@@ -230,13 +230,13 @@
 		</fo:block>
 		<fo:block color="#ddd" text-align="right"
 			font-family="SourceSansPro" font-size="9pt" margin-right="10mm">
-		<xsl:value-of select="d:affiliation/d:address/d:email"/> 
+		<xsl:value-of select="d:affiliation/d:address/d:email"/>
 		</fo:block>
 		</xsl:for-each>
 
 		<xsl:choose>
 		<xsl:when test="//d:editor">
-		<fo:block color="#ddd" text-align="right" 
+		<fo:block color="#ddd" text-align="right"
 			font-family="SourceSansPro-It" font-style="italic" margin-right="50mm">
 		<xsl:text>Publié par :</xsl:text>
 		</fo:block>
@@ -252,7 +252,7 @@
 		</fo:block>
 		<fo:block color="#ddd" text-align="right"
 			font-family="SourceSansPro" font-size="9pt" margin-right="10mm">
-		<xsl:value-of select="d:affiliation/d:address/d:email"/> 
+		<xsl:value-of select="d:affiliation/d:address/d:email"/>
 		</fo:block>
 		</xsl:for-each>
 		</fo:block>
@@ -277,17 +277,17 @@
       </fo:block>
     </xsl:template>
 
-    <!-- Prevent blank pages in output -->    
+    <!-- Prevent blank pages in output -->
     <xsl:template name="book.titlepage.before.verso">
     </xsl:template>
     <xsl:template name="book.titlepage.verso">
     </xsl:template>
     <xsl:template name="book.titlepage.separator">
     </xsl:template>
-        
+
 <!--###################################################
                       Header
-    ################################################### -->  
+    ################################################### -->
 
     <!-- More space in the center header for long text -->
     <xsl:attribute-set name="header.content.properties">
@@ -300,7 +300,7 @@
 
 <!--###################################################
                       Custom Footer
-    ################################################### -->     
+    ################################################### -->
 
     <!-- This footer prints the Title on the left side -->
     <xsl:template name="footer.content">
@@ -365,10 +365,10 @@
         </xsl:choose>
         </fo:block>
     </xsl:template>
-    
+
 <!--###################################################
                       Extensions
-    ################################################### -->  
+    ################################################### -->
 
     <!-- These extensions are required for table printing and other stuff -->
     <xsl:param name="use.extensions" select="1" />
@@ -378,7 +378,7 @@
 
 <!--###################################################
                       Table Of Contents
-    ################################################### -->   
+    ################################################### -->
 
     <!-- Generate the TOCs for named components only -->
     <xsl:param name="generate.toc">
@@ -400,11 +400,11 @@
     /section  toc
     set       toc,title
     </xsl:param>
-    
+
     <!-- Show only Sections up to level 3 in the TOCs -->
     <xsl:param name="toc.section.depth">3</xsl:param>
     <xsl:param name="generate.section.toc.level" select="3" />
-    
+
     <!-- Dot and Whitespace as separator in TOC between Label and Title-->
     <xsl:param name="autotoc.label.separator" select="'.  '"/>
 
@@ -413,8 +413,8 @@
 
 <!--###################################################
                    Paper & Page Size
-    ################################################### -->  
-    
+    ################################################### -->
+
     <!-- Paper type, no headers on blank pages, no double sided printing -->
     <xsl:param name="paper.type" select="'A4'"/>
     <xsl:param name="double.sided">0</xsl:param>
@@ -426,11 +426,11 @@
     <xsl:param name="page.margin.top">5mm</xsl:param>
     <xsl:param name="region.before.extent">10mm</xsl:param>
     <xsl:param name="body.margin.top">10mm</xsl:param>
-    
+
     <xsl:param name="body.margin.bottom">15mm</xsl:param>
     <xsl:param name="region.after.extent">10mm</xsl:param>
     <xsl:param name="page.margin.bottom">5mm</xsl:param>
-    
+
     <xsl:param name="page.margin.outer">18mm</xsl:param>
     <xsl:param name="page.margin.inner">18mm</xsl:param>
 
@@ -440,7 +440,7 @@
     <!-- No intendation of body text since DocBook 1.68.1 -->
     <xsl:param name="body.start.indent">0pt</xsl:param>
 
-    
+
 <!--###################################################
                    Tables
     ################################################### -->
@@ -475,7 +475,7 @@
 			<xsl:with-param name="attribute" select="'color'"/>
 		</xsl:call-template>
 		</xsl:variable>
-  
+
 		<xsl:choose>
 		<xsl:when test="$bgcolor != ''">
 		<xsl:attribute name="background-color">
@@ -493,21 +493,21 @@
 		</xsl:choose>
 	</xsl:template>
 
-    <!-- Some padding inside tables -->    
+    <!-- Some padding inside tables -->
     <xsl:attribute-set name="table.cell.padding">
         <xsl:attribute name="padding-left">4pt</xsl:attribute>
         <xsl:attribute name="padding-right">4pt</xsl:attribute>
         <xsl:attribute name="padding-top">4pt</xsl:attribute>
         <xsl:attribute name="padding-bottom">4pt</xsl:attribute>
     </xsl:attribute-set>
-    
+
     <!-- Only hairlines as frame and cell borders in tables -->
     <xsl:param name="table.frame.border.thickness">1pt</xsl:param>
     <xsl:param name="table.cell.border.thickness">1pt</xsl:param>
 
 <!--###################################################
                          Labels
-    ################################################### -->   
+    ################################################### -->
 
     <!-- Label Chapters and Sections (numbering) -->
     <xsl:param name="chapter.autolabel" select="1" />
@@ -516,7 +516,7 @@
 
 <!--###################################################
                          Titles
-    ################################################### -->   
+    ################################################### -->
 
     <!-- Chapter -->
     <xsl:template match="d:title" mode="chapter.titlepage.recto.auto.mode">
@@ -561,7 +561,7 @@ up into multiple documents.
   </xsl:choose>
 </xsl:template>
 
-    <!-- Unnumbered sections titles have a waste of space after -->    
+    <!-- Unnumbered sections titles have a waste of space after -->
     <xsl:attribute-set name="section.title.properties">
         <xsl:attribute name="space-after.minimum">0.1em</xsl:attribute>
         <xsl:attribute name="space-after.optimum">0.2em</xsl:attribute>
@@ -572,7 +572,7 @@ up into multiple documents.
         </xsl:attribute>
     </xsl:attribute-set>
 
-    <!-- Sections 1, 2 and 3 titles have a small bump factor and padding -->    
+    <!-- Sections 1, 2 and 3 titles have a small bump factor and padding -->
     <xsl:attribute-set name="section.title.level1.properties">
         <xsl:attribute name="space-before.minimum">0.2em</xsl:attribute>
         <xsl:attribute name="space-before.optimum">0.4em</xsl:attribute>
@@ -611,7 +611,7 @@ up into multiple documents.
         <xsl:attribute name="space-after.optimum">0.2em</xsl:attribute>
         <xsl:attribute name="space-after.maximum">0.3em</xsl:attribute>
     </xsl:attribute-set>
-    
+
     <!-- Bibliography title size -->
     <xsl:template name="bibliography.titlepage.recto">
       <fo:block xmlns:fo="http://www.w3.org/1999/XSL/Format" 
@@ -652,7 +652,7 @@ up into multiple documents.
         </xsl:call-template>
       </fo:block>
     </xsl:template>
-    
+
     <!-- Glossary title size -->
     <xsl:template name="glossary.titlepage.recto">
       <fo:block xmlns:fo="http://www.w3.org/1999/XSL/Format"
@@ -695,7 +695,7 @@ up into multiple documents.
       <xsl:attribute name="space-after.minimum">0.2em</xsl:attribute>
       <xsl:attribute name="space-after.optimum">0.4em</xsl:attribute>
       <xsl:attribute name="space-after.maximum">0.6em</xsl:attribute>
-    </xsl:attribute-set>    
+    </xsl:attribute-set>
 
     <!-- Formal objects (tables, examples, ...) -->
     <xsl:attribute-set name="formal.object.properties">
@@ -741,9 +741,9 @@ up into multiple documents.
 
 <!--###################################################
                       Programlistings
-    ################################################### -->  
-    
-    <!-- Verbatim text formatting (programlistings) --> 
+    ################################################### -->
+
+    <!-- Verbatim text formatting (programlistings) -->
     <xsl:attribute-set name="verbatim.properties">
         <xsl:attribute name="font-family">
           <xsl:value-of select="$monospace.font.family"/>
@@ -754,13 +754,11 @@ up into multiple documents.
         <xsl:attribute name="space-after.minimum">0.1em</xsl:attribute>
         <xsl:attribute name="space-after.optimum">0.2em</xsl:attribute>
         <xsl:attribute name="space-after.maximum">0.3em</xsl:attribute>
-        <xsl:attribute name="border-color">#333</xsl:attribute>
-        <xsl:attribute name="border-style">solid</xsl:attribute>
-        <xsl:attribute name="border-width">0.5pt</xsl:attribute>      
-        <xsl:attribute name="padding">0.25em</xsl:attribute>      
+        <xsl:attribute name="border-width">0pt</xsl:attribute>
+        <xsl:attribute name="padding">0.5em</xsl:attribute>
     </xsl:attribute-set>
 
-    <!-- Shade (background) programlistings -->    
+    <!-- Shade (background) programlistings -->
     <xsl:param name="shade.verbatim" select="1" />
     <xsl:attribute-set name="shade.verbatim.style">
         <xsl:attribute name="background-color">#eee</xsl:attribute>
@@ -769,20 +767,20 @@ up into multiple documents.
 
 <!--###################################################
                          Callouts
-    ################################################### -->   
+    ################################################### -->
 
     <!-- Use images for callouts instead of (1) (2) (3) -->
     <xsl:param name="callout.graphics" select="1" />
     <xsl:param name="callout.graphics.path">&callout_gfx_path;</xsl:param>
     <xsl:param name="callout.graphics.number.limit" select="15" />
     <xsl:param name="callout.unicode" select="1" />
-    
+
     <!-- Place callout marks at this column in annotated areas -->
     <xsl:param name="callout.defaultcolumn">90</xsl:param>
 
 <!--###################################################
                        Admonitions
-    ################################################### -->   
+    ################################################### -->
 
     <!-- Use nice graphics for admonitions -->
     <xsl:param name="admon.graphics" select="1" />
@@ -850,14 +848,14 @@ up into multiple documents.
 
 <!--###################################################
                           Lists
-    ################################################### -->   
+    ################################################### -->
 
     <!-- more space needed for nested inherited arabic numbered orderedlits -->
     <xsl:param name="orderedlist.label.width">2em</xsl:param>
 
 <!--###################################################
                           Misc
-    ################################################### -->   
+    ################################################### -->
 
     <!-- Placement of titles -->
     <xsl:param name="formal.title.placement">
@@ -867,7 +865,7 @@ up into multiple documents.
         table before
         procedure before
     </xsl:param>
-    
+
     <!-- Format Variable Lists as Blocks (prevents horizontal overflow) -->
     <xsl:param name="variablelist.as.blocks" select="1" />
 
