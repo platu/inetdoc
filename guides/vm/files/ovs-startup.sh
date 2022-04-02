@@ -95,7 +95,7 @@ tput sgr0
 
 ionice -c3 qemu-system-x86_64 \
 	-machine type=q35,accel=kvm:tcg \
-	-cpu max,l3-cache=on,pdpe1gb \
+	-cpu max,l3-cache=on,+vmx \
 	-device intel-iommu \
 	-daemonize \
 	-name ${vm} \
@@ -109,7 +109,7 @@ ionice -c3 qemu-system-x86_64 \
 	-device i6300esb \
 	-watchdog-action poweroff \
 	-boot order=c,menu=on \
-	-object "iothread,id=iothread.drive0" \
+	-object iothread,id=iothread.drive0 \
 	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,l2-cache-size=8M,file=${vm} \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-k fr \

@@ -82,7 +82,7 @@ then
 	cp /usr/share/OVMF/OVMF_VARS.fd ${vm}_OVMF_VARS.fd
 fi
 
-# Software TPM socket setup 
+# Is it possible to set a new Software TPM socket ?
 if [[ -z "$(which swtpm)" ]]
 then
 	echo "${RED}TPM emulator not available${NC}"
@@ -108,6 +108,7 @@ swtpm socket \
 	--tpm2 \
 	--terminate &
 
+# Is the switch port available ? Which mode ? Which VLAN ?
 second_rightmost_byte=$(printf "%02x" $(expr ${tapnum} / 256))
 rightmost_byte=$(printf "%02x" $(expr ${tapnum} % 256))
 macaddress="b8:ad:ca:fe:$second_rightmost_byte:$rightmost_byte"
@@ -151,7 +152,7 @@ ionice -c3 qemu-system-x86_64 \
 	-device i6300esb \
 	-watchdog-action poweroff \
 	-boot order=c,menu=on \
-	-object "iothread,id=iothread.drive0" \
+	-object iothread,id=iothread.drive0 \
 	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,l2-cache-size=8M,file=${vm} \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-global driver=cfi.pflash01,property=secure,value=on \
@@ -164,12 +165,12 @@ ionice -c3 qemu-system-x86_64 \
 	-device virtio-serial-pci \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
-	-usb \
 	-object rng-random,filename=/dev/urandom,id=rng0 \
 	-device virtio-rng-pci,rng=rng0 \
 	-chardev socket,id=chrtpm,path=${tpm_dir}/swtpm-sock \
 	-tpmdev emulator,id=tpm0,chardev=chrtpm \
 	-device tpm-tis,tpmdev=tpm0 \
+	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
 	-device ich9-intel-hda,addr=1f.1 \
 	-audiodev spice,id=snd0 \
