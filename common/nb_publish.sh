@@ -2,7 +2,9 @@
 
 NB_DEV=/home/phil/inetdoc
 
-rsync -avh --delete --copy-links --no-checksum \
+shopt -s dotglob
+
+rsync -avSh --delete --copy-links \
       --exclude-from=$NB_DEV/common/nb_rsync_exclude.txt \
       $NB_DEV/* /var/www/
 

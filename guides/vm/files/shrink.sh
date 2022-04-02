@@ -13,7 +13,7 @@ fi
 mv $1 $1_OldBackup
 
 echo "Début de la réduction de taille d'image ..."
-ionice -c3 qemu-img convert -O qcow2 -c $1_OldBackup $1
+ionice -c3 qemu-img convert -m16 -W -O qcow2 -c $1_OldBackup $1
 
 echo "Réduction terminée, la nouvelle image $1 est prête."
 

@@ -125,7 +125,7 @@ do
 done
 
 # RAM size
-memory=16384
+memory=10240
 
 # Are the OVMF symlink and file copy there ?
 if [[ ! -L "./OVMF_CODE.fd" ]]
@@ -158,7 +158,7 @@ ionice -c3 qemu-system-x86_64 \
 	-daemonize \
 	-m ${memory} \
 	--device virtio-balloon \
-	-smp 8,threads=2 \
+	-smp 8,threads=4 \
 	-rtc base=localtime,clock=host \
 	-boot order=c,menu=on \
 	-global driver=cfi.pflash01,property=secure,value=on \
@@ -177,7 +177,7 @@ ionice -c3 qemu-system-x86_64 \
 	-device pci-bridge,id=bridge-6,chassis_nr=6,bus=dmi-pci-bridge \
 	-device pci-bridge,id=bridge-7,chassis_nr=7,bus=dmi-pci-bridge \
 	-device ahci,id=ahci0 \
-	-drive file=${vm},aio=native,cache.direct=on,if=none,id=drive-sata-disk0,id=drive-sata-disk0,format=${image_format},media=disk \
+	-drive file=${vm},aio=native,cache.direct=on,if=none,id=drive-sata-disk0,id=drive-sata-disk0,format=${image_format},l2-cache-size=8M,media=disk \
 	-device ide-hd,bus=ahci0.0,drive=drive-sata-disk0,id=drive-sata-disk0 \
 	-spice port=${spice},addr=localhost,disable-ticketing=on \
 	-device virtio-serial-pci \

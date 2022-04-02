@@ -127,7 +127,7 @@ ionice -c3 qemu-system-x86_64 \
 	-watchdog-action poweroff \
 	-boot order=c,menu=on \
 	-object "iothread,id=iothread.drive0" \
-	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,file=${vm} \
+	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,l2-cache-size=8M,file=${vm} \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-global driver=cfi.pflash01,property=secure,value=on \
 	-drive if=pflash,format=raw,unit=0,file=OVMF_CODE.fd,readonly=on \

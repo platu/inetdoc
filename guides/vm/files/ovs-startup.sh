@@ -95,7 +95,7 @@ tput sgr0
 
 ionice -c3 qemu-system-x86_64 \
 	-machine type=q35,accel=kvm:tcg \
-	-cpu max,l3-cache=on,+vmx \
+	-cpu max,l3-cache=on,pdpe1gb \
 	-device intel-iommu \
 	-daemonize \
 	-name ${vm} \
@@ -104,13 +104,13 @@ ionice -c3 qemu-system-x86_64 \
 	-netdev tap,queues=2,ifname=tap${tapnum},id=net${tapnum},script=no,downscript=no,vhost=on \
 	-serial telnet:localhost:${telnet},server,nowait \
 	-device virtio-balloon \
-	-smp 8,threads=2 \
+	-smp 8,threads=4 \
 	-rtc base=localtime,clock=host \
 	-device i6300esb \
 	-watchdog-action poweroff \
 	-boot order=c,menu=on \
 	-object "iothread,id=iothread.drive0" \
-	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,file=${vm} \
+	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,l2-cache-size=8M,file=${vm} \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-k fr \
 	-vga none \

@@ -108,22 +108,26 @@ ionice -c3 qemu-system-x86_64 \
 	-device virtio-balloon \
 	-smp 8,threads=2 \
 	-rtc base=localtime,clock=host \
-	-watchdog i6300esb \
-	-watchdog-action none \
+	-device i6300esb \
+	-watchdog-action poweroff \
 	-boot once=d,menu=on \
 	-device ahci,id=ahci0 \
 	-device ide-cd,bus=ahci0.0,drive=drive-sata0-0-0,id=sata0-0-0 \
 	-drive media=cdrom,if=none,file=$iso,id=drive-sata0-0-0 \
 	-object "iothread,id=iothread.drive0" \
-	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,file=${vm} \
+	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,l2-cache-size=8M,file=${vm} \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-k fr \
-	-vga qxl \
+	-vga none \
+	-device qxl-vga,vgamem_mb=32 \
 	-spice port=${spice},addr=localhost,disable-ticketing=on \
 	-device virtio-serial-pci \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
 	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
+	-device ich9-intel-hda,addr=1f.1 \
+	-audiodev spice,id=snd0 \
+	-device hda-output,audiodev=snd0 \
 	$*
 

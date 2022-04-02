@@ -7,11 +7,14 @@
 # It should be run by a normal user account which belongs to the kvm system
 # group and is able to run the ovs-vsctl command via sudo
 #
-# File: ovs-startup.sh
-# Author: Philippe Latu
-# Source: https://github.com/platu/inetdoc/blob/master/guides/vm/files/ovs-startup.sh
+# This version of virtual machine startup script uses UEFI boot sequence based
+# on the files provided by the ovmf package.
+# The qemu parameters used here come from ovml package readme file
+# Source: https://github.com/tianocore/edk2/blob/master/OvmfPkg/README
 #
-# UEFI: https://github.com/tianocore/edk2/blob/master/OvmfPkg/README
+# File: ovs-startup-efi.sh
+# Author: Philippe Latu
+# Source: https://github.com/platu/inetdoc/blob/master/guides/vm/files/ovs-startup-efi.sh
 #
 #	This program is free software: you can redistribute it and/or modify
 #	it under the terms of the GNU General Public License as published by
@@ -70,6 +73,43 @@ then
 	exit 1
 fi
 
+# Are the OVMF symlink and file copy there ?
+if [[ ! -L "./OVMF_CODE.fd" ]]
+then
+	ln -s /usr/share/OVMF/OVMF_CODE.fd .
+fi
+
+if [[ ! -f "${vm}_OVMF_VARS.fd" ]]
+then
+	cp /usr/share/OVMF/OVMF_VARS.fd ${vm}_OVMF_VARS.fd
+fi
+
+# Software TPM socket setup 
+if [[ -z "$(which swtpm)"]]
+then
+	echo "${RED}TPM emulator not available${NC}"
+	exit 1
+fi
+
+tpm_dir=${vm}_TPM
+
+if [[ ! -d "${tpm_dir}" ]]
+then
+	mkdir ${tpm_dir}
+fi
+
+if [[ ! -z "$(pidof swtpm)" ]]
+then
+	kill $(pidof swtpm)
+fi
+
+swtpm socket \
+	--tpmstate dir=${tpm_dir} \
+	--ctrl type=unixio,path=${tpm_dir}/swtpm-sock \
+	--log file=${tpm_dir}/swtpm.log \
+	--tpm2 \
+	--terminate &
+
 second_rightmost_byte=$(printf "%02x" $(expr ${tapnum} / 256))
 rightmost_byte=$(printf "%02x" $(expr ${tapnum} % 256))
 macaddress="b8:ad:ca:fe:$second_rightmost_byte:$rightmost_byte"
@@ -121,7 +161,7 @@ ionice -c3 qemu-system-x86_64 \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-global driver=cfi.pflash01,property=secure,value=on \
 	-drive if=pflash,format=raw,unit=0,file=OVMF_CODE.fd,readonly=on \
-	-drive if=pflash,format=raw,unit=1,file=copy_of_OVMF_VARS.fd \
+	-drive if=pflash,format=raw,unit=1,file=${vm}_OVMF_VARS.fd \
 	-k fr \
 	-vga none \
 	-device qxl-vga,vgamem_mb=32 \
@@ -130,6 +170,11 @@ ionice -c3 qemu-system-x86_64 \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
 	-usb \
+	-object rng-random,filename=/dev/urandom,id=rng0 \
+	-device virtio-rng-pci,rng=rng0 \
+	-chardev socket,id=chrtpm,path=${tpm_dir}/swtpm-sock \
+	-tpmdev emulator,id=tpm0,chardev=chrtpm \
+	-device tpm-tis,tpmdev=tpm0 \
 	-device usb-tablet,bus=usb-bus.0 \
 	-device ich9-intel-hda,addr=1f.1 \
 	-audiodev spice,id=snd0 \
