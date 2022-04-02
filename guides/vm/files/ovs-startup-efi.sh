@@ -83,7 +83,7 @@ then
 fi
 
 # Software TPM socket setup 
-if [[ -z "$(which swtpm)"]]
+if [[ -z "$(which swtpm)" ]]
 then
 	echo "${RED}TPM emulator not available${NC}"
 	exit 1
