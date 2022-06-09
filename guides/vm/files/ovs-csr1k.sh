@@ -138,6 +138,8 @@ ionice -c3 qemu-system-x86_64 \
 	-device virtio-serial-pci \
 	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
 	-chardev spicevmc,id=spicechannel0,name=vdagent \
+	-object rng-random,filename=/dev/urandom,id=rng0 \
+	-device virtio-rng-pci,rng=rng0 \
 	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
 	-serial telnet:localhost:${telnet},server,nowait \

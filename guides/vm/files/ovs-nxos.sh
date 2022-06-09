@@ -125,7 +125,7 @@ do
 done
 
 # RAM size
-memory=10240
+memory=12288
 
 # Are the OVMF symlink and file copy there ?
 if [[ ! -L "./OVMF_CODE.fd" ]]
@@ -153,19 +153,29 @@ done
 tput sgr0
 
 ionice -c3 qemu-system-x86_64 \
-	-machine type=q35,accel=kvm \
+	-machine type=q35,accel=kvm,kernel-irqchip=split \
 	-cpu max,l3-cache=on \
+	-device intel-iommu,intremap=on \
 	-daemonize \
 	-m ${memory} \
 	--device virtio-balloon \
-	-smp 8,threads=4 \
+	-smp 8,threads=2 \
 	-rtc base=localtime,clock=host \
+	-device i6300esb \
+	-watchdog-action poweroff \
 	-boot order=c,menu=on \
 	-global driver=cfi.pflash01,property=secure,value=on \
 	-drive if=pflash,format=raw,unit=0,file=OVMF_CODE.fd,readonly=on \
 	-drive if=pflash,format=raw,unit=1,file=${vm}_OVMF_VARS.fd \
 	-k fr \
 	-vga none \
+	-device qxl-vga,vgamem_mb=64 \
+	-spice port=${spice},addr=localhost,disable-ticketing=on \
+	-device virtio-serial-pci \
+	-device virtserialport,chardev=spicechannel0,name=com.redhat.spice.0 \
+	-chardev spicevmc,id=spicechannel0,name=vdagent \
+	-object rng-random,filename=/dev/urandom,id=rng0 \
+	-device virtio-rng-pci,rng=rng0 \
 	-usb \
 	-device usb-tablet,bus=usb-bus.0 \
 	-device i82801b11-bridge,id=dmi-pci-bridge \
@@ -179,7 +189,6 @@ ionice -c3 qemu-system-x86_64 \
 	-device ahci,id=ahci0 \
 	-drive file=${vm},aio=native,cache.direct=on,if=none,id=drive-sata-disk0,id=drive-sata-disk0,format=${image_format},l2-cache-size=8M,media=disk \
 	-device ide-hd,bus=ahci0.0,drive=drive-sata-disk0,id=drive-sata-disk0 \
-	-spice port=${spice},addr=localhost,disable-ticketing=on \
 	-device virtio-serial-pci \
 	-serial telnet:localhost:${telnet},server,nowait \
 	-netdev tap,ifname=nxtap${tap_mgmt},script=no,downscript=no,id=mgmt0 \
