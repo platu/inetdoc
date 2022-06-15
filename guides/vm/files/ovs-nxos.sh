@@ -74,10 +74,10 @@ fi
 # Is shyaml available ?
 if [[ -z "$(pip3 list --user | grep shyaml)" ]]
 then
-	echo -e "${RED}~> shyaml tool install with pip3.${NC}"
+	echo -e "${RED}~> shyaml tool install is not available.${NC}"
+	echo -e "${GREEN}Get it with: pip3 install shyaml --user${NC}"
 	echo -e "${GREEN}Restart this script after relogging to the hypervisor.${NC}"
 	tput sgr0
-	pip3 install shyaml --user
 	exit 1
 fi
 

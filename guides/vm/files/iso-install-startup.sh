@@ -7,14 +7,14 @@
 # It should be run by a normal user account which belongs to the kvm system
 # group and is able to run the ovs-vsctl command via sudo
 #
-# This version of virtual machine startup script uses UEFI boot sequence based
-# on the files provided by the ovmf package.
+# This version of the virtual machine startup script uses the UEFI boot sequence
+# based on the files provided by the ovmf package. 
 # The qemu parameters used here come from ovml package readme file
 # Source: https://github.com/tianocore/edk2/blob/master/OvmfPkg/README
 #
-# File: ovs-startup-efi.sh
+# File: iso-install-startup.sh
 # Author: Philippe Latu
-# Source: https://github.com/platu/inetdoc/blob/master/guides/vm/files/ovs-startup-efi.sh
+# Source: https://github.com/platu/inetdoc/blob/master/guides/vm/files/iso-install-startup.sh
 #
 #	This program is free software: you can redistribute it and/or modify
 #	it under the terms of the GNU General Public License as published by
@@ -131,6 +131,13 @@ image_format="${vm##*.}"
 
 spice=$((5900 + ${tapnum}))
 telnet=$((2300 + ${tapnum}))
+
+# Is TPM socket is ready.
+if [[ ! -S ${tpm_dir}/swtpm-sock ]]
+then
+	echo "Waiting a second for TPM socket to be ready."
+	sleep 1s
+fi
 
 echo -e "~> Virtual machine filename   : ${RED}${vm}${NC}"
 echo -e "~> RAM size                   : ${RED}${memory}MB${NC}"

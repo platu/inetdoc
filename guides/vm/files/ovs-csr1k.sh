@@ -3,15 +3,16 @@
 # This script is part of https://inetdoc.net project
 # 
 # It starts a qemu/kvm x86 CSR 1000v router which ports are plugged to Open
-# VSwitch ports through already existing tap interfaces named tap???.
+# VSwitch ports through already existing tap interfaces.
 # It should be run by a normal user account which belongs to the kvm system
 # group and is able to run the ovs-vsctl command via sudo
 #
-# The CSR1000v has two GigabitEthernet ports: the first one is considered
-# as the mgmt OOB port and the second one as the in band user traffic port. 
+# This script configures a CSR1000v instance that has two GigabitEthernet
+# ports: the first is considered the management OOB port and the second is the
+# in-band user traffic port.
 # 
-# This version of virtual machine startup script uses UEFI boot sequence based
-# on the files provided by the ovmf package.
+# This version of the virtual machine startup script uses the UEFI boot sequence
+# based on the files provided by the ovmf package. 
 # The qemu parameters used here come from ovml package readme file
 # Source: https://github.com/tianocore/edk2/blob/master/OvmfPkg/README
 #
@@ -126,7 +127,7 @@ ionice -c3 qemu-system-x86_64 \
 	-device i6300esb \
 	-watchdog-action poweroff \
 	-boot order=c,menu=on \
-	-object "iothread,id=iothread.drive0" \
+	-object iothread,id=iothread.drive0 \
 	-drive if=none,id=drive0,aio=native,cache.direct=on,discard=unmap,format=${image_format},media=disk,l2-cache-size=8M,file=${vm} \
 	-device virtio-blk,num-queues=4,drive=drive0,scsi=off,config-wce=off,iothread=iothread.drive0 \
 	-global driver=cfi.pflash01,property=secure,value=on \
