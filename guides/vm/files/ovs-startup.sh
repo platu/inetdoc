@@ -85,7 +85,7 @@ fi
 # Is it possible to set a new Software TPM socket ?
 if [[ -z "$(which swtpm)" ]]
 then
-	echo "${RED}TPM emulator not available${NC}"
+	echo -e "${RED}TPM emulator not available${NC}"
 	exit 1
 fi
 
@@ -131,10 +131,19 @@ spice=$((5900 + ${tapnum}))
 telnet=$((2300 + ${tapnum}))
 
 # Is TPM socket is ready.
-if [[ ! -S ${tpm_dir}/swtpm-sock ]]
-then
+wait=0
+
+while [[ ! -S ${tpm_dir}/swtpm-sock ]] && [[ $wait -lt 10 ]]
+do
 	echo "Waiting a second for TPM socket to be ready."
 	sleep 1s
+	((wait++))
+done
+
+if [[ ${wait} -eq 10 ]]
+then
+	echo -e "${RED}TPM socket setup failed. Giving up.${NC}"
+	exit 1
 fi
 
 echo -e "~> Virtual machine filename   : ${RED}${vm}${NC}"

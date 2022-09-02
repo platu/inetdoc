@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [[ ! -f $1 ]]
+then
+	echo "ERROR: file $1 not found."
+	exit 1
+fi
+
 vm=$1
 
 image_format="${vm##*.}"

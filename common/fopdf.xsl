@@ -25,7 +25,7 @@
 	<!ENTITY admon_gfx_path     "&db_xsl_path;/images/">
 	<!ENTITY img_src_path       "/home/phil/inetdoc/images/">
 	<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
-		"http://www.w3.org/2003/entities/2007/w3centities-f.ent">
+	"/usr/local/share/w3centities-f.ent">
 	%w3centities-f;
 ]>
 
