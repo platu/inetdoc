@@ -84,7 +84,7 @@
     ################################################### -->
 
     <xsl:param name="title.font.family">IBMPlexSans-Medium</xsl:param>
-    <xsl:param name="body.font.family">IBMPlexSerif-Light</xsl:param>
+    <xsl:param name="body.font.family">IBMPlexSans-Light</xsl:param>
     <xsl:param name="monospace.font.family">IBMPlexMono-Light</xsl:param>
     <xsl:param name="symbol.font.family">IBMPlexSans</xsl:param>
 
