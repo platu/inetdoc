@@ -49,6 +49,10 @@
     <xsl:param name="ulink.show" select="0" />
     <xsl:param name="ulink.footnotes" select="0" />
 
+	<xsl:attribute-set name="root.properties">
+	  <xsl:attribute name="id">fo_root_element_id</xsl:attribute>
+	</xsl:attribute-set>
+
     <!-- <?custom-pagebreak?> inserts a page break at this point -->
     <xsl:template match="processing-instruction('custom-pagebreak')">
       <fo:block break-before='page'/>
@@ -152,13 +156,13 @@
 	<fo:block>
 		<fo:block background-color="#333" padding="3pt">
 		<fo:block color="#fff" text-align="right"
-			font-family="IBMPlexSans" font-weight="bold" font-size="18pt" margin-right="10mm">
+			font-family="IBMPlexSans-Bold" font-weight="bold" font-size="18pt" margin-right="10mm">
 		<xsl:value-of select="d:title|d:info/d:title" />
 		</fo:block>
 
 		<xsl:for-each select="d:info/*/d:author">
 		<fo:block color="#eee" text-align="right"
-			font-family="IBMPlexSans" font-size="10pt"
+			font-family="IBMPlexSans-Bold" font-size="10pt"
 			font-weight="bold" margin-right="10mm">
 		<xsl:value-of select="d:personname/d:firstname"/>
 		<xsl:text> </xsl:text>
@@ -258,7 +262,7 @@
 		</fo:block>
 
 	<fo:block color="#fff" background-color="#cc0033" text-align="left"
-                  font-size="9pt" font-weight="bold" font-style="italic" padding="3pt"
+		font-size="9pt" font-family="IBMPlexSans-Italic" font-style="italic" padding="3pt"
 		  margin-bottom="9pt">
           <xsl:text>https://www.inetdoc.net</xsl:text>
         </fo:block>
@@ -335,16 +339,11 @@
             <!-- nop: other titlepage sequences have no footer -->
             </xsl:when>
 
-            <xsl:when test="$double.sided != 0 and $sequence = 'even' and $position='left'">
-            <fo:page-number/>
-            </xsl:when>
-
-            <xsl:when test="$double.sided != 0 and $sequence = 'odd' and $position='right'">
-            <fo:page-number/>
-            </xsl:when>
-
             <xsl:when test="$double.sided = 0 and $position='right'">
+			<xsl:text>page </xsl:text>
             <fo:page-number/>
+			<xsl:text> sur </xsl:text>
+			<fo:page-number-citation-last ref-id="fo_root_element_id"/>
             </xsl:when>
 
             <xsl:when test="$double.sided != 0 and $sequence = 'odd' and $position='left'">
