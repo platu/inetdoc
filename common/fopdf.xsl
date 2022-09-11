@@ -199,7 +199,7 @@
 		</fo:block>
 
 		<fo:block color="#fff" background-color="#cc0033" text-align="left"
-		font-family="IBMPlexMono" font-size="9pt" padding="3pt">
+		font-family="IBMPlexMono-BoldItalic" font-size="9pt" padding="3pt">
 		<xsl:text>https://www.inetdoc.net</xsl:text>
 		</fo:block>
 
@@ -880,6 +880,15 @@ up into multiple documents.
         <xsl:attribute name="space-before.optimum">0.2em</xsl:attribute>
         <xsl:attribute name="space-before.maximum">0.3em</xsl:attribute>
     </xsl:attribute-set>
+
+	<!-- Screen copy emphasis italic font style -->
+	<xsl:template match="d:emphasis">
+		<fo:inline font-style="italic"
+			text-decoration="underline"
+			font-family="IBMPlexMono-Italic">
+			<xsl:apply-templates/>
+		</fo:inline>
+	</xsl:template>
 
     <!-- Glossary properties -->
     <xsl:param name="glossentry.show.acronym">yes</xsl:param>
