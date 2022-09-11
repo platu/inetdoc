@@ -881,11 +881,18 @@ up into multiple documents.
         <xsl:attribute name="space-before.maximum">0.3em</xsl:attribute>
     </xsl:attribute-set>
 
-	<!-- Screen copy emphasis italic font style -->
+	<!-- emphasis italic and underline font style -->
 	<xsl:template match="d:emphasis">
 		<fo:inline font-style="italic"
 			text-decoration="underline"
 			font-family="IBMPlexMono-Italic">
+			<xsl:apply-templates/>
+		</fo:inline>
+	</xsl:template>
+
+	<!-- term underline font style -->
+	<xsl:template match="d:term">
+		<fo:inline text-decoration="underline">
 			<xsl:apply-templates/>
 		</fo:inline>
 	</xsl:template>
