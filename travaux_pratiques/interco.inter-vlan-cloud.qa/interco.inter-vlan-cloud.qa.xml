@@ -179,7 +179,7 @@
 	avec un lien unique sur lequel le trafic des deux <acronym>VLANs</acronym>
 	doit transiter.</para>
 
-	<para>Côté conteneurs, seule l'interface <systemitem>enp0s2</systemitem>
+	<para>Côté conteneurs, seule l'interface <systemitem>enp0s1</systemitem>
 	est raccordé via un lien en mode accès. La technologie
 	<acronym>macVLAN</acronym> permet d'utiliser plusieurs adresses
 	<acronym>MAC</acronym> sur une même interface réseau.</para>
@@ -440,26 +440,26 @@ auto lo
 iface lo inet loopback
 
 # The primary network interface
-auto enp0s2
-iface enp0s2 inet manual
+auto enp0s1
+iface enp0s1 inet manual
 	up ip link set dev $IFACE up
 	down ip link set dev $IFACE down
 
-auto enp0s2.300
-iface enp0s2.300 inet static
+auto enp0s1.300
+iface enp0s1.300 inet static
 	address 10.141.0.162/27
 	gateway 10.141.0.161
 	dns-nameserver 9.9.9.9
 
-iface enp0s2.300 inet6 static
+iface enp0s1.300 inet6 static
 	address 2001:678:3fc:12c::2/64
 	gateway 2001:678:3fc:12c::1
 
-auto enp0s2.430
-iface enp0s2.430 inet static
+auto enp0s1.430
+iface enp0s1.430 inet static
 	address 192.0.2.1/24
 
-iface enp0s2.430 inet6 static
+iface enp0s1.430 inet6 static
 	address fda0:7a62:1ae::1/64</screen>
 
 	<para>Une fois le fichier de configuration en place, il est préférable de
@@ -482,9 +482,9 @@ iface enp0s2.430 inet6 static
 
 <screen><prompt>$</prompt> ip addr ls | grep state
 1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
-2: enp0s2: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq <emphasis>state UP</emphasis> group default qlen 1000
-3: enp0s2.300@enp0s2: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000
-4: enp0s2.430@enp0s2: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000</screen>
+2: enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq <emphasis>state UP</emphasis> group default qlen 1000
+3: enp0s1.300@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000
+4: enp0s1.430@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000</screen>
 
 	<para>Sans la confirmation que la configuration du serveur de conteneurs
 	est prête, c'est du côté hébergement et accès Internet qu'il faut orienter
@@ -619,8 +619,8 @@ net.ipv4.conf.all.log_martians = 1</screen>
 	réalisée sur l'interface réseau côté hébergement, elle montre que le trafic
 	est bien echeminé d'un réseau à l'autre.</para>
 
-<screen><prompt>$</prompt> tshark -i enp0s2.300
-Capturing on 'enp0s2.300'
+<screen><prompt>$</prompt> tshark -i enp0s1.300
+Capturing on 'enp0s1.300'
     1 0.000000000    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xbdab A 1.debian.pool.ntp.org
     2 0.000056361    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xab92 AAAA 1.debian.pool.ntp.org</screen>
 	</answer>
@@ -685,10 +685,10 @@ p   python3-iptables                - Python bindings for iptables (Python 3 int
 	Voici un exemple de règles de traduction des adresses sources pour la
 	maquette.</para>
 
-<screen><prompt>$</prompt> sudo iptables -t nat -A POSTROUTING -o enp0s2.300 -j MASQUERADE
+<screen><prompt>$</prompt> sudo iptables -t nat -A POSTROUTING -o enp0s1.300 -j MASQUERADE
 <prompt>$</prompt> sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
 
-<screen><prompt>$</prompt> sudo ip6tables -t nat -A POSTROUTING -o enp0s2.300 -j MASQUERADE
+<screen><prompt>$</prompt> sudo ip6tables -t nat -A POSTROUTING -o enp0s1.300 -j MASQUERADE
 <prompt>$</prompt> sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
 	</answer>
 	</qandaentry>
@@ -715,7 +715,7 @@ Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
 
 Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
-<emphasis>    8   598 MASQUERADE  all  --  *      enp0s2.300  0.0.0.0/0            0.0.0.0/0</emphasis>
+<emphasis>    8   598 MASQUERADE  all  --  *      enp0s1.300  0.0.0.0/0            0.0.0.0/0</emphasis>
 
 Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination</screen>
@@ -765,7 +765,7 @@ invoke-rc.d: initscript radvd, action "start" failed.
 	<para>Voici une copie du fichier de configuration
 	<filename>/etc/radvd.conf</filename> de la maquette.</para>
 
-<screen>interface enp0s2.430
+<screen>interface enp0s1.430
 {
         AdvSendAdvert on;
 
@@ -808,10 +808,10 @@ sept. 13 22:39:34 rtr systemd[1]: Started Router advertisement daemon for IPv6.<
 	<para>Enfin, le résultat doit se retrouver sur la configuration réseau de
 	l'interface du serveur de conteneurs.</para>
 
-<screen><prompt>etu@srvr:~$</prompt> ip addr ls dev enp0s2
-2: enp0s2: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+<screen><prompt>etu@srvr:~$</prompt> ip addr ls dev enp0s1
+2: enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
     link/ether b0:ad:ca:fe:00:01 brd ff:ff:ff:ff:ff:ff
-    inet 192.0.2.2/24 brd 192.0.2.255 scope global enp0s2
+    inet 192.0.2.2/24 brd 192.0.2.255 scope global enp0s1
        valid_lft forever preferred_lft forever
     <emphasis>inet6 fda0:7a62:1ae:0:b2ad:caff:fefe:1/64 scope global dynamic mngtmpaddr</emphasis>
        valid_lft 86124sec preferred_lft 14124sec
@@ -890,8 +890,8 @@ auto lo
 iface lo inet loopback
 
 # The primary network interface
-allow-hotplug enp0s2
-iface enp0s2 inet static
+allow-hotplug enp0s1
+iface enp0s1 inet static
         address 192.0.2.2/24
         gateway 192.0.2.1
         dns-nameserver 9.9.9.9</screen>
@@ -1006,7 +1006,7 @@ Size in GB of the new loop device (1GB minimum) [default=13GB]:
 Would you like to connect to a MAAS server? (yes/no) [default=no]:
 Would you like to create a new local network bridge? (yes/no) [default=yes]: <emphasis>no</emphasis>
 Would you like to configure LXD to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
-Name of the existing bridge or host interface: <emphasis>enp0s2</emphasis>
+Name of the existing bridge or host interface: <emphasis>enp0s1</emphasis>
 Would you like the LXD server to be available over the network? (yes/no) [default=no]:
 Would you like stale cached images to be updated automatically? (yes/no) [default=yes]
 Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]: <emphasis>yes</emphasis>
@@ -1025,7 +1025,7 @@ profiles:
     eth0:
       name: eth0
       nictype: macvlan
-      parent: enp0s2
+      parent: enp0s1
       type: nic
     root:
       path: /
@@ -1056,7 +1056,7 @@ devices:
   eth0:
     name: eth0
     nictype: macvlan
-    parent: enp0s2
+    parent: enp0s1
     type: nic
   root:
     path: /
