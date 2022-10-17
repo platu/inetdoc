@@ -65,7 +65,6 @@
 	<keyword>access</keyword>
 	<keyword>arp</keyword>
 	<keyword>dot1q</keyword>
-	<keyword>ieee802.1q</keyword>
 	<keyword>iproute2</keyword>
 	<keyword>iptables</keyword>
 	<keyword>lxd</keyword>
@@ -87,7 +86,7 @@
 	XML sur un système <link
 	xlink:href="https://www.debian.org"><citetitle>Debian
 	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
-	format PDF : <link
+	format PDF&nbsp;: <link
 	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
 
 	<bridgehead xml:id='sysadm-net.inter-vlan.qa.meta.convtypo'
@@ -198,6 +197,48 @@
 	<para><link xlink:href='images/inter-VLAN-hosting-topology.png'>Topologie hébergée</link></para>
 	</caption>
 	</mediaobject>
+
+	<table xml:id='interco.inter-vlan.qa.addressing' frame='all' pgwide='1'>
+		<title>Plan d'adressage des réseaux de la maquette</title>
+	<tgroup cols='4'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='1*'/>
+	<colspec colnum='3' colwidth='3*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Réseau</entry>
+		<entry>Numéro VLAN</entry>
+		<entry>Adresses de passerelles</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+		<entry>
+		<citetitle>Hébergement</citetitle><?custom-linebreak?>
+		VLAN rouge
+		</entry>
+		<entry>360</entry>
+		<entry>
+		<systemitem class='ipaddress'>192.168.104.129/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:168::1/64</systemitem>
+		</entry>
+	</row>
+	<row>
+		<entry>
+		<citetitle>Services</citetitle><?custom-linebreak?>
+		VLAN vert
+		</entry>
+		<entry>440</entry>
+		<entry>
+		<systemitem class='ipaddress'>192.0.2.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:1ae::1/64</systemitem>
+		</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</table>
 </sect1>
 
 <sect1 xml:id='interco.inter-vlan.qa.vm'>
@@ -236,7 +277,7 @@ vlan_mode           : <emphasis>access</emphasis></screen>
 
 	<qandaentry>
 	<question>
-	<para>Comment contrôler le numéro de <acronym>VLAN</acronym> attribué au
+	<para>Comment afficher le numéro de <acronym>VLAN</acronym> attribué au
 	port en mode accès du commutateur de distribution sur le système
 	hôte&nbsp;?</para>
 	</question>
@@ -244,7 +285,7 @@ vlan_mode           : <emphasis>access</emphasis></screen>
 	<para>On reprend la même commande que dans la question précédente avec le
 	mot clé <option>tag</option>.</para>
 <screen><prompt>$</prompt> sudo ovs-vsctl list port tap1 | grep tag
-tag                 : <emphasis>430</emphasis></screen>
+tag                 : <emphasis>20</emphasis></screen>
 	</answer>
 	</qandaentry>
 
@@ -256,7 +297,7 @@ tag                 : <emphasis>430</emphasis></screen>
 	</question>
 	<answer>
 	<para>On reprend à nouveau la même commande avec l'option <option>set</option>.</para>
-<screen><prompt>$</prompt> sudo ovs-vsctl set port <emphasis>tap1 tag=430</emphasis></screen>
+<screen><prompt>$</prompt> sudo ovs-vsctl set port <emphasis>tap1 tag=440</emphasis></screen>
 
 	<para>Les valeurs données dans l'exemple ci-dessus sont à changer suivant
 	les attributions du plan d'adressage des réseaux d'hébergement et de
@@ -272,27 +313,28 @@ tag                 : <emphasis>430</emphasis></screen>
 	<answer>
 	<para>On place les commandes de configuration dans une section dédiée du
 	script de lancement. Voici deux exemples de script de lancement&nbsp;:</para>
-<screen>#!/bin/bash
-RAM=1024
-
-echo "Lancement VM rôle routeur"
-CORDON_TRUNK=200
-
-sudo ovs-vsctl set port tap$CORDON_TRUNK vlan_mode=trunk
-
-$HOME/vm/scripts/ovs-startup.sh routeur.qcow2 $RAM $CORDON_TRUNK</screen>
 
 <screen>#!/bin/bash
 RAM=1024
 
-echo "Lancement VM rôle serveur de conteneurs"
-CORDON_ACCES=1
-VLAN_ACCES=430
+echo "Router VM launch ..."
+SWITCH_PORT=200
 
-sudo ovs-vsctl set port tap$CORDON_ACCES vlan_mode=access
-sudo ovs-vsctl set port tap$CORDON_ACCES tag=$VLAN_ACCES
+sudo ovs-vsctl set port tap$SWITCH_PORT vlan_mode=trunk
 
-$HOME/vm/scripts/ovs-startup.sh serveur.qcow2 $RAM $CORDON_ACCES</screen>
+$HOME/vm/scripts/ovs-startup.sh router.qcow2 $RAM $SWITCH_PORT</screen>
+
+<screen>#!/bin/bash
+RAM=1024
+
+echo "Server VM launch ..."
+SWITCH_PORT=1
+VLAN=440
+
+sudo ovs-vsctl set port tap$SWITCH_PORT vlan_mode=access
+sudo ovs-vsctl set port tap$SWITCH_PORT tag=$VLAN
+
+$HOME/vm/scripts/ovs-startup.sh server.qcow2 $RAM $SWITCH_PORT</screen>
 
 	<para>Les numéros de port et de <acronym>VLAN</acronym> donnés dans les
 	exemples ci-dessus sont à changer suivant le contexte.</para>
@@ -309,52 +351,6 @@ $HOME/vm/scripts/ovs-startup.sh serveur.qcow2 $RAM $CORDON_ACCES</screen>
 	traiter les questions, il est nécessaire de mettre en œuvre une maquette
 	avec un adressage indépendant. Voici les choix effectués pour la
 	maquette.</para>
-
-	<table xml:id='interco.inter-vlan.qa.router.addressing' frame='all' pgwide='1'>
-		<title>Plan d'adressage des réseaux de la maquette</title>
-	<tgroup cols='4'>
-	<colspec colnum='1' colwidth='1*'/>
-	<colspec colnum='2' colwidth='1*'/>
-	<colspec colnum='3' colwidth='3*'/>
-	<colspec colnum='4' colwidth='1*'/>
-	<thead>
-	<row>
-		<?dbfo bgcolor="#333" ?>
-		<?dbfo color="#fff" ?>
-		<entry>Réseau</entry>
-		<entry>Numéro VLAN</entry>
-		<entry>Adresses de passerelles</entry>
-		<entry>Numéro interface tap</entry>
-	</row>
-	</thead>
-	<tbody>
-	<row>
-		<entry>
-		<citetitle>Hébergement</citetitle><?custom-linebreak?>
-		VLAN rouge
-		</entry>
-		<entry>300</entry>
-		<entry>
-		<systemitem class='ipaddress'>10.141.0.161/27</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:12c::1/64</systemitem>
-		</entry>
-		<entry>200</entry>
-	</row>
-	<row>
-		<entry>
-		<citetitle>Services</citetitle><?custom-linebreak?>
-		VLAN vert
-		</entry>
-		<entry>430</entry>
-		<entry>
-		<systemitem class='ipaddress'>192.0.2.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:1ae::1/64</systemitem>
-		</entry>
-		<entry>1</entry>
-	</row>
-	</tbody>
-	</tgroup>
-	</table>
 
 	<sect2 xml:id='interco.inter-vlan.qa.router.interfaces'>
 		<title>Configuration des interfaces du routeur</title>
@@ -375,10 +371,7 @@ $HOME/vm/scripts/ovs-startup.sh serveur.qcow2 $RAM $CORDON_ACCES</screen>
 	nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
 	tous les outils du système.</para>
 
-<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/rtr/g' /etc/hosts
-[sudo] Mot de passe de etu :
-<prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/rtr/g' /etc/hostname
-sudo: impossible de résoudre l'hôte vm0: Échec temporaire dans la résolution du nom
+<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/rtr/g' /etc/hosts /etc/hostname
 <prompt>etu@vm0:~$</prompt> sudo reboot</screen>
 	</answer>
 	</qandaentry>
@@ -445,21 +438,21 @@ iface enp0s1 inet manual
 	up ip link set dev $IFACE up
 	down ip link set dev $IFACE down
 
-auto enp0s1.300
-iface enp0s1.300 inet static
-	address 10.141.0.162/27
-	gateway 10.141.0.161
-	dns-nameserver 9.9.9.9
+auto enp0s1.360
+iface enp0s1.360 inet static
+	address 192.168.104.130/29
+	gateway 192.168.104.129
+	dns-nameserver 172.16.0.2
 
-iface enp0s1.300 inet6 static
-	address 2001:678:3fc:12c::2/64
-	gateway 2001:678:3fc:12c::1
+iface enp0s1.360 inet6 static
+	address 2001:678:3fc:168::2/64
+	gateway fe80:168::1
 
-auto enp0s1.430
-iface enp0s1.430 inet static
+auto enp0s1.440
+iface enp0s1.440 inet static
 	address 192.0.2.1/24
 
-iface enp0s1.430 inet6 static
+iface enp0s1.440 inet6 static
 	address fda0:7a62:1ae::1/64</screen>
 
 	<para>Une fois le fichier de configuration en place, il est préférable de
@@ -483,8 +476,8 @@ iface enp0s1.430 inet6 static
 <screen><prompt>$</prompt> ip addr ls | grep state
 1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
 2: enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq <emphasis>state UP</emphasis> group default qlen 1000
-3: enp0s1.300@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000
-4: enp0s1.430@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000</screen>
+3: enp0s1.360@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000
+4: enp0s1.440@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000</screen>
 
 	<para>Sans la confirmation que la configuration du serveur de conteneurs
 	est prête, c'est du côté hébergement et accès Internet qu'il faut orienter
@@ -493,38 +486,39 @@ iface enp0s1.430 inet6 static
 	effectue un test de couche application avec une requête
 	<acronym>DNS</acronym>.</para>
 
-<screen><prompt>$</prompt> ping -q -c2 10.141.0.161
-PING 10.141.0.161 (10.141.0.161) 56(84) bytes of data.
+<screen><prompt>$</prompt> ping -q -c2 192.168.104.129
+PING 192.168.104.129 (192.168.104.129) 56(84) bytes of data.
 
---- 10.141.0.161 ping statistics ---
+--- 192.168.104.129 ping statistics ---
 <emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1002ms
-rtt min/avg/max/mdev = 0.990/1.188/1.387/0.198 ms
-<prompt>$</prompt> ping -q -c2 9.9.9.9
-PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+rtt min/avg/max/mdev = 1.501/1.516/1.531/0.015 ms</screen>
+
+<screen><prompt>$</prompt>PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
 
 --- 9.9.9.9 ping statistics ---
-<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1002ms
-rtt min/avg/max/mdev = 12.218/12.227/12.237/0.009 ms</screen>
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 49.304/52.098/54.892/2.794 ms</screen>
 
-<screen><prompt>$</prompt> ping -q -c2 2001:678:3fc:12c::1
-PING 2001:678:3fc:12c::1(2001:678:3fc:12c::1) 56 data bytes
+<screen><prompt>$</prompt> ping -q -c2 fe80:168::1%enp0s1.360
+PING fe80:168::1%enp0s1.360(fe80:168::1%enp0s1.360) 56 data bytes
 
---- 2001:678:3fc:12c::1 ping statistics ---
-<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1002ms
-rtt min/avg/max/mdev = 1.023/1.164/1.306/0.141 ms
-<prompt>$</prompt> ping -q -c2 2620:fe::fe
+--- fe80:168::1%enp0s1.360 ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1000ms
+rtt min/avg/max/mdev = 1.459/13.305/25.152/11.846 ms</screen>
+
+<screen><prompt>$</prompt> ping -q -c2 2620:fe::fe
 PING 2620:fe::fe(2620:fe::fe) 56 data bytes
 
 --- 2620:fe::fe ping statistics ---
-<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1002ms
-rtt min/avg/max/mdev = 39.999/40.391/40.784/0.392 ms</screen>
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 41.812/42.437/43.063/0.625 ms</screen>
 
 <screen><prompt>$</prompt> host quad9.net
 quad9.net has address 216.21.3.77
 quad9.net has IPv6 address 2620:0:871:9000::77
+quad9.net mail is handled by 5 mx1.quad9.net.
 quad9.net mail is handled by 20 mx2.quad9.net.
-quad9.net mail is handled by 100 keriomail.pch.net.
-quad9.net mail is handled by 5 mx1.quad9.net.</screen>
+quad9.net mail is handled by 100 keriomail.pch.net.</screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
@@ -575,20 +569,20 @@ net.ipv4.conf.all.log_martians = 1</screen>
 	paramètres.</para>
 
 <screen><prompt>$</prompt> sudo sysctl --system
-* Applying /usr/lib/sysctl.d/50-pid-max.conf ...
+* Applique /usr/lib/sysctl.d/50-pid-max.conf …
 kernel.pid_max = 4194304
-* Applying /etc/sysctl.d/99-sysctl.conf ...
+* Applique /usr/lib/sysctl.d/99-protect-links.conf …
+fs.protected_fifos = 1
+fs.protected_hardlinks = 1
+fs.protected_regular = 2
+fs.protected_symlinks = 1
+* Applique /etc/sysctl.d/99-sysctl.conf …
 net.ipv4.conf.default.rp_filter = 1
 net.ipv4.conf.all.rp_filter = 1
 net.ipv4.ip_forward = 1
 net.ipv6.conf.all.forwarding = 1
 net.ipv4.conf.all.log_martians = 1
-* Applying /usr/lib/sysctl.d/protect-links.conf ...
-fs.protected_fifos = 1
-fs.protected_hardlinks = 1
-fs.protected_regular = 2
-fs.protected_symlinks = 1
-* Applying /etc/sysctl.conf ...
+* Applique /etc/sysctl.conf …
 net.ipv4.conf.default.rp_filter = 1
 net.ipv4.conf.all.rp_filter = 1
 net.ipv4.ip_forward = 1
@@ -619,8 +613,8 @@ net.ipv4.conf.all.log_martians = 1</screen>
 	réalisée sur l'interface réseau côté hébergement, elle montre que le trafic
 	est bien echeminé d'un réseau à l'autre.</para>
 
-<screen><prompt>$</prompt> tshark -i enp0s1.300
-Capturing on 'enp0s1.300'
+<screen><prompt>$</prompt> tshark -i enp0s1.360
+Capturing on 'enp0s1.360'
     1 0.000000000    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xbdab A 1.debian.pool.ntp.org
     2 0.000056361    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xab92 AAAA 1.debian.pool.ntp.org</screen>
 	</answer>
@@ -651,24 +645,28 @@ Capturing on 'enp0s1.300'
 
 	<para>C'est la partie "espace utilisateur" qui nous intéresse ici.</para>
 
-<screen><prompt>$</prompt> aptitude search iptables
-p   arno-iptables-firewall          - single- and multi-homed firewall script wi
-p   golang-github-coreos-go-iptable - Go bindings for iptables utility
-<emphasis>i   iptables                        - administration tools for packet filtering</emphasis>
-p   iptables-converter              - convert iptables-commands from a file to i
-p   iptables-converter-doc          - convert iptables-commands from a file to i
-p   iptables-netflow-dkms           - iptables target which generates netflows
-<emphasis>p   iptables-persistent             - boot-time loader for netfilter rules, ipta</emphasis>
-p   libiptables-chainmgr-perl       - Perl extension for manipulating iptables p
-p   libiptables-parse-perl          - Perl extension for parsing iptables firewa
-p   python-iptables-doc             - documentation for the python-iptables libr
-p   python3-iptables                - Python bindings for iptables (Python 3 int</screen>
+<screen><prompt>$</prompt> apt search ^iptables
+Sorting... Done
+Full Text Search... Done
+<emphasis>iptables</emphasis>/testing 1.8.8-1 amd64
+  administration tools for packet filtering and NAT
 
-	<para>On voit que le paquet <application>iptables</application> est déjà
-	installé et qu'il ne manque que la gestion de la sauvegarde des règles de
-	filtrage et traduction d'adresses.</para>
+iptables-netflow-dkms/testing 2.6-3 amd64
+  iptables target which generates netflows
 
-<screen><prompt>$</prompt> sudo apt install iptables-persistent</screen>
+<emphasis>iptables-persistent</emphasis>/testing 1.0.16 all
+  boot-time loader for netfilter rules, iptables plugin
+
+rtpengine-iptables/testing 10.5.2.4-1+b1 amd64
+  IPtables extension module for the kernel-space NGCP media proxy
+
+rtpengine-kernel-dkms/testing 10.5.2.4-1 all
+  IPtables kernel module for the NGCP media proxy - DKMS</screen>
+
+	<para>Dans la liste ci-dessus aucun paquet n'est installé. On procède donc
+	à l'installation des deux paquets utiles.</para>
+
+<screen><prompt>$</prompt> sudo apt -y install iptables iptables-persistent</screen>
 	</answer>
 	</qandaentry>
 
@@ -685,10 +683,10 @@ p   python3-iptables                - Python bindings for iptables (Python 3 int
 	Voici un exemple de règles de traduction des adresses sources pour la
 	maquette.</para>
 
-<screen><prompt>$</prompt> sudo iptables -t nat -A POSTROUTING -o enp0s1.300 -j MASQUERADE
+<screen><prompt>$</prompt> sudo iptables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
 <prompt>$</prompt> sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
 
-<screen><prompt>$</prompt> sudo ip6tables -t nat -A POSTROUTING -o enp0s1.300 -j MASQUERADE
+<screen><prompt>$</prompt> sudo ip6tables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
 <prompt>$</prompt> sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
 	</answer>
 	</qandaentry>
@@ -713,12 +711,12 @@ Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
 Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
 
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
 Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
-<emphasis>    8   598 MASQUERADE  all  --  *      enp0s1.300  0.0.0.0/0            0.0.0.0/0</emphasis>
-
-Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination</screen>
+<emphasis>    0     0 MASQUERADE  all  --  *      enp0s1.360  0.0.0.0/0            0.0.0.0/0</emphasis></screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
@@ -736,21 +734,7 @@ Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
 
 	<para>On débute par l'installation de ce paquet.</para>
 
-<screen><prompt>$</prompt> sudo apt install radvd
-...
-Préparation du dépaquetage de .../radvd_1%3a2.17-2+b1_amd64.deb ...
-Dépaquetage de radvd (1:2.17-2+b1) ...
-Paramétrage de radvd (1:2.17-2+b1) ...
-Job for radvd.service failed because the control process exited with error code.
-See "systemctl status radvd.service" and "journalctl -xe" for details.
-invoke-rc.d: initscript radvd, action "start" failed.
-• radvd.service - Router advertisement daemon for IPv6
-     Loaded: loaded (/lib/systemd/system/radvd.service; disabled; vendor preset: enabled)
-     <emphasis>Active: failed</emphasis> (Result: exit-code) since Sun 2020-09-13 22:32:10 CEST; 17ms ago
-       Docs: man:radvd(8)
-    Process: 2814 ExecStartPre=/usr/sbin/radvd --logmethod stderr_clean --configtest (code=exited, status=1/FAILURE)</screen>
-
-	<para>On voit que le lancement du service a échoué.</para>
+<screen><prompt>$</prompt> sudo apt -y install radvd</screen>
 
 	<qandaset defaultlabel='number'>
 	<qandaentry>
@@ -765,7 +749,7 @@ invoke-rc.d: initscript radvd, action "start" failed.
 	<para>Voici une copie du fichier de configuration
 	<filename>/etc/radvd.conf</filename> de la maquette.</para>
 
-<screen>interface enp0s1.430
+<screen>interface enp0s1.440
 {
         AdvSendAdvert on;
 
@@ -784,26 +768,26 @@ invoke-rc.d: initscript radvd, action "start" failed.
 	<para>Attention ! Une fois le fichier créé, il ne faut pas oublier de
 	redémarrer le service et de contrôler l'état de son fonctionnement.</para>
 
-<screen><prompt>$</prompt> sudo systemctl enable radvd
-<prompt>$</prompt> sudo systemctl restart radvd
+<screen><prompt>$</prompt> sudo systemctl restart radvd
 <prompt>$</prompt> systemctl status radvd
 • radvd.service - Router advertisement daemon for IPv6
-     Loaded: loaded (/lib/systemd/system/radvd.service; disabled; vendor preset: enabled)
-     Active: <emphasis>active (running)</emphasis> since Sun 2020-09-13 22:39:34 CEST; 5s ago
+     Loaded: loaded (/lib/systemd/system/radvd.service; enabled; preset: enabled)
+     Active: active (running) since Mon 2022-10-17 17:39:25 CEST; 1s ago
        Docs: man:radvd(8)
-    Process: 2890 ExecStartPre=/usr/sbin/radvd --logmethod stderr_clean --configtest (code=exited, status=0/SUCCESS)
-    Process: 2891 ExecStart=/usr/sbin/radvd --logmethod stderr_clean (code=exited, status=0/SUCCESS)
-   Main PID: 2892 (radvd)
-      Tasks: 2 (limit: 1142)
-     Memory: 1.3M
+    Process: 1301 ExecStartPre=/usr/sbin/radvd --logmethod stderr_clean --configtest (code=exited, status=0/SUCCESS)
+    Process: 1302 ExecStart=/usr/sbin/radvd --logmethod stderr_clean (code=exited, status=0/SUCCESS)
+   Main PID: 1303 (radvd)
+      Tasks: 2 (limit: 1114)
+     Memory: 472.0K
+        CPU: 25ms
      CGroup: /system.slice/radvd.service
-             ├─2892 /usr/sbin/radvd --logmethod stderr_clean
-             └─2893 /usr/sbin/radvd --logmethod stderr_clean
+             ├─1303 /usr/sbin/radvd --logmethod stderr_clean
+             └─1304 /usr/sbin/radvd --logmethod stderr_clean
 
-sept. 13 22:39:34 rtr systemd[1]: Starting Router advertisement daemon for IPv6...
-sept. 13 22:39:34 rtr radvd[2890]: config file, /etc/radvd.conf, syntax ok
-sept. 13 22:39:34 rtr radvd[2891]: version 2.17 started
-sept. 13 22:39:34 rtr systemd[1]: Started Router advertisement daemon for IPv6.</screen>
+oct. 17 17:39:25 router systemd[1]: Starting Router advertisement daemon for IPv6...
+oct. 17 17:39:25 router radvd[1301]: config file, /etc/radvd.conf, syntax ok
+oct. 17 17:39:25 router radvd[1302]: version 2.18 started
+oct. 17 17:39:25 router systemd[1]: Started Router advertisement daemon for IPv6.</screen>
 
 	<para>Enfin, le résultat doit se retrouver sur la configuration réseau de
 	l'interface du serveur de conteneurs.</para>
@@ -845,9 +829,7 @@ sept. 13 22:39:34 rtr systemd[1]: Started Router advertisement daemon for IPv6.<
 	nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
 	tous les outils du système.</para>
 
-<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/srvr/g' /etc/hosts
-<prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/srvr/g' /etc/hostname
-sudo: impossible de résoudre l'hôte vm0: Échec temporaire dans la résolution du nom
+<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/srvr/g' /etc/hosts /etc/hostname
 <prompt>etu@vm0:~$</prompt> sudo reboot</screen>
 	</answer>
 	</qandaentry>
@@ -890,11 +872,52 @@ auto lo
 iface lo inet loopback
 
 # The primary network interface
-allow-hotplug enp0s1
+auto enp0s1
 iface enp0s1 inet static
         address 192.0.2.2/24
         gateway 192.0.2.1
-        dns-nameserver 9.9.9.9</screen>
+        dns-nameserver 172.16.0.2
+
+# This is an autoconfigured IPv6 interface
+iface enp0s1 inet6 auto</screen>
+
+	<para>Bien sûr, il ne faut pas oublier de relancer le gestionnaire de
+	configuration réseau ou de redémarrer la machine virtuelle pour que les
+	paramètres soient correctement appliqués.</para>
+	</answer>
+	</qandaentry>
+	<qandaentry>
+	<question>
+	<para>Comment valider la configuration réseau du serveur de
+	conteneurs&nbsp;?</para>
+
+	<para>Lancer une série de tests <acronym>ICMP</acronym>
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+	</question>
+	<answer>
+	<para>On reprend les tests usuels avec les commandes
+	<command>ping</command> et <command>host</command>.</para>
+
+<screen><prompt>etu@server:~$</prompt> ping -q -c2 9.9.9.9
+PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+
+--- 9.9.9.9 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1002ms
+rtt min/avg/max/mdev = 19.433/19.586/19.740/0.153 ms</screen>
+
+<screen><prompt>etu@server:~$</prompt> ping -q -c2 2620:fe::fe
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 42.983/43.114/43.246/0.131 ms</screen>
+
+<screen><prompt>etu@server:~$</prompt> host kernel.org
+kernel.org has address 139.178.84.217
+kernel.org has IPv6 address 2604:1380:4641:c500::1
+kernel.org mail is handled by 10 smtp1.kernel.org.
+kernel.org mail is handled by 10 smtp3.kernel.org.
+kernel.org mail is handled by 10 smtp2.kernel.org.</screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
@@ -922,7 +945,7 @@ iface enp0s1 inet static
 	<para>Il existe tout simplement un paquet appelé
 	<application>snapd</application>.</para>
 
-<screen><prompt>$</prompt> sudo apt install snapd</screen>
+<screen><prompt>$</prompt> sudo apt -y install snapd</screen>
 	</answer>
 	</qandaentry>
 
@@ -938,16 +961,16 @@ iface enp0s1 inet static
 	<application>lxd</application>.</para>
 
 <screen><prompt>$</prompt> sudo snap install lxd
-2021-09-14T11:10:40+02:00 INFO Waiting for automatic snapd restart...
-lxd 4.18 from Canonical✓ installed</screen>
+2022-10-17T17:59:45+02:00 INFO Waiting for automatic snapd restart...
+lxd 5.6-794016a from Canonical✓ installed</screen>
 
 	<para>On peut lister les <wordasword>snaps</wordasword> installés.</para>
 
 <screen><prompt>$</prompt> snap list
-Name    Version   Rev    Tracking       Publisher   Notes
-core20  20210702  1081   latest/stable  canonical✓  base
-lxd     4.18      21497  latest/stable  canonical✓  -
-snapd   2.51.4    12883  latest/stable  canonical✓  snapd</screen>
+Name    Version      Rev    Tracking       Publisher   Notes
+core20  20220826     1623   latest/stable  canonical✓  base
+lxd     5.6-794016a  23680  latest/stable  canonical✓  -
+snapd   2.57.2       17029  latest/stable  canonical✓  snapd</screen>
 	</answer>
 	</qandaentry>
 
@@ -995,45 +1018,20 @@ etu adm cdrom floppy sudo audio dip video plugdev staff netdev <emphasis>lxd</em
 	<para>Voici une copie d'écran de son exécution.</para>
 
 <screen><prompt>$</prompt> lxd init
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
 Would you like to use LXD clustering? (yes/no) [default=no]:
 Do you want to configure a new storage pool? (yes/no) [default=yes]:
 Name of the new storage pool [default=default]:
-Name of the storage backend to use (ceph, btrfs, dir, lvm) [default=btrfs]:
+Name of the storage backend to use (lvm, btrfs, ceph, cephobject, dir) [default=btrfs]:
 Create a new BTRFS pool? (yes/no) [default=yes]:
 Would you like to use an existing empty block device (e.g. a disk or partition)? (yes/no) [default=no]:
-Size in GB of the new loop device (1GB minimum) [default=13GB]:
+Size in GiB of the new loop device (1GiB minimum) [default=23GiB]:
 Would you like to connect to a MAAS server? (yes/no) [default=no]:
 Would you like to create a new local network bridge? (yes/no) [default=yes]: <emphasis>no</emphasis>
 Would you like to configure LXD to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
 Name of the existing bridge or host interface: <emphasis>enp0s1</emphasis>
 Would you like the LXD server to be available over the network? (yes/no) [default=no]:
-Would you like stale cached images to be updated automatically? (yes/no) [default=yes]
-Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]: <emphasis>yes</emphasis>
-config: {}
-networks: []
-storage_pools:
-- config:
-    size: 13GB
-  description: ""
-  name: default
-  driver: btrfs
-profiles:
-- config: {}
-  description: ""
-  devices:
-    eth0:
-      name: eth0
-      nictype: macvlan
-      parent: enp0s1
-      type: nic
-    root:
-      path: /
-      pool: default
-      type: disk
-  name: default
-projects: []
-cluster: null</screen>
+Would you like stale cached images to be updated automatically? (yes/no) [default=yes]:
+Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]:</screen>
 	</answer>
 	</qandaentry>
 
@@ -1049,7 +1047,6 @@ cluster: null</screen>
 	<para>Voici un exemple d'exécution.</para>
 
 <screen><prompt>$</prompt> lxc profile show default
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
 config: {}
 description: Default LXD profile
 devices:
@@ -1075,36 +1072,29 @@ used_by: []</screen>
 	<command>lxc</command>.</para>
 
 	<para>Tester son exécution avec un conteneur de type
-	<literal>debian/bullseye</literal>.</para>
+	<literal>debian/12</literal>.</para>
 	</question>
 	<answer>
 	<para>Voici un exemple d'exécution.</para>
 
-<screen><prompt>$</prompt> for i in {0..2}
-do
-lxc launch images:debian/bullseye container$i
-done
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
-Creating container0
-Starting container0
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
-Creating container1
-Starting container1
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
-Creating container2
-Starting container2</screen>
+<screen><prompt>$</prompt> for i in {0..2}; do lxc launch images:debian/12 c$i; done
+Creating c0
+Starting c0
+Creating c1
+Starting c1
+Creating c2
+Starting c2</screen>
 
 <screen><prompt>$</prompt> lxc ls
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
-+------------+---------+------+-------------------------------------------+-----------+-----------+
-|    NAME    |  STATE  | IPV4 |                   IPV6                    |   TYPE    | SNAPSHOTS |
-+------------+---------+------+-------------------------------------------+-----------+-----------+
-| container0 | RUNNING |      | fda0:7a62:1ae:0:216:3eff:feac:5f23 (eth0) | CONTAINER | 0         |
-+------------+---------+------+-------------------------------------------+-----------+-----------+
-| container1 | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fedd:3b71 (eth0) | CONTAINER | 0         |
-+------------+---------+------+-------------------------------------------+-----------+-----------+
-| container2 | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fe80:acb (eth0)  | CONTAINER | 0         |
-+------------+---------+------+-------------------------------------------+-----------+-----------+</screen>
++------+---------+------+-------------------------------------------+-----------+-----------+
+| NAME |  STATE  | IPV4 |                   IPV6                    |   TYPE    | SNAPSHOTS |
++------+---------+------+-------------------------------------------+-----------+-----------+
+| c0   | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fe9a:c1d1 (eth0) | CONTAINER | 0         |
++------+---------+------+-------------------------------------------+-----------+-----------+
+| c1   | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fe57:7019 (eth0) | CONTAINER | 0         |
++------+---------+------+-------------------------------------------+-----------+-----------+
+| c2   | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fe6b:c9de (eth0) | CONTAINER | 0         |
++------+---------+------+-------------------------------------------+-----------+-----------+</screen>
 	</answer>
 	</qandaentry>
 
@@ -1122,50 +1112,43 @@ WARNING: cgroup v2 is not fully supported yet, proceeding with partial confineme
 
 <screen><prompt>$</prompt> for i in {0..2}
 do
-echo ">>>>>>>>>>>>>>>>> container$i"
-lxc exec container$i -- ping -c2 2620:fe::fe
+	echo ">>>>>>>>>>>>>>>>> c$i"
+	lxc exec c$i -- ping -c2 2620:fe::fe
 done
->>>>>>>>>>>>>>>>> container0
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+>>>>>>>>>>>>>>>>> c0
 PING 2620:fe::fe(2620:fe::fe) 56 data bytes
-64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=44.0 ms
-64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=41.9 ms
-
---- 2620:fe::fe ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1001ms
-rtt min/avg/max/mdev = 41.880/42.932/43.984/1.052 ms
->>>>>>>>>>>>>>>>> container1
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
-PING 2620:fe::fe(2620:fe::fe) 56 data bytes
-64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=41.6 ms
-64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=40.3 ms
+64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=44.8 ms
+64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=42.9 ms
 
 --- 2620:fe::fe ping statistics ---
 2 packets transmitted, 2 received, 0% packet loss, time 1002ms
-rtt min/avg/max/mdev = 40.307/40.945/41.583/0.638 ms
->>>>>>>>>>>>>>>>> container2
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+rtt min/avg/max/mdev = 42.936/43.857/44.778/0.921 ms
+>>>>>>>>>>>>>>>>> c1
 PING 2620:fe::fe(2620:fe::fe) 56 data bytes
-64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=40.6 ms
-64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=40.6 ms
+64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=43.4 ms
+64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=42.8 ms
 
 --- 2620:fe::fe ping statistics ---
 2 packets transmitted, 2 received, 0% packet loss, time 1002ms
-rtt min/avg/max/mdev = 40.559/40.571/40.584/0.012 ms</screen>
+rtt min/avg/max/mdev = 42.762/43.104/43.447/0.342 ms
+>>>>>>>>>>>>>>>>> c2
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=43.6 ms
+64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=42.7 ms
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1002ms
+rtt min/avg/max/mdev = 42.676/43.144/43.612/0.468 ms</screen>
 
 	<para>On peut ensuite passer à la gestion de paquets après paramétrage du
 	<wordasword>resolver</wordasword> <acronym>DNS</acronym>.</para>
 
 <screen><prompt>$</prompt> for i in {0..2}
 do
-echo ">>>>>>>>>>>>>>>>> container$i"
-lxc exec container$i -- sh -c "echo 'nameserver 2620:fe::fe' > /etc/resolv.conf"
-done</screen>
-
-<screen><prompt>$</prompt> for i in {0..2}
-do
-echo ">>>>>>>>>>>>>>>>> container$i"
-lxc exec container$i -- apt update
+	echo ">>>>>>>>>>>>>>>>> c$i"
+	lxc exec c$i -- apt update
+	lxc exec c$i -- apt -y full-upgrade
+	lxc exec c$i -- apt clean
 done</screen>
 	</answer>
 	</qandaentry>
