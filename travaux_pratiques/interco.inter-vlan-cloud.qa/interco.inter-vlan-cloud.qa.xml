@@ -233,7 +233,7 @@
 		<entry>440</entry>
 		<entry>
 		<systemitem class='ipaddress'>192.0.2.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:1ae::1/64</systemitem>
+		<systemitem class='ipaddress'>fda0:7a62:1b8::1/64</systemitem>
 		</entry>
 	</row>
 	</tbody>
@@ -453,7 +453,7 @@ iface enp0s1.440 inet static
 	address 192.0.2.1/24
 
 iface enp0s1.440 inet6 static
-	address fda0:7a62:1ae::1/64</screen>
+	address fda0:7a62:1b8::1/64</screen>
 
 	<para>Une fois le fichier de configuration en place, il est préférable de
 	redémarrer la machine virtuelle de façon à vérifier que la configuration
@@ -753,7 +753,7 @@ Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
 {
         AdvSendAdvert on;
 
-        prefix fda0:7a62:1ae::/64
+        prefix fda0:7a62:1b8::/64
         {
                 AdvOnLink on;
                 AdvAutonomous on;
@@ -788,19 +788,6 @@ oct. 17 17:39:25 router systemd[1]: Starting Router advertisement daemon for IPv
 oct. 17 17:39:25 router radvd[1301]: config file, /etc/radvd.conf, syntax ok
 oct. 17 17:39:25 router radvd[1302]: version 2.18 started
 oct. 17 17:39:25 router systemd[1]: Started Router advertisement daemon for IPv6.</screen>
-
-	<para>Enfin, le résultat doit se retrouver sur la configuration réseau de
-	l'interface du serveur de conteneurs.</para>
-
-<screen><prompt>etu@srvr:~$</prompt> ip addr ls dev enp0s1
-2: enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
-    link/ether b0:ad:ca:fe:00:01 brd ff:ff:ff:ff:ff:ff
-    inet 192.0.2.2/24 brd 192.0.2.255 scope global enp0s1
-       valid_lft forever preferred_lft forever
-    <emphasis>inet6 fda0:7a62:1ae:0:b2ad:caff:fefe:1/64 scope global dynamic mngtmpaddr</emphasis>
-       valid_lft 86124sec preferred_lft 14124sec
-    inet6 fe80::b2ad:caff:fefe:1/64 scope link
-       valid_lft forever preferred_lft forever</screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
@@ -829,7 +816,7 @@ oct. 17 17:39:25 router systemd[1]: Started Router advertisement daemon for IPv6
 	nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
 	tous les outils du système.</para>
 
-<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/srvr/g' /etc/hosts /etc/hostname
+<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/server/g' /etc/hosts /etc/hostname
 <prompt>etu@vm0:~$</prompt> sudo reboot</screen>
 	</answer>
 	</qandaentry>
@@ -1089,12 +1076,54 @@ Starting c2</screen>
 +------+---------+------+-------------------------------------------+-----------+-----------+
 | NAME |  STATE  | IPV4 |                   IPV6                    |   TYPE    | SNAPSHOTS |
 +------+---------+------+-------------------------------------------+-----------+-----------+
-| c0   | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fe9a:c1d1 (eth0) | CONTAINER | 0         |
+| c0   | RUNNING |      | fda0:7a62:1b8:0:216:3eff:fe9a:c1d1 (eth0) | CONTAINER | 0         |
 +------+---------+------+-------------------------------------------+-----------+-----------+
-| c1   | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fe57:7019 (eth0) | CONTAINER | 0         |
+| c1   | RUNNING |      | fda0:7a62:1b8:0:216:3eff:fe57:7019 (eth0) | CONTAINER | 0         |
 +------+---------+------+-------------------------------------------+-----------+-----------+
-| c2   | RUNNING |      | fda0:7a62:1ae:0:216:3eff:fe6b:c9de (eth0) | CONTAINER | 0         |
+| c2   | RUNNING |      | fda0:7a62:1b8:0:216:3eff:fe6b:c9de (eth0) | CONTAINER | 0         |
 +------+---------+------+-------------------------------------------+-----------+-----------+</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment automatiser l'adressage <acronym>IPv4</acronym> statique de
+	chaque conteneur&nbsp;?</para>
+
+	<para>Comme la gestion de la configuration des interfaces est assurée par
+	<systemitem>systemd-networkd</systemitem>, il faut s'intéresser à la
+	syntaxe du fichier <filename>/etc/systemd/network/eth0.network</filename>
+	de chaque conteneur.</para>
+
+	<para>Une fois la syntaxe d'un fichier de configuration établie, il faut
+	l'intégrer dans un script Bash avec une boucle qui parcourt toutes les
+	instances de conteneurs.</para>
+	</question>
+	<answer>
+	<para>Voici une proposition de code qui permet d'appliquer une
+	configuration statique et de redémarrer chacun des trois conteneurs.</para>
+
+<screen>#!/bin/bash
+
+for i in {0..2}
+do
+	echo ">>>>>>>>>>>>>>>>> c$i"
+config=$(cat &lt;&lt; EOF
+[Match]
+Name=eth0
+
+[Network]
+DHCP=false
+Address=192.0.2.$((i + 10))/24
+Gateway=192.0.2.1
+DNS=172.16.0.2
+EOF
+)
+	lxc exec c$i -- bash -c "echo \"${config}\" | tee /etc/systemd/network/eth0.network"
+	lxc restart c$i
+done
+
+exit 0</screen>
 	</answer>
 	</qandaentry>
 
