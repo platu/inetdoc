@@ -1094,13 +1094,14 @@ Starting c2</screen>
 	</question>
 	<answer>
 	<para>Voici une proposition de code qui permet d'appliquer une
-	configuration statique et de redémarrer chacun des trois conteneurs.</para>
+	configuration statique et de redémarrer le gestionnaire de configuration
+	réseau de chacun des trois conteneurs.</para>
 
 <screen>#!/bin/bash
 
 for i in {0..2}
 do
-	echo ">>>>>>>>>>>>>>>>> c$i"
+        echo ">>>>>>>>>>>>>>>>> c$i"
 config=$(cat &lt;&lt; EOF
 [Match]
 Name=eth0
@@ -1108,15 +1109,36 @@ Name=eth0
 [Network]
 DHCP=false
 Address=192.0.2.$((i + 10))/24
+Address=fda0:7a62:1b8::$(printf "%x" $((i + 10)))/64
 Gateway=192.0.2.1
 DNS=172.16.0.2
 EOF
 )
-	lxc exec c$i -- bash -c "echo \"${config}\" | tee /etc/systemd/network/eth0.network"
-	lxc restart c$i
+        lxc exec c$i -- bash -c "echo \"${config}\" | tee /etc/systemd/network/eth0.network"
+        lxc exec c$i -- systemctl restart systemd-networkd
 done
 
 exit 0</screen>
+
+	<para>Si le code du script ci-dessus est placé dans un fichier appelé
+	<filename>c-static-addresses.sh</filename>, on peut l'exécuter directement
+	et relever les résultats.</para>
+
+<screen>bash c-static-addresses.sh</screen>
+
+<screen>lxc ls
++------+---------+-------------------+-------------------------------------------+-----------+-----------+
+| NAME |  STATE  |       IPV4        |                   IPV6                    |   TYPE    | SNAPSHOTS |
++------+---------+-------------------+-------------------------------------------+-----------+-----------+
+| c0   | RUNNING | 192.0.2.10 (eth0) | fda0:7a62:1b8::a (eth0)                   | CONTAINER | 0         |
+|      |         |                   | fda0:7a62:1ae:0:216:3eff:fe9a:c1d1 (eth0) |           |           |
++------+---------+-------------------+-------------------------------------------+-----------+-----------+
+| c1   | RUNNING | 192.0.2.11 (eth0) | fda0:7a62:1b8::b (eth0)                   | CONTAINER | 0         |
+|      |         |                   | fda0:7a62:1ae:0:216:3eff:fe57:7019 (eth0) |           |           |
++------+---------+-------------------+-------------------------------------------+-----------+-----------+
+| c2   | RUNNING | 192.0.2.12 (eth0) | fda0:7a62:1b8::c (eth0)                   | CONTAINER | 0         |
+|      |         |                   | fda0:7a62:1ae:0:216:3eff:fe6b:c9de (eth0) |           |           |
++------+---------+-------------------+-------------------------------------------+-----------+-----------+</screen>
 	</answer>
 	</qandaentry>
 
