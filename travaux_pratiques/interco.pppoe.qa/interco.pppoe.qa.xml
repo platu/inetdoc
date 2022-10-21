@@ -436,6 +436,62 @@
 	<qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
+	<para><phrase>Comment activer la fonction routage du sous-système réseau du
+	noyau&nbsp;?</phrase></para>
+
+	<para>Reprendre les mêmes actions que dans le support
+	&url.interco.pppoe-cloud;.</para>
+	</question>
+	<answer>
+	<para>Il faut éditer le fichier <filename>/etc/sysctl.conf</filename> et
+	appliquer les modifications.</para>
+
+<screen>sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
+sudo sed -i 's/#net.ipv6.conf.all.forwarding=1/net.ipv6.conf.all.forwarding=1/' /etc/sysctl.conf
+sudo sysctl --system</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer la traduction d'adresses sources pour tous
+	les flux réseaux sortants sur le VLAN rouge&nbsp;?</phrase></para>
+
+	<para>Reprendre les mêmes actions que dans le support
+	&url.interco.pppoe-cloud;.</para>
+	</question>
+	<answer>
+	<para>Il faut créer une règle par protocole de couche réseau et sauvegarder
+	ces deux règles dans les fichiers prévus pour la persistance au
+	redémarrage.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>On débute par l'installation des paquets nécessaires au filtrage
+		réseau et à la sauvegarde des règles.</para>
+
+<screen>sudo apt -y install iptables iptables-persistent</screen>
+	</listitem>
+	<listitem>
+		<para>On active la traduction des adresses source
+		<acronym>IPv4</acronym>.</para>
+
+<screen>sudo iptables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
+	</listitem>
+	<listitem>
+		<para>On applique le même traitement pour
+		<acronym>IPv6</acronym>.</para>
+
+<screen>sudo ip6tables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
 	<para><phrase>Quel est le paquet qui fournit le démon de gestion du
 	dialogue <acronym>PPPoE</acronym>&nbsp;?</phrase></para>
 
@@ -491,35 +547,35 @@ EOF</screen>
 
 <screen>sudo adduser --gecos 'Spoke 1' --disabled-login --no-create-home --force-badname 5p0k3_1</screen>
 
-<prompt>sudo adduser --gecos 'Spoke 2' --disabled-login --no-create-home --force-badname 5p0k3_2</screen>
+<screen>sudo adduser --gecos 'Spoke 2' --disabled-login --no-create-home --force-badname 5p0k3_2</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Dans quel fichier sont stockés les paramètres d'identité
-		et d'authentification utilisés par le protocole
-		<acronym>CHAP</acronym>&nbsp;?</phrase></para>
+	<para><phrase>Dans quel fichier sont stockés les paramètres d'identité et
+	d'authentification utilisés par le protocole
+	<acronym>CHAP</acronym>&nbsp;?</phrase></para>
 
-		<para>Consulter les pages de manuels du démon <command>pppd</command> à
-		la section <citetitle>AUTHENTICATION</citetitle>.</para>
+	<para>Consulter les pages de manuels du démon <command>pppd</command> à la
+	section <citetitle>AUTHENTICATION</citetitle>.</para>
 	</question>
 	<answer>
-		<para>C'est le fichier <filename>/etc/ppp/chap-secrets</filename> qui
-		contient les couples <wordasword>login/password</wordasword> utilisés
-		lors de l'authentification.</para>
+	<para>C'est le fichier <filename>/etc/ppp/chap-secrets</filename> qui
+	contient les couples <wordasword>login/password</wordasword> utilisés lors
+	de l'authentification.</para>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment ajouter les authentifiants des deux routeurs
-		<wordasword>Spoke</wordasword> dans le fichier d'authentification
-		<acronym>CHAP</acronym>&nbsp;?</phrase></para>
+	<para><phrase>Comment ajouter les authentifiants des deux routeurs
+	<wordasword>Spoke</wordasword> dans le fichier d'authentification
+	<acronym>CHAP</acronym>&nbsp;?</phrase></para>
 	</question>
 	<answer>
-		<para>Voici une copie du fichier dans le contexte de la maquette. Seuls
-		les noms d'utilisateur et les mots de passe comptent.</para>
+	<para>Voici une copie du fichier dans le contexte de la maquette. Seuls les
+	noms d'utilisateur et les mots de passe comptent.</para>
 
 <screen># Secrets for authentication using CHAP
 # client	server	secret			IP addresses
@@ -530,49 +586,52 @@ EOF</screen>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Relativement au support &url.interco.pppoe-cloud;, quel
-		paramètre supplémentaire doit être ajouté à la configuration de la
-		commande <command>pppoe-server</command> pour distinguer les échanges
-		entre les deux routeurs
-		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+	<para><phrase>Quel paramètre supplémentaire doit être ajouté à la
+	configuration de la commande <command>pppoe-server</command> pour
+	distinguer les échanges entre les deux routeurs
+	<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
 
-		<para>Consulter les options de la commande
-		<command>pppoe-server</command>.</para>
+	<para>Relativement au support &url.interco.pppoe-cloud;, il est essentiel
+	de définir correctement les routes statiques vers les réseaux d'extrémité
+	de chaque routeur <emphasis>Spoke</emphasis>.</para>
+
+	<para>Consulter les options de la commande
+	<command>pppoe-server</command>.</para>
 	</question>
 	<answer>
-		<para>L'option <option>-u</option> permet de désigner une “unité“ qui
-		sert à nommer l'interface. Par exemple, <option>-u&nbsp;0</option>
-		correspond à l'interface <systemitem>ppp0</systemitem>.</para>
+	<para>L'option <option>-u</option> permet de désigner une “unité“ qui sert
+	à nommer l'interface. Par exemple, <option>-u&nbsp;0</option> correspond à
+	l'interface <systemitem>ppp0</systemitem>.</para>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment éditer le fichier
-		<filename>/etc/network/interfaces</filename> pour ouvrir le
-		raccordement des deux sites distants&nbsp;?</phrase></para>
+	<para><phrase>Comment éditer le fichier
+	<filename>/etc/network/interfaces</filename> pour ouvrir le raccordement
+	des deux sites distants&nbsp;?</phrase></para>
 
-		<para>Reprendre la configuration du support &url.interco.pppoe-cloud;
-		en la complétant.</para>
+	<para>Reprendre la configuration du support &url.interco.pppoe-cloud; en la
+	complétant.</para>
 
-		<itemizedlist>
-		<listitem>
+	<itemizedlist>
+	<listitem>
 		<para>Ajouter l'option <option>-u</option> suivie du numéro de
 		l'interface <systemitem>ppp</systemitem> utilisée pour la session vers
 		un site distant donné. Ce numéro conditionne l'ajout des routes
 		statiques vers les réseaux de conteneurs.</para>
-		</listitem>
-		<listitem>
+	</listitem>
+	<listitem>
 		<para>Ajouter une condition spécifique à l'arrêt du processus
 		<systemitem class='daemon'>pppoe-server</systemitem> relatif à un site
 		distant unique. Il ne faut pas que l'arrêt d'une liaison vers un site
 		provoque l'arrêt de toutes les liaisons.</para>
-		</listitem>
-		</itemizedlist>
+	</listitem>
+	</itemizedlist>
 	</question>
 	<answer>
-		<para>Voici une copie du fichier de configuration réseau système dans
-		le contexte de la maquette.</para>
+	<para>Voici une copie du fichier de configuration réseau système dans le
+	contexte de la maquette.</para>
 
 <screen># This file describes the network interfaces available on your system
 # and how to activate them. For more information, see interfaces(5).
@@ -590,39 +649,39 @@ iface enp0s2 inet manual
 	down ip link set dev $IFACE down
 
 # ---------- VLAN ROUGE ----------
-auto enp0s2.300
-iface enp0s2.300 inet static
-	address 10.141.0.162/27
-	gateway 10.141.0.161
-	dns-nameserver 9.9.9.9
+auto enp0s1.360
+iface enp0s1.360 inet static
+	address 192.168.104.130/29
+	gateway 192.168.104.129
+	dns-nameserver 172.16.0.2
 
-iface enp0s2.300 inet6 static
-	address 2001:678:3fc:12c::2/64
-	gateway 2001:678:3fc:12c::1
+iface enp0s1.360 inet6 static
+	address 2001:678:3fc:168::2/64
+	gateway fe80:168::1
 
 # ---------- VLAN VIOLET SPOKE 1 -
-auto enp0s2.470
-iface enp0s2.470 inet6 static
-	address fe80:1d6::1/64
+auto enp0s1.440
+iface enp0s1.440 inet6 static
+	address fe80:1b8::1/64
 
 # ---------- VLAN ORANGE SPOKE 1 -
-auto enp0s2.471
-iface enp0s2.471 inet manual
+auto enp0s1.441
+iface enp0s1.441 inet manual
 	up ip link set dev $IFACE up
-	up pppoe-server -I $IFACE -C BRAS -L 10.47.1.1 -R 10.47.1.2 -N 1 -u 0
+	up pppoe-server -I $IFACE -C BRAS -L 10.44.1.1 -R 10.44.1.2 -N 1 -u 0
 	down kill $(ps aux | egrep "[pppoe]-server.*$IFACE" | tr -s [:blank:] | cut -d ' ' -f 2)
 	down ip link set dev $IFACE down
 
 # ---------- VLAN VIOLET SPOKE 2 -
-auto enp0s2.472
-iface enp0s2.472 inet6 static
-	address fe80:1d8::1/64
+auto enp0s1.442
+iface enp0s1.442 inet6 static
+	address fe80:1ba::1/64
 
 # ---------- VLAN ORANGE SPOKE 2 -
-auto enp0s2.473
-iface enp0s2.473 inet manual
+auto enp0s1.443
+iface enp0s1.443 inet manual
 	up ip link set dev $IFACE up
-	up pppoe-server -I $IFACE -C BRAS -L 10.47.3.1 -R 10.47.3.2 -N 1 -u 1
+	up pppoe-server -I $IFACE -C BRaS -L 10.44.3.1 -R 10.44.3.2 -N 1 -u 1
 	down kill $(ps aux | egrep "[pppoe]-server.*$IFACE" | tr -s [:blank:] | cut -d ' ' -f 2)
 	down ip link set dev $IFACE down</screen>
 	</answer>
@@ -630,52 +689,57 @@ iface enp0s2.473 inet manual
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment ajouter les routes statiques vers les réseaux
-		locaux <acronym>IPv4</acronym> et <acronym>IPv6</acronym> de chaque
-		site distant lors de l'ouverture de la session <acronym>PPP</acronym>
-		propre à un site&nbsp;?</phrase></para>
+	<para><phrase>Comment ajouter les routes statiques vers les réseaux locaux
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> de chaque site distant
+	lors de l'ouverture de la session <acronym>PPP</acronym> propre à un
+	site&nbsp;?</phrase></para>
 
-		<itemizedlist>
-		<listitem>
+	<itemizedlist>
+	<listitem>
 		<para>L'utilisation de l'option <option>-u</option> du démon
 		<systemitem class='daemon'>pppoe-server</systemitem> fixe le numéro
 		d'interface <acronym>PPP</acronym> et on peut l'utiliser pour traiter
 		cette question.</para>
-		</listitem>
-		<listitem>
+	</listitem>
+	<listitem>
 		<para>Pour <acronym>IPv6</acronym>, la liaison <acronym>PPP</acronym>
 		n'utilise que des adresses de lien local générées dynamiquement
 		puisqu'il s'agit d'un réseau de transit entre deux routeurs. Il est
 		donc nécessaire d'utiliser le numéro d'interface pour appliquer la
 		route statique vers le réseau local d'un site donné.</para>
-		</listitem>
-		</itemizedlist>
+	</listitem>
+	</itemizedlist>
 	</question>
 	<answer>
-		<para>Voici une copie du script exécutable
-		<filename>/etc/ppp/ip-up.d/staticroute</filename> pour
-		<acronym>IPv4</acronym> qui utilise les adresses d'extrémités de la
-		maquette.</para>
+	<para>Voici comment créer un script exécutable
+	<filename>/etc/ppp/ip-up.d/staticroute</filename> pour
+	<acronym>IPv4</acronym> qui utilise les adresses d'extrémités de la
+	maquette.</para>
 
-<screen>#!/bin/bash
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/ppp/ip-up.d/staticroute
+#!/bin/bash
 
 if [ -z "${CONNECT_TIME}" ]; then
 	case "${PPP_IFACE}" in
 		"ppp0")
-			ip route add 10.0.1.0/24 via 10.47.1.2
+			ip route add 10.0.1.0/24 dev ${PPP_IFACE}
 			;;
 		"ppp1")
-			ip route add 10.0.2.0/24 via 10.47.3.2
+			ip route add 10.0.2.0/24 dev ${PPP_IFACE}
 			;;
 	esac
-fi</screen>
+fi
+EOF</screen>
 
-	<para>Voici une copie du script exécutable
+<screen>sudo chmod +x /etc/ppp/ip-up.d/staticroute</screen>
+
+	<para>Voici comment créer un script exécutable
 	<filename>/etc/ppp/ipv6-up.d/staticroute</filename> pour
 	<acronym>IPv6</acronym>. Cette fois-ci, on distingue bien la route statique
 	à appliquer en fonction de la session <acronym>PPP</acronym>.</para>
 
-<screen>#!/bin/bash
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/ppp/ipv6-up.d/staticroute
+#!/bin/bash
 
 if [ -z "${CONNECT_TIME}" ]; then
 	case "${PPP_IFACE}" in
@@ -686,7 +750,10 @@ if [ -z "${CONNECT_TIME}" ]; then
 			ip -6 route add fda0:7a62:2::/64 dev ${PPP_IFACE}
 			;;
 	esac
-fi</screen>
+fi
+EOF</screen>
+
+<screen>sudo chmod +x /etc/ppp/ipv6-up.d/staticroute</screen>
 	</answer>
 	</qandaentry>
 
@@ -817,19 +884,50 @@ rtt min/avg/max/mdev = 0.698/1.350/2.002/0.652 ms</screen>
 	session <acronym>PPP</acronym> avec le routeur
 	<wordasword>Hub</wordasword>.</para>
 
+	<para>Avant d'aborder les questions ci-dessous, il faut s'assurer
+	que&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Le routage est activé.</para>
+	</listitem>
+	<listitem>
+		<para>Le paquet <systemitem>ppp</systemitem> est installé.</para>
+	</listitem>
+	<listitem>
+		<para>Le fichier <filename>/etc/ppp/chap-secrets</filename> contenant
+		les authentifiants pour l'établissement de la session
+		<acronym>PPP</acronym> est complété.</para>
+	</listitem>
+	<listitem>
+		<para>Le fichier <filename>/etc/ppp/peers/pppoe-provider</filename> de
+		définition du profil de session <acronym>PPP</acronym> est créé.</para>
+
+		<para>Attention au nom d'utilisateur qui doit correspondre à l'entrée
+		du fichier <filename>/etc/ppp/chap-secrets</filename>&nbsp;!</para>
+
+		<para>Attention au numéro de <acronym>VLAN</acronym> de la
+		sous-interface qui doit désigner la bon côté du triangle&nbsp;!</para>
+	</listitem>
+	<listitem>
+		<para>Le fichier <filename>/etc/network/interfaces</filename> doit
+		contenir une définition d'interface qui appelle le profil de session
+		<systemitem>pppoe-provider</systemitem>.</para>
+	</listitem>
+	</itemizedlist>
+
 	<qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
-		<para><phrase>Quelles sont les messages des journaux système qui
-		montrent que la session <acronym>PPP</acronym> a bien été
-		établie&nbsp;?</phrase></para>
+	<para><phrase>Quels sont les messages des journaux système qui montrent que
+	la session <acronym>PPP</acronym> a bien été établie&nbsp;?</phrase></para>
 
-		<para>Après avoir consulté la page &url.ppp-wikipedia; repérer les
-		messages relatifs aux deux sous-couches <acronym>LCP</acronym> et
-		<acronym>NCP</acronym> du protocole <acronym>PPP</acronym>.</para>
+	<para>Après avoir consulté la page &url.ppp-wikipedia; repérer les messages
+	relatifs aux deux sous-couches <acronym>LCP</acronym> et
+	<acronym>NCP</acronym> du protocole <acronym>PPP</acronym>.</para>
 	</question>
 	<answer>
-		<para>sur le routeur <citetitle>Spoke1vert</citetitle> de la maquette,
+		<para>sur le routeur <citetitle>Spoke1</citetitle> de la maquette,
 		on relève les messages suivants à l'aide de la commande <command>grep
 		ppp /var/log/syslog</command>&nbsp;:</para>
 
