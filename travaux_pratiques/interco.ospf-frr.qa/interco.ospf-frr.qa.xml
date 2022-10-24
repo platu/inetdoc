@@ -614,7 +614,7 @@ sw-vlan10       up      default         10.10.0.1/24
 R1(config)# int enp0s1.480
 R1(config-if)# bandwidth ?
   (1-100000)  Bandwidth in megabits
-R1(config-if)# bandwidth 1000
+R1(config-if)# bandwidth 100000
 R1(config-if)# ^Z
 R1# sh int enp0s1.480
 Interface enp0s1.480 is up, line protocol is up
@@ -625,7 +625,7 @@ Interface enp0s1.480 is up, line protocol is up
   flags: &lt;UP,BROADCAST,RUNNING,MULTICAST>
   Type: Ethernet
   HWaddr: b8:ad:ca:fe:00:c8
-  <emphasis>bandwidth 1000 Mbps</emphasis>
+  <emphasis>bandwidth 100000 Mbps</emphasis>
   inet 10.48.0.1/29
   inet6 fe80::baad:caff:fefe:c8/64
   Interface Type Vlan
@@ -659,11 +659,11 @@ log syslog informational
 service integrated-vtysh-config
 !
 interface enp0s1.480
- <emphasis>bandwidth 1000</emphasis>
+ <emphasis>bandwidth 100000</emphasis>
 exit
 !
 interface enp0s1.481
- <emphasis>bandwidth 1000</emphasis>
+ <emphasis>bandwidth 100000</emphasis>
 exit
 !
 end</screen>
@@ -1325,16 +1325,16 @@ enp0s1.480 is up, <emphasis>type BROADCAST</emphasis>
 	on reconnaît les identifiants des routeurs <systemitem>R2</systemitem> et
 	<systemitem>R3</systemitem>.</para>
 
-<screen><prompt>R1-rouge#</prompt> sh ip ospf neighbor
+<screen>R1# sh ip ospf neighbor
 
-Neighbor ID  Pri State      Dead Time Address      Interface                RXmtL RqstL DBsmL
-<emphasis>7.0.4.2</emphasis>        1 Full/DR      34.442s 10.2.90.2    enp0s2.290:10.2.90.1         0     0     0
-<emphasis>7.0.4.3</emphasis>        1 Full/DR      34.442s 10.2.91.3    enp0s2.291:10.2.91.1         0     0     0</screen>
+Neighbor ID  Pri State         Up Time    Dead Time Address      Interface              RXmtL RqstL DBsmL
+<emphasis>0.0.4.2</emphasis>        1 Full/Backup   1m06s        32.660s 10.48.0.2    enp0s1.480:10.48.0.1       0     0     0
+<emphasis>0.0.4.3</emphasis>        1 Full/Backup   2m10s        38.523s 10.48.1.3    enp0s1.481:10.48.1.1       0     0     0</screen>
 
-<screen><prompt>R1-rouge#</prompt> sh ipv6 ospf6 neighbor
+<screen>R1# sh ipv6 ospf6 neighbor
 Neighbor ID     Pri    DeadTime    State/IfState         Duration I/F[State]
-<emphasis>7.0.6.2</emphasis>           1    00:00:35     Full/DR            1d01:05:34 enp0s2.290[BDR]
-<emphasis>7.0.6.3</emphasis>           1    00:00:35     Full/DR            1d01:05:33 enp0s2.291[BDR]</screen>
+<emphasis>0.0.6.2</emphasis>           1    00:00:37     Full/BDR             00:02:44 enp0s1.480[DR]
+<emphasis>0.0.6.3</emphasis>           1    00:00:33     Full/BDR             00:03:50 enp0s1.481[DR]</screen>
 	</answer>
 	</qandaentry>
 
@@ -1422,26 +1422,22 @@ Neighbor ID     Pri    DeadTime    State/IfState         Duration I/F[State]
 	voisins.</para>
 
 	<para>Voici la vue depuis le routeur
-	<systemitem>R1-rouge</systemitem>.</para>
+	<systemitem>R1</systemitem>.</para>
 
-<screen><prompt>R1-rouge#</prompt> sh ip ospf route
+<screen>R1# sh ip ospf route
 ============ OSPF network routing table ============
-N    10.2.90.0/29          [<emphasis>1</emphasis>] area: 0.0.0.0
-                           directly attached to enp0s2.290
-N    10.2.91.0/29          [<emphasis>1</emphasis>] area: 0.0.0.0
-                           directly attached to enp0s2.291
-N    10.2.93.0/29          [<emphasis>2</emphasis>] area: 0.0.0.0
-                           via 10.2.90.2, enp0s2.290
-                           via 10.2.91.3, enp0s2.291
-
-============ OSPF router routing table =============
-
-============ OSPF external routing table ===========</screen>
+N    10.48.0.0/29          <emphasis>[1]</emphasis> area: 0.0.0.0
+                           directly attached to enp0s1.480
+N    10.48.1.0/29          <emphasis>[1]</emphasis> area: 0.0.0.0
+                           directly attached to enp0s1.481
+N    10.48.2.0/29          <emphasis>[2]</emphasis> area: 0.0.0.0
+                           via 10.48.0.2, enp0s1.480
+                           via 10.48.1.3, enp0s1.481</screen>
 
 	<para>Les valeurs notées entre crochets correspondent à la métrique du lien
-	pour joindre le réseau noté à gauche. Pour le protocole
-	<acronym>OSPF</acronym>, le calcul de métrique se fait à partir de
-	l'expression : 10<superscript>8</superscript> /
+	pour joindre le réseau noté à gauche. Depuis la première spécification du
+	protocole <acronym>OSPF</acronym>, le calcul de métrique se fait à partir
+	de l'expression : 10<superscript>8</superscript> /
 	Bande_Passante_du_lien.</para>
 
 	<para>La valeur du numérateur (10<superscript>8</superscript>) correspond à
@@ -1449,11 +1445,11 @@ N    10.2.93.0/29          [<emphasis>2</emphasis>] area: 0.0.0.0
 	<acronym>OSPFv2</acronym>, ce débit a servi de référence.  Aujourd'hui,
 	cette valeur est complètement dépassée. C'est la raison pour laquelle on
 	adapte le calcul de métrique en changeant le coefficient du numérateur.
-	Voir la <xref linkend='interco.ospf-frr.auto-cost' />.</para> 
+	Voir la <xref linkend='interco.ospf-frr.auto-cost' />.</para>
 
 	<para>Les deux premiers réseaux de la table sont joignable via un lien
-	Ethernet à 1000Mbps ; soit une métrique de <option>1</option>. Le troisième
-	réseau est joignable via deux liens Ethernet à 1000Mbps ; d'où la métrique
+	Ethernet à 100Mbps ; soit une métrique de <option>1</option>. Le troisième
+	réseau est joignable via deux liens Ethernet à 100Mbps ; d'où la métrique
 	de <option>2</option>.</para>
 
 	<para>Pour les préfixes <acronym>IPv6</acronym>, aucun préfixe n'est
@@ -1461,12 +1457,11 @@ N    10.2.93.0/29          [<emphasis>2</emphasis>] area: 0.0.0.0
 	obligatoirement les adresses de lien local appartenant au préfixe
 	<systemitem class='ipaddress'>fe80::/10</systemitem>.</para>
 
-<screen><prompt>R1-rouge#</prompt> sh ipv6 ospf6 route
-</screen>
+<screen>R1# sh ipv6 ospf6 route</screen>
 
 	<para>Les préfixes des réseaux de conteneurs apparaitront dès que le
 	protocole de routage aura été activé pour les interfaces
-	<acronym>SVI</acronym>.</para> 
+	<acronym>SVI</acronym>.</para>
 	</answer>
 	</qandaentry>
 
@@ -1489,9 +1484,9 @@ N    10.2.93.0/29          [<emphasis>2</emphasis>] area: 0.0.0.0
 	</question>
 	<answer>
 	<para>On reprend à nouveau l'exemple du routeur
-	<systemitem>R1-rouge</systemitem>.</para>
+	<systemitem>R1</systemitem>.</para>
 
-<screen><prompt>R1-rouge#</prompt> sh ip route
+<screen>R1# sh ip route
 Codes: K - kernel route, C - connected, S - static, R - RIP,
        O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
        T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
@@ -1499,17 +1494,17 @@ Codes: K - kernel route, C - connected, S - static, R - RIP,
        > - selected route, * - FIB route, q - queued, r - rejected, b - backup
        t - trapped, o - offload failure
 
-K>* 0.0.0.0/0 [0/0] via 10.141.0.161, enp0s2.300 onlink, 1d02h04m
-O   10.2.90.0/29 [110/1] is directly connected, enp0s2.290, weight 1, 1d02h04m
-C>* 10.2.90.0/29 is directly connected, enp0s2.290, 1d02h04m
-O   10.2.91.0/29 [110/1] is directly connected, enp0s2.291, weight 1, 1d02h04m
-C>* 10.2.91.0/29 is directly connected, enp0s2.291, 1d02h04m
-C>* 10.2.92.0/24 is directly connected, sw-vlan292, 1d02h04m
-O>* 10.2.93.0/29 [110/2] via 10.2.90.2, enp0s2.290, weight 1, 1d02h04m
-  *                      via 10.2.91.3, enp0s2.291, weight 1, 1d02h04m
-C>* 10.141.0.160/27 is directly connected, enp0s2.300, 1d02h04m</screen>
+K>* 0.0.0.0/0 [0/0] via 192.168.104.129, enp0s1.360 onlink, 04:41:28
+C>* 10.10.0.0/24 is directly connected, sw-vlan10, 04:41:26
+O   10.48.0.0/29 [110/1] is directly connected, enp0s1.480, weight 1, 00:05:51
+C>* 10.48.0.0/29 is directly connected, enp0s1.480, 04:41:26
+O   10.48.1.0/29 [110/1] is directly connected, enp0s1.481, weight 1, 00:02:01
+C>* 10.48.1.0/29 is directly connected, enp0s1.481, 04:41:26
+O>* 10.48.2.0/29 [110/2] via 10.48.0.2, enp0s1.480, weight 1, 00:00:42
+  *                      via 10.48.1.3, enp0s1.481, weight 1, 00:00:42
+C>* 192.168.104.128/27 is directly connected, enp0s1.360, 04:41:28</screen>
 
-<screen><prompt>R1-rouge#</prompt> sh ipv6 route
+<screen>R1# sh ipv6 route
 Codes: K - kernel route, C - connected, S - static, R - RIPng,
        O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
        v - VNC, V - VNC-Direct, A - Babel, F - PBR,
@@ -1517,15 +1512,15 @@ Codes: K - kernel route, C - connected, S - static, R - RIPng,
        > - selected route, * - FIB route, q - queued, r - rejected, b - backup
        t - trapped, o - offload failure
 
-K>* ::/0 [0/1024] via 2001:678:3fc:12c::1, enp0s2.300 onlink, 1d02h05m
-C>* 2001:678:3fc:124::/64 is directly connected, sw-vlan292, 1d02h05m
-C>* 2001:678:3fc:12c::/64 is directly connected, enp0s2.300, 1d02h05m
-C * fe80::/64 is directly connected, asw-host, 1d02h05m
-C * fe80::/64 is directly connected, enp0s2.290, 1d02h05m
-C * fe80::/64 is directly connected, enp0s2.291, 1d02h05m
-C * fe80::/64 is directly connected, sw-vlan292, 1d02h05m
-C * fe80::/64 is directly connected, enp0s2.300, 1d02h05m
-C>* fe80::/64 is directly connected, enp0s2, 1d02h05m</screen>
+K>* ::/0 [0/1024] via fe80:168::1, enp0s1.360 onlink, 04:42:10
+C>* 2001:678:3fc:168::/64 is directly connected, enp0s1.360, 04:42:08
+C>* fd14:ca46:3864:a::/64 is directly connected, sw-vlan10, 04:42:06
+C * fe80::/64 is directly connected, asw-host, 04:42:04
+C * fe80::/64 is directly connected, enp0s1.481, 04:42:06
+C * fe80::/64 is directly connected, sw-vlan10, 04:42:06
+C * fe80::/64 is directly connected, enp0s1.480, 04:42:07
+C * fe80::/64 is directly connected, enp0s1, 04:42:08
+C>* fe80::/64 is directly connected, enp0s1.360, 04:42:08</screen>
 
 	<itemizedlist>
 	<listitem>
@@ -1588,27 +1583,32 @@ C>* fe80::/64 is directly connected, enp0s2, 1d02h05m</screen>
 	</listitem>
 	</itemizedlist>
 
-<screen><prompt>etu@R1-rouge:~$</prompt> ip route ls
-default via 10.141.0.161 dev enp0s2.300 onlink
-10.2.90.0/29 dev enp0s2.290 <emphasis>proto kernel</emphasis> scope link src 10.2.90.1
-10.2.91.0/29 dev enp0s2.291 proto kernel scope link src 10.2.91.1
-10.2.92.0/24 dev sw-vlan292 proto kernel scope link src 10.2.92.1
-10.2.93.0/29 nhid 50 <emphasis>proto ospf</emphasis> metric 20
-        nexthop via 10.2.91.3 dev enp0s2.291 weight 1
-        nexthop via 10.2.90.2 dev enp0s2.290 weight 1
-10.141.0.160/27 dev enp0s2.300 proto kernel scope link src 10.141.0.162</screen>
+<screen>ip route ls
+default via 192.168.104.129 dev enp0s1.360 onlink
+10.10.0.0/24 dev sw-vlan10 proto kernel scope link src 10.10.0.1
+10.48.0.0/29 dev enp0s1.480 proto kernel scope link src 10.48.0.1
+10.48.1.0/29 dev enp0s1.481 proto kernel scope link src 10.48.1.1
+10.48.2.0/29 nhid 85 <emphasis>proto ospf metric 20</emphasis>
+        nexthop via 10.48.1.3 dev enp0s1.481 weight 1
+        nexthop via 10.48.0.2 dev enp0s1.480 weight 1
+192.168.104.128/27 dev enp0s1.360 proto kernel scope link src 192.168.104.130</screen>
 
-<screen><prompt>etu@R1-rouge:~$</prompt> ip -6 route ls
+	<para>La table de routage <acronym>IPv6</acronym> ne fait apparaître aucune
+	nouvelle entrée puisque les réseaux de conteneurs desservis par
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> n'ont pas encore
+	été annoncés à ce stade de la configuration.</para>
+
+<screen>ip -6 route ls
 ::1 dev lo proto kernel metric 256 pref medium
-2001:678:3fc:124::/64 dev sw-vlan292 proto kernel metric 256 pref medium
-2001:678:3fc:12c::/64 dev enp0s2.300 proto kernel metric 256 pref medium
-fe80::/64 dev enp0s2 proto kernel metric 256 pref medium
-fe80::/64 dev enp0s2.300 proto kernel metric 256 pref medium
-fe80::/64 dev enp0s2.290 <emphasis>proto kernel</emphasis> metric 256 pref medium
-fe80::/64 dev enp0s2.291 proto kernel metric 256 pref medium
-fe80::/64 dev sw-vlan292 proto kernel metric 256 pref medium
+2001:678:3fc:168::/64 dev enp0s1.360 proto kernel metric 256 pref medium
+fd14:ca46:3864:a::/64 dev sw-vlan10 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.360 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.480 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.481 proto kernel metric 256 pref medium
+fe80::/64 dev sw-vlan10 proto kernel metric 256 pref medium
 fe80::/64 dev asw-host proto kernel metric 256 pref medium
-default via 2001:678:3fc:12c::1 dev enp0s2.300 metric 1024 onlink pref medium</screen>
+default via fe80:168::1 dev enp0s1.360 metric 1024 onlink pref medium</screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
@@ -1636,61 +1636,53 @@ default via 2001:678:3fc:12c::1 dev enp0s2.300 metric 1024 onlink pref medium</s
 	Advertisement)</wordasword>) de type 1 et 2 qui correspondent
 	respectivement aux annonces de routeurs et de réseaux.</para>
 
-<screen><prompt>R1-rouge#</prompt> sh ip ospf database
+<screen>R1# sh ip ospf database
 
-       OSPF Router with ID (7.0.4.1)
+       OSPF Router with ID (0.0.4.1)
 
                 Router Link States (Area 0.0.0.0)
 
 Link ID         ADV Router      Age  Seq#       CkSum  Link count
-7.0.4.1        7.0.4.1           73 0x80000009 0xe125 3
-7.0.4.2        7.0.4.2          415 0x80000008 0x9a63 3
-7.0.4.3        7.0.4.3          419 0x80000008 0xf302 3
+0.0.4.1        0.0.4.1          450 0x80000012 0xa296 2
+0.0.4.2        0.0.4.2          372 0x80000008 0x2912 2
+0.0.4.3        0.0.4.3          416 0x80000008 0x57dd 2
 
                 Net Link States (Area 0.0.0.0)
 
 Link ID         ADV Router      Age  Seq#       CkSum
-10.2.90.2      7.0.4.2          415 0x80000001 0x5c76
-10.2.91.3      7.0.4.3          420 0x80000001 0x4f7f
-10.2.93.3      7.0.4.3          420 0x80000001 0x4388</screen>
+10.48.0.1      0.0.4.1           56 0x80000002 0xe232
+10.48.1.1      0.0.4.1           86 0x80000002 0xe52d
+10.48.2.3      0.0.4.3           35 0x80000002 0xc448</screen>
 
-<screen><prompt>R1-rouge#</prompt> sh ipv6 ospf6 database
+<screen>R1# sh ipv6 ospf6 database
 
         Area Scoped Link State Database (Area 0)
 
 Type LSId           AdvRouter       Age   SeqNum                        Payload
-Rtr  0.0.0.0        7.0.6.1         182 80000005                7.0.6.2/0.0.0.6
-Rtr  0.0.0.0        7.0.6.1         182 80000005                7.0.6.3/0.0.0.6
-Rtr  0.0.0.0        7.0.6.2         530 80000003                7.0.6.2/0.0.0.6
-Rtr  0.0.0.0        7.0.6.2         530 80000003                7.0.6.3/0.0.0.7
-Rtr  0.0.0.0        7.0.6.3         534 80000003                7.0.6.3/0.0.0.6
-Rtr  0.0.0.0        7.0.6.3         534 80000003                7.0.6.3/0.0.0.7
-Net  0.0.0.6        7.0.6.2         529 80000001                        7.0.6.2
-Net  0.0.0.6        7.0.6.2         529 80000001                        7.0.6.1
-Net  0.0.0.6        7.0.6.3         534 80000001                        7.0.6.3
-Net  0.0.0.6        7.0.6.3         534 80000001                        7.0.6.1
-Net  0.0.0.7        7.0.6.3         538 80000001                        7.0.6.3
-Net  0.0.0.7        7.0.6.3         538 80000001                        7.0.6.2
-INP  0.0.0.0        7.0.6.1        3600 80000003          2001:678:3fc:124::/64
-INP  0.0.0.0        7.0.6.2         530 80000003          2001:678:3fc:126::/64
-INP  0.0.0.0        7.0.6.3         534 80000003          2001:678:3fc:127::/64
+Rtr  0.0.0.0        0.0.6.1         497 8000000b                0.0.6.1/0.0.0.4
+Rtr  0.0.0.0        0.0.6.1         497 8000000b                0.0.6.1/0.0.0.5
+Rtr  0.0.0.0        0.0.6.2         419 80000005                0.0.6.1/0.0.0.4
+Rtr  0.0.0.0        0.0.6.2         419 80000005                0.0.6.3/0.0.0.4
+Rtr  0.0.0.0        0.0.6.3         463 80000005                0.0.6.1/0.0.0.5
+Rtr  0.0.0.0        0.0.6.3         463 80000005                0.0.6.3/0.0.0.4
+Net  0.0.0.4        0.0.6.1        1789 80000001                        0.0.6.1
+Net  0.0.0.4        0.0.6.1        1789 80000001                        0.0.6.2
+Net  0.0.0.5        0.0.6.1          54 80000002                        0.0.6.1
+Net  0.0.0.5        0.0.6.1          54 80000002                        0.0.6.3
+Net  0.0.0.4        0.0.6.3        1781 80000001                        0.0.6.3
+Net  0.0.0.4        0.0.6.3        1781 80000001                        0.0.6.2
 
-        I/F Scoped Link State Database (I/F enp0s2.290 in Area 0)
+        I/F Scoped Link State Database (I/F enp0s1.480 in Area 0)
 
 Type LSId           AdvRouter       Age   SeqNum                        Payload
-Lnk  0.0.0.7        7.0.6.1         577 80000001        fe80::baad:caff:fefe:64
-Lnk  0.0.0.6        7.0.6.2         579 80000001        fe80::baad:caff:fefe:65
+Lnk  0.0.0.4        0.0.6.1         930 80000005        fe80::baad:caff:fefe:c8
+Lnk  0.0.0.3        0.0.6.2        1798 80000001        fe80::baad:caff:fefe:c9
 
-        I/F Scoped Link State Database (I/F enp0s2.291 in Area 0)
+        I/F Scoped Link State Database (I/F enp0s1.481 in Area 0)
 
 Type LSId           AdvRouter       Age   SeqNum                        Payload
-Lnk  0.0.0.8        7.0.6.1         577 80000001        fe80::baad:caff:fefe:64
-Lnk  0.0.0.6        7.0.6.3         579 80000001        fe80::baad:caff:fefe:66
-
-        AS Scoped Link State Database
-
-Type LSId           AdvRouter       Age   SeqNum                        Payload</screen>
-
+Lnk  0.0.0.5        0.0.6.1         926 80000005        fe80::baad:caff:fefe:c8
+Lnk  0.0.0.3        0.0.6.3          61 80000002        fe80::baad:caff:fefe:ca</screen>
 	<qandaset>
 	<qandaentry>
 	<question>
@@ -1719,17 +1711,17 @@ Type LSId           AdvRouter       Age   SeqNum                        Payload<
 	<para>Sur la maquette, on valide la présence des routes par défaut à l'aide
 	la commande <command>ip</command> au niveau système.</para>
 
-<screen><prompt>etu@R1-rouge:~$</prompt> ip route ls default
-<emphasis>default via 10.141.0.161 dev enp0s2.300</emphasis> onlink</screen>
+<screen>ip route ls default
+<emphasis>default via 192.168.104.129</emphasis> dev enp0s1.360 onlink</screen>
 
-<screen><prompt>etu@R1-rouge:~$</prompt> ip -6 route ls default
-<emphasis>default via 2001:678:3fc:12c::1 dev enp0s2.300</emphasis> metric 1024 onlink pref medium</screen>
+<screen>ip -6 route ls default
+<emphasis>default via fe80:168::1</emphasis> dev enp0s1.360 metric 1024 onlink pref medium</screen>
 
 	<para>Au niveau de la console <command>vtysh</command>, ces même routes
 	correspondent aux entrées marquées <option>K</option> pour
 	<wordasword>kernel</wordasword>.</para>
 
-<screen><prompt>R1-rouge#</prompt> sh ip route kernel
+<screen>R1# sh ip route kernel
 Codes: K - kernel route, C - connected, S - static, R - RIP,
        O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
        T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
@@ -1737,9 +1729,9 @@ Codes: K - kernel route, C - connected, S - static, R - RIP,
        > - selected route, * - FIB route, q - queued, r - rejected, b - backup
        t - trapped, o - offload failure
 
-<emphasis>K>* 0.0.0.0/0 [0/0] via 10.141.0.161, enp0s2.300</emphasis> onlink, 00:15:22</screen>
+K>* <emphasis>0.0.0.0/0 [0/0] via 192.168.104.129</emphasis>, enp0s1.360 onlink, 04:50:31</screen>
 
-<screen><prompt>R1-rouge#</prompt> sh ipv6 route kernel
+<screen>R1# sh ipv6 route kernel
 Codes: K - kernel route, C - connected, S - static, R - RIPng,
        O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
        v - VNC, V - VNC-Direct, A - Babel, F - PBR,
@@ -1747,7 +1739,7 @@ Codes: K - kernel route, C - connected, S - static, R - RIPng,
        > - selected route, * - FIB route, q - queued, r - rejected, b - backup
        t - trapped, o - offload failure
 
-<emphasis>K>* ::/0 [0/1024] via 2001:678:3fc:12c::1, enp0s2.300</emphasis> onlink, 00:17:04</screen>
+K>* <emphasis>::/0 [0/1024] via fe80:168::1</emphasis>, enp0s1.360 onlink, 04:51:23</screen>
 	</answer>
 	</qandaentry>
 
@@ -1778,11 +1770,10 @@ Codes: K - kernel route, C - connected, S - static, R - RIPng,
 	<wordasword>router&nbsp;ospf</wordasword> de la configuration du routeur
 	<systemitem class='systemname'>R1</systemitem>.</para>
 
-<screen><prompt>R1-rouge#</prompt> conf t
-R1-rouge(config)# router ospf
-R1-rouge(config-router)# default-information originate
-R1-rouge(config-router)# ^Z
-R1-rouge#</screen>
+<screen>R1# conf t
+R1(config)# router ospf
+R1(config-router)# default-information originate
+R1(config-router)# ^Z</screen>
 
 	<para>Une fois cette instruction exécutée, le rôle du routeur <systemitem
 	class='systemname'>R1</systemitem> change. Il devient
@@ -1790,20 +1781,20 @@ R1-rouge#</screen>
 	<acronym>ASBR</acronym>. Les bases de données sont complétées avec des
 	<acronym>LSAs</acronym> de type 5.</para>
 
-<screen><prompt>R1-rouge#</prompt> sh ip ospf database external
+<screen>R1# sh ip ospf database external
 
-       OSPF Router with ID (7.0.4.1)
+       OSPF Router with ID (0.0.4.1)
 
                 AS External Link States
 
-  LS age: 353
+  LS age: 38
   Options: 0x2  : *|-|-|-|-|-|E|-
   LS Flags: 0xb
   LS Type: AS-external-LSA
   Link State ID: 0.0.0.0 (External Network Number)
-  Advertising Router: 7.0.4.1
+  Advertising Router: 0.0.4.1
   LS Seq Number: 80000001
-  Checksum: 0xe5d6
+  Checksum: 0x259e
   Length: 36
 
   Network Mask: /0
@@ -1818,8 +1809,8 @@ R1-rouge#</screen>
 	<systemitem class='systemname'>R1</systemitem> apparaît aussi lorsque l'on
 	affiche l'état de l'instance de routage <acronym>OSPFv2</acronym>.</para>
 
-<screen><prompt>R1-rouge#</prompt> sh ip ospf
- OSPF Routing Process, Router ID: 7.0.4.1
+<screen>R1# sh ip ospf
+ OSPF Routing Process, Router ID: 0.0.4.1
  Supports only single TOS (TOS0) routes
  This implementation conforms to RFC2328
  RFC1583Compatibility flag is disabled
@@ -1828,16 +1819,17 @@ R1-rouge#</screen>
  Minimum hold time between consecutive SPFs 50 millisec(s)
  Maximum hold time between consecutive SPFs 5000 millisec(s)
  Hold time multiplier is currently 1
- SPF algorithm last executed 8m33s ago
- Last SPF duration 93 usecs
+ SPF algorithm last executed 1m50s ago
+ Last SPF duration 133 usecs
  SPF timer is inactive
  LSA minimum interval 5000 msecs
  LSA minimum arrival 1000 msecs
  Write Multiplier set to 20
  Refresh timer 10 secs
- Maximum multiple paths(ECMP) supported  256
+ Maximum multiple paths(ECMP) supported 256
+ Administrative distance 110
  <emphasis>This router is an ASBR (injecting external routing information)</emphasis>
- Number of external LSA 1. Checksum Sum 0x0000e5d6
+ Number of external LSA 1. Checksum Sum 0x0000259e
  Number of opaque AS LSA 0. Checksum Sum 0x00000000
  Number of areas attached to this router: 1
  All adjacency changes are logged
@@ -1845,10 +1837,10 @@ R1-rouge#</screen>
    Number of interfaces in this area: Total: 2, Active: 2
    Number of fully adjacent neighbors in this area: 2
    Area has no authentication
-   SPF algorithm executed 11 times
+   SPF algorithm executed 21 times
    Number of LSA 6
-   Number of router LSA 3. Checksum Sum 0x0002501c
-   Number of network LSA 3. Checksum Sum 0x0000e980
+   Number of router LSA 3. Checksum Sum 0x0001277e
+   Number of network LSA 3. Checksum Sum 0x00028ba7
    Number of summary LSA 0. Checksum Sum 0x00000000
    Number of ASBR summary LSA 0. Checksum Sum 0x00000000
    Number of NSSA LSA 0. Checksum Sum 0x00000000
@@ -1902,11 +1894,10 @@ R1-rouge#</screen>
 	<wordasword>router&nbsp;ospf6</wordasword> de la configuration du routeur
 	<systemitem class='systemname'>R1</systemitem>.</para>
 
-<screen><prompt>R1-rouge#</prompt> conf t
-R1-rouge(config)# router ospf6
-R1-rouge(config-ospf6)# default-information originate
-R1-rouge(config-ospf6)# ^Z
-R1-rouge#</screen>
+<screen>R1# conf t
+R1(config)# router ospf6
+R1(config-ospf6)# default-information originate
+R1(config-ospf6)# ^Z</screen>
 
 	<para>Une fois cette instruction exécutée, le rôle du routeur <systemitem
 	class='systemname'>R1</systemitem> change. Il devient
@@ -1914,38 +1905,41 @@ R1-rouge#</screen>
 	<acronym>ASBR</acronym>. Les bases de données sont complétées avec des
 	<acronym>LSAs</acronym> de type 5.</para>
 
-<screen><prompt>R1-rouge#</prompt> sh ipv6 ospf6 database as-external
+<screen>R1# sh ipv6 ospf6 database as-external
 
         AS Scoped Link State Database
 
-Type LSId           AdvRouter       Age   SeqNum              Payload
-ASE  0.0.0.1        7.0.6.1         797 80000001                   ::</screen>
+Type LSId           AdvRouter       Age   SeqNum                        Payload
+ASE  0.0.0.1        0.0.6.1          58 80000001                             <emphasis>::</emphasis></screen>
 
 	<para>On voit apparaître une nouvelle rubrique baptisée <wordasword>AS
 	Scoped Link State Database</wordasword>. Ce nouveau rôle pour le routeur
 	<systemitem class='systemname'>R1</systemitem> apparaît aussi lorsque l'on
 	affiche l'état de l'instance de routage <acronym>OSPFv3</acronym>.</para>
 
-<screen><prompt>R1-rouge#</prompt> sh ipv6 ospf6
- OSPFv3 Routing Process (0) with Router-ID 7.0.6.1
- Running 00:56:23
+<screen>R1# sh ipv6 ospf6
+ OSPFv3 Routing Process (0) with Router-ID 0.0.6.1
+ Running 02:40:17
  LSA minimum arrival 1000 msecs
  Maximum-paths 256
+ Administrative distance 110
  Initial SPF scheduling delay 0 millisec(s)
  Minimum hold time between consecutive SPFs 50 millsecond(s)
  Maximum hold time between consecutive SPFs 5000 millsecond(s)
  Hold time multiplier is currently 1
- SPF algorithm last executed 00:24:40 ago, reason R+, R-
- Last SPF duration 0 sec 156 usec
+ SPF algorithm last executed 00:01:46 ago, reason R+, R-, A
+ Last SPF duration 0 sec 118 usec
  SPF timer is inactive
  <emphasis>Number of AS scoped LSAs is 1</emphasis>
  Number of areas in this router is 1
+ Authentication Sequence number info
+  Higher sequence no 0, Lower sequence no 0
  All adjacency changes are logged
 
  Area 0
-     Number of Area scoped LSAs is 8
-     Interface attached to this area: enp0s2.290 enp0s2.291
-SPF last executed 1480.916201s ago</screen>
+     Number of Area scoped LSAs is 6
+     Interface attached to this area: enp0s1.480 enp0s1.481
+     SPF last executed 106.592900s ago</screen>
 	</answer>
 	</qandaentry>
 
@@ -1977,47 +1971,41 @@ SPF last executed 1480.916201s ago</screen>
 	<listitem>
 	<para>Vue de la table de routage&nbsp;:</para>
 
-<screen><prompt>R2-vert#</prompt> sh ip route 0.0.0.0
+<screen>R2# sh ip route 0.0.0.0
 Routing entry for 0.0.0.0/0
-  Known via "ospf", distance 110, metric 10, best
-  Last update 00:29:15 ago
-  * 10.2.90.1, via enp0s2.290, weight 1</screen>
+  <emphasis>Known via "ospf"</emphasis>, distance 110, metric 10, best
+  Last update 00:07:26 ago
+  * 10.48.0.1, via enp0s1.480, weight 1</screen>
 
-<screen><prompt>R2-vert#</prompt> sh ipv6 route ::/0
+<screen>R2# sh ipv6 route ::/0
 Routing entry for ::/0
-  Known via "ospf6", distance 110, metric 10, best
-  Last update 00:30:32 ago
-  * fe80::baad:caff:fefe:64, via enp0s2.290, weight 1</screen>
+  <emphasis>Known via "ospf6"</emphasis>, distance 110, metric 10, best
+  Last update 00:04:43 ago
+  * fe80::baad:caff:fefe:c8, via enp0s1.480, weight 1</screen>
 	</listitem>
 	<listitem>
 	<para>Vue de la base de topologie <acronym>OSPF</acronym>&nbsp;:</para>
 
-<screen><prompt>R2-vert#</prompt> sh ip ospf route
+<screen>R2# sh ip ospf route
 ============ OSPF network routing table ============
-N    10.2.90.0/29          [1] area: 0.0.0.0
-                           directly attached to enp0s2.290
-N    10.2.91.0/29          [2] area: 0.0.0.0
-                           via 10.2.90.1, enp0s2.290
-                           via 10.2.93.3, enp0s2.293
-N    10.2.93.0/29          [1] area: 0.0.0.0
-                           directly attached to enp0s2.293
-N    10.2.94.0/24          [1] area: 0.0.0.0
-                           directly attached to sw-vlan294
-N    10.2.95.0/24          [2] area: 0.0.0.0
-                           via 10.2.93.3, enp0s2.293
+N    10.48.0.0/29          [1] area: 0.0.0.0
+                           directly attached to enp0s1.480
+N    10.48.1.0/29          [2] area: 0.0.0.0
+                           via 10.48.0.1, enp0s1.480
+                           via 10.48.2.3, enp0s1.482
+N    10.48.2.0/29          [1] area: 0.0.0.0
+                           directly attached to enp0s1.482
 
 ============ OSPF router routing table =============
-R    7.0.4.1               [1] area: 0.0.0.0, ASBR
-                           via 10.2.90.1, enp0s2.290
+R    0.0.4.1               [1] area: 0.0.0.0, ASBR
+                           via 10.48.0.1, enp0s1.480
 
 ============ OSPF external routing table ===========
-<emphasis>N E2 0.0.0.0/0</emphasis>             [1/10] tag: 0
-                           via 10.2.90.1, enp0s2.290</screen>
+<emphasis>N E2 0.0.0.0/0</emphasis>            [1/10] tag: 0
+                           via 10.48.0.1, enp0s1.480</screen>
 
-<screen><prompt>R2-vert#</prompt> sh ipv6 ospf6 route
-<emphasis>*N E2 ::/0</emphasis>                           fe80::baad:caff:fefe:64   enp0s2.290 00:32:43
-*N IA 2001:678:3fc:126::/64          ::                        sw-vlan294 01:04:23
-*N IA 2001:678:3fc:127::/64          fe80::baad:caff:fefe:66   enp0s2.293 01:03:38</screen>
+<screen>R2# sh ipv6 ospf6 route
+<emphasis>*N E2 ::/0</emphasis>                           fe80::baad:caff:fefe:c8   enp0s1.480 00:07:05</screen>
 	</listitem>
 	</itemizedlist>
 
@@ -2037,69 +2025,47 @@ R    7.0.4.1               [1] area: 0.0.0.0, ASBR
 	</question>
 	<answer>
 	<para>Dans le cas de la maquette, c'est l'interface
-	<systemitem>enp0s2.300</systemitem> qui assure l'interconnexion avec
-	l'Internet. Voici une copie de chaque fichier de configuration après
-	installation du paquet
-	<application>iptables-persistent</application>.</para> 
+	<systemitem>enp0s1.360</systemitem> qui assure l'interconnexion avec
+	l'Internet. Voici une copie de l'instruction d'ajout de la règle de
+	traduction des adresses sources et de sa sauvegarde pour
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
 
-<screen><prompt>etu@R1-rouge:~$</prompt> sudo apt install iptables-persistent
-<prompt>etu@R1-rouge:~$</prompt> sudo mkdir -p /etc/iptables
-<prompt>etu@R1-rouge:~$</prompt> aptitude versions iptables-persistent
-i   1.0.15                    testing                   500</screen>
+<screen>sudo iptables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
 
-<screen><prompt>etu@R1-rouge:~$</prompt> cat &lt;&lt; EOF | sudo tee /etc/iptables/rules.v4
-*nat
-:PREROUTING ACCEPT [0:0]
-:INPUT ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
--A POSTROUTING -o enp0s2.300 -j MASQUERADE
-COMMIT
-EOF</screen>
-
-<screen><prompt>etu@R1-rouge:~$</prompt> cat &lt;&lt; EOF | sudo tee /etc/iptables/rules.v6
-*nat
-:PREROUTING ACCEPT [0:0]
-:INPUT ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
--A POSTROUTING -o enp0s2.300 -j MASQUERADE
-COMMIT
-EOF</screen>
-
-<screen><prompt>etu@R1-rouge:~$</prompt> sudo sh -c "iptables-restore &lt; /etc/iptables/rules.v4"
-<prompt>etu@R1-rouge:~$</prompt> sudo sh -c "ip6tables-restore &lt; /etc/iptables/rules.v6"</screen>
+<screen>sudo ip6tables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
 
 	<para>Une fois le jeu de règles en place, on peut vérifier leur utilisation
 	à partir du relevé des compteurs de paquets traités.</para>
 
-<screen><prompt>etu@R1-rouge:~$</prompt> sudo iptables -t nat -vnL
-Chain PREROUTING (policy ACCEPT 520 packets, 35528 bytes)
+<screen>sudo iptables -vnL -t nat
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
 
-Chain INPUT (policy ACCEPT 8 packets, 1023 bytes)
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
 
-Chain OUTPUT (policy ACCEPT 192 packets, 12619 bytes)
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
 
-Chain POSTROUTING (policy ACCEPT 29 packets, 2112 bytes)
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
-  <emphasis>671 44852</emphasis> MASQUERADE  all  --  *      enp0s2.300  0.0.0.0/0            0.0.0.0/0</screen>
+  <emphasis>150 10288 MASQUERADE  all  --  *      enp0s1.360  0.0.0.0/0            0.0.0.0/0</emphasis></screen>
 
- <screen><prompt>etu@R1-rouge:~$</prompt> sudo ip6tables -t nat -vnL
-Chain PREROUTING (policy ACCEPT 1174 packets, 129K bytes)
- pkts bytes target     prot opt in     out     source               destination
-
-Chain INPUT (policy ACCEPT 163 packets, 25980 bytes)
+ <screen>sudo ip6tables -vnL -t nat
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
 
-Chain OUTPUT (policy ACCEPT 23 packets, 2324 bytes)
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
 
-Chain POSTROUTING (policy ACCEPT 20 packets, 1976 bytes)
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
-  <emphasis>122 10096</emphasis> MASQUERADE  all      *      enp0s2.300  ::/0                 ::/0</screen>
+
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+   <emphasis>57  5083 MASQUERADE  all      *      enp0s1.360  ::/0                 ::/0</emphasis></screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
@@ -2133,50 +2099,43 @@ Chain POSTROUTING (policy ACCEPT 20 packets, 1976 bytes)
 	</question>
 	<answer>
 	<para>Voici un exemple pour le routeur <systemitem
-	class='systemname'>R2-vert</systemitem>.</para>
+	class='systemname'>R2</systemitem>.</para>
 
-<screen> sudo apt install snapd
- sudo snap install lxd
- sudo adduser etu lxd
- snap list
-Name    Version   Rev    Tracking       Publisher   Notes
-core20  20210928  1169   latest/stable  canonical✓  base
-lxd     4.19      21780  latest/stable  canonical✓  -
-snapd   2.52.1    13640  latest/stable  canonical✓  snapd</screen>
+<screen>sudo apt install snapd
+sudo snap install lxd
+sudo adduser etu lxd</screen>
 
 	<para>Après déconnexion - reconnexion, on peut passer à l'étape de
 	définition du profil par défaut pour la création des conteneurs.</para>
 
-<screen><prompt>etu@R2-vert:~$</prompt> lxd init
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+<screen>lxd init
 Would you like to use LXD clustering? (yes/no) [default=no]:
 Do you want to configure a new storage pool? (yes/no) [default=yes]:
 Name of the new storage pool [default=default]:
-Name of the storage backend to use (ceph, btrfs, dir, lvm) [default=btrfs]:
+Name of the storage backend to use (cephobject, dir, lvm, btrfs, ceph) [default=btrfs]:
 Create a new BTRFS pool? (yes/no) [default=yes]:
 Would you like to use an existing empty block device (e.g. a disk or partition)? (yes/no) [default=no]:
-Size in GB of the new loop device (1GB minimum) [default=13GB]:
+Size in GiB of the new loop device (1GiB minimum) [default=23GiB]:
 Would you like to connect to a MAAS server? (yes/no) [default=no]:
 Would you like to create a new local network bridge? (yes/no) [default=yes]: <emphasis>no</emphasis>
 Would you like to configure LXD to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
-Name of the existing bridge or host interface: <emphasis>sw-vlan294</emphasis>
+Name of the existing bridge or host interface: <emphasis>sw-vlan20</emphasis>
 Would you like the LXD server to be available over the network? (yes/no) [default=no]:
-Would you like stale cached images to be updated automatically? (yes/no) [default=yes]
-Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]:
+Would you like stale cached images to be updated automatically? (yes/no) [default=yes]:
+Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]:</screen>
 
-<prompt>etu@R2-vert:~$</prompt> lxc profile device set default eth0 nictype bridged</screen>
+<screen>lxc profile device set default eth0 nictype bridged</screen>
 
 	<para>Voici une copie du profil après configuration.</para>
 
-<screen><prompt>etu@R2-vert:~$</prompt> lxc profile show default
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+<screen>lxc profile show default
 config: {}
 description: Default LXD profile
 devices:
   eth0:
     name: eth0
-    nictype: bridged
-    parent: sw-vlan294
+    nictype: <emphasis>bridged</emphasis>
+    parent: <emphasis>sw-vlan20</emphasis>
     type: nic
   root:
     path: /
@@ -2199,12 +2158,12 @@ used_by: []</screen>
 	<answer>
 	<para>On commence par la création des 3 conteneurs demandés.</para>
 
-<screen><prompt>etu@R2-vert:~$</prompt> for i in {0..2}
+<screen>for i in {0..2}
 do
-lxc launch images:debian/bullseye c$i
-done
-<prompt>etu@R2-vert:~$</prompt> lxc ls
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+	lxc launch images:debian/12 c$i
+done</screen>
+
+<screen>lxc ls
 +------+---------+------+------+-----------+-----------+
 | NAME |  STATE  | IPV4 | IPV6 |   TYPE    | SNAPSHOTS |
 +------+---------+------+------+-----------+-----------+
@@ -2215,99 +2174,70 @@ WARNING: cgroup v2 is not fully supported yet, proceeding with partial confineme
 | c2   | RUNNING |      |      | CONTAINER | 0         |
 +------+---------+------+------+-----------+-----------+</screen>
 
-		<para>Les conteneurs sont bien lancés. On peut passer à l'adressage. On
-		commence par <acronym>IPv6</acronym> et le paquet
-		<application>radvd</application>.</para>
+	<para>Les conteneurs sont bien lancés. On peut passer à l'adressage
+	automatisé. On applique les adresses avec une boucle.</para>
 
-<screen><prompt>etu@R2-vert:~$</prompt> sudo apt install radvd</screen>
-
-<screen><prompt>etu@R2-vert:~$</prompt> cat &lt;&lt; EOF | sudo tee /etc/radvd.conf
-interface sw-vlan294
-{
-        AdvSendAdvert on;
-
-        prefix 2001:678:3fc:126::/64
-        {
-                AdvOnLink on;
-                AdvAutonomous on;
-                AdvRouterAddr on;
-        };
-
-        RDNSS 2620:fe::fe
-        {
-        };
-};
-EOF</screen>
-
-<screen><prompt>etu@R2-vert:~$</prompt> sudo systemctl restart radvd
-<prompt>etu@R2-vert:~$</prompt> sudo systemctl status radvd</screen>
-
-	<para>Pour terminer avec l'adressage <acronym>IPv6</acronym>, on désigne le
-	<wordasword>resolver</wordasword> <acronym>DNS</acronym>.</para>
-
-<screen> for i in {0..2}
+<screen>for i in {0..2}
 do
-echo ">>>>>>>>>>>>>>>>> c$i"
-lxc exec c$i -- sh -c "echo 'nameserver 2620:fe::fe' > /etc/resolv.conf"
-done</screen>
+        echo ">>>>>>>>>>>>>>>>> c$i"
+config=$(cat &lt;&lt; EOF
+[Match]
+Name=eth0
 
-	<para>Suivant le préfixe réseau attribué, on obtient le résultat analogue à
-	la copie d'écran ci-dessous.</para>
-
-<screen> lxc ls
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
-+------+---------+------+--------------------------------------------+-----------+-----------+
-| NAME |  STATE  | IPV4 |                    IPV6                    |   TYPE    | SNAPSHOTS |
-+------+---------+------+--------------------------------------------+-----------+-----------+
-| c0   | RUNNING |      | 2001:678:3fc:126:216:3eff:fe41:6129 (eth0) | CONTAINER | 0         |
-+------+---------+------+--------------------------------------------+-----------+-----------+
-| c1   | RUNNING |      | 2001:678:3fc:126:216:3eff:fe10:c004 (eth0) | CONTAINER | 0         |
-+------+---------+------+--------------------------------------------+-----------+-----------+
-| c2   | RUNNING |      | 2001:678:3fc:126:216:3eff:fe82:ad5b (eth0) | CONTAINER | 0         |
-+------+---------+------+--------------------------------------------+-----------+-----------+</screen>
-
-	<para>Pour l'adressage <acronym>IPv4</acronym>, on passe en “mode manuel“
-	en définissant un nouveau contenu pour le fichier
-	<filename>/etc/network/interfaces</filename> de chaque conteneur.</para>
-
-<screen> for i in {0..2}
-do
-echo ">>>>>>>>>>>>>>>>> c$i"
-content=$(cat &lt;&lt; EOF
-# The loopback network interface
-auto lo
-iface lo inet loopback
-
-# The primary network interface
-auto eth0
-iface eth0 inet static
-        address 10.2.94.$((i + 10))/24
-        gateway 10.2.94.1
+[Network]
+DHCP=false
+Address=10.20.0.$((i + 10))/24
+Gateway=10.20.0.1
+DNS=172.16.0.2
+Address=fd14:ca46:3864:14::$(printf "%x" $((i + 10)))/64
+Gateway=fd14:ca46:3864:14::1
+DNS=2620:fe::fe
 EOF
 )
-lxc exec c$i -- sh -c " echo \"${content}\" | tee /etc/network/interfaces"
+        lxc exec c$i -- bash -c "echo \"${config}\" | tee /etc/systemd/network/eth0.network"
+        lxc exec c$i -- systemctl restart systemd-networkd
 done</screen>
 
-	<para>Le résultat de cette nouvelle configuration n'est visible qu'après un
-	redémarrage des conteneurs.</para>
+	<para>Suivant les préfixes réseau attribués, on obtient le résultat ci-dessous.</para>
 
-<screen> for i in {0..2}
-do
-echo ">>>>>>>>>>>>>>>>> c$i"
-lxc restart c$i
-done</screen>
+<screen>lxc ls
++------+---------+-------------------+-----------------------------+-----------+-----------+
+| NAME |  STATE  |       IPV4        |            IPV6             |   TYPE    | SNAPSHOTS |
++------+---------+-------------------+-----------------------------+-----------+-----------+
+| c0   | RUNNING | 10.20.0.10 (eth0) | fd14:ca46:3864:14::a (eth0) | CONTAINER | 0         |
++------+---------+-------------------+-----------------------------+-----------+-----------+
+| c1   | RUNNING | 10.20.0.11 (eth0) | fd14:ca46:3864:14::b (eth0) | CONTAINER | 0         |
++------+---------+-------------------+-----------------------------+-----------+-----------+
+| c2   | RUNNING | 10.20.0.12 (eth0) | fd14:ca46:3864:14::c (eth0) | CONTAINER | 0         |
++------+---------+-------------------+-----------------------------+-----------+-----------+</screen>
+	</answer>
+	</qandaentry>
 
-<screen> lxc ls
-WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
-+------+---------+-------------------+--------------------------------------------+-----------+-----------+
-| NAME |  STATE  |       IPV4        |                    IPV6                    |   TYPE    | SNAPSHOTS |
-+------+---------+-------------------+--------------------------------------------+-----------+-----------+
-| c0   | RUNNING | 10.2.94.10 (eth0) | 2001:678:3fc:126:216:3eff:fe41:6129 (eth0) | CONTAINER | 0         |
-+------+---------+-------------------+--------------------------------------------+-----------+-----------+
-| c1   | RUNNING | 10.2.94.11 (eth0) | 2001:678:3fc:126:216:3eff:fe10:c004 (eth0) | CONTAINER | 0         |
-+------+---------+-------------------+--------------------------------------------+-----------+-----------+
-| c2   | RUNNING | 10.2.94.12 (eth0) | 2001:678:3fc:126:216:3eff:fe82:ad5b (eth0) | CONTAINER | 0         |
-+------+---------+-------------------+--------------------------------------------+-----------+-----------+</screen>
+	<qandaentry>
+	<question>
+	<para><phrase>Le trafic issu des conteneurs est-il routé à travers la
+	topologie <acronym>OSPF</acronym>&nbsp;? Pourquoi&nbsp;?</phrase></para>
+
+	<para>Effectuer quelques tests de connectivité <acronym>ICMP</acronym>
+	depuis un conteneur.</para>
+	</question>
+	<answer>
+<screen>lxc exec c0 -- ping -qc2 9.9.9.9
+PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+
+--- 9.9.9.9 ping statistics ---
+2 packets transmitted, 0 received, <emphasis>100% packet loss</emphasis>, time 1006ms</screen>
+
+<screen>lxc exec c0 -- ping -qc2 2620:fe::fe
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 0 received, <emphasis>100% packet loss</emphasis>, time 1010ms</screen>
+
+	<para>Les préfixes réseau <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> ne sont pas annoncés via le protocole de routage
+	dynamique. Par conséquent, les routeurs voisins n'ont aucune solution pour
+	acheminer le trafic.</para>
 	</answer>
 	</qandaentry>
 
@@ -2318,7 +2248,7 @@ WARNING: cgroup v2 is not fully supported yet, proceeding with partial confineme
 
 	<para>Ajouter chaque interface <acronym>SVI</acronym> dans l'aire
 	<acronym>OSPF</acronym> et s'assurer qu'aucune annonce de protocole de
-	routage n'est émise en direction des conteneurs.</para> 
+	routage n'est émise en direction des conteneurs.</para>
 
 	<para>La liste des commandes utiles en mode console et en mode
 	configuration dans <application>vtysh</application> est la suivante.</para>
@@ -2334,49 +2264,49 @@ WARNING: cgroup v2 is not fully supported yet, proceeding with partial confineme
 	<para>Voici un exemple de configuration pour le routeur <systemitem
 	class='systemname'>R2-vert</systemitem>.</para>
 
-<screen><prompt>R2-vert#</prompt> conf t
-R2-vert(config)# int sw-vlan294
-R2-vert(config-if)# ip ospf area 0
-R2-vert(config-if)# ip ospf passive
-R2-vert(config-if)# ipv6 ospf6 area 0
-R2-vert(config-if)# ipv6 ospf6 passive
-R2-vert(config-if)# ^Z
-R2-vert#</screen>
+<screen>R2# conf t
+R2(config)# int sw-vlan20
+R2(config-if)# ip ospf area 0
+R2(config-if)# ip ospf passive
+R2(config-if)# ipv6 ospf6 area 0
+R2(config-if)# ipv6 ospf6 passive
+R2(config-if)# ^Z</screen>
 
 	<para>On vérifie que l'interface est bien active pour chacun des deux
 	protocoles de routage dynamique.</para>
 
-<screen><prompt>R2-vert#</prompt> sh ip ospf interface sw-vlan294
-<emphasis>sw-vlan294 is up</emphasis>
-  ifindex 4, MTU 1500 bytes, BW 0 Mbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
-  Internet Address 10.2.94.1/24, Broadcast 10.2.94.255, Area 0.0.0.0
+<screen>R2# sh ip ospf interface sw-vlan20
+<emphasis>sw-vlan20 is up</emphasis>
+  ifindex 7, MTU 1500 bytes, BW 0 Mbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.20.0.1/24, Broadcast 10.20.0.255, Area 0.0.0.0
   MTU mismatch detection: enabled
-  Router ID 7.0.4.2, Network Type BROADCAST, Cost: 1
+  Router ID 0.0.4.2, <emphasis>Network Type BROADCAST</emphasis>, Cost: 10
   Transmit Delay is 1 sec, State DR, Priority 1
-  Designated Router (ID) 7.0.4.2 Interface Address 10.2.94.1/24
+  Designated Router (ID) 0.0.4.2 Interface Address 10.20.0.1/24
   No backup designated router on this network
   Multicast group memberships: &lt;None>
   Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
     <emphasis>No Hellos (Passive interface)</emphasis>
   Neighbor Count is 0, Adjacent neighbor count is 0</screen>
 
-<screen><prompt>R2-vert#</prompt> sh ipv6 ospf6 interface sw-vlan294
-<emphasis>sw-vlan294 is up, type BROADCAST</emphasis>
-  Interface ID: 4
+<screen>R2# sh ipv6 ospf6 interface sw-vlan20
+<emphasis>sw-vlan20 is up, type BROADCAST</emphasis>
+  Interface ID: 7
   Internet Address:
-    inet : 10.2.94.1/24
-    inet6: fe80::106d:34ff:fe1e:7d4d/64
-    inet6: 2001:678:3fc:126::1/64
+    inet : 10.20.0.1/24
+    inet6: fd14:ca46:3864:14::1/64
+    inet6: fe80::68c5:c6ff:feef:b948/64
   Instance ID 0, Interface MTU 1500 (autodetect: 1500)
   MTU mismatch detection: enabled
-  Area ID 0.0.0.0, Cost 1
+  Area ID 0.0.0.0, Cost 10
   State DR, Transmit Delay 1 sec, Priority 1
   Timer intervals configured:
-   Hello 10, Dead 40, Retransmit 5
-  DR: 7.0.6.2 BDR: 0.0.0.0
+   Hello 10(-), Dead 40, Retransmit 5
+  DR: 0.0.6.2 BDR: 0.0.0.0
   Number of I/F scoped LSAs is 1
-    0 Pending LSAs for LSUpdate in Time 00:00:00 [<emphasis>thread off</emphasis>]
-    0 Pending LSAs for LSAck in Time 00:00:00 [<emphasis>thread off</emphasis>]</screen>
+    0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+    0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+  Authentication Trailer is disabled</screen>
 	</answer>
 	</qandaentry>
 
@@ -2397,16 +2327,16 @@ R2-vert#</screen>
 	<listitem>
 	<para>Tests <acronym>ICMP</acronym> au niveau réseau&nbsp;:</para>
 
-<screen> for i in {0..2}
+<screen>for i in {0..2}
 do
 echo ">>>>>>>>>>>>>>>>> c$i"
-lxc exec c$i -- ping -c2 9.9.9.9
+lxc exec c$i -- ping -qc2 9.9.9.9
 done</screen>
 
-<screen> for i in {0..2}
+<screen>for i in {0..2}
 do
 echo ">>>>>>>>>>>>>>>>> c$i"
-lxc exec c$i -- ping -c2 2620:fe::fe
+lxc exec c$i -- ping -qc2 2620:fe::fe
 done</screen>
 	</listitem>
 	<listitem>
@@ -2433,9 +2363,9 @@ done</screen>
 	</question>
 	<answer>
 	<para>Voici le résultat obtenu depuis la console du routeur <systemitem
-	class='systemname'>R3-bleu</systemitem>.</para>
+	class='systemname'>R3</systemitem>.</para>
 
-<screen><prompt>R3-bleu#</prompt> sh ip route
+<screen>R3# sh ip route
 Codes: K - kernel route, C - connected, S - static, R - RIP,
        O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
        T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
@@ -2443,19 +2373,17 @@ Codes: K - kernel route, C - connected, S - static, R - RIP,
        > - selected route, * - FIB route, q - queued, r - rejected, b - backup
        t - trapped, o - offload failure
 
-O>* 0.0.0.0/0 [110/10] via 10.2.91.1, enp0s2.291, weight 1, 08:47:38
-O>* 10.2.90.0/29 [110/2] via 10.2.91.1, enp0s2.291, weight 1, 09:18:07
-  *                      via 10.2.93.2, enp0s2.293, weight 1, 09:18:07
-O   10.2.91.0/29 [110/1] is directly connected, enp0s2.291, weight 1, 09:19:07
-C>* 10.2.91.0/29 is directly connected, enp0s2.291, 09:19:07
-<emphasis>O>* 10.2.92.0/24 [110/2] via 10.2.91.1, enp0s2.291,</emphasis> weight 1, 00:00:38
-O   10.2.93.0/29 [110/1] is directly connected, enp0s2.293, weight 1, 09:19:07
-C>* 10.2.93.0/29 is directly connected, enp0s2.293, 09:19:07
-<emphasis>O>* 10.2.94.0/24 [110/2] via 10.2.93.2, enp0s2.293,</emphasis> weight 1, 09:18:17
-O   10.2.95.0/24 [110/1] is directly connected, sw-vlan295, weight 1, 09:19:07
-<emphasis>C>* 10.2.95.0/24 is directly connected, sw-vlan295,</emphasis> 09:19:07</screen>
+O>* 0.0.0.0/0 [110/10] via 10.48.1.1, enp0s1.481, weight 1, 00:48:18
+<emphasis>O>* 10.20.0.0/24 [110/11] via 10.48.2.2, enp0s1.482, weight 1, 00:06:26</emphasis>
+C>* 10.30.0.0/24 is directly connected, sw-vlan30, 04:53:34
+O>* 10.48.0.0/29 [110/2] via 10.48.1.1, enp0s1.481, weight 1, 01:00:23
+  *                      via 10.48.2.2, enp0s1.482, weight 1, 01:00:23
+O   10.48.1.0/29 [110/1] is directly connected, enp0s1.481, weight 1, 01:01:06
+C>* 10.48.1.0/29 is directly connected, enp0s1.481, 04:53:34
+O   10.48.2.0/29 [110/1] is directly connected, enp0s1.482, weight 1, 01:01:03
+C>* 10.48.2.0/29 is directly connected, enp0s1.482, 04:53:34</screen>
 
-<screen><prompt>R3-bleu#</prompt> sh ipv6 route
+<screen>R3# sh ipv6 route
 Codes: K - kernel route, C - connected, S - static, R - RIPng,
        O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
        v - VNC, V - VNC-Direct, A - Babel, F - PBR,
@@ -2463,16 +2391,14 @@ Codes: K - kernel route, C - connected, S - static, R - RIPng,
        > - selected route, * - FIB route, q - queued, r - rejected, b - backup
        t - trapped, o - offload failure
 
-O>* ::/0 [110/10] via fe80::baad:caff:fefe:64, enp0s2.291, weight 1, 08:56:32
-<emphasis>O>* 2001:678:3fc:124::/64 [110/2] via fe80::baad:caff:fefe:64, enp0s2.291,</emphasis> weight 1, 00:09:40
-<emphasis>O>* 2001:678:3fc:126::/64 [110/2] via fe80::baad:caff:fefe:65, enp0s2.293,</emphasis> weight 1, 09:27:27
-O   2001:678:3fc:127::/64 [110/1] is directly connected, sw-vlan295, weight 1, 09:28:12
-<emphasis>C>* 2001:678:3fc:127::/64 is directly connected, sw-vlan295,</emphasis> 09:28:12
-C * fe80::/64 is directly connected, asw-host, 09:28:11
-C * fe80::/64 is directly connected, enp0s2.293, 09:28:12
-C * fe80::/64 is directly connected, enp0s2, 09:28:12
-C * fe80::/64 is directly connected, enp0s2.291, 09:28:13
-C>* fe80::/64 is directly connected, sw-vlan295, 09:28:13</screen>
+O>* ::/0 [110/10] via fe80::baad:caff:fefe:c8, enp0s1.481, weight 1, 00:45:39
+<emphasis>O>* fd14:ca46:3864:14::/64 [110/11] via fe80::baad:caff:fefe:c9, enp0s1.482, weight 1, 00:07:00</emphasis>
+C>* fd14:ca46:3864:1e::/64 is directly connected, sw-vlan30, 04:54:21
+C * fe80::/64 is directly connected, asw-host, 04:54:20
+C * fe80::/64 is directly connected, sw-vlan30, 04:54:21
+C * fe80::/64 is directly connected, enp0s1.482, 04:54:22
+C * fe80::/64 is directly connected, enp0s1, 04:54:22
+C>* fe80::/64 is directly connected, enp0s1.481, 04:54:22</screen>
 	</answer>
 	</qandaentry>
 </qandadiv>
