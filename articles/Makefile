@@ -43,8 +43,7 @@ XML_FILES = \
 	ospf-migration/$(ABSTRACT_FILE) \
 	ospf-triangle-multiple-default/$(ABSTRACT_FILE) \
 	lan-segmentation/$(ABSTRACT_FILE) \
-	inter-vlan-routing/$(ABSTRACT_FILE) \
-	site2site-ipsecvpn/$(ABSTRACT_FILE)
+	inter-vlan-routing/$(ABSTRACT_FILE)
 
 all: $(PROCESS)
 
