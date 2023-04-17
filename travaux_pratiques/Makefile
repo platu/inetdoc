@@ -30,7 +30,6 @@ SUBDIRS = \
 	interco.inter-vlan-cloud.qa \
 	interco.ospf-frr.qa \
 	interco.ospf-bird.qa \
-	interco.ovs.qa \
 	interco.cs
 
 # Type(s) de traitement
@@ -62,7 +61,6 @@ XML_FILES = \
 	interco.inter-vlan.qa/$(ABSTRACT_FILE) \
 	interco.ospf-frr.qa/$(ABSTRACT_FILE) \
 	interco.ospf-bird.qa/$(ABSTRACT_FILE) \
-	interco.ovs.qa/$(ABSTRACT_FILE) \
 	interco.cs/$(ABSTRACT_FILE) \
 	$(wildcard images/*.png)
 
