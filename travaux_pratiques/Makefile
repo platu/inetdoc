@@ -7,7 +7,6 @@ ABSTRACT_FILE = transform_output/abstract.xml
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
 	images \
-	infra.tp \
 	config.interface.lan \
 	dessine-moi-un-reseau \
 	config.interface.wlan \
@@ -40,7 +39,6 @@ SYMLINKS = \
 
 XML_FILES = \
 	biblio-travaux_pratiques.xml \
-	infra.tp/$(ABSTRACT_FILE) \
 	config.interface.lan/$(ABSTRACT_FILE) \
 	dessine-moi-un-reseau/$(ABSTRACT_FILE) \
 	config.interface.wlan/$(ABSTRACT_FILE) \

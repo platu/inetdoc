@@ -557,7 +557,7 @@ rpcbind: /usr/sbin/rpcinfo</screen>
 	<application>termshark</application>. Pour limiter les dimensions des
 	copies d'écran, on privilégie l'utilisation de
 	<application>tshark</application>.</para>
-	
+
 	<para>Pour utiliser l'une ou l'autre des deux applications en tant
 	qu'utilisateur normal, il est nécessaire d'appartenir au groupe
 	<systemitem>wireshark</systemitem>. Pour ajouter le compte
@@ -626,7 +626,7 @@ Capturing on 'enp0s6'
 	<para>On remarque que la copie d'écran ci-dessus utilise une syntaxe de
 	capture qui permet de filtrer tous les segments qui font appel au port
 	numéro <option>22</option> qui correspond au service
-	<acronym>SSH</acronym>.</para> 
+	<acronym>SSH</acronym>.</para>
 
 <screen><prompt>$</prompt> tshark -i enp0s6 -f "! port 22"</screen>
 
@@ -714,6 +714,364 @@ p  nfswatch - Program to monitor NFS traffic for the console</screen>
 	</qandaentry>
 	</qandaset>
 </sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.nfs.server'>
+	<title>Configuration du serveur NFS</title>
+
+	<para>Le rôle du serveur <acronym>NFS</acronym> est de mettre à disposition
+	sur le réseau une partie de son arborescence locale de système de fichiers.
+	On parle d'«exportation».</para>
+
+<note>
+	<para>Il existe plusieurs implémentations libres de serveur
+	<acronym>NFS</acronym>. On se limite ici à l'utilisation du logiciel lié au
+	noyau Linux.</para>
+</note>
+
+<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le paquet qui contient les outils nécessaires au
+	fonctionnement du serveur <acronym>NFS</acronym>&nbsp;? Installez ce
+	paquet.</phrase></para>
+
+	<para>Interroger les méta données du gestionnaire de paquets pour
+	identifier le nom du paquet à installer.</para>
+	</question>
+	<answer>
+	<para>La recherche des mots clés <option>nfs</option> et
+	<option>server</option> donne les résultats suivants.</para>
+
+<screen><prompt>$</prompt> aptitude search '?and(nfs, server)'
+p   <emphasis>nfs-kernel-server</emphasis>      - support for NFS kernel server
+v   nfs-server</screen>
+
+	<para>Les informations données par la commande
+	<userinput><prompt>$</prompt> aptitude show nfs-kernel-server</userinput>
+	permettent de confirmer qu'il s'agit bien du paquet à installer.</para>
+
+<screen><prompt>$</prompt> sudo apt install nfs-kernel-server</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le fichier de configuration principal de gestion des
+	exportations <acronym>NFS</acronym>&nbsp;?</phrase></para>
+
+	<para>Rechercher dans le support &url.nfs.howto;.</para>
+	</question>
+	<answer>
+	<para>Quelles que soient les versions du protocole, c'est toujours le
+	fichier <filename>/etc/exports</filename> qui est utilisé. Ce fichier est
+	présenté dans le support &url.nfs.howto;. Le fichier livré avec le paquet
+	contient, en commentaires, deux exemples complets de configuration
+	<acronym>NFSv3</acronym> et <acronym>NFSv4</acronym>. C'est ce dernier
+	exemple que l'on adapte pour traiter les questions suivantes.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry xml:id='sysadm-net.nfs.server.exports'>
+	<question>
+	<para><phrase>Créer le répertoire <filename
+	class='directory'>/home/exports/home</filename>. Quelles sont les
+	instructions d'exportation à ajouter au fichier de configuration pour ce
+	répertoire&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les supports &url.nfs.howto; et &url.nfsv4.config;.
+	On peut aussi utiliser les pages de manuels fournies avec le paquet du
+	serveur <acronym>NFS</acronym>.</para>
+	</question>
+	<answer>
+	<para>En exploitant la documentation &url.nfsv4.config; et l'exemple donné
+	dans le fichier de configuration, on applique les instructions de
+	configuration suivantes dans le fichier
+	<filename>/etc/exports</filename>.</para>
+
+<screen><prompt>$</prompt> sudo mkdir -p /home/exports/home
+<prompt>$</prompt> cat &lt;&lt; EOF | sudo tee -a /etc/exports
+/home/exports           192.168.51.192/27(rw,sync,fsid=0,crossmnt,no_subtree_check)
+/home/exports/home      192.168.51.192/27(rw,sync,no_subtree_check)
+EOF
+
+<prompt>$</prompt> cat &lt;&lt; EOF | sudo tee -a /etc/exports
+/home/exports           2001:678:3fc:1f5::/64(rw,sync,fsid=0,crossmnt,no_subtree_check)
+/home/exports/home      2001:678:3fc:1f5::/64(rw,sync,no_subtree_check)
+EOF
+
+</screen>
+
+	<para>Bien sûr, les adresses des réseaux <acronym>IPv4</acronym> et/ou
+	<acronym>IPv6</acronym> doivent être adaptées au contexte.</para>
+
+	<para>Les options entre parenthèses sont documentées dans les pages de
+	manuels <systemitem>exports</systemitem>&nbsp;:
+	<userinput><prompt>$</prompt> man 5 exports</userinput>.  Les éléments de
+	la liste suivante sont extraits de cette documentation.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para><literal>rw</literal>&nbsp;: autoriser les requêtes en lecture et en
+	écriture sur le volume <acronym>NFS</acronym>. Le comportement par défaut
+	est d'interdire toute requête qui modifierait le système de
+	fichiers.</para>
+	</listitem>
+	<listitem>
+	<para><literal>sync</literal>&nbsp;: ne répondre aux requêtes qu'après
+	l'exécution de tous les changements sur le support réel.</para>
+	</listitem>
+	<listitem>
+	<para><literal>fsid=0</literal>&nbsp;: avec NFSv4, un système de
+	fichiers particulier est la racine de tous les systèmes de fichiers
+	partagés. Il est défini par fsid=root ou fsid=0, qui veulent tous deux
+	dire exactement la même chose.</para>
+	</listitem>
+	<listitem>
+	<para><literal>crossmnt</literal>&nbsp;: cette option permet aux
+	clients de se déplacer du système de fichiers marqué
+	<literal>crossmnt</literal> aux systèmes de fichiers partagés montés
+	dessus. Voir l'option <acronym>nohide</acronym>.</para>
+	</listitem>
+	<listitem>
+	<para><literal>no_subtree_check</literal>&nbsp;: cette option neutralise la
+	vérification de sous-répertoires, ce qui a des subtiles implications au
+	niveau de la sécurité, mais peut améliorer la fiabilité dans certains cas.
+	Si un sous-répertoire dans un système de fichiers est partagé, mais que le
+	système de fichiers ne l'est pas, alors chaque	fois qu'une requête
+	<acronym>NFS</acronym> arrive, le serveur doit non seulement vérifier que
+	le fichier accédé est dans le système de fichiers approprié (ce qui est
+	facile), mais aussi qu'il est dans l'arborescence partagée (ce qui est plus
+	compliqué). Cette vérification s'appelle subtree_check.</para>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry xml:id='sysadm-net.nfs.server.service'>
+	<question>
+	<para><phrase>Comment rendre la configuration d'exportation
+	<acronym>NFS</acronym> effective&nbsp;? Comment vérifier que les paramètres
+	actifs sont corrects&nbsp;?</phrase></para>
+
+	<para>Rechercher dans la liste des outils fournis avec le paquet
+	<systemitem>nfs-kernel-server</systemitem> la commande qui permet de
+	connaître l'état courant des exportations <acronym>NFS</acronym>.</para>
+	</question>
+	<answer>
+	<para>On identifie la commande <command>exportfs</command> dans la liste
+	des binaires fournis avec le paquet serveur <acronym>NFS</acronym>.</para>
+
+<screen><prompt>$</prompt> dpkg -L nfs-kernel-server | grep bin
+/sbin
+/sbin/nfsdcltrack
+/usr/sbin
+<emphasis>/usr/sbin/exportfs</emphasis>
+/usr/sbin/rpc.mountd
+/usr/sbin/rpc.nfsd</screen>
+
+	<para>Après chaque modification d'un fichier de configuration, il ne faut
+	surtout pas oublier de relancer le service correspondant.</para>
+
+<screen><prompt>$</prompt> sudo systemctl restart nfs-kernel-server
+<prompt>$</prompt>systemctl status nfs-kernel-server
+● nfs-server.service - NFS server and services
+     Loaded: loaded (/lib/systemd/system/nfs-server.service; enabled; vendor preset: enabled)
+     Active: <emphasis>active</emphasis> (exited) since Sun 2021-08-29 15:47:25 CEST; 10s ago
+    Process: 7699 ExecStartPre=/usr/sbin/exportfs -r (code=exited, status=0/SUCCESS)
+    Process: 7700 ExecStart=/usr/sbin/rpc.nfsd $RPCNFSDARGS (code=exited, status=0/SUCCESS)
+   Main PID: 7700 (code=exited, status=0/SUCCESS)
+        CPU: 8ms
+
+août 29 15:47:24 server-nfs systemd[1]: Starting NFS server and services...
+août 29 15:47:25 server-nfs systemd[1]: Finished NFS server and services.</screen>
+
+	<para>Enfin, on consulte la liste des entrées exportées via <acronym>NFS</acronym>.</para>
+
+<screen><prompt>$</prompt> sudo exportfs
+/home/exports   192.168.51.192/27
+/home/exports   2001:678:3fc:1f5::/64
+/home/exports/home
+                192.168.51.192/27
+/home/exports/home
+                2001:678:3fc:1f5::/64</screen>
+
+	<para>Cette dernière liste est identique à celle produite par la commande
+	<command>showmount</command> côté client <acronym>NFS</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry xml:id='sysadm-net.nfs.server.local-mount'>
+	<question>
+	<para><phrase>Qu'est-ce qui distingue l'exportation d'une arborescence
+	entre les versions 3 et 4 du protocole
+	<acronym>NFS</acronym>&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les différences relatives à la notion de nommage dans
+	les manipulations proposées dans les supports &url.nfs.howto; et
+	&url.nfsv4.config;.</para>
+
+	<para>Donner la signification du paramètre <option>fsid=0</option> dans la
+	documentation relative à la version 4. Proposer une analogie avec le
+	fonctionnement d'un serveur Web.</para>
+	</question>
+	<answer>
+	<para>Au delà des évolutions du protocole, c'est la cohérence du système de
+	nommage qui distingue la version 4 du système de fichiers réseau. Il s'agit
+	de garantir qu'un objet (fichier ou répertoire) soit représenté de la même
+	manière sur un serveur et sur ses clients.</para>
+
+	<para>Dans le contexte de ces travaux pratiques les répertoires
+	utilisateurs doivent être référencés à partir d'une racine nommée <filename
+	class='directory'>/ahome/</filename>.</para>
+
+	<para>Du point de vue infrastructure, l'utilisation de cette référence de
+	nommage unique présente un avantage non négligeable. En effet, les
+	répertoires d'exportation tels qu'ils ont été définis dans le fichier
+	<filename>/etc/exports</filename> donné ci-dessus désignent un espace de
+	stockage physique.</para>
+
+	<para>La racine <filename class='directory'>/ahome/</filename>
+	désigne un espace de stockage logique. Ce schéma de nommage logique doit
+	rester constant alors que les volumes de stockages physique peuvent migrer
+	et se déplacer, être étendus, etc.</para>
+
+	<para>Les différences entre les manipulations proposées dans les supports
+	&url.nfs.howto; et &url.nfsv4.config; traduisent les différences de
+	conception entre les deux générations du protocole <acronym>NFS</acronym>.
+	On peut relever deux paramètres importants sur le serveur.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>L'option <option>fsid=0</option>, présente dans le fichier
+	<filename>/etc/exports/</filename>, permet de définir une
+	<emphasis>racine de montage</emphasis> tout comme on le verrait sur un
+	serveur Web. Le paramètre de configuration
+	<literal>DocumentRoot /var/www</literal> du serveur
+	<citetitle>apache2</citetitle> désigne la racine à partir de laquelle
+	les pages Web publiées sont référencées. Cette racine est indépendante
+	de l'arborescence du système de fichier local du serveur.</para>
+	</listitem>
+	<listitem>
+	<para>L'utilisation d'un montage local avec l'option
+	<option>bind</option> de la commande <command>mount</command> permet de
+	mettre en cohérence l'arborescence du serveur et de ses clients. Ainsi,
+	le répertoire <filename class='directory'>/ahome/</filename> présente
+	les mêmes objets que l'on soit connecté sur le serveur ou sur un
+	client. Le schéma de nommage est donc cohérent.</para>
+
+	<para>Le montage local peut se faire manuellement sur le serveur avec
+	la syntaxe suivante.</para>
+
+<screen><prompt>$</prompt> sudo mkdir /ahome
+<prompt>$</prompt> sudo mount --bind /home/exports/home /ahome</screen>
+
+	<para>Une fois la configuration validée, on peut intégrer ce montage
+	local dans la configuration système pour que l'opération soit effectuée
+	à chaque initialisation. Il faut alors éditer le fichier de
+	configuration dédié aux montages des volumes locaux du système&nbsp;:
+	<filename>/etc/fstab</filename>.</para>
+
+	<para>Voici comment ajouter l'instruction de montage au fichier
+	<filename>/etc/fstab</filename> du serveur <acronym>NFS</acronym>.</para>
+
+<screen><prompt>$</prompt> echo "/home/exports/home     /ahome  none    defaults,bind    0    0" | \
+sudo tee -a /etc/fstab
+
+<prompt>$</prompt> grep -v ^# /etc/fstab
+UUID=8362b3e6-d426-4f1b-93eb-e1efc22f60f4 /       ext4    errors=remount-ro 0    1
+UUID=f3e18b95-7430-4fea-ace5-7dd4cea6398a none    swap    sw    0       0
+<emphasis>/home/exports/home     /ahome  none    defaults,bind     0       0</emphasis></screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question xml:id='sysadm-net.nfs.server.user'>
+	<para><phrase>Comment créer un compte utilisateur local baptisé
+	<systemitem>etu-nfs</systemitem> avec un répertoire utilisateur situé sous
+	la racine <filename
+	class='directory'>/ahome</filename>&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>Après consultation des pages de manuels de la commande
+	<command>adduser</command>, on dispose des options de création de compte
+	respectant le critère énoncé. L'option <option>--home</option> permet de
+	désigner le répertoire utilisateur dans l'arborescence système.</para>
+
+<screen><prompt>$</prompt> sudo adduser --home /ahome/etu-nfs etu-nfs
+<prompt>$</prompt> id etu-nfs
+uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
+
+	<para>Les identifiants numériques <systemitem>uid/gid</systemitem> jouent
+	un rôle important dans la suite des manipulations. Voir <xref
+	linkend='sysadm-net.nfs.perm'/>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question xml:id='sysadm-net.nfs.server.capture'>
+	<para><phrase>Créer un fichier texte ayant pour propriétaire l'utilisateur
+	<systemitem>etu-nfs</systemitem> côté serveur et visualiser son contenu
+	côté client.</phrase></para>
+
+	<para>Réaliser une capture et relever les numéros de ports caractéristiques
+	de des transactions de montage. Est-il possible de retrouver le contenu du
+	fichier texte dans les données de capture&nbsp;?</para>
+
+	<para>Pour réaliser cette capture, il faut synchroniser les opérations
+	entre les systèmes client et serveur. On commence par le lancement du
+	l'analyseur réseau puis on visualise le contenu du fichier.</para>
+	</question>
+	<answer>
+	<para>Côté serveur <acronym>NFS</acronym>, on créé le fichier texte puis on
+	lance la capture réseau.</para>
+
+<screen><prompt>etu@server-nfs:~$</prompt> su - etu-nfs
+Mot de passe :
+<prompt>etu-nfs@server-nfs:~$</prompt> echo "This file is mine" > textfile
+<prompt>etu-nfs@server-nfs:~$</prompt> exit
+déconnexion
+<prompt>etu@server-nfs:~$</prompt> tshark -i enp0s6 -f "! port 22"
+Capturing on 'enp0s6'
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 254 V4 Call GETATTR FH: 0x455db001
+2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 330 V4 Reply (Call In 3) GETATTR
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=169 Ack=245
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 262 V4 Call ACCESS FH: 0x455db001, [Check: RD LU MD XT DL XAR XAW XAL]
+2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 258 V4 Reply (Call In 6) ACCESS, [Allowed: RD LU MD XT DL XAR XAW XAL]
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=345 Ack=417
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 254 V4 Call GETATTR FH: 0x455db001
+2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 330 V4 Reply (Call In 9) GETATTR
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=513 Ack=661
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 278 V4 Call READDIR FH: 0x455db001
+2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 1174 V4 Reply (Call In 12) READDIR
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=705 Ack=1749
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 254 V4 Call GETATTR FH: 0x455db001
+2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 330 V4 Reply (Call In 15) GETATTR
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=873 Ack=1993
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 322 V4 Call OPEN DH: 0x6cceef4e/
+2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 442 V4 Reply (Call In 18) OPEN StateID: 0x5daa
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=1109 Ack=2349
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 270 V4 Call READ StateID: 0x7dca Offset: 0 Len: 18
+2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 214 <emphasis>V4 Reply (Call In 21) READ</emphasis>
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=1293 Ack=2477
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 262 V4 Call CLOSE StateID: 0x5daa
+2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 202 V4 Reply (Call In 24) CLOSE
+2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=1469 Ack=2593</screen>
+
+	<para>Comme dans les opérations de capture réseau précédentes, il est
+	préférable de stocker les résultats dans un fichier pour les exploiter
+	ultérieurement avec une interface interactive qui permet d'isoler chaque
+	champ de protocole.</para>
+
+	<para>Ici, on relève l'utilisation du protocole <acronym>TCP</acronym> en
+	couche transport avec le port enregistré <systemitem>2049/nfs</systemitem>.
+	Une analyse détaillée de l'appel de procédure <systemitem>READ</systemitem>
+	montre que le contenu du fichier texte est bien visible.</para>
+	</answer>
+	</qandaentry>
+</qandaset>
 </sect1>
 
 <sect1 xml:id='sysadm-net.nfs.client'>
@@ -1235,364 +1593,6 @@ tmpfs                                             tmpfs      103M       0  103M 
 	</qandaentry>
 </qandaset>
 </sect2>
-</sect1>
-
-<sect1 xml:id='sysadm-net.nfs.server'>
-	<title>Configuration du serveur NFS</title>
-
-	<para>Le rôle du serveur <acronym>NFS</acronym> est de mettre à disposition
-	sur le réseau une partie de son arborescence locale de système de fichiers.
-	On parle d'«exportation».</para>
-
-<note>
-	<para>Il existe plusieurs implémentations libres de serveur
-	<acronym>NFS</acronym>. On se limite ici à l'utilisation du logiciel lié au
-	noyau Linux.</para>
-</note>
-
-<qandaset defaultlabel='number'>
-	<qandaentry>
-	<question>
-	<para><phrase>Quel est le paquet qui contient les outils nécessaires au
-	fonctionnement du serveur <acronym>NFS</acronym>&nbsp;? Installez ce
-	paquet.</phrase></para>
-
-	<para>Interroger les méta données du gestionnaire de paquets pour
-	identifier le nom du paquet à installer.</para>
-	</question>
-	<answer>
-	<para>La recherche des mots clés <option>nfs</option> et
-	<option>server</option> donne les résultats suivants.</para>
-
-<screen><prompt>$</prompt> aptitude search '?and(nfs, server)'
-p   <emphasis>nfs-kernel-server</emphasis>      - support for NFS kernel server
-v   nfs-server</screen>
-
-	<para>Les informations données par la commande
-	<userinput><prompt>$</prompt> aptitude show nfs-kernel-server</userinput>
-	permettent de confirmer qu'il s'agit bien du paquet à installer.</para>
-
-<screen><prompt>$</prompt> sudo apt install nfs-kernel-server</screen>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Quel est le fichier de configuration principal de gestion des
-	exportations <acronym>NFS</acronym>&nbsp;?</phrase></para>
-
-	<para>Rechercher dans le support &url.nfs.howto;.</para>
-	</question>
-	<answer>
-	<para>Quelles que soient les versions du protocole, c'est toujours le
-	fichier <filename>/etc/exports</filename> qui est utilisé. Ce fichier est
-	présenté dans le support &url.nfs.howto;. Le fichier livré avec le paquet
-	contient, en commentaires, deux exemples complets de configuration
-	<acronym>NFSv3</acronym> et <acronym>NFSv4</acronym>. C'est ce dernier
-	exemple que l'on adapte pour traiter les questions suivantes.</para>
-	</answer>
-	</qandaentry>
-
-	<qandaentry xml:id='sysadm-net.nfs.server.exports'>
-	<question>
-	<para><phrase>Créer le répertoire <filename
-	class='directory'>/home/exports/home</filename>. Quelles sont les
-	instructions d'exportation à ajouter au fichier de configuration pour ce
-	répertoire&nbsp;?</phrase></para>
-
-	<para>Rechercher dans les supports &url.nfs.howto; et &url.nfsv4.config;.
-	On peut aussi utiliser les pages de manuels fournies avec le paquet du
-	serveur <acronym>NFS</acronym>.</para>
-	</question>
-	<answer>
-	<para>En exploitant la documentation &url.nfsv4.config; et l'exemple donné
-	dans le fichier de configuration, on applique les instructions de
-	configuration suivantes dans le fichier
-	<filename>/etc/exports</filename>.</para>
-
-<screen><prompt>$</prompt> sudo mkdir -p /home/exports/home
-<prompt>$</prompt> cat &lt;&lt; EOF | sudo tee -a /etc/exports
-/home/exports           192.168.51.192/27(rw,sync,fsid=0,crossmnt,no_subtree_check)
-/home/exports/home      192.168.51.192/27(rw,sync,no_subtree_check)
-EOF
-
-<prompt>$</prompt> cat &lt;&lt; EOF | sudo tee -a /etc/exports
-/home/exports           2001:678:3fc:1f5::/64(rw,sync,fsid=0,crossmnt,no_subtree_check)
-/home/exports/home      2001:678:3fc:1f5::/64(rw,sync,no_subtree_check)
-EOF
-
-</screen>
-
-	<para>Bien sûr, les adresses des réseaux <acronym>IPv4</acronym> et/ou
-	<acronym>IPv6</acronym> doivent être adaptées au contexte.</para>
-
-	<para>Les options entre parenthèses sont documentées dans les pages de
-	manuels <systemitem>exports</systemitem>&nbsp;:
-	<userinput><prompt>$</prompt> man 5 exports</userinput>.  Les éléments de
-	la liste suivante sont extraits de cette documentation.</para>
-
-	<itemizedlist>
-	<listitem>
-	<para><literal>rw</literal>&nbsp;: autoriser les requêtes en lecture et en
-	écriture sur le volume <acronym>NFS</acronym>. Le comportement par défaut
-	est d'interdire toute requête qui modifierait le système de
-	fichiers.</para>
-	</listitem>
-	<listitem>
-	<para><literal>sync</literal>&nbsp;: ne répondre aux requêtes qu'après
-	l'exécution de tous les changements sur le support réel.</para>
-	</listitem>
-	<listitem>
-	<para><literal>fsid=0</literal>&nbsp;: avec NFSv4, un système de
-	fichiers particulier est la racine de tous les systèmes de fichiers
-	partagés. Il est défini par fsid=root ou fsid=0, qui veulent tous deux
-	dire exactement la même chose.</para>
-	</listitem>
-	<listitem>
-	<para><literal>crossmnt</literal>&nbsp;: cette option permet aux
-	clients de se déplacer du système de fichiers marqué
-	<literal>crossmnt</literal> aux systèmes de fichiers partagés montés
-	dessus. Voir l'option <acronym>nohide</acronym>.</para>
-	</listitem>
-	<listitem>
-	<para><literal>no_subtree_check</literal>&nbsp;: cette option neutralise la
-	vérification de sous-répertoires, ce qui a des subtiles implications au
-	niveau de la sécurité, mais peut améliorer la fiabilité dans certains cas.
-	Si un sous-répertoire dans un système de fichiers est partagé, mais que le
-	système de fichiers ne l'est pas, alors chaque	fois qu'une requête
-	<acronym>NFS</acronym> arrive, le serveur doit non seulement vérifier que
-	le fichier accédé est dans le système de fichiers approprié (ce qui est
-	facile), mais aussi qu'il est dans l'arborescence partagée (ce qui est plus
-	compliqué). Cette vérification s'appelle subtree_check.</para>
-	</listitem>
-	</itemizedlist>
-	</answer>
-	</qandaentry>
-
-	<qandaentry xml:id='sysadm-net.nfs.server.service'>
-	<question>
-	<para><phrase>Comment rendre la configuration d'exportation
-	<acronym>NFS</acronym> effective&nbsp;? Comment vérifier que les paramètres
-	actifs sont corrects&nbsp;?</phrase></para>
-
-	<para>Rechercher dans la liste des outils fournis avec le paquet
-	<systemitem>nfs-kernel-server</systemitem> la commande qui permet de
-	connaître l'état courant des exportations <acronym>NFS</acronym>.</para>
-	</question>
-	<answer>
-	<para>On identifie la commande <command>exportfs</command> dans la liste
-	des binaires fournis avec le paquet serveur <acronym>NFS</acronym>.</para>
-
-<screen><prompt>$</prompt> dpkg -L nfs-kernel-server | grep bin
-/sbin
-/sbin/nfsdcltrack
-/usr/sbin
-<emphasis>/usr/sbin/exportfs</emphasis>
-/usr/sbin/rpc.mountd
-/usr/sbin/rpc.nfsd</screen>
-
-	<para>Après chaque modification d'un fichier de configuration, il ne faut
-	surtout pas oublier de relancer le service correspondant.</para>
-
-<screen><prompt>$</prompt> sudo systemctl restart nfs-kernel-server
-<prompt>$</prompt>systemctl status nfs-kernel-server
-● nfs-server.service - NFS server and services
-     Loaded: loaded (/lib/systemd/system/nfs-server.service; enabled; vendor preset: enabled)
-     Active: <emphasis>active</emphasis> (exited) since Sun 2021-08-29 15:47:25 CEST; 10s ago
-    Process: 7699 ExecStartPre=/usr/sbin/exportfs -r (code=exited, status=0/SUCCESS)
-    Process: 7700 ExecStart=/usr/sbin/rpc.nfsd $RPCNFSDARGS (code=exited, status=0/SUCCESS)
-   Main PID: 7700 (code=exited, status=0/SUCCESS)
-        CPU: 8ms
-
-août 29 15:47:24 server-nfs systemd[1]: Starting NFS server and services...
-août 29 15:47:25 server-nfs systemd[1]: Finished NFS server and services.</screen>
-
-	<para>Enfin, on consulte la liste des entrées exportées via <acronym>NFS</acronym>.</para>
-
-<screen><prompt>$</prompt> sudo exportfs
-/home/exports   192.168.51.192/27
-/home/exports   2001:678:3fc:1f5::/64
-/home/exports/home
-                192.168.51.192/27
-/home/exports/home
-                2001:678:3fc:1f5::/64</screen>
-
-	<para>Cette dernière liste est identique à celle produite par la commande
-	<command>showmount</command> côté client <acronym>NFS</acronym>.</para>
-	</answer>
-	</qandaentry>
-
-	<qandaentry xml:id='sysadm-net.nfs.server.local-mount'>
-	<question>
-	<para><phrase>Qu'est-ce qui distingue l'exportation d'une arborescence
-	entre les versions 3 et 4 du protocole
-	<acronym>NFS</acronym>&nbsp;?</phrase></para>
-
-	<para>Rechercher dans les différences relatives à la notion de nommage dans
-	les manipulations proposées dans les supports &url.nfs.howto; et
-	&url.nfsv4.config;.</para>
-
-	<para>Donner la signification du paramètre <option>fsid=0</option> dans la
-	documentation relative à la version 4. Proposer une analogie avec le
-	fonctionnement d'un serveur Web.</para>
-	</question>
-	<answer>
-	<para>Au delà des évolutions du protocole, c'est la cohérence du système de
-	nommage qui distingue la version 4 du système de fichiers réseau. Il s'agit
-	de garantir qu'un objet (fichier ou répertoire) soit représenté de la même
-	manière sur un serveur et sur ses clients.</para>
-
-	<para>Dans le contexte de ces travaux pratiques les répertoires
-	utilisateurs doivent être référencés à partir d'une racine nommée <filename
-	class='directory'>/ahome/</filename>.</para>
-
-	<para>Du point de vue infrastructure, l'utilisation de cette référence de
-	nommage unique présente un avantage non négligeable. En effet, les
-	répertoires d'exportation tels qu'ils ont été définis dans le fichier
-	<filename>/etc/exports</filename> donné ci-dessus désignent un espace de
-	stockage physique.</para>
-
-	<para>La racine <filename class='directory'>/ahome/</filename>
-	désigne un espace de stockage logique. Ce schéma de nommage logique doit
-	rester constant alors que les volumes de stockages physique peuvent migrer
-	et se déplacer, être étendus, etc.</para>
-
-	<para>Les différences entre les manipulations proposées dans les supports
-	&url.nfs.howto; et &url.nfsv4.config; traduisent les différences de
-	conception entre les deux générations du protocole <acronym>NFS</acronym>.
-	On peut relever deux paramètres importants sur le serveur.</para>
-
-	<itemizedlist>
-	<listitem>
-	<para>L'option <option>fsid=0</option>, présente dans le fichier
-	<filename>/etc/exports/</filename>, permet de définir une
-	<emphasis>racine de montage</emphasis> tout comme on le verrait sur un
-	serveur Web. Le paramètre de configuration
-	<literal>DocumentRoot /var/www</literal> du serveur
-	<citetitle>apache2</citetitle> désigne la racine à partir de laquelle
-	les pages Web publiées sont référencées. Cette racine est indépendante
-	de l'arborescence du système de fichier local du serveur.</para>
-	</listitem>
-	<listitem>
-	<para>L'utilisation d'un montage local avec l'option
-	<option>bind</option> de la commande <command>mount</command> permet de
-	mettre en cohérence l'arborescence du serveur et de ses clients. Ainsi,
-	le répertoire <filename class='directory'>/ahome/</filename> présente
-	les mêmes objets que l'on soit connecté sur le serveur ou sur un
-	client. Le schéma de nommage est donc cohérent.</para>
-
-	<para>Le montage local peut se faire manuellement sur le serveur avec
-	la syntaxe suivante.</para>
-
-<screen><prompt>$</prompt> sudo mkdir /ahome
-<prompt>$</prompt> sudo mount --bind /home/exports/home /ahome</screen>
-
-	<para>Une fois la configuration validée, on peut intégrer ce montage
-	local dans la configuration système pour que l'opération soit effectuée
-	à chaque initialisation. Il faut alors éditer le fichier de
-	configuration dédié aux montages des volumes locaux du système&nbsp;:
-	<filename>/etc/fstab</filename>.</para>
-
-	<para>Voici comment ajouter l'instruction de montage au fichier
-	<filename>/etc/fstab</filename> du serveur <acronym>NFS</acronym>.</para>
-
-<screen><prompt>$</prompt> echo "/home/exports/home     /ahome  none    defaults,bind    0    0" | \
-sudo tee -a /etc/fstab
-
-<prompt>$</prompt> grep -v ^# /etc/fstab
-UUID=8362b3e6-d426-4f1b-93eb-e1efc22f60f4 /       ext4    errors=remount-ro 0    1
-UUID=f3e18b95-7430-4fea-ace5-7dd4cea6398a none    swap    sw    0       0
-<emphasis>/home/exports/home     /ahome  none    defaults,bind     0       0</emphasis></screen>
-	</listitem>
-	</itemizedlist>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question xml:id='sysadm-net.nfs.server.user'>
-	<para><phrase>Comment créer un compte utilisateur local baptisé
-	<systemitem>etu-nfs</systemitem> avec un répertoire utilisateur situé sous
-	la racine <filename
-	class='directory'>/ahome</filename>&nbsp;?</phrase></para>
-	</question>
-	<answer>
-	<para>Après consultation des pages de manuels de la commande
-	<command>adduser</command>, on dispose des options de création de compte
-	respectant le critère énoncé. L'option <option>--home</option> permet de
-	désigner le répertoire utilisateur dans l'arborescence système.</para>
-
-<screen><prompt>$</prompt> sudo adduser --home /ahome/etu-nfs etu-nfs
-<prompt>$</prompt> id etu-nfs
-uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)</screen>
-
-	<para>Les identifiants numériques <systemitem>uid/gid</systemitem> jouent
-	un rôle important dans la suite des manipulations. Voir <xref
-	linkend='sysadm-net.nfs.perm'/>.</para>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question xml:id='sysadm-net.nfs.server.capture'>
-	<para><phrase>Créer un fichier texte ayant pour propriétaire l'utilisateur
-	<systemitem>etu-nfs</systemitem> côté serveur et visualiser son contenu
-	côté client.</phrase></para>
-
-	<para>Réaliser une capture et relever les numéros de ports caractéristiques
-	de des transactions de montage. Est-il possible de retrouver le contenu du
-	fichier texte dans les données de capture&nbsp;?</para>
-
-	<para>Pour réaliser cette capture, il faut synchroniser les opérations
-	entre les systèmes client et serveur. On commence par le lancement du
-	l'analyseur réseau puis on visualise le contenu du fichier.</para>
-	</question>
-	<answer>
-	<para>Côté serveur <acronym>NFS</acronym>, on créé le fichier texte puis on
-	lance la capture réseau.</para>
-
-<screen><prompt>etu@server-nfs:~$</prompt> su - etu-nfs
-Mot de passe :
-<prompt>etu-nfs@server-nfs:~$</prompt> echo "This file is mine" > textfile
-<prompt>etu-nfs@server-nfs:~$</prompt> exit
-déconnexion
-<prompt>etu@server-nfs:~$</prompt> tshark -i enp0s6 -f "! port 22"
-Capturing on 'enp0s6'
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 254 V4 Call GETATTR FH: 0x455db001
-2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 330 V4 Reply (Call In 3) GETATTR
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=169 Ack=245
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 262 V4 Call ACCESS FH: 0x455db001, [Check: RD LU MD XT DL XAR XAW XAL]
-2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 258 V4 Reply (Call In 6) ACCESS, [Allowed: RD LU MD XT DL XAR XAW XAL]
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=345 Ack=417
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 254 V4 Call GETATTR FH: 0x455db001
-2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 330 V4 Reply (Call In 9) GETATTR
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=513 Ack=661
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 278 V4 Call READDIR FH: 0x455db001
-2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 1174 V4 Reply (Call In 12) READDIR
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=705 Ack=1749
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 254 V4 Call GETATTR FH: 0x455db001
-2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 330 V4 Reply (Call In 15) GETATTR
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=873 Ack=1993
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 322 V4 Call OPEN DH: 0x6cceef4e/
-2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 442 V4 Reply (Call In 18) OPEN StateID: 0x5daa
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=1109 Ack=2349
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 270 V4 Call READ StateID: 0x7dca Offset: 0 Len: 18
-2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 214 <emphasis>V4 Reply (Call In 21) READ</emphasis>
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=1293 Ack=2477
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 NFS 262 V4 Call CLOSE StateID: 0x5daa
-2001:678:3fc:1f5:baad:caff:fefe:3 → 2001:678:3fc:1f5:baad:caff:fefe:2 NFS 202 V4 Reply (Call In 24) CLOSE
-2001:678:3fc:1f5:baad:caff:fefe:2 → 2001:678:3fc:1f5:baad:caff:fefe:3 TCP 86 883 → 2049 [ACK] Seq=1469 Ack=2593</screen>
-
-	<para>Comme dans les opérations de capture réseau précédentes, il est
-	préférable de stocker les résultats dans un fichier pour les exploiter
-	ultérieurement avec une interface interactive qui permet d'isoler chaque
-	champ de protocole.</para>
-
-	<para>Ici, on relève l'utilisation du protocole <acronym>TCP</acronym> en
-	couche transport avec le port enregistré <systemitem>2049/nfs</systemitem>.
-	Une analyse détaillée de l'appel de procédure <systemitem>READ</systemitem>
-	montre que le contenu du fichier texte est bien visible.</para>
-	</answer>
-	</qandaentry>
-</qandaset>
 </sect1>
 
 <sect1 xml:id='sysadm-net.nfs.perm'>
