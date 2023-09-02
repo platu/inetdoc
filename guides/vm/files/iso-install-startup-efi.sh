@@ -1,1 +1,0 @@
-iso-install-startup.sh
