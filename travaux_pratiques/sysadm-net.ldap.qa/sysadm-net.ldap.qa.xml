@@ -975,139 +975,147 @@ SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
 olcLogLevel: none</screen>
 
-	<para>on se propose de modifier la valeur <option>none</option> par
+	<para>on se propose de remplacer la valeur <option>none</option> par
 	<option>stats</option> de façon à journaliser les connexions, les
 	opérations et les résultats. Voici une copie du fichier
 	<acronym>LDIF</acronym> permettant de réaliser cette modification.</para>
 
-<screen><prompt>#</prompt> cat setolcLogLevel2stats.ldif 
-# Set olcLogLevel 2 stats
+	<para>On commence par créer un dossier dédié aux fichiers
+	<acronym>LDIF</acronym>.</para>
+
+<screen>mkdir -p $HOME/ldif &amp;&amp; cd $HOME/ldif</screen>
+
+	<para>Ensuite on peut créer le fichier <acronym>LDIF</acronym> de
+	modification de la journalisation du service
+	<acronym>LDAP</acronym>.</para>
+
+<screen>cat > setolcLogLevel2stats.ldif &lt;&lt; EOF
+# Set olcLogLevel to "stats"
 dn: cn=config
 changetype: modify
 replace: olcLogLevel
-olcLogLevel: stats</screen>
+olcLogLevel: stats
+EOF</screen>
 
 	<para>On applique ce changement de valeur avec la commande
-		<command>ldapmodify</command> puis on vérifie que l'attribut a bien
-		reçu le paramètre.</para>
+	<command>ldapmodify</command> puis on vérifie que l'attribut a bien reçu le
+	paramètre.</para>
 
-<screen><prompt>#</prompt> ldapmodify -Y EXTERNAL -H ldapi:/// -f setolcLogLevel2stats.ldif 
-SASL/EXTERNAL authentication started
+<screen>sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f setolcLogLevel2stats.ldif</screen>
+
+<screen>CSASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
-modifying entry "cn=config"
+modifying entry "cn=config"</screen>
 
-<prompt>#</prompt> ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "cn=config" olcLogLevel |\
-	grep ^olcLogLevel
-SASL/EXTERNAL authentication started
+<screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "cn=config" \
+  olcLogLevel | grep ^olcLogLevel</screen>
+
+<screen>SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
 <emphasis>olcLogLevel: stats</emphasis></screen>
 
 	<para>Enfin, on relève les traces de la dernière opération dans les
-		journaux système.</para> 
+	journaux système.</para>
 
-<screen><prompt>#</prompt> grep -5 olcLogLevel /var/log/syslog
-slapd[4867]: conn=1004 op=0 BIND dn="" method=163
-slapd[4867]: conn=1004 op=0 BIND authcid="gidNumber=0+uidNumber=0,\
-	cn=peercred,cn=external,cn=auth" \
-	authzid="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth"
-slapd[4867]: conn=1004 op=0 BIND dn="gidNumber=0+uidNumber=0,\
-	cn=peercred,cn=external,cn=auth" \
-	mech=EXTERNAL sasl_ssf=0 ssf=71
-slapd[4867]: conn=1004 op=0 RESULT tag=97 err=0 text=
-slapd[4867]: conn=1004 op=1 SRCH base="cn=config" scope=2 deref=0 \
-	filter="(objectClass=*)"
-slapd[4867]: conn=1004 op=1 <emphasis>SRCH attr=olcLogLevel</emphasis>
-slapd[4867]: conn=1004 op=1 SEARCH RESULT tag=101 <emphasis>err=0</emphasis> nentries=11 text=
-slapd[4867]: conn=1004 op=2 UNBIND
-slapd[4867]: conn=1004 fd=14 closed</screen>
+<screen>journalctl -o cat -n 20 -u slapd --grep="conn"
+conn=1009 fd=12 closed
+conn=1009 op=2 UNBIND
+conn=1009 op=1 SEARCH RESULT tag=101 err=0 qtime=0.000017 etime=0.000193 nentries=10 text=
+conn=1009 op=1 SRCH attr=olcLogLevel
+conn=1009 op=1 SRCH base="cn=config" scope=2 deref=0 filter="(objectClass=*)"
+conn=1009 op=0 RESULT tag=97 err=0 qtime=0.000018 etime=0.000107 text=
+conn=1009 op=0 BIND dn="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" mech=EXTERNAL bind_ssf=0 ssf=71
+conn=1009 op=0 BIND authcid="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" authzid="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth"
+conn=1009 op=0 BIND dn="" method=163
+conn=1009 fd=12 ACCEPT from PATH=/var/run/slapd/ldapi (PATH=/var/run/slapd/ldapi)
+conn=1008 fd=12 closed
+conn=1008 op=2 UNBIND
+conn=1008 op=1 RESULT tag=103 err=0 qtime=0.000021 etime=0.000558 text=</screen>
 
 <note>
 	<para>Dans le contexte des travaux pratiques, le nombre d'entrées de
-		l'annuaire reste très limité et la journalisation n'a pas d'impact
-		mesurable sur les performances du système. Dans un contexte
-		d'exploitation réelle avec un annuaire comprenant au moins une dizaine
-		de milliers d'entrées, la situation est très différente et il faut
-		limiter au maximum le recours à la journalisation des transactions sur
-		l'annuaire.</para>
+	l'annuaire reste très limité et la journalisation n'a pas d'impact
+	mesurable sur les performances du système. Dans un contexte d'exploitation
+	réelle avec un annuaire comprenant au moins une dizaine de milliers
+	d'entrées, la situation est très différente et il faut limiter au maximum
+	le recours à la journalisation des transactions sur l'annuaire.</para>
 </note>
 
 	<para>Pour ramener la valeur de l'attribut <option>olcLogLevel</option> à
-		<option>none</option>, il suffit de créer un fichier
-		<acronym>LDIF</acronym> avec la directive correspondante.</para> 
+	<option>none</option>, il suffit de créer un fichier
+	<acronym>LDIF</acronym> avec la directive correspondante.</para>
 
-<screen># Set olcLogLevel 2 none
+<screen>cat > setolcLogLevel2none.ldif &lt;&lt; EOF
+# Set olcLogLevel to "none"
 dn: cn=config
 changetype: modify
 replace: olcLogLevel
-olcLogLevel: none</screen>
+olcLogLevel: none
+EOF</screen>
       </answer>
     </qandaentry>
 
 	<qandaentry xml:id='sysadm-net.ldap.srvr.q4-ou'>
 	<question>
 	<para><phrase>Quelle est la syntaxe du fichier <acronym>LDIF</acronym> qui
-		permet d'ajouter les deux unités organisationnelles
-		(<wordasword>organisational unit</wordasword>)&nbsp;?</phrase></para>
+	permet d'ajouter les deux unités organisationnelles
+	(<wordasword>organisational unit</wordasword>)&nbsp;?</phrase></para>
 
 	<para>Rechercher un tutoriel <acronym>LDIF</acronym> en ligne donnant un
-		exemple de fichier <acronym>LDIF</acronym> avec une ou plusieurs
-		entrées <option>ou:</option>.</para>
+	exemple de fichier <acronym>LDIF</acronym> avec une ou plusieurs entrées
+	<option>ou:</option>.</para>
 	</question>
 	<answer>
 	<para>Voici un exemple de fichier <acronym>LDIF</acronym> contenant les
-		déclarations des deux unités organisationnelles à ajouter.</para>
+	déclarations des deux unités organisationnelles à ajouter.</para>
 
-<screen><prompt>#</prompt> cat ou.ldif 
+<screen>cat > ou.ldif &lt;&lt; EOF
 dn: ou=people,dc=lab,dc=stri
 objectClass: organizationalUnit
 ou: people
 
 dn: ou=groups,dc=lab,dc=stri
 objectClass: organizationalUnit
-ou: groups</screen>
+ou: groups
+EOF</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry xml:id='sysadm-net.ldap.srvr.q4-ldapadd'>
 	<question>
 	<para><phrase>Quelle est la commande à utiliser pour ajouter une ou
-		plusieurs entrées dans l'annuaire&nbsp;?</phrase></para>
+	plusieurs entrées dans l'annuaire&nbsp;?</phrase></para>
 
 	<para>Rechercher dans la liste des programmes fournis avec le paquet des
-		outils <acronym>LDAP</acronym>.</para>
+	outils <acronym>LDAP</acronym>.</para>
 	</question>
 	<answer>
 	<para>C'est la commande <command>ldapadd</command> qui est utile dans notre
-		contexte. On l'utilise en mode d'authentification simple avec le
-		fichier <acronym>LDIF</acronym> ci-dessus pour compléter
-		l'annuaire.</para>
+	contexte. On l'utilise en mode d'authentification simple avec le fichier
+	<acronym>LDIF</acronym> ci-dessus pour compléter l'annuaire.</para>
 
-<screen><prompt>#</prompt> ldapadd -cxWD cn=admin,dc=lab,dc=stri -f ou.ldif 
-Enter LDAP Password: 
+<screen>sudo ldapadd -cxWD cn=admin,dc=lab,dc=stri -f ou.ldif</screen>
+
+<screen>Enter LDAP Password:
 adding new entry "ou=people,dc=lab,dc=stri"
 
 adding new entry "ou=groups,dc=lab,dc=stri"</screen>
 
 	<para>On vérifie ensuite que les deux nouvelles entrées sont bien présentes
-		dans l'annuaire.</para>
+	dans l'annuaire.</para>
 
-<screen><prompt>#</prompt> ldapsearch -LLL -x -H ldap:/// -b "dc=lab,dc=stri" -D cn=admin,dc=lab,dc=stri -W
-Enter LDAP Password: 
+<screen>sudo ldapsearch -LLL -x -H ldap:/// -b "dc=lab,dc=stri" \
+  -D cn=admin,dc=lab,dc=stri -W</screen>
+
+<screen>Enter LDAP Password:
 dn: dc=lab,dc=stri
 objectClass: top
 objectClass: dcObject
 objectClass: organization
 o: lab.stri
 dc: lab
-
-dn: cn=admin,dc=lab,dc=stri
-objectClass: simpleSecurityObject
-objectClass: organizationalRole
-cn: admin
-description: LDAP administrator
-userPassword:: e1NTSEF9Ykd1QVJVWi82UWt1WXhpd1QvS0ZVUHM5dkFpNVdwVU4=
 
 dn: ou=people,dc=lab,dc=stri
 objectClass: organizationalUnit
@@ -1122,62 +1130,86 @@ ou: groups</screen>
 	<qandaentry xml:id='sysadm-net.ldap.srvr.q4-passwd'>
 	<question>
 	<para><phrase>Quelle est la commande à utiliser pour saisir manuellement un
-		mot de passe et obtenir la chaîne chiffrée correspondante
-		?</phrase></para>
+	mot de passe et obtenir la chaîne chiffrée
+	correspondante&nbsp;?</phrase></para>
 
 	<para>Rechercher dans la liste des programmes fournis avec les paquets de
-		la distribution puis consulter les pages de manuels
-		correspondantes.</para>
+	la distribution puis consulter les pages de manuels correspondantes.</para>
 	</question>
 	<answer>
 	<para>En effectuant une recherche par mot clé dans les pages de manuels du
-		système, on peut identifier l'outil recherché.</para>
+	système, on peut identifier l'outil recherché.</para>
 
-<screen><prompt>#</prompt> man -k passwd | grep -i ldap
-ldappasswd (1)       - change the password of an LDAP entry
+<screen>man -k passwd | grep -i ldap</screen>
+
+<screen>ldappasswd (1)       - change the password of an LDAP entry
 <emphasis>slappasswd</emphasis> (8)       - OpenLDAP password utility</screen>
 
 	<para>On utilise la commande <command>slappasswd</command> pour générer une
-		chaîne chiffrée que l'on insère dans le fichier <acronym>LDIF</acronym>
-		des comptes utilisateurs.</para>
+	chaîne chiffrée que l'on insère dans le fichier <acronym>LDIF</acronym> des
+	comptes utilisateurs.</para>
 
-<screen><prompt>#</prompt> slappasswd 
-New password: 
-Re-enter new password: 
-{SSHA}LrPFvc6YekTGSEYiMezxYxcmE/0ZE/9L</screen>
+	<para>Prenons l'exemple du mot de passe <literal>V3ry53cr3t</literal>, on
+	obtient le résultat suivant&nbsp;:</para>
+
+<screen>sudo slappasswd</screen>
+
+<screen>New password:
+Re-enter new password:
+{SSHA}rpB4tgcVlh51sPCtpBi+acrS6Ifc1lu0</screen>
 
 	<para>Dans le contexte de ces travaux pratiques, on attribue le même mot de
-		passe aux quatre comptes utilisateurs.</para>
+	passe aux quatre comptes utilisateurs.</para>
 
 	<para>Il existe une technique simple pour la génération de mots de passe
-		utilisateurs aléatoires. Une fois le mot de passe généré, il peut être
-		transmis à l'utilisateur final par un «canal de confiance» et implanté
-		dans les attributs de l'annuaire relatifs au compte utilisateur.</para>
+	utilisateurs aléatoires. Une fois le mot de passe généré, il peut être
+	transmis à l'utilisateur final par un «canal de confiance» et implanté dans
+	les attributs de l'annuaire relatifs au compte utilisateur.</para>
 
-<screen><prompt>#</prompt> head -c 9 /dev/urandom | base64
-<emphasis>piupfsRIU23u</emphasis>
-<prompt>#</prompt> slappasswd -v -h "{SSHA}" -s <emphasis>piupfsRIU23u</emphasis>
-{SSHA}PxK09I2Oi6ZA2bPP55Eptm9JRkJeP6oV</screen>
+	<orderedlist>
+	<listitem>
+	<para>On génère un mot de passe aléatoire que l'on stocke dans un fichier.</para>
+
+<screen>openssl rand -base64 16 | tr -d '=' > user.passwd</screen>
+
+	<para>On obtient par exemple&nbsp;:</para>
+
+<screen>cat user.passwd
+vyJtXX6r73KPzyDYymWjsA</screen>
+	</listitem>
+	<listitem>
+	<para>Utilise ce mot de passe pour générer la chaîne à introduire dans le
+	fichier <acronym>LDIF</acronym> de création d'utilisateur dans
+	l'annuaire.</para>
+
+<screen>sudo slappasswd -v -h "{SSHA}" -s $(cat user.passwd)</screen>
+
+<screen>{SSHA}hFGouu+ytfnH0qPy7y9G0L0Rb6R6slZ4</screen>
+	</listitem>
+	</orderedlist>
 	</answer>
 	</qandaentry>
 
 	<qandaentry xml:id='sysadm-net.ldap.srvr.q4-posixAccount'>
 	<question>
 	<para><phrase>Quelle est la syntaxe du fichier <acronym>LDIF</acronym> qui
-		permet d'ajouter les quatre utilisateurs avec leurs attributs
-		système : identifiants <systemitem>uid/gid</systemitem>,
-		authentifiants <systemitem>login/passwd</systemitem>, etc
-		?</phrase></para>
+	permet d'ajouter les quatre utilisateurs avec leurs attributs système :
+	identifiants <systemitem>uid/gid</systemitem>, authentifiants
+	<systemitem>login/passwd</systemitem>, etc&nbsp;?</phrase></para>
 
 	<para>Rechercher un tutoriel <acronym>LDIF</acronym> en ligne donnant un
-		exemple de fichier <acronym>LDIF</acronym> avec un exemple de
-		description des attributs d'un compte utilisateur.</para>
+	exemple de fichier <acronym>LDIF</acronym> avec un exemple de description
+	des attributs d'un compte utilisateur.</para>
 	</question>
 	<answer>
 	<para>Voici un exemple de fichier <acronym>LDIF</acronym> contenant les
-		déclarations des quatre comptes utilisateurs à ajouter.</para>
+	déclarations des quatre comptes utilisateurs à ajouter.</para>
 
-<screen><prompt>#</prompt> cat users.ldif 
+<warning>
+	<para>Pensez à éditer les entrées <literal>userPassword</literal> à votre contexte&nbsp;!</para>
+</warning>
+
+<screen>cat > users.ldif &lt;&lt; EOF
 # Padmé Amidala
 dn: uid=padme,ou=people,dc=lab,dc=stri
 objectClass: inetOrgPerson
@@ -1190,7 +1222,7 @@ uidNumber: 10000
 gidNumber: 10000
 loginShell: /bin/bash
 homeDirectory: /ahome/padme
-userPassword: {SSHA}LrPFvc6YekTGSEYiMezxYxcmE/0ZE/9L
+userPassword: {SSHA}hFGouu+ytfnH0qPy7y9G0L0Rb6R6slZ4
 gecos: Padme Amidala Skywalker
 
 # Anakin Skywalker
@@ -1205,7 +1237,7 @@ uidNumber: 10001
 gidNumber: 10001
 loginShell: /bin/bash
 homeDirectory: /ahome/anakin
-userPassword: {SSHA}LrPFvc6YekTGSEYiMezxYxcmE/0ZE/9L
+userPassword: {SSHA}hFGouu+ytfnH0qPy7y9G0L0Rb6R6slZ4
 gecos: Anakin Skywalker
 
 # Leia Organa Skywalker
@@ -1220,7 +1252,7 @@ uidNumber: 10002
 gidNumber: 10002
 loginShell: /bin/bash
 homeDirectory: /ahome/leia
-userPassword: {SSHA}LrPFvc6YekTGSEYiMezxYxcmE/0ZE/9L
+userPassword: {SSHA}hFGouu+ytfnH0qPy7y9G0L0Rb6R6slZ4
 gecos: Leia Organa Skywalker
 
 # Luke Skywalker
@@ -1235,15 +1267,17 @@ uidNumber: 10003
 gidNumber: 10003
 loginShell: /bin/bash
 homeDirectory: /ahome/luke
-userPassword: {SSHA}LrPFvc6YekTGSEYiMezxYxcmE/0ZE/9L
-gecos: Luke Skywalker</screen>
+userPassword: {SSHA}hFGouu+ytfnH0qPy7y9G0L0Rb6R6slZ4
+gecos: Luke Skywalker
+EOF</screen>
 
 	<para>Comme dans le cas précédent, on utilise la commande
-		<command>ldapadd</command> en mode d'authentification simple pour
-		insérer les comptes dans l'annuaire.</para>
+	<command>ldapadd</command> en mode d'authentification simple pour insérer
+	les utilisateurs dans l'annuaire.</para>
 
-<screen><prompt>#</prompt> ldapadd -cxWD cn=admin,dc=lab,dc=stri -f users.ldif 
-Enter LDAP Password: 
+<screen>sudo ldapadd -cxWD cn=admin,dc=lab,dc=stri -f users.ldif</screen>
+
+<screen>Enter LDAP Password:
 adding new entry "uid=padme,ou=people,dc=lab,dc=stri"
 
 adding new entry "uid=anakin,ou=people,dc=lab,dc=stri"
@@ -1252,10 +1286,11 @@ adding new entry "uid=leia,ou=people,dc=lab,dc=stri"
 
 adding new entry "uid=luke,ou=people,dc=lab,dc=stri"</screen>
 
-	<para>Le résultat de la commande <userinput><prompt>#</prompt> ldapsearch
-		-LLL -x -H ldap:/// -b "dc=lab,dc=stri" -D cn=admin,dc=lab,dc=stri
-		-W</userinput> doit faire apparaître les nouvelles entrées de
-		l'annuaire.</para>
+	<para>On peut lister à nouveau les entrées contenues dans l'annuaire pour
+	vérifier la présence des utilisateurs.</para>
+
+<screen>sudo ldapsearch -LLL -x -H ldap:/// -b "dc=lab,dc=stri" \
+  -D cn=admin,dc=lab,dc=stri -W</screen>
 	</answer>
 	</qandaentry>
 	</qandadiv>
