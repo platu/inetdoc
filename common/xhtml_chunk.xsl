@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- 
+<!--
 	This is the XSL customization stylesheet file for the documents
 	published on the https://www.inetdoc.net website.
 
@@ -35,7 +35,7 @@
 
 <!--###################################################
 		Custom Settings
-	################################################### -->   
+	################################################### -->
 
 	<xsl:param name="l10n.gentext.default.language" select="'fr'"/>
 
@@ -76,7 +76,7 @@
 
 <!--###################################################
 		HTML Settings
-	################################################### -->   
+	################################################### -->
 	<xsl:param name="highlight.source" select="1" />
 	<xsl:param name="highlight.default.language" />
 
@@ -94,7 +94,7 @@
 
 <!--###################################################
 		Table Of Contents
-	################################################### -->   
+	################################################### -->
 
 	<!-- Generate the TOCs for named components only -->
 	<xsl:param name="generate.toc">
@@ -117,7 +117,7 @@
 		section   nop
 		set       toc,title
 	</xsl:param>
-		
+
 	<!-- Show only Sections up to level 3 in the TOCs -->
 	<xsl:param name="toc.section.depth" select="3" />
 	<xsl:param name="generate.section.toc.level" select="3" />
@@ -127,29 +127,29 @@
 
 <!--###################################################
 		Labels
-	################################################### -->   
+	################################################### -->
 
 	<!-- Label Chapters and Sections (numbering) -->
 	<xsl:param name="chapter.autolabel" select ="1" />
 	<xsl:param name="section.autolabel" select="1" />
 	<xsl:param name="section.label.includes.component.label" select="1" />
-							
+
 <!--###################################################
 		Callouts
-	################################################### -->   
+	################################################### -->
 
 	<!-- Use images for callouts instead of (1) (2) (3) -->
 	<xsl:param name="callout.graphics" select="1" />
 	<xsl:param name="callout.graphics.path">&callout_gfx_path;</xsl:param>
 	<xsl:param name="callout.graphics.number.limit" select="15" />
 	<xsl:param name="callout.icon.size" select="8" />
-	
+
 	<!-- Place callout marks at this column in annotated areas -->
 	<xsl:param name="callout.defaultcolumn">90</xsl:param>
 
 <!--###################################################
 		Admonitions
-	################################################### -->   
+	################################################### -->
 
 	<!-- Use nice graphics for admonitions -->
 	<xsl:param name="admon.graphics" select="1" />
@@ -161,7 +161,7 @@
 
 <!--###################################################
 		Misc
-	################################################### -->   
+	################################################### -->
 
 	<!-- Placement of titles -->
 	<xsl:param name="formal.title.placement">
@@ -170,7 +170,7 @@
 		equation before
 		table before
 		procedure before
-	</xsl:param>    
+	</xsl:param>
 
 	<!-- Override formalpara title with a line break before para -->
 	<xsl:template match="formalpara/title|formalpara/info/title">
