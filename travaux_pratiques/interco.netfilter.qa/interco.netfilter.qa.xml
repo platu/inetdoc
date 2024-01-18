@@ -1,0 +1,2460 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+  "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!ENTITY topologie	SYSTEM "files/topologie.txt">
+
+<!-- external urls -->
+<!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!-- IANA -->
+<!ENTITY url.icmp-types
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.iana.org/assignments/icmp-parameters">
+<citetitle>ICMP parameters</citetitle></link>'>
+
+<!-- Kernel -->
+<!ENTITY url.packetflow
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://ebtables.sourceforge.net/br_fw_ia/PacketFlow.png">
+<citetitle>Linux kernel packet flow</citetitle></link>'>
+
+<!ENTITY url.kernel.ip-sysctl
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">
+<citetitle>Kernel IP sysctl</citetitle></link>'>
+
+<!-- A copy of http://www.w3.org/2003/entities/2007/w3centities-f.ent is at:
+/usr/local/share -->
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"/usr/local/share/w3centities-f.ent">
+%w3centities-f;
+]>
+
+<article xml:id='interco.netfilter' xml:lang='fr'>
+
+<info>
+	<title>Filtrage réseau avec netfilter/iptables</title>
+
+&author;
+<abstract>
+	<para>Ce support de travaux pratiques est une introduction au filtrage
+	réseau. Il reprend la topologie <wordasword>Hub</wordasword> &amp;
+	<wordasword>Spoke</wordasword> des autres supports de la série. Les
+	questions débutent par l'identification des outils et passent à
+	l'application des règles de filtrage avec et sans suivi de communication
+	(<wordasword>stateful vs stateless inspection</wordasword>). On introduit
+	aussi les fonctions de traduction d'adresses
+	(<acronym>NAT</acronym>).</para>
+</abstract>
+
+<keywordset>
+	<keyword>iproute2</keyword>
+	<keyword>iptables</keyword>
+	<keyword>netfilter</keyword>
+	<keyword>conntrack</keyword>
+</keywordset>
+</info>
+
+<sect1 xml:id='interco.netfilter.legal.meta'>
+	&legal;
+
+	<bridgehead xml:id='interco.netfilter.meta'
+	renderas='sect2'>Méta-information</bridgehead>
+
+	<para>Cet article est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+	XML sur un système <link
+	xlink:href="https://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+	format PDF&nbsp;: <link
+	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+	<para>Toutes les commandes utilisées dans ce document ne sont pas
+	spécifiques à une version particulière des systèmes GNU/Linux. C'est la
+	distribution <citetitle>Debian GNU/Linux</citetitle> qui est utilisée pour
+	les tests présentés. Voici une liste des paquets contenant les
+	commandes&nbsp;:</para>
+
+<itemizedlist>
+	<listitem>
+	<para><application>procps</application>&nbsp;- utilitaires pour le système
+	de fichiers /proc</para>
+	</listitem>
+	<listitem>
+	<para><application>iproute2</application>&nbsp;- outils de contrôle du
+	trafic et du réseau</para>
+	</listitem>
+	<listitem>
+	<para><application>ifupdown</application>&nbsp;- outils de haut niveau pour
+	configurer les interfaces réseau</para>
+	</listitem>
+	<listitem>
+	<para><application>iputils-ping</application>&nbsp;- outils pour tester
+	l'accessibilité de noeuds réseaux</para>
+	</listitem>
+	<listitem>
+	<para><application>iputils-tracepath</application>&nbsp;- Tools to trace
+	the network path to a remote host</para>
+	</listitem>
+	<listitem>
+	<para><application>hping3</application>&nbsp;- Active Network Smashing
+	Tool</para>
+	</listitem>
+	<listitem>
+	<para><application>thc-ipv6</application>&nbsp;- The Hacker Choice's IPv6
+	Attack Toolkit</para>
+	</listitem>
+	<listitem>
+	<para><application>iptables</application>&nbsp;- outils d'administration
+	pour le filtrage de paquets et le NAT</para>
+	</listitem>
+	<listitem>
+	<para><application>iptstate</application>&nbsp;- top-like interface to your
+	netfilter connection-tracking table</para>
+	</listitem>
+	<listitem>
+	<para><application>conntrack</application>&nbsp;- programme pour modifier
+	les tables conntrack</para>
+	</listitem>
+</itemizedlist>
+
+	<bridgehead xml:id='interco.netfilter.convtypo'
+	renderas='sect2'>Conventions typographiques</bridgehead>
+
+	<para>Tous les exemples d'exécution des commandes sont précédés d'une
+	invite utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau
+	des droits utilisateurs nécessaires sur le système.</para>
+
+<itemizedlist>
+	<listitem>
+	<para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+	aucun privilège particulier et peut être utilisée au niveau utilisateur
+	simple.</para>
+	</listitem>
+	<listitem>
+	<para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+	privilèges du super utilisateur.</para>
+	</listitem>
+</itemizedlist>
+
+	<para>Le recours aux commandes <command>grep</command> et
+	<command>fmt</command> sert à optimiser la quantité et l'espace occupés
+	dans les copies d'écran données en réponse aux questions. Tous les “tubes“
+	utilisés pour les copies d'écran peuvent être supprimés de façon à afficher
+	toutes les informations sur un espace qui occupe toute la largeur de la
+	console.</para>
+</sect1>
+
+<sect1 xml:id='interco.netfilter.archi'>
+	<title>Architecture réseau étudiée et filtrage</title>
+
+	<para>Les manipulations sur le système de filtrage réseau présentées ici
+	s'appuient sur la topologie <citetitle>Hub and Spoke</citetitle> étudiée
+	dans le support précédent de la série&nbsp;: &url.interco.pppoe;.</para>
+
+	<para>La topologie étudiée associe trois routeurs qui ont deux rôles
+	distincts.</para>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/pppoe-hub-and-spoke-logical-topology.png' format='PNG'
+		width='12cm' scalefit='1' align='center'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/pppoe-hub-and-spoke-logical-topology.png' format='PNG'
+		width='640px' scalefit='1' align='center'/>
+	</imageobject>
+	<textobject>
+		<phrase>Topologie entre deux routeurs <wordasword>Hub</wordasword> et
+		<wordasword>Spoke</wordasword> avec <acronym>PPPoE</acronym></phrase>
+	</textobject>
+	<caption>
+		<para><link xlink:href='images/pppoe-topology.png'>Topologie entre deux
+		routeurs <wordasword>Hub</wordasword> et <wordasword>Spoke</wordasword>
+		avec <acronym>PPPoE</acronym></link></para>
+	</caption>
+	</mediaobject>
+
+<variablelist>
+<varlistentry xml:id='interco.netfilter.topologie.hub'>
+	<term>Routeur central</term>
+	<term><wordasword>Hub</wordasword></term>
+	<term><wordasword>Broadband Remote Access Server</wordasword></term>
+	<term><acronym>BRAS</acronym></term>
+	<listitem>
+	<para>Ce routeur réalise une interconnexion <acronym>LAN/WAN</acronym>. Il
+		fournit un accès Internet aux routeurs de sites distants via ses
+		interfaces <acronym>WAN</acronym>. Il dispose de son propre accès
+		Internet via son interface <acronym>LAN</acronym>.</para>
+	</listitem>
+</varlistentry>
+<varlistentry xml:id='interco.netfilter.topologie.spoke'>
+	<term>Routeur d'extrémité</term>
+	<term><wordasword>Spoke</wordasword></term>
+	<term><wordasword>Customer Premises Equipment</wordasword></term>
+	<term><acronym>CPE</acronym></term>
+	<listitem>
+	<para>Ce routeur réalise aussi une interconnexion
+	<acronym>LAN/WAN</acronym>. À la différence du routeur
+	<wordasword>Hub</wordasword>, il obtient l'accès Internet sur son interface
+	<acronym>WAN</acronym>	et il met cet accès à disposition d'un réseau local
+	de site représenté par des conteneurs
+	<application>LXD</application>.</para>
+	</listitem>
+</varlistentry>
+</variablelist>
+
+<mediaobject xml:id='netfilter-lab-routing-nat'>
+<imageobject role='fo'>
+	<imagedata fileref='images/pppoe-cloud-logical-netfilter.png' format='PNG' width='16cm' scalefit='1'/>
+</imageobject>
+<imageobject role='html'>
+	<imagedata fileref='images/pppoe-cloud-logical-netfilter.png' format='PNG' width='640px' scalefit='1'/>
+</imageobject>
+<textobject>
+	<phrase>Topologie Hub &mp; Spoke et filtrage</phrase>
+</textobject>
+<caption>
+	<para><link xlink:href='images/pppoe-cloud-logical-netfilter.png'>Topologie
+	Hub &amp; Spoke et filtrage</link></para>
+</caption>
+</mediaobject>
+
+<bridgehead xml:id='interco.netfilter.archi.topologie-routage'
+	renderas='sect2'>Routage et traduction d'adresses (situation de départ)</bridgehead>
+
+	<para>Les manipulations qui suivent supposent que la topologie
+	<wordasword>Hub &amp; Spoke</wordasword> est en place et
+	fonctionnelle. On s'appuie sur le support précédent de la série&nbsp;:
+	&url.interco.pppoe;</para>
+
+<itemizedlist>
+	<listitem>
+	<para>Le routeur <wordasword>Hub</wordasword> doit s'assurer que le
+		trafic réseau qu'il route vers et depuis l'Internet correspond bien
+		au plan d'adressage défini. Dans ce but, il attribue les adresses
+		du lien point à point ainsi qu'une route statique à destination du
+		réseau d'extrémité distant.</para>
+
+	<para>Le routeur <wordasword>Hub</wordasword> assure la traduction des
+		adresses sources du réseau distant vers l'Internet.</para>
+	</listitem>
+	<listitem>
+	<para>Le routeur <wordasword>Spoke</wordasword> doit obtenir son adresse
+		<acronym>IPv4</acronym> de réseau étendu via <acronym>PPP</acronym> et
+		assurer le routage de son réseau local. Il dispose d'une route par
+		défaut qui désigne le lien point à point comme seul accès vers
+		l'Internet.</para>
+	</listitem>
+</itemizedlist>
+
+	<para>Les questions ci-dessous ont pour objectif de valider le
+	fonctionnement du routage et de la traduction des adresses sources en
+	sortie du routeur <wordasword>Hub</wordasword> vers l'Internet.</para>
+
+	<para>Pour traiter les questions, on doit effectuer quelques opérations de
+	vérification et de préparation.</para>
+
+<orderedlist>
+	<listitem>
+	<para>On doit d'abord s'assurer que les réseaux des conteneurs de chaque
+	branche de la topologie sont en place. On affiche la liste des conteneurs
+	de chaque routeur <wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> lxc ls
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
++----------+---------+------------------+-----------------------+-----------+-----------+
+|   NAME   |  STATE  |       IPV4       |         IPV6          |   TYPE    | SNAPSHOTS |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke1C0 | RUNNING | 10.0.1.10 (eth0) | fda0:7a62:1::a (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke1C1 | RUNNING | 10.0.1.11 (eth0) | fda0:7a62:1::b (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke1C2 | RUNNING | 10.0.1.12 (eth0) | fda0:7a62:1::c (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc ls
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
++----------+---------+------------------+-----------------------+-----------+-----------+
+|   NAME   |  STATE  |       IPV4       |         IPV6          |   TYPE    | SNAPSHOTS |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke2C0 | RUNNING | 10.0.2.10 (eth0) | fda0:7a62:2::a (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke2C1 | RUNNING | 10.0.2.11 (eth0) | fda0:7a62:2::b (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+
+| spoke2C2 | RUNNING | 10.0.2.12 (eth0) | fda0:7a62:2::c (eth0) | CONTAINER | 0         |
++----------+---------+------------------+-----------------------+-----------+-----------+</screen>
+	</listitem>
+	<listitem>
+	<para>On configure le <wordasword>shell</wordasword> par défaut dans les
+	conteneurs des deux routeurs <wordasword>Spoke</wordasword> de façon à
+	pouvoir exécuter des scripts dans ces conteneurs.</para>
+
+<itemizedlist>
+	<listitem>
+	<para>Création du script qui définit <application>bash</application> comme
+	<wordasword>shell</wordasword> par défaut.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> cat &lt;&lt; EOF &gt; setBashasSh.sh
+#!/bin/sh
+
+# make /bin/sh symlink to bash instead of dash:
+echo "dash dash/sh boolean false" | debconf-set-selections
+DEBIAN_FRONTEND=noninteractive dpkg-reconfigure dash
+EOF</screen>
+	</listitem>
+	<listitem>
+	<para>Copie du script dans chaque conteneur.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> for i in {0..2}
+do
+	lxc file push setBashasSh.sh spoke1C$i/root/
+done</screen>
+	</listitem>
+	<listitem>
+	<para>Exécution du script dans chaque conteneur.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> for i in {0..2}
+do
+	lxc exec spoke1C$i -- sh /root/setBashasSh.sh
+done</screen>
+	</listitem>
+</itemizedlist>
+	</listitem>
+</orderedlist>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment tracer le chemin suivi par les paquets
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> d'un conteneur à un
+	autre conteneur du site distant de l'autre branche de la
+	topologie&nbsp;?</phrase></para>
+
+	<para>Rechercher le paquet contenant la commande
+	<command>tracepath</command> qui permet d'afficher le chemin suivi par le
+	trafic réseau.</para>
+    </question>
+    <answer>
+	<para>Par exemple, on se place sur le routeur
+	<citetitle>Spoke2Vert</citetitle> et on installe le paquet
+	<systemitem>iputils-tracepath</systemitem> dans les conteneurs avant de
+	lancer les relevés du chemin de bout en bout.</para> 
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> for i in {0..2}
+do
+	lxc exec spoke1C$i -- apt install iputils-tracepath
+done</screen>
+
+	<para>une fois le paquet installé, on doit pouvoir contacter les adresses
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> des conteneurs situés à
+	l'autre extrémité de la topologie <wordasword>Hub &amp;
+	Spoke</wordasword>.</para>
+
+	<para>Par exemple, on relève le chemin entre les conteneurs
+	<systemitem>spoke2C2</systemitem> et
+	<systemitem>spoke1C0</systemitem>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec spoke2C2 -- tracepath 10.0.1.10
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+ 1?: [LOCALHOST]                      pmtu 1500
+ 1:  10.0.2.1                                              0.798ms
+ 1:  10.0.2.1                                              0.100ms
+ 2:  10.0.2.1                                              0.156ms pmtu 1492
+ 2:  10.47.3.1                                             1.086ms
+ 3:  10.47.1.2                                             1.489ms
+ 4:  10.0.1.10                                             2.518ms reached
+     Resume: pmtu 1492 hops 4 back 4</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec spoke2C2 -- tracepath fda0:7a62:1::a
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+ 1?: [LOCALHOST]                        0.043ms pmtu 1492
+ 1:  fda0:7a62:2::1                                        1.183ms
+ 1:  fda0:7a62:2::1                                        0.205ms
+ 2:  2001:678:3fc:12c::2                                   1.059ms
+ 3:  fda0:7a62:1::1                                        2.003ms
+ 4:  fda0:7a62:1::a                                        3.453ms reached
+     Resume: pmtu 1492 hops 4 back 4</screen>
+
+	<para>Les résultats obtenus avec l'exécution de la commande
+	<command>tracepath</command> montrent que le routage des paquets
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> est fonctionnel.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment caractériser la traduction d'adresses source en
+	sortie du routeur <wordasword>Hub</wordasword>&nbsp;?</phrase></para>
+
+	<para>La fonction de traduction d'adresse entre dans cadre du filtrage
+	réseau et fait appel aux mêmes outils&nbsp;:
+	<citetitle>netfilter/iptables</citetitle>.</para>
+
+	<para>Rechercher le paquet qui contient la commande
+	<command>conntrack</command> puis rechercher les options de cette commande
+	qui permettent d'afficher les états des enregistrements de la table
+	<acronym>NAT</acronym>.</para>
+	</question>
+
+	<answer>
+	<para>On ouvre une console sur le routeur <wordasword>Hub</wordasword> de
+	la maquette et on installe le paquet
+	<systemitem>conntrack</systemitem>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo apt -y install conntrack</screen>
+
+	<para>Dans le même temps, on ouvre une autre console sur le routeur <citetitle>Spoke1Vert</citetitle>. C'est à partir de cette console
+	que l'on lance des téléchargements depuis le serveur
+	<citetitle>inetdoc.net</citetitle> à l'aide de la commande
+	<command>wget</command>.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> for i in {0..2}
+do
+	lxc exec spoke1C$i -- apt -y install wget
+done</screen>
+
+	<para>Sur le routeur <wordasword>Hub</wordasword>, on affiche la liste des
+	enregistrements de la table <acronym>NAT</acronym>.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Requête <acronym>IPv4</acronym> depuis le conteneur&nbsp;:</para>
+
+<screen><prompt>root@container0:~#</prompt> while true
+do
+	wget -4 -O /dev/null https://inetdoc.net/pdf/iproute-cheatsheet.pdf
+	sleep 3
+done</screen>
+
+	<para>Liste des enregistrements&nbsp;:</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo conntrack -f ipv4 -L
+udp      17 17 src=10.0.1.10 dst=9.9.9.9 sport=49165 dport=53
+				src=9.9.9.9 dst=10.141.0.162 sport=53 dport=49165 mark=0 use=1
+tcp      6 432000 ESTABLISHED src=172.16.0.230 dst=10.141.0.162 sport=40278 dport=22
+				src=10.141.0.162 dst=172.16.0.230 sport=22 dport=40278 [ASSURED] mark=0 use=1
+udp      17 20 src=10.0.1.10 dst=9.9.9.9 sport=36074 dport=53
+				src=9.9.9.9 dst=10.141.0.162 sport=53 dport=36074 mark=0 use=1
+tcp      6 1 CLOSE src=10.0.1.10 dst=89.234.156.195 sport=44860 dport=443
+				src=89.234.156.195 dst=10.141.0.162 sport=443 dport=44860 [ASSURED] mark=0 use=1
+tcp      6 7 CLOSE src=10.0.1.10 dst=89.234.156.195 sport=44864 dport=443
+				src=89.234.156.195 dst=10.141.0.162 sport=443 dport=44864 [ASSURED] mark=0 use=1
+udp      17 27 src=10.0.1.10 dst=9.9.9.9 sport=45443 dport=53
+				src=9.9.9.9 dst=10.141.0.162 sport=53 dport=45443 mark=0 use=1
+udp      17 24 src=10.0.1.10 dst=9.9.9.9 sport=33499 dport=53
+				src=9.9.9.9 dst=10.141.0.162 sport=53 dport=33499 mark=0 use=1
+tcp      6 4 CLOSE src=10.0.1.10 dst=89.234.156.195 sport=44862 dport=443
+				src=89.234.156.195 dst=10.141.0.162 sport=443 dport=44862 [ASSURED] mark=0 use=1
+conntrack v1.4.6 (conntrack-tools): 9 flow entries have been shown.</screen>
+	</listitem>
+
+	<listitem>
+	<para>Requête <acronym>IPv6</acronym> depuis le conteneur&nbsp;:</para>
+
+<screen><prompt>root@container0:~#</prompt> while true
+do
+	wget -6 -O /dev/null https://inetdoc.net/pdf/iproute-cheatsheet.pdf
+	sleep 3
+done</screen>
+
+	<para>Liste des enregistrements&nbsp;:</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo conntrack -f ipv6 -L
+tcp      6 5 CLOSE src=fda0:7a62:1:0:216:3eff:feda:e1a dst=2a03:7220:8083:c300::1 sport=47472 dport=443
+				src=2a03:7220:8083:c300::1 dst=2001:678:3fc:12c::2 sport=443 dport=47472 [ASSURED] mark=0 use=1
+tcp      6 8 CLOSE src=fda0:7a62:1:0:216:3eff:feda:e1a dst=2a03:7220:8083:c300::1 sport=47474 dport=443
+				src=2a03:7220:8083:c300::1 dst=2001:678:3fc:12c::2 sport=443 dport=47474 [ASSURED] mark=0 use=1
+tcp      6 431998 ESTABLISHED src=fe80:1d6::1 dst=fe80:1d6::2 sport=39218 dport=2222
+				src=fe80:1d6::2 dst=fe80:1d6::1 sport=2222 dport=39218 [ASSURED] mark=0 use=1
+conntrack v1.4.6 (conntrack-tools): 3 flow entries have been shown.</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+	</qandaset>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.netfilter.tools'>
+	<title>Les outils de filtrage réseau</title>
+
+	<para>Sur un système GNU/Linux, les fonctions de filtrage réseau sont
+	réparties entre les espaces mémoire noyau
+	(<wordasword>kernelspace</wordasword>) et utilisateur
+	(<wordasword>userspace</wordasword>). Les fonctions de filtrage réseau sont
+	disponibles sous forme de modules qui sont chargés dynamiquement dans la
+	mémoire du système en cours d'exécution en fonction de la syntaxe des
+	règles de filtrage ajoutées.</para>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le paquet le plus important pour les manipulations
+	sur les fonctions de filtrage réseau&nbsp;?</phrase></para>
+
+	<para>Rechercher dans la liste des paquets les mots clés tels que
+	<option>iptables</option> ou <option>firewall</option>.</para>
+	</question>
+	<answer>
+	<para>La partie <wordasword>userspace</wordasword> des fonctions de
+	filtrage réseau s'appelle <application>iptables</application>. On lance
+	donc une recherche avec ce mot clé dans la base de données des paquets
+	Debian.</para>
+
+<screen><prompt>$</prompt> aptitude search ~iiptables
+i   iptables              - administration tools for packet filtering and NAT
+i   iptables-persistent   - boot-time loader for netfilter rules, iptables plugin</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser les modules chargés dynamiquement en
+	fonction de l'utilisation des règles de filtrage
+	réseau&nbsp;?</phrase></para>
+
+	<para>Utiliser la commande qui sert à lister les modules chargés en mémoire
+	avant et après avoir consulté les tables de filtrage réseau pour la
+	première fois.</para>
+    </question>
+	<answer>
+	<para>La commande <command>lsmod</command> sert à lister les modules
+	chargés en mémoire. Voici un exemple de liste de modules relatifs au
+	filtrage.</para>
+
+<screen><prompt>$</prompt> $ lsmod | egrep '(ip_|nf_)' | fmt -t -w80
+nf_conntrack_netlink    57344  0
+nf_nat                 49152  2 nft_chain_nat,xt_MASQUERADE
+nf_conntrack          176128  3 nf_nat,nf_conntrack_netlink,xt_MASQUERADE
+nf_defrag_ipv6         24576  1 nf_conntrack
+nf_defrag_ipv4         16384  1 nf_conntrack
+libcrc32c              16384  2 nf_conntrack,nf_nat
+nf_tables             241664  7 nft_compat,nft_counter,nft_chain_nat
+nfnetlink              16384  3 nft_compat,nf_conntrack_netlink,nf_tables
+ip_tables              32768  0
+x_tables               53248  4 nft_compat,ip_tables,xt_limit,xt_MASQUERADE</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les outils de sauvegarde et de restauration des
+	jeux de règles de filtrage réseau fournis avec le paquet
+	<application>iptables-persistent</application>&nbsp;?</phrase></para>
+
+	<para>Consulter la liste des fichiers du paquet.</para>
+	</question>
+	<answer>
+	<para>La liste des fichiers du paquet fait apparaître les outils
+	<command>iptables-save</command> et <command>iptables-restore</command> qui
+	permettent respectivement de sauvegarder et de restaurer l'ensemble des
+	règles de toutes les tables utilisées.</para>
+
+	<para>Ces programmes sont indispensables pour éditer, insérer ou retirer
+	des règles sans avoir à se préoccuper de l'ordre de saisie. De plus, le
+	programme de restauration se charge de l'effacement des règles
+	précédentes.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser les enregistrements d'états de suivi des
+	communications réseau&nbsp;?</phrase></para>
+
+	<para>Rechercher la chaîne <literal>conntrack</literal> dans la liste des
+	paquets.</para>
+
+	<para>La section <citetitle>«7.2 Les entrées de conntrack»</citetitle> du
+	&url.iptables-tutorial.fr; décrit précisément les différents champs du
+	suivi de communication.</para>
+    </question>
+    <answer>
+	<para>Voici un échantillon capturé sur le routeur
+	<citetitle>HubBleu</citetitle> après avoir lancé une mise à jour du
+	catalogue des paquets sur les conteneurs du routeur
+	<citetitle>Spoke2Vert</citetitle>.</para>
+
+<screen><prompt>$</prompt> sudo conntrack -L | fmt -t -w80
+conntrack v1.4.6 (conntrack-tools): <emphasis>7 flow entries have been shown</emphasis>.
+tcp      6 431999 ESTABLISHED src=172.16.0.230 dst=10.141.0.162 sport=40626
+   dport=22 src=10.141.0.162 dst=172.16.0.230 sport=22 dport=40626 [ASSURED]
+   mark=0 use=1
+udp      17 23 src=10.0.2.10 dst=9.9.9.9 sport=53336 dport=53 src=9.9.9.9
+   dst=10.141.0.162 sport=53 dport=53336 [ASSURED] mark=0 use=1
+tcp      6 113 TIME_WAIT src=10.0.2.10 dst=151.101.12.204 sport=48494
+   dport=80 src=151.101.12.204 dst=10.141.0.162 sport=80 dport=48494 [ASSURED]
+   mark=0 use=1
+udp      17 27 src=10.0.2.11 dst=9.9.9.9 sport=39790 dport=53 src=9.9.9.9
+   dst=10.141.0.162 sport=53 dport=39790 mark=0 use=1
+udp      17 23 src=10.0.2.10 dst=9.9.9.9 sport=59674 dport=53 src=9.9.9.9
+   dst=10.141.0.162 sport=53 dport=59674 mark=0 use=1
+tcp      6 117 TIME_WAIT src=10.0.2.11 dst=151.101.12.204 sport=50252
+   dport=80 src=151.101.12.204 dst=10.141.0.162 sport=80 dport=50252 [ASSURED]
+   mark=0 use=1
+udp      17 27 src=10.0.2.11 dst=9.9.9.9 sport=43617 dport=53 src=9.9.9.9
+   dst=10.141.0.162 sport=53 dport=43617 [ASSURED] mark=0 use=1</screen>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.netfilter.base'>
+	<title>Protection de base des routeurs <wordasword>Hub</wordasword> et
+	<wordasword>Spoke</wordasword></title>
+
+	<para>Le but de cette section est de mettre en place le routage avant de
+		passer aux fonctions de filtrage réseau proprement dites. Elle
+		correspond à la vue <link linkend='netfilter-lab-routing-nat'>Topologie
+		<acronym>PPP</acronym> et routage</link>.</para>
+
+	<para>Voici une liste de fonctions de protection à mettre en œuvre sur tous
+	les types de routeurs.</para>
+
+	<variablelist>
+	<varlistentry>
+	<term>Protection contre l'usurpation des adresses sources</term>
+	<term>rpfilter</term>
+	<term>BCP38</term>
+	<listitem>
+	<para>Ces fonctions de protection comprennent une partie noyau ainsi qu'une
+	partie filtrage avec le module <systemitem>rpfilter</systemitem> à
+	implanter dans la table <systemitem>raw</systemitem> qui assure un filtrage
+	sans état. Voir <xref linkend='interco.netfilter.refdocs.bcp38'
+	/>.</para>
+
+	<para>Les tests de validation de ces mécanismes peuvent se faire à l'aide
+	de la commande <command>hping3</command>. Les résultats doivent être
+	visibles aussi bien dans les journaux systèmes que sur les compteurs des
+	règles de la table <systemitem>raw</systemitem>. En avant pour la chasse
+	aux martiens !</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>Protection contre les dénis de services <acronym>ICMP</acronym></term>
+	<term>module <systemitem>netfilter </systemitem> <option>limit</option></term>
+	<listitem>
+	<para>Les routeurs doivent s'assurer que le volume de trafic qui est
+	présenté en entrée est compatible avec un fonctionnement nominal des
+	services.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>Protection contre les robots de connexion au service <acronym>SSH</acronym></term>
+	<term><application>fail2ban</application></term>
+	<listitem>
+	<para>Les routeurs ont besoin d'un accès d'administration à distance via
+	<acronym>SSH</acronym>. Pour autant, cet accès doit être protégé contre les
+	tentatives d'intrusion par dictionnaire de couples d'authentifiants.</para>
+
+	<para>L'outil <application>fail2ban</application> fourni avec le paquet du
+	même nom introduit une chaîne de filtrage dédiée à ces tentatives
+	d'intrusion.</para>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+
+<sect2 xml:id='interco.netfilter.rp_filter'>
+	<title>Protection contre l'usurpation d'adresse source</title>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment afficher la liste des règles de filtrage de la table
+	<systemitem>raw</systemitem> dédiée au filtrage sans état
+	(<wordasword>stateless</wordasword>)&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les pages de manuels de la commande
+	<command>iptables</command> les options relatives aux listes et aux
+	compteurs.</para>
+
+	<para>La visualisation des compteurs de correspondance des règles de
+	filtrage est indispensable pour qualifier le fonctionnement du
+	filtrage</para>
+	</question>
+	<answer>
+	<para>C'est l'option <option>-L</option> qui permet l'affichage des
+	listes.</para>
+
+	<para>C'est l'option <option>-v</option> qui permet d'obtenir les valeurs
+	des compteurs de correspondance avec chaque règle.</para>
+
+	<para>Voici un exemple dans le contexte de la maquette sur le routeur
+	<citetitle>Spoke1Vert</citetitle>. Une règle a déjà été insérée dans la
+	table <systemitem>raw</systemitem>. Elle permet de visualiser les compteurs
+	de correspondance qui montrent que la règle a bien été utilisée.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo iptables -vL -t raw
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+Chain PREROUTING (policy ACCEPT 112K packets, 113M bytes)
+ pkts bytes target     prot opt in     out     source       destination
+<emphasis>   60  4996 DROP       all  --  any    any     anywhere     anywhere  rpfilter invert /* BCP38 */</emphasis>
+
+Chain OUTPUT (policy ACCEPT 20480 packets, 1365K bytes)
+ pkts bytes target     prot opt in     out     source       destination</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer la protection contre l'usurpation des
+	adresses sources au niveau du noyau&nbsp;?</phrase></para>
+
+	<para>Rechercher les informations relatives à la fonction
+	<wordasword>Reverse Path Forwarding</wordasword> du noyau Linux. Identifier
+	les rôles des 3 valeurs possibles de cette fonction.</para>
+
+	<para>La documentation est à cette adresse&nbsp;:
+	&url.kernel.ip-sysctl;.</para>
+	</question>
+	<answer>
+	<para>Le fichier de configuration principal
+	<filename>/etc/sysctl.conf</filename> dispose de plusieurs entrées
+	relatives à cette fonction. Voici un extrait dans le contexte de la
+	maquette.</para>
+
+<screen><prompt>$</prompt> grep rp_filter /etc/sysctl.conf
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter=1</screen>
+
+	<para>Voici la liste des valeurs actives au moment de l'exécution de la
+	commande.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo sysctl -ar '\.rp_filter'
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.asw-host.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.enp0s2.rp_filter = 1
+net.ipv4.conf.enp0s2/470.rp_filter = 1
+net.ipv4.conf.enp0s2/471.rp_filter = 1
+net.ipv4.conf.lo.rp_filter = 0
+net.ipv4.conf.ovs-system.rp_filter = 1
+net.ipv4.conf.ppp0.rp_filter = 1
+net.ipv4.conf.sw-vlan1.rp_filter = 1
+net.ipv4.conf.veth52dfe1cc.rp_filter = 1
+net.ipv4.conf.veth73d0058f.rp_filter = 1
+net.ipv4.conf.vethc394c229.rp_filter = 1</screen>
+
+	<para>Voici l'extrait de la documentation officielle qui donne les
+	explications sur les 3 valeurs possibles du paramètre
+	<option>rp_filter</option>.</para>
+
+<screen>rp_filter - INTEGER
+	0 - No source validation.
+	1 - Strict mode as defined in RFC3704 Strict Reverse Path
+	    Each incoming packet is tested against the FIB and if the interface
+	    is not the best reverse path the packet check will fail.
+	    By default failed packets are discarded.
+	2 - Loose mode as defined in RFC3704 Loose Reverse Path
+	    Each incoming packet's source address is also tested against the FIB
+	    and if the source address is not reachable via any interface
+	    the packet check will fail.
+
+	Current recommended practice in RFC3704 is to enable strict mode
+	to prevent IP spoofing from DDos attacks. If using asymmetric routing
+	or other complicated routing, then loose mode is recommended.
+
+	The max value from conf/{all,interface}/rp_filter is used
+	when doing source validation on the {interface}.
+
+	Default value is 0. Note that some distributions enable it
+	in startup scripts.</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment enregistrer les tentatives d'usurpation d'adresses
+	dans les journaux système&nbsp;?</phrase></para>
+
+	<para>Rechercher les entrées de l'arborescence <filename
+	class='directory'>/proc</filename> relatives aux paquets “martiens“.</para>
+
+	<para>Rechercher aussi le paramètre relatifs aux “martiens“ dans le fichier
+	<filename>/etc/sysctl.conf</filename>.</para>
+	</question>
+	<answer>
+	<para>On a activé la “journalisation des martiens“ en éditant le fichier
+	<filename>/etc/sysctl.conf</filename>.</para>
+
+<screen><prompt>$</prompt> grep martians /etc/sysctl.conf
+net.ipv4.conf.all.log_martians = 1</screen>
+
+	<para>On vérifie que le paramètre est bien actif sur le système.</para>
+
+<screen><prompt>$</prompt> sudo sysctl -ar 'all.*martians'
+net.ipv4.conf.all.log_martians = 1</screen>
+
+	<para>Si ce n'est pas le cas, il ne faut pas oublier de parcourir à nouveau
+	les fichiers de paramètres à l'aide de la commande
+	<command>sysctl</command>.</para>
+
+<screen><prompt>$</prompt> sudo sysctl --system</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider la fonction de blocage des tentatives
+	d'usurpation d'adresses entre le routeur <wordasword>Hub</wordasword> et
+	les routeurs <wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+	<para>Installer le paquet <systemitem>hping3</systemitem> sur le routeur
+	<wordasword>Hub</wordasword>.</para>
+
+	<para>Rechercher dans les pages de manuels de la commande
+	<command>hping3</command> les options qui permettent de générer du trafic
+	<acronym>ICMP</acronym> avec des adresses source aléatoires à destination
+	d'un conteneur hébergé sur un routeur
+	<wordasword>Spoke</wordasword>.</para>
+	</question>
+	<answer>
+	<para>Voici un premier exemple de test effectué sur le routeur
+	<wordasword>Hub</wordasword> dans le contexte de la maquette.</para>
+
+	<para>L'option <option>-a</option> désigne l'adresse
+	<acronym>IPv4</acronym> source usurpée tandis que l'adresse en bout de
+	ligne désigne la destination. Ici, on cherche à contacter un conteneur avec
+	l'adresse source d'un conteneur voisin en étant placé “à l'extérieur“ du
+	<acronym>VLAN</acronym> vert.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo hping3 -1 -a 10.0.2.12 --fast -c 10 10.0.2.11
+HPING 10.0.2.11 (ppp0 10.0.2.11): icmp mode set, 28 headers + 0 data bytes
+
+--- 10.0.2.11 hping statistic ---
+<emphasis>10 packets transmitted, 0 packets received, 100% packet loss</emphasis>
+round-trip min/avg/max = 0.0/0.0/0.0 ms</screen>
+
+	<para>Côté routeur <wordasword>Spoke</wordasword>, on peut consulter les
+	traces des tentatives d'usurpation d'adresses à l'aide de la commande
+	suivante.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> grep martian /var/log/kern.log</screen>
+
+	<para>Il est aussi possible de lancer un test avec une série d'adresses
+	<acronym>IP</acronym> source aléatoires. Voici un exemple de commande qui
+	provoquera un nombre de blocages aléatoire en fonction des
+	correspondances.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo hping3 -1 --rand-source --fast -c 100 10.0.1.11</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment filtrer les tentatives d'usurpation d'adresses source
+	au plus tôt de façon à limiter le coût de traitement de ces paquets
+	falsifiés sur le système&nbsp;?</phrase></para>
+
+	<para>Identifier le nom de la table de filtrage sans état et rechercher la
+	fonction associée au filtrage des adresses sources usurpées. Rechercher
+	dans les pages de manuels <systemitem>iptables-extensions</systemitem> les
+	informations relatives au module <literal>rpfilter</literal>.</para>
+
+	<para>Ajouter une règle spécifique dans la table de traitement sans état
+	pour les protocoles <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym>.</para>
+	</question>
+	<answer>
+	<para>La table de filtrage sans état est appelée&nbsp;:
+	<literal>raw</literal>. Après consultation des exemples donnés dans les
+	pages de manuels, on aboutit aux deux règles suivantes que l'on applique
+	sur les routeurs <wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>$</prompt> sudo iptables -t raw -A PREROUTING -m rpfilter --invert -m comment --comment "BCP38" -j DROP
+<prompt>$</prompt> sudo ip6tables -t raw -A PREROUTING -m rpfilter --invert -m comment --comment "BCP38" -j DROP</screen>
+
+	<para>On peut ensuite sauvegarder ces règles dans les fichiers systèmes
+	utilisés par le service
+	<systemitem>iptables-persistent</systemitem>.</para>
+
+<screen><prompt>$</prompt> sudo sh -c "iptables-save >/etc/iptables/rules.v4"
+<prompt>$</prompt> sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment caractériser les nouvelles règles de
+	filtrage entre le routeur <wordasword>Hub</wordasword> et les routeurs
+	<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+	<para>Pour les tests <acronym>IPv4</acronym>, il suffit de reprendre les
+	mêmes tests que ceux effectués plus haut avec la commande
+	<command>hping3</command>.</para>
+
+	<para>Installer le paquet <systemitem>thc-ipv6</systemitem> sur le routeur
+	<wordasword>Hub</wordasword> pour disposer des outils de tests spécifiques
+	au protocole <acronym>IPv6</acronym>.</para>
+
+	<para>Rechercher dans les pages de manuels de la commande
+	<command>atk6-thcping6</command> les options qui permettent de générer du
+	trafic <acronym>ICMP</acronym> avec une adresse source falsifiée à
+	destination d'un conteneur hébergé sur un routeur
+	<wordasword>Spoke</wordasword>.</para>
+	</question>
+	<answer>
+	<para>Dans le contexte de la maquette, les requêtes falsifiées sont émises
+	depuis le routeur <wordasword>HubBleu</wordasword> à destination du routeur
+	<wordasword>Spoke1Vert</wordasword> sur lequel les règles de filtrage
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> ont été
+	implantées.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Pour le protocole <acronym>IPv4</acronym>, on reprend la commande
+	<command>hping3</command> avec les mêmes paramètres de dans la question sur
+	la protection au niveau du noyau Linux et on relève le compteur des paquets
+	“jetés“ sur le routeur <wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo hping3 -1 -a 10.0.2.12 --fast -c 100 10.0.2.11
+HPING 10.0.2.11 (ppp1 10.0.2.11): icmp mode set, 28 headers + 0 data bytes
+
+--- 10.0.2.11 hping statistic ---
+100 packets transmitted, 0 packets received, <emphasis>100% packet loss</emphasis>
+round-trip min/avg/max = 0.0/0.0/0.0 ms</screen>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo iptables -vL -t raw
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+Chain PREROUTING (policy ACCEPT 393K packets, 457M bytes)
+ pkts bytes target     prot opt in     out     source    destination
+   <emphasis>71  5304 DROP</emphasis>       all  --  any    any     anywhere  anywhere   rpfilter invert /* BCP38 */
+
+Chain OUTPUT (policy ACCEPT 94964 packets, 5522K bytes)
+ pkts bytes target     prot opt in     out     source    destination</screen>
+	</listitem>
+	<listitem>
+	<para>Pour le protocole <acronym>IPv6</acronym>, on utilise la commande
+	<command>atk6-thcping6</command> avec l'adresse d'un conteneur comme source
+	et l'adresse du routeur	<wordasword>Spoke</wordasword> dans le
+	<acronym>VLAN</acronym> supervision (violet) comme destination.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo atk6-thcping6 -n 10 enp0s2.470 fda0:7a62:1:0:216:3eff:feda:e1a fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+0000.000 	ping packet sent to fe80:1d6::2
+*** buffer overflow detected ***: terminated
+Abandon</screen>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo ip6tables -vL -t raw
+# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
+Chain PREROUTING (policy ACCEPT 37580 packets, 6219K bytes)
+ pkts bytes target     prot opt in     out     source     destination
+   <emphasis>14   784 DROP</emphasis>       all      any    any     anywhere   anywhere     rpfilter invert /* BCP38 */
+
+Chain OUTPUT (policy ACCEPT 7599 packets, 1505K bytes)
+ pkts bytes target     prot opt in     out     source     destination</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect2>
+
+<sect2 xml:id='interco.netfilter.limit'>
+	<title>Protection contre les dénis de service <acronym>ICMP</acronym></title>
+
+<qandaset>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment peut-on se protéger contre un nombre de
+	sollicitations <acronym>ICMP</acronym> trop
+	important&nbsp;?</phrase></para>
+
+	<para>Rechercher dans le guide &url.iptables-tutorial.fr; la correspondance
+	<citetitle>Limit</citetitle> qui permet de définir un seuil au delà duquel
+	les nouveaux flux réseau ne sont plus acceptés.</para>
+
+	<para>Il faut ajouter une règle spécifique au protocole
+	<acronym>ICMP</acronym> après celle qui assure le traitement des flux déjà
+	enregistrés dans les tables de suivi d'état
+	(<wordasword>Stateful</wordasword>).</para>
+	</question>
+	<answer>
+	<para>Dans le contexte de la maquette, les nouvelles règles de filtrage
+	sont appliquées sur le routeur <citetitle>Spoke2Vert</citetitle> et le
+	trafic “malveillant“ est généré sur le routeur
+	<citetitle>HubBleu</citetitle> à destination des conteneurs du réseau local
+	du site distant.</para>
+
+	<para>On commence par afficher la liste des règles de la table par défaut
+	appelée <citetitle>netfilter</citetitle> de façon à vérifier si la règle
+	générale de suivi des enregistrements est présente ou non dans les chaînes
+	<literal>INPUT</literal> et <literal>FORWARD</literal>.</para>
+
+	<para>Dans la copie d'écran ci-dessous, on constate qu'aucune règle de
+	filtrage n'a été appliquée au moment du test.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source     destination
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source     destination
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source     destination</screen>
+
+	<para>Le résultat de la commande <userinput>sudo ip6tables -vL</userinput>
+	doit être identique à la copie d'écran ci-dessus.</para>
+
+	<para>On ajoute les deux règles générales de suivi des conversations en
+	premier dans les chaînes <literal>INPUT</literal> et
+	<literal>FORWARD</literal> pour le protocole
+	<acronym>IPv4</acronym>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source      destination
+    0     0 ACCEPT     all  --  any    any     anywhere    anywhere     ctstate RELATED,ESTABLISHED
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source      destination
+    0     0 ACCEPT     all  --  any    any     anywhere    anywhere     ctstate RELATED,ESTABLISHED
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source      destination</screen>
+
+	<para>On ajoute aussi deux règles identiques pour le protocole
+	<acronym>IPv6</acronym>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT</screen>
+
+	<para>Maintenant que le trafic relatif ou appartenant à un flux enregistré
+	dans la table de suivi d'état est accepté, nous pouvons définir les
+	conditions dans lesquelles un nouveau flux entre de le système de suivi
+	d'état. Ici, on s'intéresse au protocole <acronym>ICMP</acronym> et au
+	module <citetitle>Limit</citetitle>. Voici un exemple de règle qui
+	restreint le trafic <acronym>ICMP</acronym> à 2 nouvelles entrées par
+	seconde sur les chaînes <literal>INPUT</literal> et
+	<literal>FORWARD</literal>.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Pour le protocole <acronym>IPv4</acronym>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT</screen>
+	</listitem>
+	<listitem>
+	<para>Pour le protocole <acronym>IPv6</acronym>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment qualifier le fonctionnement des règles de limitation
+	du nombre de nouvelles requêtes
+	<acronym>ICMP</acronym>&nbsp;?</phrase></para>
+
+	<para>Rechercher les options de la commande <command>hping3</command> qui
+	permettent de générer des flux <acronym>ICMP</acronym> en utilisant des
+	adresses <acronym>IPv4</acronym> source aléatoires.</para>
+
+	<para>Attention&nbsp;! Il faut positionner la politique par défaut en mode "tout
+	ce qui n'est pas autorisé est interdit“ sur le routeur cible le temps du
+	test de qualification.</para>
+	</question>
+	<answer>
+	<para>On rappelle que dans le contexte de la maquette, les règles de
+	filtrage sont appliquées sur le routeur <citetitle>Spoke2Vert</citetitle>
+	et le trafic “malveillant“ est généré sur le routeur
+	<citetitle>HubBleu</citetitle> à destination des conteneurs du réseau local
+	du site distant.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>On commence par modifier la politique par défaut dans la chaîne
+	<literal>FORWARD</literal> sur le routeur
+	<citetitle>Spoke2Vert</citetitle>.</para>
+
+<screen><prompt>$</prompt> sudo iptables -P FORWARD DROP
+<prompt>$</prompt> sudo ip6tables -P FORWARD DROP</screen>
+	</listitem>
+	<listitem>
+	<para>On lance la génération de trafic <acronym>ICMP</acronym> à partir du
+	routeur <citetitle>HubBleu</citetitle>. Dans l'exemple ci-dessous, ce sont
+	100 paquets <acronym>ICMP</acronym> <literal>echo-request</literal> qui
+	sont envoyés avec une adresse <acronym>IPv4</acronym> source
+	aléatoire à destination du conteneur <systemitem
+	class='ipaddress'>10.0.2.11</systemitem>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo hping3 -1 --rand-source --fast -c 100 10.0.2.11</screen>
+
+	<para>À la fin de l'émission, les résultats montrent que 76% des 100
+	requêtes ont été rejetées.</para>
+
+<screen>--- 10.0.2.11 hping statistic ---
+100 packets transmitted, 24 packets received, <emphasis>76% packet loss</emphasis>
+round-trip min/avg/max = 1.1/5.0/9.3 ms</screen>
+	</listitem>
+	<listitem>
+	<para>On se place sur le routeur <citetitle>Spoke2Vert</citetitle> et on
+	affiche la liste des règles de la chaîne <literal>FORWARD</literal> avec
+	les compteurs de paquets.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL FORWARD
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+Chain FORWARD (policy <emphasis>DROP 127 packets</emphasis>, 3556 bytes)
+ pkts bytes target     prot opt in     out     source     destination
+  143  4004 ACCEPT     all  --  any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
+   72  2016 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5 ctstate NEW</screen>
+
+	<para>Cet échantillon montre que 127 paquets ont été mis à la poubelle et
+	non routés jusqu'au conteneur.</para>
+	</listitem>
+	<listitem>
+	<para>Comme le jeu de règles sur le routeur
+	<citetitle>Spoke2Vert</citetitle> est trop restreint pour être acceptable
+	par les conteneurs, on replace la politique par défaut à
+	<literal>ACCEPT</literal> sur la chaîne <literal>FORWARD</literal>.</para>
+
+<screen><prompt>$</prompt> sudo iptables -P FORWARD ACCEPT
+<prompt>$</prompt> sudo ip6tables -P FORWARD ACCEPT</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect2>
+
+<sect2 xml:id='interco.netfilter.fail2ban'>
+	<title>Protection contre les robots de connexion au service
+	<acronym>SSH</acronym></title>
+
+<qandaset>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est la fonction du paquet
+	<citetitle>fail2ban</citetitle>&nbsp;?</phrase></para>
+
+	<para>Afficher la description du paquet <citetitle>fail2ban</citetitle>
+	après l'avoir installé.</para>
+	</question>
+	<answer>
+<screen>apt install fail2ban</screen>
+
+<screen>aptitude show fail2ban | grep -A2 Desc | fmt -t -w80</screen>
+
+<screen>Description : <emphasis>ban hosts that cause multiple authentication errors Fail2ban</emphasis>
+ monitors log files (e.g. /var/log/auth.log, /var/log/apache/access.log)
+ and temporarily or persistently bans failure-prone addresses by updating
+ existing firewall rules.  Fail2ban allows easy specification of different
+ actions to be taken such as to ban an IP using iptables or hostsdeny rules,
+ or simply to send a notification email.</screen>
+
+	<para>Le rôle du service <citetitle>fail2ban</citetitle> est de repérer les
+	erreurs d'authentification dans les journaux des différents services actifs
+	et de créer une chaîne <systemitem>iptables</systemitem> qui bloque les
+	tentatives de connexion suivantes.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le numéro de port utilisé par le service
+	<acronym>SSH</acronym> sur les routeurs&nbsp;?</phrase></para>
+
+	<para>Il est important de connaître les caractéristiques du service qui
+	doit être surveillé par <citetitle>fail2ban</citetitle>. Rechercher dans la
+	liste des ports réseau ouverts celui qui concerne le service
+	<acronym>SSH</acronym>.</para>
+	</question>
+	<answer>
+	<para>Dans le contexte de la maquette, le service <acronym>SSH</acronym> a
+	été paramétré pour utiliser le port numéro 2222. On obtient la liste des
+	ports en écoute avec les commandes <command>lsof</command> ou
+	<command>ss</command>.</para>
+
+<screen><prompt>$</prompt> sudo lsof -i tcp:2222 -sTCP:listen
+COMMAND   PID USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME
+sshd    43975 root    3u  IPv4 7613072      0t0  TCP *:2222 (LISTEN)
+sshd    43975 root    4u  IPv6 7613074      0t0  TCP *:2222 (LISTEN)</screen>
+
+<screen><prompt>$</prompt> ss -tapl '( sport = :2222 )' | fmt -t -w80
+State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+LISTEN 0      128          0.0.0.0:2222      0.0.0.0:*
+LISTEN 0      128             [::]:2222         [::]:*</screen>
+
+	<para>Ce sont donc les tentatives de connexion au service
+	<acronym>SSH</acronym> sur le port numéro <emphasis>2222</emphasis> que le
+	service <citetitle>fail2ban</citetitle> doit surveiller.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le fichier de configuration du service
+	<acronym>SSH</acronym> qui permet de définir le numéro de port en écoute
+	avec le protocole <acronym>TCP</acronym>&nbsp;?</phrase></para>
+
+	<para>Repérer le répertoire qui contient les éléments de configuration du
+	service <acronym>SSH</acronym>.</para>
+	</question>
+	<answer>
+	<para>C'est le fichier <filename>/etc/ssh/sshd_config</filename> qui
+	contient les paramètres du serveur. Dans le cas de ces manipulations, on a
+	décommenté la ligne avec le mot clé <literal>Port</literal>.</para>
+
+<screen><prompt>$</prompt> grep ^Port /etc/ssh/sshd_config
+Port 2222</screen>
+
+	<para>Attention&nbsp;! Si on édite ce fichier de configuration, les
+	modifications ne sont prises en compte qu'au redémarrage du service via la
+	commande
+	<userinput>sudo&nbsp;systemctl&nbsp;restart&nbsp;ssh</userinput>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les deux fichiers de configuration principaux
+	fournis à l'installation du paquet
+	<systemitem>fail2ban</systemitem>&nbsp;?</phrase></para>
+
+	<para>Rechercher dans l'arborescence des fichiers de configuration, les
+	informations relatives aux traitements assurés en cas de détection
+	d'erreurs de connexion à n'importe quel service, puis les informations
+	spécifiques au service <acronym>SSH</acronym>.</para>
+	</question>
+	<answer>
+	<para>Dans le répertoire <filename
+	class='directory'>/etc/fail2ban</filename>, on identifie les deux fichiers
+	demandés.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Le fichier <filename>/etc/fail2ban/jail.conf</filename> donne la
+	liste des paramètres par défaut en cas de détection de tentatives de
+	connexions en erreur. Voici une extraction des premiers paramètres
+	généraux. Ici, le temps de maintien d'une adresse source en prison
+	(<literal>bantime</literal>) est de 10 minutes mais ce temps est multiplié
+	par deux en cas de récidive.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sed -n '/^\[DEF/,/fail2ban_agent/p' /etc/fail2ban/jail.conf | egrep -v '(^#|^$)'
+[DEFAULT]
+bantime.increment = true
+bantime.factor = 2
+ignoreself = true
+ignorecommand =
+bantime  = 10m
+findtime  = 10m
+maxretry = 5
+maxmatches = %(maxretry)s
+backend = systemd
+usedns = warn
+logencoding = auto
+enabled = false
+mode = normal
+filter = %(name)s[mode=%(mode)s]
+destemail = root@localhost
+sender = root@&lt;fq-hostname>
+mta = sendmail
+protocol = tcp
+chain = &lt;known/chain>
+port = 0:65535
+fail2ban_agent = Fail2Ban/%(fail2ban_version)s</screen>
+	</listitem>
+	<listitem>
+	<para>Le fichier
+	<filename>/etc/fail2ban/jail.d/defaults-debian.conf</filename> contient les
+	paramètres par défaut pour la distribution avec une section spécifique au
+	service <acronym>SSH</acronym>. C'est ce fichier que l'on édite pour
+	l'adapter ua contexte des routeurs de la topologie. On spécifie le numéro
+	de port identifié dans les questions précédentes ainsi qu'un traitement
+	particulier. Voici un exemple de configuration appliqué à la
+	maquette.</para>
+
+<screen>[sshd]
+enabled = true
+filter  = sshd
+action = %(action_)s
+maxretry = 3
+banaction = iptables-new</screen>
+
+	<para>Là encore, les modifications effectuées sur la configuration ne sont
+	prises en compte qu'au redémarrage du service&nbsp;:
+	<userinput>sudo&nbsp;systemctl&nbsp;restart&nbsp;fail2ban</userinput>.</para>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment caractériser le fonctionnement du service
+	<application>fail2ban</application>&nbsp;?</phrase></para>
+
+	<para>Si le service a été installé et configuré sur un routeur
+	<wordasword>Spoke</wordasword>, il est possible de lancer plusieurs
+	tentatives de connexion <acronym>SSH</acronym> depuis le routeur
+	<wordasword>Hub</wordasword> en se trompant de mot de passe.</para>
+
+	<para>On peut alors afficher les règles de filtrage
+	<application>iptables</application> et consulter l'état de la prison
+	<application>fail2ban</application>.</para>
+	</question>
+	<answer>
+	<para>On commence par lancer plusieurs tentatives (au moins 3) de connexion
+	<acronym>SSH</acronym> à partir du routeur
+	<wordasword>Hub</wordasword>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> ssh -p 2222 etu@10.47.1.2
+etu@10.47.1.2's password:
+Permission denied, please try again.
+etu@10.47.1.2's password:
+Permission denied, please try again.
+etu@10.47.1.2's password:
+etu@10.47.1.2: Permission denied (publickey,password).
+<prompt>etu@HubBleu:~$</prompt> ssh -p 2222 etu@10.47.1.2
+ssh: connect to host 10.47.1.2 port 2222: <emphasis>Connection refused</emphasis></screen>
+
+	<para>On relève ensuite les résultats côté routeur
+	<wordasword>Spoke</wordasword>.</para>
+
+	<para>La liste des règles de filtrage montre qu'une nouvelle chaîne a été
+	ajoutée. Dans cette chaîne, on reconnaît l'adresse <acronym>IPv4</acronym>
+	du lien <acronym>PPP</acronym> côté <wordasword>Hub</wordasword>.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo iptables -vL
+Chain INPUT (policy ACCEPT 335K packets, 401M bytes)
+ pkts bytes target     prot opt in     out     source      destination
+    2   120 <emphasis>f2b-sshd</emphasis>   tcp  --  any    any     anywhere    anywhere   state NEW tcp dpt:2222
+
+Chain FORWARD (policy ACCEPT 60353 packets, 58M bytes)
+ pkts bytes target     prot opt in     out     source      destination
+
+Chain OUTPUT (policy ACCEPT 95465 packets, 5602K bytes)
+ pkts bytes target     prot opt in     out     source      destination
+
+<emphasis>Chain f2b-sshd (1 references)</emphasis>
+ pkts bytes target     prot opt in     out     source      destination
+    <emphasis>2   120 REJECT     all  --  any    any     10.47.1.1</emphasis>   anywhere   reject-with icmp-port-unreachable
+    0     0 RETURN     all  --  any    any     anywhere    anywhere</screen>
+
+	<para>Toujours sur le routeur <wordasword>Spoke</wordasword>, on relève
+	l'état du service <application>fail2ban</application> et plus
+	particulièrement celui de la "prison" spécifique au protocole
+	<acronym>SSH</acronym>.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo fail2ban-client status sshd
+Status for the jail: sshd
+|- Filter
+|  |- Currently failed:	0
+|  |- Total failed:	3
+|  `- Journal matches:	_SYSTEMD_UNIT=sshd.service + _COMM=sshd
+`- Actions
+   |- Currently banned:	1
+   |- Total banned:	1
+   `- Banned IP list:	10.47.1.1</screen>
+
+	<para>Enfin, on répète l'opération avec l'adresse <acronym>IPv6</acronym>
+	du routeur <wordasword>Spoke</wordasword> sur le lien
+	<acronym>PPP</acronym>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> ssh -p 2222 fe80::5c93:b536:53e7:f976%ppp0
+etu@fe80::5c93:b536:53e7:f976%ppp0's password:
+Permission denied, please try again.
+etu@fe80::5c93:b536:53e7:f976%ppp0's password:
+Permission denied, please try again.
+etu@fe80::5c93:b536:53e7:f976%ppp0's password:
+etu@fe80::5c93:b536:53e7:f976%ppp0: Permission denied (publickey,password).
+<prompt>etu@HubBleu:~$</prompt> ssh -p 2222 fe80::5c93:b536:53e7:f976%ppp0
+ssh: connect to host fe80::5c93:b536:53e7:f976%ppp0 port 2222: <emphasis>Connection refused</emphasis></screen>
+
+	<para>On voit apparaître une nouvelle adresse dans la liste sur le routeur
+	<wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo fail2ban-client status sshd
+Status for the jail: sshd
+|- Filter
+|  |- Currently failed:	1
+|  |- Total failed:	7
+|  `- Journal matches:	_SYSTEMD_UNIT=sshd.service + _COMM=sshd
+`- Actions
+   |- Currently banned:	2
+   |- Total banned:	2
+   `- Banned IP list:	10.47.1.1 <emphasis>fe80::490a:39d4:1a05:f33d</emphasis></screen>
+
+	<para>Les règles de filtrage pour le protocole <acronym>IPv6</acronym> ont
+	aussi été complétées.</para>
+
+<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo ip6tables -vL
+# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source    destination
+    3   240 f2b-sshd   tcp      any    any     anywhere  anywhere     state NEW tcp dpt:2222
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source    destination
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source    destination
+
+Chain f2b-sshd (1 references)
+ pkts bytes target     prot opt in     out     source    destination
+    <emphasis>2   160 REJECT     all      any    any     fe80::490a:39d4:1a05:f33d</emphasis>  anywhere   reject-with icmp6-port-unreachable
+    1    80 RETURN     all      any    any     anywhere  anywhere</screen>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect2>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.netfilter.common'>
+	<title>Règles de filtrage communes à toutes les configurations</title>
+
+	<para>La mise en place du filtrage réseau sur les équipements doit répondre
+		à deux principes.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>On considère que les équipements d'interconnexion mis en œuvre dans
+	ces travaux pratiques délimitent des périmètres de dimension moyenne. Par
+	conséquent, on a une connaissance exhaustive des flux réseaux sur le
+	système. On adopte donc la règle&nbsp;: <emphasis>tout trafic réseau non
+	autorisé est interdit</emphasis>.</para>
+	</listitem>
+
+	<listitem>
+	<para>On fait le choix d'un filtrage basé sur le suivi de communication
+	(<wordasword>stateful inspection</wordasword>). On cherche donc à écrire
+	des règles qui <emphasis>décrivent le plus précisément possible le premier
+	paquet qui doit être enregistré dans la table de suivi de
+	communication</emphasis>. Ces règles de description du premier paquet
+	doivent être placées après celle qui laisse passer le trafic qui correspond
+	ou qui est relatif à une communication déjà enregistrée dans les
+	tables.</para>
+	</listitem>
+
+	<listitem>
+	<para>Dans le but de simplifier l'étude du filtrage, on fait le choix
+	d'autoriser tous les flux sortants émis par les routeurs
+	<wordasword>Hub</wordasword> et <wordasword>Spoke</wordasword>. On laisse
+	donc la politique par défaut à <option>ACCEPT</option> pour les chaînes
+	<option>OUTPUT</option> des routeurs.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>On commence par afficher les règles actives sur les différents
+	routeurs à l'issue des questions de la section précédente&nbsp;: <xref
+	linkend='interco.netfilter.base'/>.</para>
+
+	<para>Attention&nbsp;! Les noms d'interfaces correspondent à la maquette de
+	test.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Régles de filtrage <acronym>IPv4</acronym> côté
+	<wordasword>Hub</wordasword>&nbsp;: fichier
+	<filename>/etc/iptables/rules.v4</filename>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A POSTROUTING -o enp0s2.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	<listitem>
+	<para>Régles de filtrage <acronym>IPv6</acronym> côté
+	<wordasword>Hub</wordasword>&nbsp;: fichier
+	<filename>/etc/iptables/rules.v6</filename>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A POSTROUTING -o enp0s2.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -s fe80::/10 -j ACCEPT
+-A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	<listitem>
+	<para>Régles de filtrage <acronym>IPv4</acronym> côté
+	<wordasword>Spoke</wordasword>&nbsp;: fichier
+	<filename>/etc/iptables/rules.v4</filename>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	<listitem>
+	<para>Régles de filtrage <acronym>IPv6</acronym> côté
+	<wordasword>Spoke</wordasword>&nbsp;: fichier
+	<filename>/etc/iptables/rules.v6</filename>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -s fe80::/10 -j ACCEPT
+-A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	</itemizedlist>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Dans les jeux de règles déjà en place, comment identifier les
+	règles qui traitent les flux réseau dèjà enregistrés dans le suivi de
+	communication&nbsp;?</phrase></para>
+
+	<para>La section <citetitle>«7.3. États de l'espace
+		utilisateur»</citetitle> du &url.iptables-tutorial.fr; décrit les
+		correspondances entre les états et les flux réseau.</para>
+	</question>
+	<answer>
+	<para>Le tableau de la section <citetitle>«7.3. États de l'espace
+	utilisateur»</citetitle> permet de sélectionner les états
+	<option>ESTABLISHED</option> et <option>RELATED</option> que l'on retrouve
+	en première position dans les chaînes <literal>INPUT</literal> et
+	<literal>FORWARD</literal>.</para>
+
+	<para>Voici un exemple qui illustre l'utilisation de ces règles dans le
+	contexte de la maquette. L'évolution des compteurs, montre qu'une règle est
+	effectivement utilisée dans le traitement du trafic réseau.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -vL
+# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
+Chain INPUT (policy ACCEPT 26 packets, 2192 bytes)
+ pkts bytes target     prot opt in     out     source     destination
+  <emphasis>591 54216</emphasis> ACCEPT     all      any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
+    0     0 ACCEPT     icmp     any    any     anywhere   anywhere     limit: avg 2/sec burst 5
+
+Chain FORWARD (policy ACCEPT 6 packets, 480 bytes)
+ pkts bytes target     prot opt in     out     source     destination
+    <emphasis>6   360</emphasis> ACCEPT     all      any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
+    0     0 ACCEPT     icmp     any    any     anywhere   anywhere     limit: avg 2/sec burst 5
+
+Chain OUTPUT (policy ACCEPT 505 packets, 97048 bytes)
+ pkts bytes target     prot opt in     out     source     destination</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles règles faut-il ajouter pour autoriser les nouveaux
+	flux réseau depuis et vers l'interface de boucle locale (chaîne
+	<literal>INPUT</literal>)&nbsp;?</phrase></para>
+
+	<para>Pour que les processus locaux au système puissent communiquer entre
+	eux, il est <emphasis>essentiel</emphasis> d'autoriser le trafic sur
+	l'interface de boucle locale <literal>lo</literal>.</para>
+    </question>
+    <answer>
+	<para>On insère une nouvelle règle sur la chaîne <literal>INPUT</literal>
+	qui admet tous les nouveaux paquets entrant sur l'interface de
+	<literal>lo</literal> sans tenir compte de la table de suivi des
+	communications.</para>
+
+	<para>La même règle est insérée pour les protocoles <acronym>IPv4</acronym>
+	et <acronym>IPv6</acronym>. On utilise les numéros de lignes pour insérer
+	les nouvelles règles en postion 2.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -I INPUT 2 -i lo -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -I INPUT 2 -i lo -j ACCEPT</screen>
+
+	<para>On relève un exemple de résultat en affichant la liste des règles
+	actives avec leurs numéros.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL --line-numbers
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+Chain INPUT (policy ACCEPT 939 packets, 364K bytes)
+num   pkts bytes target     prot opt in     out     source     destination
+1      955 1336K ACCEPT     all  --  any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
+2        0     0 ACCEPT     all  --  lo     any     anywhere   anywhere
+3        0     0 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5
+
+Chain FORWARD (policy ACCEPT 12 packets, 825 bytes)
+num   pkts bytes target     prot opt in     out     source     destination
+1      864  653K ACCEPT     all  --  any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
+2        0     0 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5
+
+Chain OUTPUT (policy ACCEPT 573 packets, 34052 bytes)
+num   pkts bytes target     prot opt in     out     source     destination</screen>
+
+	<para>À partir de ce jeu de règles, on peut lancer un test
+	<acronym>ICMP</acronym> et relever les compteurs d'utilisation de la
+	nouvelle règle.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> ping -q -c 4 ::1
+PING ::1(::1) 56 data bytes
+
+--- ::1 ping statistics ---
+4 packets transmitted, 4 received, <emphasis>0% packet loss</emphasis>, time 3074ms
+rtt min/avg/max/mdev = 0.116/0.139/0.162/0.022 ms</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -vL INPUT --line-numbers
+# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
+Chain INPUT (policy ACCEPT 33 packets, 2968 bytes)
+num   pkts bytes target     prot opt in     out     source    destination
+1     1445  131K ACCEPT     all      any    any     anywhere  anywhere     ctstate RELATED,ESTABLISHED
+2        <emphasis>2   208</emphasis> ACCEPT     all      lo     any     anywhere  anywhere
+3        0     0 ACCEPT     ipv6-icmp  any    any     anywhere  anywhere     limit: avg 2/sec burst 5</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles règles faut-il ajouter pour autoriser les nouvelles
+	connexions <acronym>SSH</acronym> et les intégrer dans la table de suivi
+	des communications&nbsp;?</phrase></para>
+
+	<para>Le protocole de couche transport utilisé est <acronym>TCP</acronym>
+	et le numéro de port utilisé par le service <acronym>SSH</acronym> est
+	<option>2222</option>.</para>
+
+	<para>La section <citetitle>«7.3. États de l'espace
+	utilisateur»</citetitle> du &url.iptables-tutorial.fr; décrit les
+	correspondances entre les états et les flux réseau. Rechercher la clé
+	relative aux nouveaux flux entrants.</para>
+	</question>
+	<answer>
+	<para>Le tableau de la section <citetitle>«7.3. États de l'espace
+	utilisateur»</citetitle> permet de sélectionner l'état
+	<option>NEW</option>.</para>
+
+	<para>Voici un exemple d'ajout de règles dans le contexte de la
+	maquette.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A INPUT -p tcp --syn --dport 2222 \
+  -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A INPUT -p tcp --syn --dport 2222 \
+  -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT</screen>
+
+	<para>Comme précédemment, on peut relever les compteurs suite à une
+	nouvelle connexion <acronym>SSH</acronym>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -vL INPUT
+# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
+Chain INPUT (policy ACCEPT 41 packets, 3608 bytes)
+ pkts bytes target     prot opt in     out     source    destination
+ 2227  206K ACCEPT     all      any    any     anywhere  anywhere     ctstate RELATED,ESTABLISHED
+    2   208 ACCEPT     all      lo     any     anywhere  anywhere
+    0     0 ACCEPT     ipv6-icmp  any    any     anywhere  anywhere     limit: avg 2/sec burst 5
+    <emphasis>1    80</emphasis> ACCEPT     tcp      any    any     anywhere  anywhere     tcp dpt:2222 flags:FIN,SYN,RST,ACK/SYN ctstate NEW /* SSH */</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction qui définit la politique par défaut
+	à appliquer sur les chaînes de la table
+	<systemitem>netfilter</systemitem>&nbsp;?</phrase></para>
+
+	<para>Il s'agit d'appliquer le principe de filtrage énoncé en début de
+	section qui veut que tout trafic non autorisé soit interdit.</para>
+
+	<para>La section <citetitle>«9.3. Commandes»</citetitle> du
+	&url.iptables-tutorial.fr; donne la syntaxe de configuration de
+	<emphasis>cible par défaut</emphasis> pour les chaînes&nbsp;:
+	<literal>INPUT</literal>, <literal>FORWARD</literal> et
+	<literal>OUTPUT</literal>.</para>
+	</question>
+	<answer>
+	<para>On consulte la documentation et on relève la commande
+	<command>-P</command>. Ensuite, on sélectionne la politique par défaut
+	adaptée au contexte&nbsp;: <option>DROP</option>.</para>
+
+	<para>Voici un exemple sur un routeur
+	<wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -P INPUT DROP
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -P INPUT DROP
+<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -P FORWARD DROP
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -P FORWARD DROP
+<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -P OUTPUT ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -P OUTPUT ACCEPT</screen>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+
+	<para>Une fois ces règles basiques en place, on peut aborder les filtrages
+		réseau spécifiques à la topologie de travaux pratiques.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.netfilter.hub'>
+	<title>Règles de filtrage sur le routeur
+	<wordasword>Hub</wordasword></title>
+
+	<para>Dans cette section, on doit compléter les règles de filtrage pour
+	répondre à deux objectifs&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Le routeur <wordasword>Hub</wordasword> doit autoriser le trafic issu
+	des routeurs <wordasword>Spoke</wordasword> vers l'Internet.</para>
+	</listitem>
+	<listitem>
+	<para>Les demandes de connexion aux services Web hébergés sur les
+	conteneurs desservis par les routeurs <wordasword>Spoke</wordasword>
+	doivent être redirigées via la traduction des adresses destination.</para>
+
+	<para>Voici un exemple de correspondances de numéros de ports pour l'accès
+	aux différents services web.</para>
+
+	<table xml:id='d-nat.addressing' frame='all' pgwide='1'>
+		<title>Correspondance entre numéro de port et service Web</title>
+	<tgroup cols='2' align='left' colsep='1' rowsep='1'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='2*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>numéros de port Hub&nbsp;: http,https</entry>
+		<entry>conteneur</entry>
+	</row>
+	</thead>
+	<tbody>
+		<row>
+			<entry>8010,8453</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.1.10</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:1:0:216:3eff:feda:e1a</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry>8011,8454</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.1.11</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:1:0:216:3eff:fec4:d325</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry>8012,8455</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.1.12</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:1:0:216:3eff:fe66:86fb</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry>8020,8463</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.2.10</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:2:0:216:3eff:feda:e1a</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry>8021,8464</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.2.11</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:2:0:216:3eff:fec4:d325</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry>8022,8465</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.2.12</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:2:0:216:3eff:fe66:86fb</systemitem>
+			</entry>
+		</row>
+	</tbody>
+	</tgroup>
+	</table>
+	</listitem>
+	</itemizedlist>
+
+	<para>Avant d'aborder les questions, on commence par afficher le contenu
+	des deux fichiers <filename>/etc/iptables/rules.v4</filename> et
+	<filename>/etc/iptables/rules.v6</filename> qui correspondent à la
+	situation initiale avant de répondre aux objectifs de cette section.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Jeu de règles pour le protocole <acronym>IPv4</acronym>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A POSTROUTING -o enp0s2.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	<listitem>
+	<para>Jeu de règles pour le protocole <acronym>IPv6</acronym>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A POSTROUTING -o enp0s2.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -s fe80::/10 -j ACCEPT
+-A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	</itemizedlist>
+
+	<qandaset>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment autoriser et enregistrer dans le mécanisme de
+		suivi des états les flux entrants par les interfaces
+		<acronym>WAN</acronym> du routeur
+		<wordasword>Hub</wordasword>&nbsp;?</phrase></para>
+
+		<para>Rechercher dans les pages de manuels de la commande
+		<command>iptables</command> le moyen de désigner plusieurs interfaces
+		en une seule règle.</para>
+	</question>
+	<answer>
+		<para>C'est le symbole <literal>+</literal> qui permet de regrouper
+		les interfaces <literal>ppp0</literal> et <literal>ppp1</literal> dans
+		une même règle de filtrage.</para>
+
+		<para>On ajoute donc les deux règles suivantes sur le routeur
+		<wordasword>Hub</wordasword>.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo iptables -A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT
+<prompt>etu@HubBleu:~$</prompt> sudo ip6tables -A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment valider l'utilisation de ces deux nouvelles
+		règles à partir d'un routeur
+		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+		<para>Il suffit de lancer un téléchargement depuis un routeur
+		<wordasword>Spoke</wordasword> en utilisant successivement les
+		protocoles <acronym>IPv4</acronym> et <acronym>IPv6</acronym>. Ensuite,
+		on relève les enregistrements sur le routeur
+		<wordasword>Hub</wordasword> à l'aide de la commande
+		<command>conntrack</command>.</para>
+	</question>
+	<answer>
+		<para>Voici un exemple de relevé avec un téléchargement suffisamment
+		volumineux pour collecter la liste des entrées de suivi d'état sur le
+		routeur <wordasword>Hub</wordasword>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> wget -4 -O /dev/null https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz</screen>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo conntrack -f ipv4 -L
+tcp      6 300 ESTABLISHED src=10.47.3.2 dst=151.101.121.176 sport=60962 dport=443 \
+			src=151.101.121.176 dst=10.141.0.162 sport=443 dport=60962 [ASSURED] mark=0 use=2</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> wget -6 -O /dev/null https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz</screen>
+
+<screen><prompt>etu@HubBleu:~$</prompt> sudo conntrack -f ipv6 -L
+tcp      6 300 ESTABLISHED src=fda0:7a62:2::1 dst=2a04:4e42:1d::432 sport=49156 dport=443 \
+			src=2a04:4e42:1d::432 dst=2001:678:3fc:12c::2 sport=443 dport=49156 [ASSURED] mark=0 use=2</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment implanter les règles de traduction d'adresses
+		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> destination de façon
+		à rendre accessibles les services Web configurés dans les conteneurs
+		situés dans les réseaux desservis par les routeurs
+		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+		<para>Il faut rechercher la syntaxe des règles de la cible
+		<acronym>DNAT</acronym> à appliquer dans la table des règles de
+		traduction d'adresses (<acronym>nat</acronym>) ainsi que la syntaxe des
+		règles à ajouter dans la chaîne <literal>FORWARD</literal> de la table
+		<literal>netfilter</literal>.</para>
+
+		<para>Ces nouvelles règles doivent être conformes au tableau de
+		correspondance donné en début de section. Bien sûr, les adresses
+		doivent être modifiées en fonction du plan d'adressage du document
+		&url.interco.pppoe;.</para>
+	</question>
+	<answer>
+		<para>Comme indiqué dans l'énoncé de la question, l'ajout des règles
+		comprend deux parties&nbsp;: les règles de la table
+		<literal>nat</literal> et les règles de la table
+		<literal>netfilter</literal>.</para>
+
+		<para>Dans le contexte de la maquette, on a édité les fichiers
+		<filename>/etc/iptables/rules.v4</filename> et
+		<filename>/etc/iptables/rules.v6</filename>.</para>
+
+		<itemizedlist>
+		<listitem>
+		<para>Pour le protocole <acronym>IPv4</acronym>.</para>
+
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8010 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C0 -j DNAT --to 10.0.1.10:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8453 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C0 -j DNAT --to 10.0.1.10:443
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8011 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C1 -j DNAT --to 10.0.1.11:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8454 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C1 -j DNAT --to 10.0.1.11:443
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8012 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C2 -j DNAT --to 10.0.1.12:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8455 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke1C2 -j DNAT --to 10.0.1.12:443
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8020 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C0 -j DNAT --to 10.0.2.10:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8463 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C0 -j DNAT --to 10.0.2.10:443
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8021 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C1 -j DNAT --to 10.0.2.11:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8464 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C1 -j DNAT --to 10.0.2.11:443
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8022 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C2 -j DNAT --to 10.0.2.12:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8465 -m conntrack --ctstate NEW \
+		-m comment --comment Spoke2C2 -j DNAT --to 10.0.2.12:443
+-A POSTROUTING -o enp0s2.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A INPUT -p tcp --syn --dport 2222 -m conntrack --ctstate NEW \
+		-m comment --comment SSH -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -p tcp --syn --dport 2222 -m conntrack --ctstate NEW \
+		-m comment --comment SSH -j ACCEPT
+-A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -d 10.0.1.10/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke1C0 -j ACCEPT
+-A FORWARD -d 10.0.1.11/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke1C1 -j ACCEPT
+-A FORWARD -d 10.0.1.12/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke1C2 -j ACCEPT
+-A FORWARD -d 10.0.2.10/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke2C0 -j ACCEPT
+-A FORWARD -d 10.0.2.11/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke2C1 -j ACCEPT
+-A FORWARD -d 10.0.2.12/32 -p tcp --syn -m multiport --dports 80,443 \
+		-m comment --comment Spoke2C2 -j ACCEPT
+COMMIT</screen>
+		</listitem>
+		<listitem>
+		<para>Pour le protocole <acronym>IPv6</acronym>.</para>
+
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ N A T
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8010 \
+		-m comment --comment Spoke1C0 -j DNAT --to [fda0:7a62:1:0:216:3eff:feda:e1a]:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8453 \
+		-m comment --comment Spoke1C0 -j DNAT --to [fda0:7a62:1:0:216:3eff:feda:e1a]:443
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8011 \
+		-m comment --comment Spoke1C1 -j DNAT --to [fda0:7a62:1:0:216:3eff:fec4:d325]:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8454 \
+		-m comment --comment Spoke1C1 -j DNAT --to [fda0:7a62:1:0:216:3eff:fec4:d325]:443
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8012 \
+		-m comment --comment Spoke1C2 -j DNAT --to [fda0:7a62:1:0:216:3eff:fe66:86fb]:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8455 \
+		-m comment --comment Spoke1C2 -j DNAT --to [fda0:7a62:1:0:216:3eff:fe66:86fb]:443
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8020 \
+		-m comment --comment Spoke2C0 -j DNAT --to [fda0:7a62:2:0:216:3eff:feda:e1a]:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8463 \
+		-m comment --comment Spoke2C0 -j DNAT --to [fda0:7a62:2:0:216:3eff:feda:e1a]:443
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8021 \
+		-m comment --comment Spoke2C1 -j DNAT --to [fda0:7a62:2:0:216:3eff:fec4:d325]:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8464 \
+		-m comment --comment Spoke2C1 -j DNAT --to [fda0:7a62:2:0:216:3eff:fec4:d325]:443
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8022 \
+		-m comment --comment Spoke2C2 -j DNAT --to [fda0:7a62:2:0:216:3eff:fe66:86fb]:80
+-A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8465 \
+		-m comment --comment Spoke2C2 -j DNAT --to [fda0:7a62:2:0:216:3eff:fe66:86fb]:443
+-A POSTROUTING -o enp0s2.300 -j MASQUERADE
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -s fe80::/10 -j ACCEPT
+-A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A INPUT -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+-A INPUT -m limit --limit 1/sec -m conntrack --ctstate INVALID -j DROP
+-A INPUT -m limit --limit 1/sec -j NFLOG
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A FORWARD -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+-A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -d fda0:7a62:1:0:216:3eff:feda:e1a/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke1C0 -j ACCEPT
+-A FORWARD -d fda0:7a62:1:0:216:3eff:fec4:d325/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke1C1 -j ACCEPT
+-A FORWARD -d fda0:7a62:1:0:216:3eff:fe66:86fb/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke1C2 -j ACCEPT
+-A FORWARD -d fda0:7a62:2:0:216:3eff:feda:e1a/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke2C0 -j ACCEPT
+-A FORWARD -d fda0:7a62:2:0:216:3eff:fec4:d325/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke2C1 -j ACCEPT
+-A FORWARD -d fda0:7a62:2:0:216:3eff:fe66:86fb/128 -p tcp --syn -m multiport --dports 80,443 \
+		-m conntrack --ctstate NEW -m comment --comment Spoke2C2 -j ACCEPT
+-A FORWARD -m limit --limit 1/sec -m conntrack --ctstate INVALID -j DROP
+-A FORWARD -m limit --limit 1/sec -j NFLOG
+COMMIT</screen>
+		</listitem>
+		</itemizedlist>
+
+		<para>Pour rétablir les lignes des copies d'écran ci-dessus, il est
+		possible d'utiliser la commande ci-dessous avec laquelle le fichier
+		<filename>rules.txt</filename> contient les lignes coupées avec le
+		caractère <literal>\</literal>.</para>
+
+<screen><prompt>$</prompt> sudo sed '/^[ \-].*\\$/N;s/\\\n *//' rules.txt</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+
+	<para>Comme pour toutes les autres sections, on n'oublie pas de sauvegarder
+	le jeu des règles qui ont été validées.</para>
+
+<screen><prompt>$</prompt> sudo sh -c "iptables-save >/etc/iptables/rules.v4"
+<prompt>$</prompt> sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.netfilter.spoke'>
+	<title>Règles de filtrage sur le routeur
+	<wordasword>Spoke</wordasword></title>
+
+	<para>Comme pour la section précédente sur le routeur
+	<wordasword>Hub</wordasword>, on doit compléter le jeu de règles de
+	filtrage pour répondre à deux objectifs&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Le routeur <wordasword>Spoke</wordasword> doit autoriser et
+	enregistrer dans la table de suivi d'état les flux réseaux sortants issus
+	du réseau des conteneurs.</para>
+	</listitem>
+	<listitem>
+	<para>Ce même routeur <wordasword>Spoke</wordasword> doit autoriser et
+	enregistrer dans la table de suivi d'état les flux réseaux entrants à
+	destination des services Web hébergés par les conteneurs.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>On commence par afficher le contenu des deux fichiers
+	<filename>/etc/iptables/rules.v4</filename> et
+	<filename>/etc/iptables/rules.v6</filename> d'un routeur
+	<wordasword>Spoke</wordasword> qui correspondent à la situation initiale
+	avant de traiter les questions de cette section.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Jeu de règles pour le protocole <acronym>IPv4</acronym>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A INPUT -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	<listitem>
+	<para>Jeu de règles pour le protocole <acronym>IPv6</acronym>.</para>
+<screen>#~~~~~~~~~~~~ R A W
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
+COMMIT
+#~~~~~~~~~~~~ F I L T E R
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -s fe80::/10 -j ACCEPT
+-A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A INPUT -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
+-A FORWARD -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
+COMMIT</screen>
+	</listitem>
+	</itemizedlist>
+
+	<qandaset>
+	<qandadiv>
+	<qandaentry>
+	<question>
+		<para><phrase>Comment autoriser et enregistrer dans le mécanisme de
+		suivi des états les flux sortants par l'interface
+		<acronym>WAN</acronym> du routeur
+		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+		<para>Rechercher dans les pages de manuels de la commande
+		<command>iptables</command> le moyen de désigner une interface ainsi
+		que le sens des flux qui transitent par cette interface.</para>
+	</question>
+	<answer>
+		<para>C'est la directive <literal>-o</literal> qui permet de désigner
+		les flux sortants par l'intreface <literal>ppp0</literal>.</para>
+
+		<para>On ajoute donc les deux règles suivantes sur les routeurs
+		<wordasword>Spoke</wordasword>.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A FORWARD -o ppp0 -m conntrack --ctstate NEW -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A FORWARD -o ppp0 -m conntrack --ctstate NEW -j ACCEPT</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment valider l'utilisation de ces deux nouvelles
+		règles à partir d'un routeur
+		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+		<para>Il suffit de lancer un téléchargement depuis un conteneur
+		desservi par le routeur <wordasword>Spoke</wordasword> en utilisant
+		successivement les protocoles <acronym>IPv4</acronym> et
+		<acronym>IPv6</acronym>. Ensuite, on relève les enregistrements sur le
+		même routeur <wordasword>Spoke</wordasword> à l'aide de la commande
+		<command>conntrack</command>.</para>
+	</question>
+	<answer>
+		<para>Voici un exemple de relevé avec un téléchargement suffisamment
+		volumineux pour collecter la liste des entrées de suivi d'état sur le
+		routeur <wordasword>Spoke</wordasword>.</para>
+
+		<para>On commence par s'assurer que le paquet
+		<application>wget</application> est bien installé sur le conteneur
+		depuis lequel on effectue le test.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec container0 -- apt install wget</screen>
+
+		<para>On passe ensuite au téléchargement et au relevé de la table de
+		suivi d'état.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec container0 -- \
+		wget -4 -O /dev/null https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo conntrack -f ipv4 -L
+tcp      6 2 CLOSE src=10.0.2.10 dst=151.101.113.176 sport=59888 dport=443 \
+				src=151.101.113.176 dst=10.0.2.10 sport=443 dport=59888 [ASSURED] mark=0 use=1</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> lxc exec container0 -- \
+		wget -6 -O /dev/null https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo conntrack -f ipv6 -L
+tcp      6 300 ESTABLISHED src=fda0:7a62:2:0:216:3eff:feda:e1a dst=2a04:4e42:3::432 sport=38384 dport=443 \
+				src=2a04:4e42:3::432 dst=fda0:7a62:2:0:216:3eff:feda:e1a sport=443 dport=38384 [ASSURED] mark=0 use=1</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment autoriser les flux Web entrants par l'interface
+		<acronym>WAN</acronym> vers les conteneurs&nbsp;?</phrase></para>
+
+		<para>Rechercher dans les options de la commande
+		<command>iptables</command> celles qui permettent de désigner les
+		interfaces d'entrée et de sortie ainsi que les numéros de ports
+		associés au service Web.</para>
+	</question>
+	<answer>
+		<para>Les options utiles pour les interfaces sont <literal>-i</literal>
+		pour l'entrée et <literal>-o</literal> pour la sortie. Les numéros de
+		ports <option>80</option> et <option>443</option> sont regroupés avec
+		le module <option>multiport</option>.</para>
+
+		<para>Voici un exemple des deux règles à ajouter.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A FORWARD -i ppp0 -o sw-vlan2 \
+		-p tcp --syn -m multiport --dports 80,443 -m conntrack --ctstate NEW -j ACCEPT
+<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A FORWARD -i ppp0 -o sw-vlan2 \
+		-p tcp --syn -m multiport --dports 80,443 -m conntrack --ctstate NEW -j ACCEPT</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider l'utilisation des deux règles ajoutées dans
+	la question précédente&nbsp;?</phrase></para>
+
+	<para>Reprendre, depuis le routeur <wordasword>Hub</wordasword>,
+	l'utilsation de la commande <command>wget</command> telle qu'elle a été
+	présentée dans la section <citetitle>Routeurs
+	<wordasword>Spoke</wordasword></citetitle> du support
+	&url.interco.pppoe;.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple des résultats obtenus sur le routeur
+	<wordasword>Hub</wordasword> de la maquette. Le code
+	<acronym>HTTP</acronym> <literal>200</literal> montre que la requête a bien
+	été traitée par le serveur Web de chaque conteneur.</para>
+
+<screen><prompt>etu@HubBleu:~$</prompt> for addr in 10.0.2.10 10.0.2.11 10.0.2.12;\
+		do sh -c "wget -O /dev/null http://$addr 2&gt;&amp;1 | grep \"HTTP\" "; done
+requête HTTP transmise, en attente de la réponse… 200 OK
+requête HTTP transmise, en attente de la réponse… 200 OK
+requête HTTP transmise, en attente de la réponse… 200 OK</screen>
+
+<screen><prompt>etu@HubBleu:~$</prompt> for addr in fda0:7a62:2:0:216:3eff:feda:e1a \
+		fda0:7a62:2:0:216:3eff:fec4:d325 \
+		fda0:7a62:2:0:216:3eff:fe66:86fb; \
+		do sh -c "wget -O /dev/null http://[$addr] 2&gt;&amp;1 | grep \"HTTP\" "; done
+requête HTTP transmise, en attente de la réponse… 200 OK
+requête HTTP transmise, en attente de la réponse… 200 OK
+requête HTTP transmise, en attente de la réponse… 200 OK</screen>
+
+	<para>On se place ensuite sur le routeur <wordasword>Spoke</wordasword>
+	pour relever les compteurs des règles de filtrage.</para>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL FORWARD | grep http
+    <emphasis>6   360</emphasis> ACCEPT     tcp  --  ppp0   sw-vlan2  anywhere  anywhere \
+				tcp flags:FIN,SYN,RST,ACK/SYN multiport dports http,https ctstate NEW</screen>
+
+<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -vL FORWARD | grep http
+    <emphasis>3   240</emphasis> ACCEPT     tcp      ppp0   sw-vlan2  anywhere  anywhere \
+				tcp flags:FIN,SYN,RST,ACK/SYN multiport dports http,https ctstate NEW</screen>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.netfilter.refdocs'>
+	<title>Documents de référence</title>
+
+<bridgehead xml:id='interco.netfilter.refdocs.ietf'
+	renderas='sect2'>IETF &amp; IANA</bridgehead>
+
+<variablelist>
+	<varlistentry xml:id='interco.netfilter.refdocs.bcp38'>
+	<term><citetitle>Network Ingress Filtering: Defeating Denial of Service
+			Attacks which employ IP Source Address Spoofing</citetitle></term>
+	<term><acronym>BCP 38</acronym></term>
+	<term><systemitem>rp_filter</systemitem></term>
+	<listitem>
+	<para>Le document standard &url.rfc2827; est un guide de bonne pratiques
+		pour se protéger contre l'usurpation des adresses sources. Dans le
+		monde GNU/Linux, la fonction clé est appélée
+		<systemitem>rp_filter</systemitem> pour <wordasword>Reverse Path
+		Filtering</wordasword>.</para>
+	</listitem>
+	</varlistentry>
+</variablelist>
+
+<bridgehead xml:id='interco.netfilter.refdocs.debian'
+	renderas='sect2'>Distribution Debian GNU/Linux</bridgehead>
+
+  <variablelist>
+    <varlistentry xml:id='interco.netfilter.debian-reference.networking'>
+      <term><citetitle>Manuel de référence Debian</citetitle></term>
+      <listitem>
+	<para>&url.debian-reference.networking;&nbsp;: chapitre du manuel de
+	référence <citetitle>Debian</citetitle> consacré à la configuration
+	réseau.</para>
+      </listitem>
+    </varlistentry>
+</variablelist>
+
+<bridgehead xml:id='interco.netfilter.refdocs.inetdoc'
+	renderas='sect2'>Site inetdoc.net</bridgehead>
+
+<variablelist>
+	<varlistentry xml:id='interco.netfilter.config.interface.lan'>
+	<term><citetitle>Configuration d'une interface de réseau local</citetitle></term>
+	<listitem>
+	<para>&url.config.interface.lan;&nbsp;: identification du type d'interface, de
+		ses caractéristiques et manipulations des paramètres. Ce support
+		fournit une méthodologie de dépannage simple d'une connexion
+		réseau.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='interco.netfilter.fonctions.noyau'>
+	<term><citetitle>Fonctions réseau du noyau Linux</citetitle></term>
+	<listitem>
+	<para>&url.interco.kernel;&nbsp;: présentation et configuration des fonctions
+		réseau du noyau LINUX</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='interco.netfilter.refdocs.iptables-tutorial'>
+	<term><citetitle>Didacticiel sur Iptables</citetitle></term>
+	<listitem>
+	<para>&url.iptables-tutorial.fr;&nbsp;: guide très complet sur le fonctionnement
+		du filtrage réseau avec les noyaux Linux.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='interco.netfilter.nat-howto'>
+	<term><citetitle>Guide Pratique du NAT</citetitle></term>
+	<listitem>
+	<para>&url.nat-howto;&nbsp;: Ce document décrit comment réaliser du camouflage
+		d'adresse <acronym>IP</acronym>, un serveur mandataire transparent, de
+		la redirection de ports ou d'autres formes de Traduction d'adresse
+		réseau (<wordasword>Network Address Translation</wordasword> ou
+		<acronym>NAT</acronym>) avec le noyau Linux 2.4.</para>
+	</listitem>
+	</varlistentry>
+</variablelist>
+</sect1>
+</article>

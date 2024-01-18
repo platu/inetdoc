@@ -1,0 +1,1277 @@
+ <chapter xml:id="statemachine">
+  <title xml:id="statemachine.title">La machine d'état</title>
+  <indexterm zone="statemachine">
+    <primary>State machine</primary>
+  </indexterm>
+  <indexterm zone="statemachine">
+    <primary>State match</primary>
+  </indexterm>
+  <indexterm zone="statemachine">
+    <primary>Conntrack</primary>
+  </indexterm>
+ 
+  <para>
+Ce chapitre aborde et explique en détail la machine d'état. Après avoir
+lu ceci, vous devriez avoir pleinement compris son fonctionnement. Vous
+parcourerez un nombre important d'exemples sur la façon dont les états sont
+traités par la machine d'état elle-même. Ces cas concrets devraient vous
+éclairer parfaitement.
+</para>
+
+  <section xml:id="statemachineintroduction">
+   <title xml:id="statemachineintroduction.title">Introduction</title>
+   <indexterm zone="statemachineintroduction">
+     <primary>Basics</primary>
+     <secondary>State machine</secondary>
+   </indexterm>
+  <indexterm zone="statemachineintroduction">
+    <primary>State match</primary>
+    <secondary>ESTABLISHED</secondary>
+  </indexterm>
+  <indexterm zone="statemachineintroduction">
+    <primary>State match</primary>
+    <secondary>NEW</secondary>
+  </indexterm>
+  <indexterm zone="statemachineintroduction">
+    <primary>State match</primary>
+    <secondary>RELATED</secondary>
+  </indexterm>
+  <indexterm zone="statemachineintroduction">
+    <primary>State match</primary>
+    <secondary>INVALID</secondary>
+  </indexterm>
+
+   <para>
+La machine d'état correspond à une partie spéciale à l'intérieur
+d'iptables. En fait, elle porte très mal son nom puisqu'il s'agit en réalité
+d'une machine de traçage de connexion. Cependant, la plupart des gens la
+connaissent sous la première appellation. Au cours de ce chapitre, les deux
+noms sont utilisés indistinctement comme ils sont synonymes. Ceci ne devrait
+pas trop vous perturber. Le traçage de connexion est effectué afin que
+l'architecture de Netfilter puisse connaître l'état d'une connexion
+spécifique. Les pare-feux qui implémentent ceci sont habituellement appelés
+pare-feux à état. Un pare-feu à état est généralement bien plus sûr qu'un
+pare-feu sans état, puisqu'il impose une plus grande rigueur sur l'écriture
+des livres de règles.
+   </para>
+
+   <para> 
+Dans iptables, les paquets peuvent être reliés aux connexions tracées dans
+quatre états différents, qui sont connus sous les noms de
+<command>NEW</command>, <command>ESTABLISHED</command>,
+<command>RELATED</command> et <command>INVALID</command>. Chacun de ces
+états sera approfondi plus loin. Avec la correspondance
+<command>--state</command>, il est facile de contrôler qui, ou ce qui, est
+autorisé à démarrer de nouvelles sessions.
+   </para>
+
+   <para>
+L'intégralité du traçage de connexion est effectué par une structure
+particulière à l'intérieur du noyau appelée conntrack. La structure
+conntrack peut soit être chargée comme un module, soit être interne au
+noyau. La plupart du temps, on a besoin de fonctions supplémentaires de
+traçage de connexion autres que celles proposées par défaut dans le moteur
+conntrack. De ce fait, des parties spécifiques de conntrack prennent en
+charge les protocoles <systemitem>TCP</systemitem>,
+<systemitem>UDP</systemitem> et <systemitem>ICMP</systemitem>. Ces modules
+capturent des informations spécifiques et uniques sur les paquets, afin de
+pouvoir tracer chaque flux de données. L'information récupérée par conntrack
+lui permet de connaître l'état dans lequel se trouve chaque flux
+actuellement. Par exemple, un flux <systemitem>UDP</systemitem> est, en
+général, identifié uniquement par son <systemitem>adresse IP destination
+</systemitem>, son <systemitem>adresse IP source</systemitem>, son
+<systemitem>port destination</systemitem> et son <systemitem>port source
+</systemitem>.
+   </para>
+
+   <para>
+Dans les noyaux précédents, il était possible d'activer ou désactiver la
+défragmentation. Cependant, depuis qu'iptables et Netfilter ont été
+incorporés avec, en particulier, le traçage de connexion, cette option a
+disparu. La raison en est simple, le traçage de connexion ne peut pas
+fonctionner correctement sans défragmenter les paquets, par conséquent la
+défragmentation a été intégrée dans conntrack, et elle est réalisée
+automatiquement. Elle ne peut donc plus être désactivée, sauf en désactivant
+le traçage de connexion. En définitive, la défragmentation a toujours cours
+si le traçage de connexion est actif.
+   </para>
+
+   <para>
+Le traçage de connexion est entièrement pris en charge dans la chaîne
+<systemitem>PREROUTING</systemitem>, sauf pour les paquets générés en local,
+qui sont pris en charge dans la chaîne <systemitem>OUTPUT</systemitem>. Ceci
+signifie qu'iptable effectue tous les calculs d'état dans la chaîne
+<systemitem>PREROUTING</systemitem>. Si on envoie le premier paquet d'un
+flux, l'état est défini comme <command>NEW</command> dans la chaîne
+<systemitem>OUTPUT</systemitem>, et quand on reçoit un paquet de réponse,
+l'état passe à <command>ESTABLISHED</command>, et ainsi de suite. Si le
+premier paquet n'est pas envoyé par nous-mêmes, l'état
+<command>NEW</command> est naturellemt défini dans la chaîne
+<systemitem>PREROUTING</systemitem>. Ainsi, tous les changements d'état et
+calculs sont réalisés dans les chaînes <systemitem>PREROUTING</systemitem>
+et <systemitem>OUTPUT</systemitem> de la table nat.
+   </para>
+
+   </section>
+
+   <section xml:id="theconntrackentries">
+    <title xml:id="theconntrackentries.title">Les entrées de conntrack</title>
+    <indexterm zone="theconntrackentries">
+      <primary>Conntrack</primary>
+      <secondary>Entries</secondary>
+    </indexterm>
+    <indexterm zone="theconntrackentries">
+      <primary>Conntrack</primary>
+      <secondary>ip_conntrack</secondary>
+    </indexterm>
+    <indexterm zone="theconntrackentries">
+      <primary>Files</primary>
+      <secondary>ip_conntrack</secondary>
+    </indexterm>
+    <indexterm zone="theconntrackentries">
+      <primary>Ip_conntrack</primary>
+    </indexterm>
+    <indexterm zone="theconntrackentries">
+      <primary>SYN_SENT</primary>
+    </indexterm>
+    <indexterm zone="theconntrackentries">
+      <primary>ASSURED</primary>
+    </indexterm>
+
+    <para>
+Examinons rapidement le contenu d'une donnée d'entrée de conntrack et
+lisons-la dans <filename>/proc/net/ip_conntrack</filename>. Ce lien contient
+une liste de toutes les entrées actuelles de la base de données de
+conntrack. Si vous avez chargé le module
+<systemitem>ip_conntrack</systemitem>, faites un <command>cat</command>
+de <filename>/proc/net/ip_conntrack</filename> pour obtenir quelque-chose
+comme ceci :
+    </para>
+
+     <screen>tcp      6 117 SYN_SENT src=192.168.1.6 dst=192.168.1.9 sport=32775 \
+     dport=22 [UNREPLIED] src=192.168.1.9 dst=192.168.1.6 sport=22 \
+     dport=32775 [ASSURED] use=2</screen>
+
+    <para>
+Cet exemple contient toute l'information gérée par le module conntrack
+pour savoir dans quel état se trouve une connexion. Tout d'abord, il y a le
+protocole, ici tcp. Ensuite, encore le protocole mais codé en décimal. Après
+cela, on voit combien de temps doit survivre cette entrée de conntrack. La
+valeur à cet instant est de 117 secondes, elle est decrémentée
+régulièrement jusqu'à ce qu'on voit à nouveau du trafic pour cette
+connexion. Cette valeur est alors réinitialisée à la valeur par défaut pour
+l'état en question à cet instant donné. Ensuite vient l'état actuel de cette
+entrée. Dans le cas présenté ci-dessus, on visualise une connexion qui est
+dans l'état <computeroutput>SYN_SENT</computeroutput>. La valeur interne
+d'une connexion est légèrement différente de celles utilisées en externe
+avec <command>iptables</command>. La valeur <computeroutput>SYN_SENT
+</computeroutput> indique que cette connexion a seulement vu un paquet
+<systemitem>TCP SYN</systemitem> dans une direction. Puis, on voit
+l'<systemitem>adresse IP source</systemitem>, l'<systemitem>adresse IP
+destination</systemitem>, le <systemitem>port source</systemitem> et le
+<systemitem>port destination</systemitem>. Arrivé à ce niveau, on voit un
+mot-clé spécifique qui signale qu'aucun trafic n'a été observé en retour
+pour cette connexion. Enfin, on voit ce qui est attendu pour les paquets en 
+réponse. Entre autres, l'<systemitem>adresse IP source</systemitem> et
+l'<systemitem>adresse IP destination</systemitem> (qui sont inversées,
+puisque le paquet attendu doit être dirigé dans l'autre sens). La même chose
+s'applique au <systemitem>port source</systemitem> et <systemitem>port
+destination</systemitem> de la connexion. Ces valeurs nous intéressent
+particulièrement.
+    </para>
+
+    <para>
+Les entrées du traçage de connexion peuvent prendre un ensemble de
+valeurs différentes, toutes spécifiées dans les en-têtes de conntrack et
+disponibles dans les fichiers
+<filename>linux/include/netfilter-ipv4/ip_conntrack*.h</filename>. Ces
+valeurs dépendent du sous-protocole <systemitem>IP</systemitem> qu'on
+utilise. Les protocoles <systemitem>TCP</systemitem>,
+<systemitem>UDP</systemitem> et <systemitem>ICMP</systemitem> correspondent
+à des valeurs fixées et spécifiées dans le fichier
+<filename>linux/include/netfilter-ipv4/ip_conntrack.h</filename>. Ceci sera
+analysé plus en détails lors de l'analyse de chaque protocole ;
+cependant, ils ne seront pas employés intensivement dans ce chapitre,
+puisqu'ils ne sont pas utilisés en dehors du fonctionnement interne de
+conntrack. Ainsi, en fonction de l'évolution de cet état, on change la
+valeur du temps restant avant la destruction de la connexion.
+    </para>
+
+    <note>
+     <para>
+Récemment, un nouveau patch est devenu disponible dans patch-o-matic, appelé
+tcp-window-tracking. Il ajoute, entre autres, toutes les temporisations
+précitées aux variables spéciales sysctl, ce qui signifie qu'elles peuvent
+être modifiées à la volée, alors que le système est toujours en
+fonctionnement. Par conséquent, il ne devient plus indispensable de
+recompiler le noyau à chaque changement dans les temporisations.
+     </para>
+
+     <para>
+Tout ceci peut être modifié par le biais d'appels système spécifiques,
+disponibles dans le répertoire
+<filename>/proc/sys/net/ipv4/netfilter</filename>. Vous devriez regarder en
+particulier les variables
+<filename>/proc/sys/net/ipv4/netfilter/ip_ct_*</filename>.
+     </para>
+    </note>
+
+    <para>
+Quand une connexion a observé du trafic dans les deux directions,
+l'entrée de conntrack efface le fanion <computeroutput>[UNREPLIED]
+</computeroutput>, et donc le réinitialise. Elle le remplace par le fanion
+<computeroutput>[ASSURED]</computeroutput>, vers la fin. Il signale que
+cette connexion est confirmée, donc elle ne sera pas supprimée si on atteint
+le maximum de connexions tracées possible. En fait, les connexions
+estampillées <computeroutput>[ASSURED]</computeroutput> ne seront pas
+supprimées, au contraire des connexions non confirmées (sans le fanion
+<computeroutput>[ASSURED]</computeroutput>). Le nombre maximum de connexions
+gérées par la table de traçage de connexion dépend d'une variable qui peut
+être définie à l'aide de la fonction ip-sysctl dans les noyaux récents. La
+valeur par défaut prise en charge varie fortement avec la quantité de
+mémoire disponible. Avec 128 Mo de RAM, vous pourrez avoir 8192 
+entrées possibles, et avec 256 Mo, ce sera 16376 entrées. Vous
+pouvez lire et définir vos réglages à l'aide de
+<filename>/proc/sys/net/ipv4/ip_conntrack_max</filename>.
+    </para>
+    
+    <indexterm zone="theconntrackentries.conntrack.max">
+      <primary>Files</primary>
+      <secondary>ip_conntrack_max</secondary>
+    </indexterm>
+    <indexterm zone="theconntrackentries.conntrack.max">
+      <primary>ip_conntrack_max</primary>
+    </indexterm>
+    <para xml:id="theconntrackentries.conntrack.max">
+Un moyen différent de faire ceci, plus efficace, est de placer la taille
+de la fonction de hachage pour le module <filename>ip_conntrack</filename>
+une fois qu'il est chargé. Dans des circonstances normales ip_conntrack_max
+égale 8 * la taille de la fonction de hachage. En d'autres termes, placer
+cette taille à 4096 fera que ip_conntrack_max aura 32768 entrées conntrack.
+Un exemple de ce qui pourrait être :
+    </para>
+    
+      <screen><prompt>work3:/home/blueflux#</prompt> <userinput>modprobe ip_conntrack hashsize=4096</userinput>
+<prompt>work3:/home/blueflux#</prompt> <userinput>cat /proc/sys/net/ipv4/ip_conntrack_max</userinput>
+<computeroutput>32768</computeroutput>
+<prompt>work3:/home/blueflux#</prompt></screen>
+
+    </section>
+
+    <section xml:id="userlandstates">
+     <title xml:id="userlandstates.title">États de l'espace utilisateur</title>
+     <indexterm zone="userlandstates">
+       <primary>User-land states</primary>
+     </indexterm>
+     <indexterm zone="userlandstates">
+       <primary>State match</primary>
+       <secondary>NEW</secondary>
+     </indexterm>
+     <indexterm zone="userlandstates">
+       <primary>State match</primary>
+       <secondary>ESTABLISHED</secondary>
+     </indexterm>
+     <indexterm zone="userlandstates">
+       <primary>State match</primary>
+       <secondary>RELATED</secondary>
+     </indexterm>
+     <indexterm zone="userlandstates">
+       <primary>State match</primary>
+       <secondary>INVALID</secondary>
+     </indexterm>
+     <indexterm zone="userlandstates">
+       <primary>State match</primary>
+       <secondary>UNTRACKED</secondary>
+     </indexterm>
+
+     <para>
+Comme vous l'avez vu, les paquets peuvent prendre différents états à
+l'intérieur du noyau, en fonction du protocole considéré. Cependant, à
+l'extérieur du noyau, seuls 4 états sont disponibles, comme 
+expliqué précédemment. Ces états peuvent être associés à la correspondance
+state qui est capable de sélectionner les paquets à partir de l'état actuel
+du traçage de connexion. Les états valides sont
+<command>NEW</command>, <command>ESTABLISHED</command>,
+<command>RELATED</command> et <command>INVALID</command>. Le tableau suivant
+décrit brièvement chacun d'eux.
+     </para>
+
+     <table xml:id="table.userlandstates">
+      <title xml:id="table.userlandstates.title">États de l'espace utilisateur</title>
+      <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+       <thead>
+        <row>
+         <entry>État</entry>
+         <entry>Explication</entry>
+        </row>
+       </thead>
+       <tbody>
+
+       <row>
+        <entry>NEW</entry>
+        <entry>
+L'état <command>NEW</command> indique que le paquet est le
+premier de la connexion. Cela signifie que, pour une connexion donnée, le
+premier paquet que le module conntrack aperçoit est apparié. Par
+exemple, si on rencontre un paquet <systemitem>SYN</systemitem> et que c'est
+le premier paquet d'une connexion, on établit la correspondance. Cependant,
+le paquet peut aussi ne pas être de type <systemitem>SYN</systemitem> et
+considéré tout de même dans l'état <command>NEW</command>. Ceci peut
+s'avérer problématique dans certaines situations, mais peut aussi être
+extrêmement utile quand on doit récupérer les connexions perdues issues
+d'autres pare-feux, ou quand une connexion a dépassé son temps de survie,
+mais n'est pas réellement fermée.
+        </entry>
+       </row>
+
+       <row>
+        <entry>ESTABLISHED</entry>
+        <entry>
+L'état <command>ESTABLISHED</command> résulte de
+l'observation d'un trafic dans les deux sens, et donc établit une
+correspondance avec ce type de paquet. Les connexions établies
+(<command>ESTABLISHED</command>) sont particulièrement simple à comprendre.
+La seule condition pour entrer dans l'état <command>ESTABLISHED</command>
+est qu'un hôte ayant envoyé un paquet reçoive plus tard une réponse de
+l'hôte destinataire de ce paquet. A la réception du paquet de réponse, l'état
+<command>NEW</command> est transformé en <command>ESTABLISHED</command>. Les
+messages d'erreur et de redirection <systemitem>ICMP</systemitem> peuvent
+aussi être considérés comme <command>ESTABLISHED</command>, si on a généré
+un paquet qui en retour génère le message <systemitem>ICMP</systemitem>.
+        </entry>
+       </row>
+
+       <row>
+        <entry>RELATED</entry>
+        <entry>
+L'état <command>RELATED</command> est un des états les plus
+astucieux. Une connexion est considérée comme <command>RELATED</command>
+quand elle est liée à une autre connexion déjà établie, donc dans l'état
+<command>ESTABLISHED</command>. Ainsi, pour qu'une connexion soit identifiée
+comme <command>RELATED</command>, on doit tout d'abord disposer d'une
+autre connexion dans l'état <command>ESTABLISHED</command>. Cette connexion
+<command>ESTABLISHED</command> crée alors une connexion extérieure à la
+connexion principale. La nouvelle connexion créée est donc considérée comme
+<command>RELATED</command>, si le module conntrack l'identifie comme en
+relation avec l'autre. Les exemples suivants peuvent être considérés comme
+<command>RELATED</command> : les connexions
+<systemitem>FTP-data</systemitem> sont liées au port
+<systemitem>FTP control</systemitem>, et les connexions
+<systemitem>DCC</systemitem> interviennent par l'intermédiaire de
+<systemitem>IRC</systemitem>. Ceci permet d'utiliser des réponses
+<systemitem>ICMP</systemitem>, des transferts <systemitem>FTP</systemitem>
+et des <systemitem>DCC</systemitem> pour travailler convenablement à travers
+un pare-feu. Remarquez que la plupart des protocoles
+<systemitem>TCP</systemitem> et certains protocoles
+<systemitem>UDP</systemitem> qui reposent sur ce mécanisme sont
+particulièrement complexes. Ils envoient des informations de connexion à
+l'intérieur des données utiles, qui par conséquent nécessitent des modules
+assistant (helper) spécifiques pour être correctement interprétées.
+        </entry>
+       </row>
+
+       <row>
+        <entry>INVALID</entry>
+        <entry>
+L'état <command>INVALID</command> signifie que le paquet ne
+peut pas être identifié ou qu'il n'a aucun état connu. Il peut y avoir
+plusieurs raisons à cela : par exemple, un système en dépassement de
+mémoire ou des messages d'erreur <systemitem>ICMP</systemitem> ne répondant
+à aucune connexion connue. Généralement, il est préférable de supprimer tout
+ce qui se trouve dans cet état.
+        </entry>
+       </row>
+
+       <row>
+        <entry>UNTRACKED</entry>
+        <entry>
+C'est l'état UNTRACKED. En bref, si un paquet est marqué dans la table raw
+avec la cible NOTRACK, ce paquet sera vu comme UNTRACKED dans la machine
+d'état. Ceci indique aussi que toutes les connexions RELATED ne seront pas 
+vues, ainsi certaines précautions doivent être prises lorsque vous utilisez
+cet état car la machine d'état ne sera pas capable de voir les messages
+ICMP, etc.
+        </entry>
+       </row>
+
+       </tbody>
+      </tgroup>
+     </table>
+
+     <para>
+Ces états peuvent être utilisés avec la correspondance 
+<command>--state</command> pour sélectionner les paquets à partir de leur
+état de traçage de connexion. C'est ce qui rend la machine d'état si
+puissante et efficace pour votre pare-feu. Auparavant, nous devions souvent
+ouvrir tous les ports supérieurs à 1024 pour permettre le trafic inverse à
+destination de notre réseau local. Avec la machine d'état à l'oeuvre, ce
+n'est plus nécessaire, puisqu'il est possible d'ouvrir le pare-feu
+pour les réponses sans l'ouvrir pour le reste du trafic.
+     </para>
+
+  </section>
+
+  <section xml:id="tcpconnections">
+   <title xml:id="tcpconnections.title">Connexions TCP</title>
+   <indexterm zone="tcpconnections">
+     <primary>TCP</primary>
+   </indexterm>
+   <indexterm zone="tcpconnections">
+     <primary>State match</primary>
+     <secondary>RELATED</secondary>
+   </indexterm>
+   <indexterm zone="tcpconnections">
+     <primary>RFC</primary>
+     <secondary>793</secondary>
+   </indexterm>
+   <indexterm zone="tcpconnections">
+     <primary>TCP</primary>
+     <secondary>Opening</secondary>
+   </indexterm>
+   <indexterm zone="tcpconnections">
+     <primary>State match</primary>
+     <secondary>TCP</secondary>
+   </indexterm>
+
+   <para>
+Dans cette section et les suivantes, nous examinerons plus en détail les états
+et comment ils sont gérés pour les trois protocoles élémentaires
+<systemitem>TCP</systemitem>, <systemitem>UDP</systemitem> et
+<systemitem>ICMP</systemitem>. Nous verrons aussi comment les états sont
+gérés par défaut, s'ils ne peuvent être assimilés à un quelconque de ces
+trois protocoles. Nous choisissons de démarrer avec le protocole
+<systemitem>TCP</systemitem> car c'est un protocole à état en lui-même,
+avec nombre de caractéristiques intéressantes en rapport avec la machine
+d'état d'iptables.
+   </para>
+
+   <para>
+Une connexion <systemitem>TCP</systemitem> démarre toujours avec
+l'établissement d'une liaison en 3 phases, qui met en place et négocie la
+connexion qui servira pour le transfert des données. Toute la session
+commence par un paquet <systemitem>SYN</systemitem>, suivi d'un paquet
+<systemitem>SYN/ACK</systemitem> et se termine par un paquet
+<systemitem>ACK</systemitem> pour accuser réception de l'établissement de la
+session. A cet instant, la connexion est établie et prête à envoyer des
+données. La problème est le suivant : comment le traçage de connexion
+peut-il s'accrocher à cette étape ? En fait, très simplement.
+   </para>
+
+   <para>
+En ce qui concerne l'utilisateur, le traçage de connexion fonctionne de
+façon identique pour tout type de connexion. Observez le schéma ci-dessous
+pour comprendre dans quel état se trouve le flux aux différentes étapes de
+la connexion. Comme vous le voyez, le code du traçage de connexion ne suit
+pas vraiment les étapes de la connexion <systemitem>TCP</systemitem> du
+point de vue de l'utilisateur. Dès qu'un paquet <systemitem>SYN</systemitem>
+arrive, il considère la connexion comme nouvelle (<command>NEW</command>).
+Dès qu'un paquet de réponse <systemitem>SYN/ACK</systemitem> est observé, il
+considère la connexion comme établie (<command>ESTABLISHED</command>). Si
+vous réfléchissez une seconde, vous comprendrez pourquoi. Avec cette
+implémentation particulière, vous pouvez autoriser des paquets
+<command>NEW</command> et <command>ESTABLISHED</command> à quitter votre
+réseau local, et autoriser seulement des connexions
+<command>ESTABLISHED</command> en retour, et ça fonctionnera sans problème.
+A contrario, si la machine de traçage de connexion considérait
+l'établissement complet de la connexion comme <command>NEW</command>, il
+serait impossible d'arrêter les connexions issues de l'extérieur vers le
+réseau local, puisqu'il faudrait à nouveau autoriser le retour de paquets
+<command>NEW</command>. Pour rendre les choses encore plus compliquées, il
+existe de nombreux autres états internes qui sont utilisés pour les
+connexions <systemitem>TCP</systemitem> à l'intérieur du noyau, mais qui ne
+sont pas disponibles dans l'espace utilisateur. Brièvement, ils respectent
+les états standards spécifiés dans la 
+<link linkend="rfc793" endterm="rfc793.title"></link> aux pages 21-23.
+   </para>
+
+    <mediaobject>
+     <imageobject>
+      <imagedata fileref="images/state-tcp-connecting.png" format='PNG' width='8cm' contentwidth='7.5cm'/>
+     </imageobject>
+    </mediaobject>
+
+   <para>
+Comme vous pouvez le voir, c'est tout à fait simple, du point de vue de
+l'utilisateur. Cependant, en regardant la construction complète du point
+de vue du noyau, c'est un peu plus compliqué. Voyons un exemple. 
+Regardons exactement comment les états de connexion changent dans la table 
+<filename>/proc/net/ip_conntrack</filename>. Le premier état est rapporté 
+sur le reçu d'un premier paquet SYN dans la connexion.
+   </para>
+
+   <screen>tcp      6 117 SYN_SENT src=192.168.1.5 dst=192.168.1.35 sport=1031 \
+     dport=23 [UNREPLIED] src=192.168.1.35 dst=192.168.1.5 sport=23 \
+     dport=1031 use=1</screen>
+
+   <para>
+Comme nous l'indique l'entrée ci-dessus, nous avons un état précis dans
+lequel un paquet SYN a été envoyé, (le drapeau <computeroutput>SYN_SENT</computeroutput> est placé), et pour lequel aucune réponse n'a été envoyée
+(en témoigne le drapeau <computeroutput>[UNREPLIED]</computeroutput>). 
+L'état interne suivant sera joint quand nous verrons un autre paquet
+dans l'autre direction.
+   </para>
+
+   <screen>tcp      6 57 SYN_RECV src=192.168.1.5 dst=192.168.1.35 sport=1031 \
+     dport=23 src=192.168.1.35 dst=192.168.1.5 sport=23 dport=1031 \
+     use=1</screen>
+
+   <para>
+Maintenant nous avons reçu un SYN/ACK correspondant en retour. Dès que ce
+paquet a été reçu, l'état change encore une fois, cette fois vers 
+<computeroutput>SYN_RECV</computeroutput>.
+<computeroutput>SYN_RECV</computeroutput> nous indique que le SYN d'origine
+a été délivré correctement et que le SYN/ACK en retour passe aussi à 
+travers le pare-feu proprement. D'ailleurs, cette entrée de traçage de
+connexion a observé le trafic dans les deux directions et considère désormais
+qu'il y a été répondu. Ceci n'est pas explicite, mais nous assumons, comme
+l'était le fanion <computeroutput>[UNREPLIED]</computeroutput> ci-dessus. 
+L'étape finale sera atteinte lorsque nous aurons vu le ACK dans
+l'établissement d'une liaison à trois voies.
+   </para>
+
+   <screen>tcp      6 431999 ESTABLISHED src=192.168.1.5 dst=192.168.1.35 \
+     sport=1031 dport=23 src=192.168.1.35 dst=192.168.1.5 \
+     sport=23 dport=1031 [ASSURED] use=1</screen>
+
+   <para>
+Dans le dernier exemple, nous avons obtenu le ACK final dans l'établissement
+d'une liaison à trois voies et la connexion a pris l'état 
+<command>ESTABLISHED</command>, pour autant que les mécanismes internes
+de Iptables soient avisés. Normalement, le flux de données sera 
+<computeroutput>ASSURED</computeroutput> maintenant.
+   </para>
+   
+   <para>
+Une connexion peut aussi être dans l'état <command>ESTABLISHED</command>,
+mais pas <computeroutput>[ASSURED]</computeroutput>. Ceci survient lorsque
+nous avons une connexion captée ouverte (nécessite le patch tcp-window-tracking
+et le ip_conntrack_tcp_loose placé à 1 ou plus haut). Par défaut, sans
+le patch tcp-window-tracking, c'est ce comportement qui s'applique, et
+il n'est pas modifiable.
+   </para>
+
+   <para>
+Quand une connexion TCP est close, elle est faite de cette façon et prend
+les états suivants.
+   </para>
+
+    <mediaobject>
+     <imageobject>
+      <imagedata fileref="images/state-tcp-closing.png" format='PNG' width='8cm' contentwidth='7.5cm'/>
+     </imageobject>
+    </mediaobject>
+
+   <para>
+Comme vous pouvez le voir, la connexion n'est jamais réellement fermée
+jusqu'à ce que le ACK soit envoyé. Notez que cette figure décrit
+simplement comment elle est fermée dans des circonstances normales.
+Une connexion peut aussi, par exemple, être fermée par l'envoi d'un
+RST (reset), si celle-ci a été refusée. Dans ce cas, la connexion
+sera fermée immédiatement.
+   </para>
+
+   <para>
+Quand la connexion TCP a été fermée, elle entre dans l'état 
+<computeroutput>TIME_WAIT</computeroutput>, qui est, par défaut, de 2 minutes.
+Ceci est utilisé pour que tous les paquets sortants puissent encore passer
+à travers notre table de règles, même après que la connexion soit fermée.
+Ceci est employé comme une sorte de tampon pour que les paquets qui ont
+été immobilisés dans un ou plusieurs routeurs engorgés puissent encore
+passer le pare-feu, ou vers une autre fin de connexion.
+   </para>
+
+   <para>
+Si la connexion est réinitialisée par un paquet RST, l'état est modifié en 
+<computeroutput>CLOSE</computeroutput>. Ce qui indique que la connexion
+a, par défaut, 10 secondes avant que la connexion complète soit fermée
+définitivement. Les paquets RST ne sont pas reconnus dans aucun sens,
+et couperont la connexion directement. Il existe aussi d'autres états que
+ceux dont nous avons parlé. Voici une liste complète des états qu'un
+flux TCP peut prendre, et leurs valeurs de délai d'attente.
+</para>
+
+   <table xml:id="table.internalstates">
+    <title xml:id="table.internalstates.title">États internes</title>
+    <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+    <colspec colwidth="2*"/>
+    <colspec colwidth="5*"/>
+     <thead>
+      <row>
+       <entry>État</entry>
+       <entry>Délai</entry>
+      </row>
+     </thead>
+     <tbody>
+
+     <row>
+      <entry>NONE</entry>
+      <entry>30 minutes</entry>
+     </row>
+     <row>
+      <entry>ESTABLISHED</entry>
+      <entry>5 jours</entry>
+     </row>
+     <row>
+      <entry>SYN_SENT</entry>
+      <entry>2 minutes</entry>
+     </row>
+     <row>
+      <entry>SYN_RECV</entry>
+      <entry>60 secondes</entry>
+     </row>
+     <row>
+      <entry>FIN_WAIT</entry>
+      <entry>2 minutes</entry>
+     </row>
+     <row>
+      <entry>TIME_WAIT</entry>
+      <entry>2 minutes</entry>
+     </row>
+     <row>
+      <entry>CLOSE</entry>
+      <entry>10 secondes</entry>
+     </row>
+     <row>
+      <entry>CLOSE_WAIT</entry>
+      <entry>12 heures</entry>
+     </row>
+     <row>
+      <entry>LAST_ACK</entry>
+      <entry>30 secondes</entry>
+     </row>
+     <row>
+      <entry>LISTEN</entry>
+      <entry>2 minutes</entry>
+     </row>
+
+     </tbody>
+    </tgroup>
+   </table>
+
+   <para>
+Ces valeurs ne sont pas absolues. Elles peuvent changer en fonction des
+versions du noyau, et également par le système de fichiers dans les variables
+<filename>/proc/sys/net/ipv4/netfilter/ip_ct_tcp_*</filename>. Les valeurs par
+défaut seront, cependant, justes en pratique. Ces valeurs sont établies
+en secondes. 
+   </para>
+
+   <note>
+    <para>
+Notez aussi que le domaine utilisateur de la machine d'état ne doit pas
+voir les fanions TCP (i.e., RST, ACK et SYN sont des fanions) placés
+dans les paquets TCP. Ce n'est généralement pas recommandé, car vous pourriez
+autoriser les paquets dans l'état  <command>NEW</command> à traverser 
+le pare-feu, mais quand vous spécifiez le fanion <command>NEW</command>,
+vous indiquez les paquets SYN. 
+    </para>
+
+    <para>
+Ce n'est pas ce qui se produit avec l'implémentation de l'état; ce qui
+veut dire, même un paquet avec aucun bit de placé ou un fanion ACK, sera
+compté comme <command>NEW</command>.
+Ceci peut être utilisé pour faire de la redondance de pare-feu, mais c'est
+en général très déconseillé pour un réseau domestique, dans lequel vous
+avez un seul pare-feu. Pour en savoir plus vous pouvez utiliser la
+commande expliquée dans la section  <xref linkend="newnotsyn"/> de l'annexe
+<xref linkend="commonproblems"/>.
+Un autre moyen est d'installer l'extension 
+<command>tcp-window-tracking</command> 
+depuis patch-o-matic, et de placer 
+<filename>/proc/sys/net/ipv4/netfilter/ip_conntrack_tcp_loose</filename> à
+zéro, le pare-feu effacera tous les paquets NEW en ayant le fanion SYN placé.
+    </para>
+   </note>
+
+  </section>
+
+  <section xml:id="udpconnections">
+   <title xml:id="udpconnections.title">Connexions UDP</title>
+   <indexterm zone="udpconnections">
+     <primary>UDP</primary>
+   </indexterm>
+   <indexterm zone="udpconnections">
+     <primary>State match</primary>
+     <secondary>[UNREPLIED]</secondary>
+   </indexterm>
+   <indexterm zone="udpconnections">
+     <primary>State match</primary>
+     <secondary>UDP</secondary>
+   </indexterm>
+   <indexterm zone="udpconnections">
+     <primary>State match</primary>
+     <secondary>[ASSURED]</secondary>
+   </indexterm>
+
+   <para>
+Les connexions UDP ne sont pas des connexions à part entière, mais
+plutôt des connexions "sans état". Il y a plusieurs raisons pour cela,
+la principale parce qu'elles ne contiennent aucun établissement ou
+fermeture de connexion; la plupart n'ont pas de liaison. En recevant
+deux datagrammes UDP dans un ordre spécifique, on ne peut savoir
+dans quel ordre ils ont été envoyés. Cependant, il est toujours possible
+de placer des états sur les connexions dans le noyau. Voyons comment
+une connexion peut être tracée et à quoi elle ressemblerait dans le
+conntrack.
+   </para>
+
+    <mediaobject>
+     <imageobject>
+      <imagedata fileref="images/state-udp-connection.png" format='PNG' width='8cm' contentwidth='7.5cm'/>
+     </imageobject>
+    </mediaobject>
+
+   <para>
+Comme on peut le voir, la connexion circule presque exactement de la
+même façon qu'une connexion TCP. Ceci, du point de vue de l'utilisateur.
+En interne, l'information conntrack est un peu différente, mais
+intrinsèquement les détails sont les mêmes. Premièrement, regardons
+les entrées après que le paquet UDP initial ait été envoyé.
+   </para>
+
+   <screen>udp      17 20 src=192.168.1.2 dst=192.168.1.5 sport=137 dport=1025 \
+     [UNREPLIED] src=192.168.1.5 dst=192.168.1.2 sport=1025 \
+     dport=137 use=1</screen>
+
+   <para>
+Comme vous pouvez le voir entre la première et la deuxième valeur, c'est
+un paquet UDP. Le premier est le nom du protocole, le second le numéro
+du protocole. C'est identique pour une connexion TCP. La troisième valeur
+indique combien de secondes cet état s'est maintenu. Après cela, nous
+avons les valeurs du paquet que nous avons vu et les probabilités que
+les paquets sur cette connexion nous joignent depuis l'expéditeur.
+Ce sont la source, la destination, le port source et le port destination.
+À ce point le fanion <computeroutput>[UNREPLIED]</computeroutput> nous
+indique qu'il n'y a pas eu de réponse au paquet. Enfin, nous avons une
+courte liste de probabilités de retour de paquets. Notez que les dernières
+entrées sont en ordre inverse des premières valeurs. Le délai d'attente
+est de 30 secondes dans ce cas, par défaut.
+
+   </para>
+
+   <screen>udp      17 170 src=192.168.1.2 dst=192.168.1.5 sport=137 \
+     dport=1025 src=192.168.1.5 dst=192.168.1.2 sport=1025 \
+     dport=137 [ASSURED] use=1</screen>
+
+   <para>
+À ce point le serveur a vu une réponse au premier paquet envoyé et la 
+connexion est maintenant considérée comme <command>ESTABLISHED</command>. 
+Ce n'est pas indiqué dans le traçage de connexion comme vous pouvez le voir.
+La principale différence est que le fanion <computeroutput>[UNREPLIED]</computeroutput> est maintenant fourni. D'ailleurs, le temps d'attente par défaut
+a changé pour passer à 180 secondes - mais dans cet exemple il a été
+décrémenté pour passer à 170 secondes - avec un délai de 10 secondes, il
+sera de 160 secondes. 
+Une chose qui a été oubliée et qui peut changer légèrement est le fanion 
+<computeroutput>[ASSURED]</computeroutput> décrit ci-dessus. Pour placer le 
+fanion <computeroutput>[ASSURED]</computeroutput> sur un traçage de connexion,
+il doit y avoir un paquet en réponse au paquet NEW.
+
+   </para>
+
+   <screen>udp      17 175 src=192.168.1.5 dst=195.22.79.2 sport=1025 \
+     dport=53 src=195.22.79.2 dst=192.168.1.5 sport=53 \
+     dport=1025 [ASSURED] use=1</screen>
+
+   <para>
+Ici, la connexion est assurée. La connexion a exactement le même aspect
+que dans l'exemple précédent. Si cette connexion n'est pas utilisée dans
+les 180 secondes, elle est hors délai. 180 secondes est comparativement
+une valeur basse, mais qui devrait être suffisante dans la plupart des cas.
+Cette valeur est réinitialisée complètement pour chaque paquet qui correspond
+à la même entrée et passe à travers le pare-feu, comme pour tous les états
+internes.
+   </para>
+
+  </section>
+
+  <section xml:id="icmpconnections">
+   <title xml:id="icmpconnections.title">Connexions ICMP</title>
+   <indexterm zone="icmpconnections">
+     <primary>ICMP</primary>
+   </indexterm>
+   <indexterm zone="icmpconnections">
+     <primary>State match</primary>
+     <secondary>ICMP</secondary>
+   </indexterm>
+   <indexterm zone="icmpconnections">
+     <primary>State match</primary>
+     <secondary>ESTABLISHED</secondary>
+   </indexterm>
+   <indexterm zone="icmpconnections">
+     <primary>State match</primary>
+     <secondary>NEW</secondary>
+   </indexterm>
+
+   <para>
+Les paquets <systemitem>ICMP</systemitem> sont loin d'être un flux véritable,
+car ils sont seulement utilisés pour le contrôle et n'établissent jamais
+aucun type de connexion. Il existe quatre types <systemitem>ICMP</systemitem> 
+qui généreront cependant des paquets en retour, et qui possèdent deux états
+différents. Ces messages <systemitem>ICMP</systemitem> peuvent prendre les 
+états <command>NEW</command> et <command>ESTABLISHED</command>.
+Les types <systemitem>ICMP</systemitem> dont nous parlons sont les requêtes 
+et réponse <systemitem>Echo</systemitem>, les requêtes et réponses 
+<systemitem>Timestamp</systemitem>, les requêtes et réponses 
+<systemitem>Information</systemitem>, et enfin les requêtes et réponses
+de Masque d'Adresse. En dehors de ça, les requêtes d'horodatage et
+d'information sont obsolètes et seront probablement supprimées. Cependant, 
+les messages Echo sont utilisés dans plusieurs cas comme le ping sur
+des hôtes. Les requêtes de masque d'adresse ne sont pas utilisées souvent, 
+mais peuvent être utiles quelques fois. Pour en avoir une idée, voyons
+l'image suivante.  
+   </para>
+
+    <mediaobject>
+     <imageobject>
+      <imagedata fileref="images/state-icmp-ping.png" format='PNG' width='8cm' contentwidth='7.5cm'/>
+     </imageobject>
+    </mediaobject>
+
+   <para>
+Comme vous pouvez le voir dans l'image ci-dessus, l'hôte envoie une
+requête écho vers la cible, laquelle est considérée comme 
+<command>NEW</command> par le pare-feu. La cible répond alors avec un écho 
+que le pare-feu considère dans l'état <command>ESTABLISHED</command>.
+Quand la première requête écho a été vue, les entrées état suivantes 
+se dirigent vers le <filename>ip_conntrack</filename>.
+   </para>
+
+   <screen>icmp     1 25 src=192.168.1.6 dst=192.168.1.10 type=8 code=0 \
+     xml:id=33029 [UNREPLIED] src=192.168.1.10 dst=192.168.1.6 \
+     type=0 code=0 xml:id=33029 use=1</screen>
+
+   <para>
+Ces entrées semblent un peu différentes des états standards pour TCP et UDP.
+Le protocole est présent, et la temporisation, de même que les adresses
+source et destination. Le problème survient après. Nous avons maintenant trois
+nouveaux champs appelés <computeroutput>type</computeroutput>,
+<computeroutput>code</computeroutput> et <computeroutput>id</computeroutput>.
+Il n'y a rien de spécial, le champ <computeroutput>type</computeroutput>
+contient le type ICMP et le champ <computeroutput>code</computeroutput> 
+contient le code <systemitem>ICMP</systemitem>. 
+Toutes les variables sont présentées dans l'annexe <xref linkend="icmptypes"/>. Le dernier champ 
+<computeroutput>id</computeroutput>, contient l'ID ICMP.
+Chaque paquet ICMP obtient une ID quand il est envoyé, et lorsque le 
+destinataire reçoit le message ICMP, il place la même ID dans le nouveau 
+message ICMP, que l'expéditeur reconnaîtra dans la réponse et il pourra alors 
+se connecter avec la requête ICMP correcte.
+   </para>
+
+   <para>
+Dans le champ suivant, nous avons reconnu le fanion  
+<computeroutput>[UNREPLIED]</computeroutput>. 
+Ce fanion nous indique que nous observons une entrée de traçage de connexion,
+dont le trafic est dans une direction. Enfin, nous voyons la probabilité de
+réponse à un paquet ICMP, qui est l'inversion des adresses IP source et
+destination. Comme pour le type et le code, ils ont été modifiés en 
+valeurs correctes pour le paquet de retour, ainsi une requête écho est
+changée en réponse écho et ainsi de suite. L'ID ICMP est préservée depuis
+le paquet requête.
+   </para>
+
+   <para>
+Le paquet réponse est considéré comme <command>ESTABLISHED</command>, ainsi
+que nous l'avons déjà expliqué. Cependant, nous pouvons savoir avec
+certitude qu'après la réponse ICMP, il n'y aura plus de trafic régulier 
+dans la même connexion. Pour cette raison, l'entrée de traçage de connexion
+est détruite une fois que la réponse ait traversé la structure 
+de Netfilter.
+   </para>
+
+   <para>
+Dans chacun des cas ci-dessus, la requête est considérée comme 
+<command>NEW</command>, tandis que la réponse est considérée comme 
+<command>ESTABLISHED</command>. Voyons cela de plus près. Quand le pare-feu 
+voit un paquet requête, il le considère comme <command>NEW</command>.
+Quand l'hôte envoie un paquet en réponse à la requête il est considéré comme 
+<command>ESTABLISHED</command>.
+   </para>
+
+   <note>
+    <para>
+Notez que cela indique que le paquet réponse doit apparier le critère donné
+par l'entrée de traçage de connexion pour être considéré comme établi, 
+de la même façon que tous les autres types de trafic.
+    </para>
+   </note>
+
+   <para>
+Les requêtes ICMP ont un délai par défaut de 30 secondes, que vous pouvez
+modifier dans l'entrée 
+<filename>/proc/sys/net/ipv4/netfilter/ip_ct_icmp_timeout</filename>.
+C'est, en général, une bonne valeur de temps d'attente, car elle permet 
+de capturer la plupart des paquets en transit.
+   </para>
+
+   <para>
+Une autre partie très importante de ICMP est le fait qu'il est utilisé
+pour indiquer aux hôtes les événements au niveau des connexions spécifiques
+UDP et TCP ou des tentatives de connexion.
+Pour cette raison, les réponses ICMP seront très souvent reconnues comme
+<command>RELATED</command>. Un exemple simple est le 
+<systemitem>ICMP Host unreachable</systemitem> ou <systemitem>ICMP Network
+unreachable</systemitem>. Ceci est toujours généré en retour vers notre
+hôte s'il tente une connexion vers quelque autre hôte, mais que le réseau
+ou l'hôte en question ne soit pas connecté, ainsi le dernier routeur
+essayant de joindre le site répondra par un message ICMP nous l'indiquant.
+Dans ce cas, la réponse ICMP est considérée comme un paquet 
+<command>RELATED</command>. L'image suivante explique ceci.
+   </para>
+
+    <mediaobject>
+     <imageobject>
+      <imagedata fileref="images/state-tcp-icmp-reply.png" format='PNG' width='8cm' contentwidth='7.5cm'/>
+     </imageobject>
+    </mediaobject>
+
+   <para>
+Dans l'exemple ci-dessus, nous envoyons un paquet SYN vers une adresse
+spécifique. Ceci est considéré comme une connexion <command>NEW</command> 
+par le pare-feu. Cependant, le réseau que le paquet essaie de joindre est 
+injoignable, donc un routeur va nous renvoyer une erreur ICMP indiquant
+que le réseau est injoignable.  Le code de traçage de connexion peut
+reconnaître ce paquet comme <command>RELATED</command>, ainsi la réponse
+ICMP est correctement envoyée au client. En attendant, le pare-feu a 
+détruit l'entrée de traçage de connexion depuis qu'il a eu connaissance
+du message d'erreur.
+   </para>
+
+   <para>
+Le même comportement que ci-dessus est observé pour les connexions UDP
+avec les problèmes identiques que précédemment. Tous les messages ICMP
+envoyés en réponse aux connexions UDP sont considérés comme 
+<command>RELATED</command>. Voyons l'image suivante.
+   </para>
+
+    <mediaobject>
+     <imageobject>
+      <imagedata fileref="images/state-udp-icmp-reply.png" format='PNG' width='8cm' contentwidth='7.5cm'/>
+     </imageobject>
+    </mediaobject>
+
+   <para>
+Un paquet UDP est envoyé à un hôte. Cette connexion UDP est considérée comme 
+<command>NEW</command>. Cependant, le réseau est interdit d'accès 
+administrativement par un pare-feu quelconque ou un routeur. 
+Donc, notre pare-feu reçoit un "ICMP Network Prohibited" en retour. 
+Le pare-feu sait que ce message d'erreur ICMP est en relation avec la 
+connexion UDP déjà ouverte et envoie un paquet <command>RELATED</command> 
+au client. À ce niveau, le pare-feu supprime les entrées de traçage 
+de connexion, et le client reçoit le message ICMP.
+
+   </para>
+
+  </section>
+
+  <section xml:id="defaultconnections">
+   <title xml:id="defaultconnections.title">Connexions par défaut</title>
+   <indexterm zone="defaultconnections">
+     <primary>State machine</primary>
+     <secondary>Default connections</secondary>
+   </indexterm>
+   <indexterm zone="untrackedconns">
+     <primary>File</primary>
+     <secondary>ip_ct_generic_timeout</secondary>
+   </indexterm>
+
+   <para>
+Dans certains cas, la machine conntrack ne sait pas comment traiter un
+protocole spécifique. Ceci se produit lorsqu'elle ne connait pas le
+protocole en particulier, ou ne sait pas comment il fonctionne. Dans ces cas
+là, elle utilise un comportement par défaut. Ce comportement est utilisé
+sur, par exemple, NETBLT, MUX et EGP. Ce comportement ressemble au
+traçage de connexion UDP. Le premier paquet est considéré comme 
+<command>NEW</command>, et le trafic en réponse comme 
+<command>ESTABLISHED</command>.
+   </para>
+
+   <para>
+Quand ce comportement par défaut est utilisé, tous les paquets ont la même
+valeur de délai par défaut. Ceci peut être paramétré via la variable 
+<filename>/proc/sys/net/ipv4/netfilter/ip_ct_generic_timeout</filename>.
+La valeur par défaut est ici de 600 secondes, soit 10 minutes.
+En fonction du trafic, ceci peut avoir besoin d'être modifié.
+Spécialement si vous renvoyez le trafic par satellite, ce qui peut
+prendre du temps.
+   </para>
+
+  </section>
+
+  <section xml:id="untrackedconns">
+   <title xml:id="untrackedconns.title">Connexions non tracées et la table raw</title>
+   <indexterm zone="untrackedconns">
+     <primary>State match</primary>
+     <secondary>Untracked connections</secondary>
+   </indexterm>
+   <indexterm zone="untrackedconns">
+     <primary>State match</primary>
+     <secondary>NOTRACK</secondary>
+     <seealso>NOTRACK target</seealso>
+   </indexterm>
+   <indexterm zone="untrackedconns">
+     <primary>NOTRACK target</primary>
+   </indexterm>
+
+   <para>
+<command>UNTRACKED</command> est un terme plutôt spécial quand il est employé
+dans le traçage de connexion avec Linux. De façon simple, il est utilisé pour
+sélectionner les paquets qui ont été marqués dans la table raw pour ne pas être
+tracés.
+   </para>
+
+   <para>
+La table raw a été créée spécialement pour cette raison. Dans cette table
+vous placez une marque NOTRACK sur les paquets que vous ne voulez pas tracer
+dans Netfilter.
+   </para>
+
+   <important>
+    <para>
+Notez que je parle de paquets, pas de connexion, car la marque est placée
+actuellement pour chaque paquet entrant.
+    </para>
+   </important>
+
+   <para>
+Comme nous l'avons déjà indiqué, conntrack et la machine d'état sont
+plutôt gourmands en ressources. Pour cette raison, ce peut être une bonne
+idée de parfois désactiver le traçage de connexion et la machine d'état.
+   </para>
+
+   <para>
+Un exemple, vous avez un routeur supportant beaucoup de trafic et vous
+voulez tracer les flux entrants et sortants, mais pas le trafic routé.
+Vous pouvez alors placer la marque NOTRACK sur tous les paquets non destinés
+au pare-feu lui-même en ACCEPTant tous les paquets à destination de votre
+hôte dans la table raw, et ensuite placer NOTRACK pour tout le trafic restant.
+Ce qui vous permet d'avoir une vérification complète du trafic entrant pour
+le routeur lui-même, mais en même temps sauvegarder de la ressource machine
+en ne traçant pas la totalité du trafic.
+   </para>
+
+   <para>
+Un autre exemple, NOTRACK peut être utilisé lorsque vous avez un serveur
+web générant beaucoup de trafic et que vous désirez le tracer complètement, 
+mais vous ne voulez pas perdre de la puissance processeur. Vous pouvez alors 
+placer une règle qui désactive le traçage sur le port 80 sur toutes les
+adresses IP locales, ou celles actuellement utilisées pour le trafic web.
+Vous pouvez ensuite sans problème tracer tous les autres services, sauf pour
+le trafic web.
+   </para>
+
+   <para>
+Il existe cependant certains problèmes avec NOTRACK que vous devez prendre
+en considération. Si une connexion complète est placée avec NOTRACK, vous ne
+pourrez pas tracer chaque connexion particulière, conntrack et nat ne
+fonctionnent pas pour les connexions non tracées, ni avec les erreurs
+relatives à ICMP. En d'autres termes, vous devrez les ouvrir manuellement.
+Quand il s'agit de protocoles complexes comme FTP et SCTP, ce peut être
+assez difficile à gérer.
+   </para>
+  </section>
+
+  <section xml:id="complexprotocols">
+   <title xml:id="complexprotocols.title">Protocoles complexes et traçage de 
+connexion</title>
+   <indexterm zone="complexprotocols">
+     <primary>State match</primary>
+     <secondary>Complex protocols</secondary>
+     <seealso>Complex protocols</seealso>
+   </indexterm>
+   <indexterm zone="complexprotocols">
+     <primary>FTP</primary>
+   </indexterm>
+   <indexterm zone="complexprotocols">
+     <primary>IRC</primary>
+   </indexterm>
+   <indexterm zone="complexprotocols">
+     <primary>TFTP</primary>
+   </indexterm>
+   <indexterm zone="complexprotocols">
+     <primary>Amanda</primary>
+   </indexterm>
+   <indexterm zone="complexprotocols">
+     <primary>Complex protocols</primary>
+     <secondary>FTP</secondary>
+   </indexterm>
+   <indexterm zone="complexprotocols">
+     <primary>Complex protocols</primary>
+     <secondary>IRC</secondary>
+   </indexterm>
+   <indexterm zone="complexprotocols">
+     <primary>Complex protocols</primary>
+     <secondary>TFTP</secondary>
+   </indexterm>
+   <indexterm zone="complexprotocols">
+     <primary>Complex protocols</primary>
+     <secondary>Amanda</secondary>
+   </indexterm>
+   <indexterm zone="complexprotocols">
+     <primary>Conntrack</primary>
+     <secondary>Helpers</secondary>
+   </indexterm>
+
+   <para> 
+Certains protocoles sont plus complexes que d'autres. Ce qui fait que, 
+lorsqu'ils interfèrent avec du traçage de connexion ils peuvent être
+plus difficiles à tracer correctement. De bons exemples en sont les
+protocoles ICQ, IRC et FTP. Chacun des ces protocoles transporte l'information
+dans les données utiles des paquets, et donc nécessitent un traçage de 
+connexion spécial pour bien fonctionner.
+   </para>
+   
+   <para>
+Voici une liste des protocoles complexes supportés par le noyau Linux,
+et la version du noyau dans laquelle il a été implémenté.
+   </para>
+
+   <table frame='all' xml:id="table.complexprotocols">
+    <title xml:id="table.complexprotocols.title">Support des protocoles complexes</title>
+    <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+    <colspec colwidth="2*"/>
+    <colspec colwidth="1*"/>
+      <thead>
+       <row>
+        <entry>Nom du protocole</entry>
+        <entry>Version du noyau</entry>
+       </row>
+      </thead>
+      <tbody>
+       <row>
+        <entry>FTP</entry>
+        <entry>2.3</entry>
+       </row>
+       <row>
+        <entry>IRC</entry>
+        <entry>2.3</entry>
+       </row>
+       <row>
+        <entry>TFTP</entry>
+        <entry>2.5</entry>
+       </row>
+       <row>
+        <entry>Amanda</entry>
+        <entry>2.5</entry>
+       </row>
+      </tbody>
+     </tgroup>
+    </table>
+   
+   <itemizedlist mark="opencircle">
+    <listitem><para>FTP</para></listitem>
+    <listitem><para>IRC</para></listitem>
+    <listitem><para>TFTP</para></listitem>
+   </itemizedlist>
+   
+   <para> 
+Prenons le protocole FTP comme premier exemple. Ce protocole ouvre en
+premier une seule connexion appelée contrôle de session FTP. Quand nous
+lançons des commandes dans cette session, d'autres ports sont ouverts
+pour transporter le reste des données relatives à ces commandes spécifiques.
+Ces connexions peuvent être réalisées de deux manières, de façon active
+ou passive. Quand une connexion est en mode actif, le client FTP envoie
+au serveur un port et une adresse IP pour se connecter. Après cela, 
+le client FTP ouvre le port et le serveur le connecte depuis un domaine
+de ports non privilégiés (>1024) et envoie les données sur celui-ci. 
+   </para>
+
+   <para> 
+Le problème est que le pare-feu ne connaît pas ces connexions, car elles
+ont été négociées dans les données utiles du protocole. À cause de ça,
+le pare-feu sera incapable de savoir s'il doit laisser le serveur connecté
+au client sur ces ports spécifiques.
+   </para>
+
+   <para> 
+La solution est d'ajouter une aide spéciale au module de traçage de
+connexion qui scannera les données dans le contrôle de connexion à la
+recherche d'information et de syntaxes spécifiques. Quand il fonctionne
+avec l'information correcte, il indique cette information spécifique comme 
+<command>RELATED</command> et le serveur sera capable de tracer la connexion.
+Voyons l'image suivante pour comprendre les états quand le serveur FTP
+a envoyé le retour de connexion au client.
+   </para>
+
+    <mediaobject>
+     <imageobject>
+      <imagedata fileref="images/state-tcp-server-subconn.png" format='PNG' width='8cm' contentwidth='7.5cm'/>
+     </imageobject>
+    </mediaobject>
+
+   <para>
+Le FTP passif fonctionne de la façon inverse. Le client FTP indique au
+serveur qu'il désire certaines données spécifiques, le serveur lui répond
+avec l'adresse IP à connecter et le port. Le client pourra, au reçu de
+ces données, se connecter à ce port depuis son propre port 20 (port FTP),
+et obtenir les données en question. Si vous avez un serveur FTP derrière votre 
+pare-feu, vous aurez besoin de ce module en supplément de vos modules
+standards Iptables pour permettre aux clients sur l'Internet de se connecter
+au serveur FTP correctement. C'est la même chose si vous êtes très restrictif
+pour vos utilisateurs, et les laissez se connecter seulement aux serveurs
+HTTP et FTP sur l'Internet, et que vous bloquez tous les autres ports.
+Regardons l'image suivante à propos du FTP passif.
+   </para>
+
+    <mediaobject>
+     <imageobject>
+      <imagedata fileref="images/state-tcp-client-subconn.png" format='PNG' width='8cm' contentwidth='7.5cm'/>
+     </imageobject>
+    </mediaobject>
+
+   <para> 
+Certains assistants conntrack sont déjà disponibles dans le noyau
+lui-même. Plus spécifiquement, les protocoles FTP et IRC possèdent
+des assistants. Si vous ne trouvez pas les assistants conntrack dont vous
+avez besoin dans le noyau, vous devriez regarder l'arborescence
+patch-o-matic dans le domaine utilisateur Iptables. L'arborescence
+patch-o-matic peut contenir d'avantage d'assistants conntrack, comme
+ceux des protocoles ntalk ou H.323. S'ils ne sont pas disponibles dans
+l'arborescence patch-o-matic, vous avez plusieurs options. Soit vous
+cherchez dans le source CVS d'Iptables, si il a été récemment modifié, 
+soit vous contactez la liste de diffusion 
+<link linkend="otherresources">Netfilter-devel</link> et demandez leurs
+disponibilités. Sinon, et s'il n'y a pas de projet en vue, lisez le 
+<link linkend="netfilterhackinghowto">Rusty 
+Russell's Unreliable Netfilter Hacking HOW-TO</link> dont le lien est dans 
+<xref linkend="otherresources"/>.
+
+   </para>
+
+   <para>
+Les assistants conntrack peuvent être soit compilés statiquement dans
+le noyau, soit en modules. S'ils sont compilés en modules, vous pouvez
+les charger avec les commandes suivantes :
+   </para>
+
+<screen width='80'>
+<command>modprobe ip_conntrack_ftp
+modprobe ip_conntrack_irc
+modprobe ip_conntrack_tftp
+modprobe ip_conntrack_amanda</command></screen>
+
+   <para>
+Notez que la traçage de connexion n'a rien à voir avec le NAT, et donc
+vous pouvez avoir besoin de d'avantage de modules si vous NATez les connexions.
+Par exemple, si vous voulez NATer et tracer les connexions FTP, vous aurez
+besoin du module NAT. Tous les assistants NAT débutent avec ip_nat_ et
+suivant; exemple, l'assistant FTP NAT sera nommé ip_nat_ftp et le module
+IRC nommé ip_nat_irc. Les assistants conntrack suivent la même convention,
+et donc l'assistant IRC conntrack s'appellera ip_conntrack_irc, alors
+que l'assistant FTP conntrack sera nommé ip_conntrack_ftp. Comme dans la
+sortie d'écran ci-dessus.
+   </para>
+  </section>
+
+  <section>
+    <title>Chapitre suivant</title>
+
+    <para>
+Dans le prochain chapitre nous verrons comment sauvegarder et restaurer
+les tables de règles en utilisant les programmes iptables-save et 
+iptables-restore distribués avec les applications iptables.
+    </para>
+  </section>
+
+ </chapter>

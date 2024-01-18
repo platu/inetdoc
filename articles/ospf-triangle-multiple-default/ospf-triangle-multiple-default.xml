@@ -1,0 +1,1727 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author         SYSTEM "author.xml">
+<!ENTITY legal          SYSTEM "legal.xml">
+
+<!ENTITY vde.conf       SYSTEM "files/vde.conf">
+
+<!ENTITY isp-interfaces SYSTEM "files/isp-interfaces">
+<!ENTITY r1-interfaces  SYSTEM "files/r1-interfaces">
+<!ENTITY r2-interfaces  SYSTEM "files/r2-interfaces">
+<!ENTITY r3-interfaces  SYSTEM "files/r3-interfaces">
+
+<!ENTITY r1-zebra       SYSTEM "files/r1-zebra.conf">
+<!ENTITY r1-ospfd       SYSTEM "files/r1-ospfd.conf">
+<!ENTITY r2-zebra       SYSTEM "files/r2-zebra.conf">
+<!ENTITY r2-ospfd       SYSTEM "files/r2-ospfd.conf">
+<!ENTITY r3-zebra       SYSTEM "files/r3-zebra.conf">
+<!ENTITY r3-ospfd       SYSTEM "files/r3-ospfd.conf">
+
+<!ENTITY url.multipath-host.pcap
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='https://www.inetdoc.net/articles/ospf-triangle-multiple-default/files/multipath-host.pcap'>multipath-host.pcap</link>">
+
+<!ENTITY url.r1-keepalive.sh
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='https://www.inetdoc.net/articles/ospf-triangle-multiple-default/files/r1-keepalive.sh'>r1-keepalive.sh</link>">
+
+<!ENTITY url.r3-keepalive.sh
+  "<link xmlns='http://docbook.org/ns/docbook'
+  xlink:href='https://www.inetdoc.net/articles/ospf-triangle-multiple-default/files/r1-keepalive.sh'>r3-keepalive.sh</link>">
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
+]>
+
+<article xml:lang='fr' xml:id='ospf-triangle-multiple-default'>
+<info>
+  <title>Aire OSPF et passerelles multiples</title>
+
+  &author;
+  <abstract>
+  <para>Cet article est une illustration des fonctions de routage avancées sur
+  les systèmes GNU/Linux. À partir d'une topologie de travaux pratiques
+  comprenant trois routeurs en «triangle» dans une aire <acronym>OSPF</acronym>
+  et un quatrième routeur représentant un hypothétique opérateur, il couvre les
+  notions de répartition de trafic (<wordasword>load balancing</wordasword>) et
+  de tolérance aux pannes réseau (<wordasword>failover</wordasword>).</para>
+  </abstract>
+  <keywordset>
+    <keyword>connmark</keyword>
+    <keyword>failover</keyword>
+    <keyword>inetdoc</keyword>
+    <keyword>iproute</keyword>
+    <keyword>iptables</keyword>
+    <keyword>Linux</keyword>
+    <keyword>load balancing</keyword>
+    <keyword>mangle</keyword>
+    <keyword>ospf</keyword>
+    <keyword>frr</keyword>
+    <keyword>wireshark</keyword>
+  </keywordset>
+</info>
+
+<section xml:id='ospf-triangle-multiple-default.legal.meta'>
+  &legal;
+  <section xml:id='ospf-triangle-multiple-default.meta'>
+    <title>Méta-information</title>
+
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="https://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+  </section>
+
+  <section xml:id='ospf-triangle-multiple-default.convtypo'>
+    <title>Conventions typographiques</title>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super-utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+  </section>
+</section>
+
+<?custom-pagebreak?>
+<section xml:id='ospf-triangle-multiple-default.presentation'>
+  <title>Présentation de la topologie réseau étudiée</title>
+
+  <para>En fait, cet article fait suite à la rédaction du support
+  &url.interco-dsl.cs; dans lequel on constitue une agrégation de topologies
+  <wordasword>Hub and Spoke</wordasword> avec les douze postes d'une salle de
+  travaux pratiques. Chacun des <wordasword>Hubs</wordasword> est interconnecté
+  avec deux autres routeurs dans une aire <acronym>OSPF</acronym>. Cet ensemble
+  de routeurs dispose de deux liens montant vers l'Internet.</para>
+
+	<para>Vu de l'aire <acronym>OSPF</acronym>, la diffusion d'une route par
+		défaut via le protocole de routage dynamique se fait à l'aide de
+		l'instruction <userinput>default-information originate</userinput>.
+		Cette instruction est présentée à la page <link
+		xlink:href='&url.interco.ospf.default;'>Publication d'une route par
+		défaut via OSPF</link> du support <link
+		xlink:href='&url.interco.ospf-frr.answers;'><citetitle>Routage
+		dynamique avec OSPF</citetitle></link>.</para>
+
+  <para>La situation devient un peu plus <emphasis>intéressante</emphasis>
+  lorsque cette aire <acronym>OSPF</acronym> dispose de plusieurs portes de
+  sortie vers les autres réseaux. En vis-à-vis de ces routeurs de bordure le
+  routeur du niveau supérieur doit être capable d'acheminer correctement les
+  flux sortant et entrant de l'aire. Voici une représentation de la topologie
+  logique en question.</para>
+
+  <mediaobject xml:id='ospf-triangle-multiple-default.presentation.topology'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/interco.ospf.multiple-gw.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/interco.ospf.multiple-gw.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Topologie logique avec deux routeurs OSPF de bordure.</phrase>
+    </textobject>
+  </mediaobject>
+
+	<para>Cette topologie reprend très exactement la disposition en triangle
+		présentée dans le support <link
+		xlink:href='&url.interco.ospf-frr.answers;'><citetitle>Routage
+		dynamique avec OSPF</citetitle></link>. L'utilisation du
+		routage inter-VLAN sert à mettre en évidence la dissociation entre une
+		topologie physique en étoile issue des définitions de la technologie
+		Ethernet et une topologie logique en triangle dans laquelle chaque
+		routeur doit apprendre au moins un réseau via ses voisins.</para>
+
+  <para>À la topologie initiale de travaux pratiques, on a adjoint un réseau
+  local supplémentaire dans lequel on trouve un hôte baptisé (avec beaucoup
+  d'originalité) <citetitle>host</citetitle> ainsi que le fameux routeur de
+  niveau supérieur baptisé <systemitem class='systemname'>ISP</systemitem> pour
+  <wordasword>Internet Service Provider</wordasword>. Dans tous les tests
+  l'hôte <citetitle>host</citetitle> est la source et la destination du trafic
+  routé. La configuration du routeur <systemitem
+  class='systemname'>ISP</systemitem> fait l'objet de toute l'attention de cet
+  article.</para>
+
+  <para>Avant d'étudier le routage dans l'aire <acronym>OSPF</acronym> et les
+  conditions à satisfaire pour la répartition du trafic entre les deux liens de
+  raccordement de l'aire au routeur <systemitem
+  class='systemname'>ISP</systemitem> ainsi que la tolérance aux pannes sur ces
+  mêmes liens, il est important de préciser que toutes les connexions sont
+  homogènes. On considère que toutes les interfaces des routeurs et du poste de
+  travail <citetitle>host</citetitle> sont connectées sur des ports de
+  commutateur Ethernet gigabit.</para>
+</section>
+
+<?custom-pagebreak?>
+<section xml:id='ospf-triangle-multiple-default.ospf'>
+  <title>Routage au sein de l'aire OSPF</title>
+
+  <para>Sur <systemitem class='systemname'>R2</systemitem>, la table de routage
+  vue du système est donnée ci-dessous. Cette visualisation au «niveau du
+  noyau» est la synthèse de toutes les routes apprises par les différents
+  canaux d'information : routes statiques et protocoles de routage dynamique.
+  Dans le cas du routeur <systemitem class='systemname'>R2</systemitem>, les
+  deux canaux d'information sont les connexions directes et le protocole
+  <acronym>OSPF</acronym>.</para> 
+
+  <itemizedlist>
+    <listitem>
+    <para>Toutes les entrées avec l'indication <literal>proto kernel</literal>
+    correpondent aux connexions directes héritées de la configuration des
+    interfaces réseau du routeur.</para>
+    </listitem>
+    <listitem>
+    <para>Toutes les entrées avec l'indication <literal>proto zebra</literal>
+    correspondent aux routes apprises via un démon actif du paquet
+    <systemitem>frr</systemitem>. Ici, le démon <systemitem
+    class='daemon'>ospfd</systemitem> est la seule source d'information.</para>
+    </listitem>
+  </itemizedlist>
+
+<screen width='80'><prompt>$</prompt> ip route ls
+default  proto zebra  metric 10 
+        nexthop via 10.1.23.3  dev eth0.23 weight 1
+        nexthop via 10.1.12.1  dev eth0.12 weight 1
+10.1.12.0/26 dev eth0.12  proto kernel  scope link  src 10.1.12.2 
+10.1.13.0/26  proto zebra  metric 2 
+        nexthop via 10.1.12.1  dev eth0.12 weight 1
+        nexthop via 10.1.23.3  dev eth0.23 weight 1
+10.1.20.0/26 dev eth0  proto kernel  scope link  src 10.1.20.1 
+10.1.23.0/26 dev eth0.23  proto kernel  scope link  src 10.1.23.2</screen>
+
+  <para>La même table de routage vue du démon <systemitem
+  class='daemon'>zebra</systemitem> est donnée ci-dessous. Relativement à la
+  vue synthétique précédente, on obtient davantage d'informations sur les
+  mécanismes d'apprentissage et de décision.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toutes les lignes débutant par le caractère <keycap>C</keycap>
+    correspondent au connexions directes.</para>
+    </listitem>
+    <listitem>
+    <para>Toutes les lignes débutant par le caractère <keycap>O</keycap>
+    correspondent aux routes apprises à l'aide du démon <systemitem
+    class='daemon'>ospfd</systemitem>.</para>
+    </listitem>
+    <listitem>
+    <para>Toutes les entrées marquées par le caractère <keycap>*</keycap>
+    correspondent aux routes retenues pour l'acheminement des paquets. Toutes
+    les routes listées sont présentes dans la <wordasword>Routing Information
+    Base</wordasword> (<acronym>RIB</acronym>) au niveau <wordasword>Control
+    Plane</wordasword> et celles qui sont marquées sont mémorisées dans la
+    <wordasword>Forwarding Information Base</wordasword>
+    (<acronym>FIB</acronym>) au niveau <wordasword>Data
+    Plane</wordasword>.</para>
+
+    <para>Avant stockage dans la base <acronym>FIB</acronym>, les routes
+    retenues sont converties en une table de hachage pour assurer la fonction
+    de commutation de paquets. Cette fonction est plus ou moins optimisée
+    suivant les composants électroniques présents sur le routeur. Dans le cas
+    de cette maquette de travaux pratiques, les machines virtuelles utilisent
+    la mémoire vive pour stocker les tables de hachage.</para>
+    </listitem>
+  </itemizedlist>
+
+<screen width='80'><prompt>R2-Zebra#</prompt> sh ip route 
+Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,
+       I - ISIS, B - BGP, > - selected route, * - FIB route
+
+O>* 0.0.0.0/0 [110/10] via 10.1.23.3, eth0.23, 1d10h31m
+  *                    via 10.1.12.1, eth0.12, 1d10h31m
+O   10.1.12.0/26 [110/1] is directly connected, eth0.12, 5d00h09m
+C>* 10.1.12.0/26 is directly connected, eth0.12
+O>* 10.1.13.0/26 [110/2] via 10.1.12.1, eth0.12, 5d00h09m
+  *                      via 10.1.23.3, eth0.23, 5d00h09m
+O   10.1.20.0/26 [110/1] is directly connected, eth0, 5d00h09m
+C>* 10.1.20.0/26 is directly connected, eth0
+O   10.1.23.0/26 [110/1] is directly connected, eth0.23, 5d00h09m
+C>* 10.1.23.0/26 is directly connected, eth0.23
+C>* 127.0.0.0/8 is directly connected, lo</screen>
+
+  <para>La base des routes du démon <systemitem
+  class='daemon'>ospfd</systemitem> est donnée ci-dessous. On ne retrouve ici
+  que les routes présentes dans la configuration du démon local et celles
+  apprises via les échanges avec les démons <acronym>OSPF</acronym>
+  voisins.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Les réseaux correspondant aux connexions directes du routeur
+    apparaissent avec la mention <userinput>directly
+    attached</userinput>.</para>
+    </listitem>
+    <listitem>
+    <para>Les autres réseaux apparaissent avec l'adresse <acronym>IP</acronym>
+    du ou des routeurs voisins. Ainsi, depuis le routeur <systemitem
+    class='systemname'>R2</systemitem> le réseau <systemitem
+    class='ipaddress'>10.1.13.0/26</systemitem> est appris via les deux
+    routeurs <systemitem class='systemname'>R1</systemitem> (<systemitem
+    class='ipaddress'>10.1.12.1</systemitem>) et <systemitem
+    class='systemname'>R3</systemitem> (<systemitem
+    class='ipaddress'>10.1.23.3</systemitem>).</para>
+    </listitem>
+  </itemizedlist>
+
+<screen width='80'><prompt>R2-ospfd#</prompt> sh ip ospf route 
+============ OSPF network routing table ============
+N    10.1.12.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0.12
+N    10.1.13.0/26          [2] area: 0.0.0.0
+                           via 10.1.12.1, eth0.12
+                           via 10.1.23.3, eth0.23
+N    10.1.20.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0
+N    10.1.23.0/26          [1] area: 0.0.0.0
+                           directly attached to eth0.23
+
+============ OSPF router routing table =============
+R    0.0.0.1               [1] area: 0.0.0.0, ASBR
+                           via 10.1.12.1, eth0.12
+R    0.0.0.3               [1] area: 0.0.0.0, ASBR
+                           via 10.1.23.3, eth0.23
+
+============ OSPF external routing table ===========
+N E2 0.0.0.0/0             [1/10] tag: 0
+                           via 10.1.23.3, eth0.23
+                           via 10.1.12.1, eth0.12</screen>
+
+	<para>Comme indiqué dans le support de travaux pratiques sur le <link
+		xlink:href='&url.interco.ospf-frr.answers;'>Routage dynamique
+		avec OSPF</link>, l'utilisation de l'instruction
+		<userinput>default-information originate</userinput> sur les routeurs
+		<systemitem class='systemname'>R1</systemitem> et <systemitem
+		class='systemname'>R3</systemitem> change les rôles de ces deux
+		routeurs. Ils deviennent routeurs de bordure ou <wordasword>Autonomous
+		System Boundary Router</wordasword> (<acronym>ASBR</acronym>). Ils
+		sont situés à la frontière entre l'aire <acronym>OSPF</acronym> et un
+		autre système autonome qui peut utiliser un autre type de
+		routage.</para>
+
+  <para>Dans notre cas, les routeurs <systemitem
+  class='systemname'>R1</systemitem> et <systemitem
+  class='systemname'>R3</systemitem> possèdent une route statique définie au
+  niveau système vers <systemitem class='systemname'>ISP</systemitem>.
+  L'instruction donnée ci-dessus assure la redistribution des routes statiques
+  vers <systemitem class='systemname'>R2</systemitem>. Ces routes apparaissent
+  comme des entrées de type <option>E2</option> dans la table de <systemitem
+  class='systemname'>R2</systemitem>.</para>
+
+  <para>L'indicateur <option>E2</option> correspond au type par défaut des
+  routes apprises par le biais de la redistribution. La métrique est un point
+  important à considérer avec les routes de ce type. Elles ne présentent que le
+  coût du chemin allant du routeur <acronym>ASBR</acronym> vers le réseau de
+  destination (<option>10</option> dans notre exemple) ; ce qui ne correspond
+  pas au coût réel du chemin entre <systemitem
+  class='systemname'>R2</systemitem> et <systemitem
+  class='systemname'>ISP</systemitem>. Sachant que tous les liens de la
+  topologie étudiée sont identiques et ont le même coût, on se contente
+  d'utiliser ces entrées de type <option>E2</option> en l'état.</para>
+</section>
+
+<section xml:id='ospf-triangle-multiple-default.load-balancing'>
+  <title>Répartition de trafic - <wordasword>load balancing</wordasword></title>
+
+  <para>Dans la configuration de l'aire <acronym>OSPF</acronym> présentée dans
+  la section précédente, les routeurs et les hôtes réseau en général disposent
+  de deux liens vers le routeur de niveau supérieur <systemitem
+  class='systemname'>ISP</systemitem>. Si les passerelles par défaut des deux
+  routeurs de bordure <systemitem class='systemname'>R1</systemitem> et
+  <systemitem class='systemname'>R3</systemitem> sont publiées via le protocole
+  de routage dynamique à destination de tous les routeurs de l'aire, le routeur
+  <systemitem class='systemname'>ISP</systemitem>, lui ne dispose pas de cette
+  information.</para>
+
+  <section xml:id='ospf-triangle-multiple-default.load-balancing.summary'>
+    <title>Route de synthèse multichemins sur le routeur ISP -
+    <wordasword>multipath static summary route</wordasword></title>
+
+  <para>Sans configuration particulière, le routage se fait principalement sur
+  la base des adresses <acronym>IP</acronym> destination et le trafic sortant
+  peut transiter aussi bien par <systemitem class='systemname'>R1</systemitem>
+  que par <systemitem class='systemname'>R3</systemitem>. Le trafic retour ou
+  entrant transite exclusivement par <systemitem
+  class='systemname'>ISP</systemitem> et il est nécessaire de renseigner les
+  réseaux appartenant à l'aire <acronym>OSPF</acronym> dans sa table de
+  routage. La technique usuelle dans le contexte de la topologie étudiée
+  consiste à implanter une route de synthèse qui englobe la totalité des
+  réseaux situés aux niveaux inférieurs.</para>
+
+  <para>Pour déterminer l'adresse réseau qui englobe les réseau de l'aire, on
+  dispose de l'outil <command>aggregate</command> fourni avec le paquet du même
+  nom. Voici deux exemples d'exécution sur le routeur <systemitem
+  class='systemname'>R2</systemitem> après affichage de la table de
+  routage.</para>
+
+<screen width='80'><prompt>#</prompt> ip route ls
+default  proto zebra  metric 10 
+        nexthop via 10.1.23.3  dev eth0.23 weight 1
+        nexthop via 10.1.12.1  dev eth0.12 weight 1
+10.1.12.0/26 dev eth0.12  proto kernel  scope link  src 10.1.12.2 
+10.1.13.0/26  proto zebra  metric 2 
+        nexthop via 10.1.12.1  dev eth0.12 weight 1
+        nexthop via 10.1.23.3  dev eth0.23 weight 1
+10.1.20.0/26 dev eth0  proto kernel  scope link  src 10.1.20.1 
+10.1.23.0/26 dev eth0.23  proto kernel  scope link  src 10.1.23.2</screen>
+
+  <para>Dans le premier exemple ci-dessous, l'adresse <systemitem
+  class='ipaddress'>10.1.0.0/20</systemitem> n'englobe que les réseaux
+  <systemitem class='ipaddress'>10.1.12.0/26</systemitem> et <systemitem
+  class='ipaddress'>10.1.13.0/26</systemitem> marqués avec le signe
+  <keycap>-</keycap>. Le masque réseau <option>/20</option> est donc
+  insuffisant pour couvrir la liste complète des réseaux de niveau
+  inférieur.</para>
+
+<screen width='80'><prompt>#</prompt> (echo '10.1.0.0/20' ;\
+ip route ls | grep -Eo '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{2}') |\
+aggregate -v
+aggregate: maximum prefix length permitted will be 32
+[    1]   10.1.0.0/20
+[    2] - 10.1.12.0/26
+[    3] - 10.1.13.0/26
+[    4]   10.1.20.0/26
+[    5]   10.1.23.0/26</screen>
+
+  <para>Dans le second exemple ci-dessous, l'adresse <systemitem
+  class='ipaddress'>10.1.0.0/19</systemitem> englobe bien tous les réseaux de
+  l'aire <acronym>OSPF</acronym>. Le masque réseau <option>/19</option> permet
+  de couvrir tous les réseaux de l'aire <acronym>OSPF</acronym> en une seule et
+  unique entrée.</para>
+
+<screen width='80'><prompt>#</prompt> (echo '10.1.0.0/19' ;\
+ip route ls | grep -Eo '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{2}') |\
+aggregate -v
+aggregate: maximum prefix length permitted will be 32
+[    1]   10.1.0.0/19
+[    2] - 10.1.12.0/26
+[    3] - 10.1.13.0/26
+[    4] - 10.1.20.0/26
+[    5] - 10.1.23.0/26</screen>
+
+  <para>On peut donc implanter sur le routeur <systemitem
+  class='systemname'>ISP</systemitem> une route statique de synthèse ou
+  <wordasword>static summary route</wordasword> désignant les deux passerelles
+  de l'aire <acronym>OSPF</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> ip route add 10.1.0.0/19 nexthop via 10.1.30.1 nexthop via 10.1.30.9</screen>
+
+  <para>Une fois cette commande exécutée, la table de routage du routeur
+  <systemitem class='systemname'>ISP</systemitem> est la suivante.</para>
+
+<screen width='80'><prompt>#</prompt> ip route ls
+default via 192.0.2.1 dev eth0 
+10.1.0.0/19 
+        nexthop via 10.1.30.1  dev eth1.101 weight 1
+        nexthop via 10.1.30.9  dev eth1.103 weight 1
+10.1.30.0/29 dev eth1.101  proto kernel  scope link  src 10.1.30.2 
+10.1.30.8/29 dev eth1.103  proto kernel  scope link  src 10.1.30.10 
+192.0.2.0/27 dev eth0  proto kernel  scope link  src 192.0.2.3</screen>
+
+  <itemizedlist>
+    <listitem>
+    <para>Le mot clé <option>nexthop</option> sert à définir plusieurs
+    passerelles pour un même réseau de destination.</para>
+    </listitem>
+    <listitem>
+    <para>Les interfaces via lesquelles les paquets doivent être transmis sont
+    ajoutées automatiquement en fonction de l'adresse <acronym>IP</acronym> de
+    passerelle. Par exemple, la passerelle <systemitem
+    class='ipaddress'>10.1.30.1</systemitem> est joignable via l'interface
+    <option>eth1.101</option>.</para>
+    </listitem>
+    <listitem>
+    <para>Sans indication particulière, les passerelles ont la même
+    pondération : <option>weight 1</option>. Comme précisé dans la <xref
+    linkend='ospf-triangle-multiple-default.presentation'/>, toutes les
+    liaisons sont homogènes et offrent le même débit réseau.</para>
+    </listitem>
+  </itemizedlist>
+  </section>
+
+  <section xml:id='ospf-triangle-multiple-default.load-balancing.wireshark'>
+    <title>Analyse réseau sur le routeur ISP avec répartition de trafic</title>
+
+  <para>Maintenant que la capacité à exploiter les deux liens est implantée à
+  chaque extrémité, il ne reste qu'à valider le fonctionnement à partir du
+  trafic émis et reçu l'hôte <systemitem class='systemname'>host</systemitem>
+  transitant par <systemitem class='systemname'>ISP</systemitem>. C'est sur ce
+  routeur que l'on procède à l'analyse du trafic avec l'outil
+  <command>tshark</command> qui permet la capture de trafic en mode console.
+  Le système du routeur <systemitem class='systemname'>ISP</systemitem> a en
+  plus été configuré pour pouvoir effectuer les captures au niveau utilisateur
+  normal en appliquant les instructions données dans l'article
+  &url.wireshark-as-user;.</para>
+
+  <para>Voici une séquence typique de capture sur le routeur <systemitem
+  class='systemname'>ISP</systemitem> pendant le chargement d'une page
+  <wordasword>Web</wordasword> sur <systemitem
+  class='systemname'>host</systemitem>.</para>
+
+<screen width='80'><prompt>etu@isp:~$</prompt> screen tshark -i eth1 ! port 22  -w /var/tmp/multipath-host.pcap
+[detached from 13986.pts-0.isp]
+<prompt>etu@isp:~$</prompt> ssh 10.1.20.2
+Linux host 3.1.0-1-amd64 #1 SMP Mon Nov 14 08:02:25 UTC 2011 x86_64
+&lt;snipped/>
+<prompt>etu@host:~$</prompt> lynx www.iana.org
+Recherche  'www.iana.org' premier
+<prompt>etu@host:~$</prompt> logout
+Connection to 10.1.20.2 closed.
+<prompt>etu@isp:~$</prompt> screen -r
+[screen is terminating]
+<prompt>etu@isp:~$</prompt> ls -lh /var/tmp/multipath-host.pcap 
+-rw------- 1 etu etu 12K déc.  11 23:25 /var/tmp/multipath-host.pcap</screen>
+
+  <itemizedlist>
+    <listitem>
+    <para>La commande <command>screen</command> fournie avec le paquet du même
+    nom, sert à ouvrir un terminal dans lequel on lance la capture des paquets
+    avec <command>tshark</command>.</para>
+    </listitem>
+    <listitem>
+    <para>L'interface utilisée pour la capture réseau est
+    <option>eth1</option>. Comme le «composant» contrôleur d'interface réseau
+    sur une machine virtuelle ne dispose pas de fonctions évoluées, tous les
+    types de trames transitant par l'interface sont capturés. On enregistre
+    ainsi les trames avec les balises <acronym>IEEE 802.1Q</acronym> des
+    <acronym>VLAN</acronym>s <option>101</option> et
+    <option>103</option>.</para>
+    </listitem>
+    <listitem>
+    <para>L'option <option>! port 22</option> élimine tous les segments
+    utilisant le port <acronym>SSH</acronym> comme source ou comme destination.
+    Comme le protocole <acronym>SSH</acronym> est utilisé pour ouvrir les
+    sessions sur les routeurs et l'hôte <systemitem
+    class='systemname'>host</systemitem>, il est inutile de capturer ce
+    trafic.</para>
+    </listitem>
+    <listitem>
+    <para>Les paquets capturés sont enregistrés dans le fichier
+    <filename>/var/tmp/multipath-host.pcap</filename>. Comme le
+    <wordasword>directory sticky bit</wordasword> est positionné sur le
+    répertoire <filename class='directory'>/var/tmp/</filename>, l'utilisateur
+    normal dispose des droits d'écriture nécessaires à l'enregistrement des
+    paquets capturés.</para>
+    </listitem>
+    <listitem>
+    <para>Une fois la capture lancée, on ouvre un terminal sur <systemitem
+    class='systemname'>host</systemitem> et on lance le navigateur web
+    <application>lynx</application>. L'ouverture de la page
+    <systemitem>www.iana.org</systemitem> entraîne les échanges classiques de
+    requêtes <acronym>DNS</acronym> puis <acronym>HTTP</acronym>. Ce sont ces
+    échanges qui doivent valider l'utilisation des deux liens entre le routeur
+    <systemitem class='systemname'>ISP</systemitem> et l'aire
+    <acronym>OSPF</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Après avoir consulté une ou deux pages web, on referme la session sur
+    <systemitem class='systemname'>host</systemitem> et on arrête la capture
+    réseau. Il ne reste alors qu'à analyser le contenu du fichier de
+    capture.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>En ouvrant le fichier de capture avec
+  <application>Wireshark</application>, on retrouve les phases de la
+  consultation de page web.</para>
+
+  <mediaobject xml:id='ospf-triangle-multiple-default.load-balancing.analysis.main-view'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/host-iana.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/host-iana.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Phases de la consultation de la page www.iana.org.</phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Cette copie d'écran montre les échanges au niveau réseau ainsi que les
+  protocoles utilisés par les couches supérieures. On retrouve bien les
+  adresses <acronym>IP</acronym> des différents protagonistes.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para><systemitem class='ipaddress'>10.1.20.2</systemitem> : hôte
+    <systemitem class='systemname'>host</systemitem> à l'initiative du trafic
+    réseau.</para>
+    </listitem>
+    <listitem>
+    <para><systemitem class='ipaddress'>192.0.2.1</systemitem> : système hôte
+    hébergeant les instances de machines virtuelles sur lequel on trouve aussi
+    un service de résolution des noms de domaines de type cache.</para>
+    </listitem>
+    <listitem>
+    <para><systemitem class='ipaddress'>192.0.32.8</systemitem> : serveur web
+    hébergeant le site <systemitem
+    class='systemname'>www.iana.org</systemitem>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>À première vue, la copie d'écran et l'identification des hôtes en
+  communication ne montrent rien d'original. Il faut aller jusqu'à la
+  visualisation des trames au niveau liaison pour caractériser la distribution
+  du trafic sur les différents liens.</para>
+
+  <para>Prenons les trois étapes de l'établissement de connexion
+  <acronym>TCP</acronym> entre le poste client et le serveur web.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>La demande d'établissement de connexion (<acronym>[SYN]</acronym>)
+    est émise par le poste client. Elle transite par le lien correspondant au
+    <acronym>VLAN</acronym> 103.</para>
+
+<screen width='80'>No.  Time        Source                Destination           Protocol Info
+  19 21.215999   10.1.20.2             192.0.32.9            TCP      56075 > http [SYN] Seq=0
+
+Frame 19: 78 bytes on wire (624 bits), 78 bytes captured (624 bits)
+Ethernet II, Src: RealtekU_12:34:06 (52:54:00:12:34:06), Dst: de:ad:be:ef:01:03 (de:ad:be:ef:01:03)
+802.1Q Virtual LAN, PRI: 0, CFI: 0, ID: 103
+    000. .... .... .... = Priority: Best Effort (default) (0)
+    ...0 .... .... .... = CFI: Canonical (0)
+    .... 0000 0110 0111 = ID: 103
+    Type: IP (0x0800)
+Internet Protocol Version 4, Src: 10.1.20.2 (10.1.20.2), Dst: 192.0.32.9 (192.0.32.9)
+Transmission Control Protocol, Src Port: 56075 (56075), Dst Port: http (80), Seq: 0, Len: 0</screen>
+    </listitem>
+    <listitem>
+    <para>L'acquittement de la demande d'établissement de connexion et du
+    numéro initial de séquence (<acronym>[SYN, ACK]</acronym>) du poste client
+    est émis par le serveur web. Il transite par le lien correspondant au
+    <acronym>VLAN</acronym> 101.</para>
+
+<screen width='80'>No.  Time        Source                Destination           Protocol Info
+  20 21.216434   192.0.32.9            10.1.20.2             TCP      http > 56075 [SYN, ACK] Seq=0 Ack=1
+
+Frame 20: 78 bytes on wire (624 bits), 78 bytes captured (624 bits)
+Ethernet II, Src: de:ad:be:ef:01:01 (de:ad:be:ef:01:01), Dst: RealtekU_12:34:04 (52:54:00:12:34:04)
+802.1Q Virtual LAN, PRI: 0, CFI: 0, ID: 101
+    000. .... .... .... = Priority: Best Effort (default) (0)
+    ...0 .... .... .... = CFI: Canonical (0)
+    .... 0000 0110 0101 = ID: 101
+Type: IP (0x0800)
+Internet Protocol Version 4, Src: 192.0.32.9 (192.0.32.9), Dst: 10.1.20.2 (10.1.20.2)
+Transmission Control Protocol, Src Port: http (80), Dst Port: 56075 (56075), Seq: 0, Ack: 1, Len: 0</screen>
+    </listitem>
+    <listitem>
+    <para>L'acquittement du numéro initial de séquence
+    (<acronym>[ACK]</acronym>) du serveur web est émis par le poste client. Il
+    transite par le lien correspondant au <acronym>VLAN</acronym> 103.</para>
+
+<screen width='80'>No.  Time        Source                Destination           Protocol Info
+  21 21.217229   10.1.20.2             192.0.32.9            TCP      56075 > http [ACK] Seq=1 Ack=1
+
+Frame 21: 70 bytes on wire (560 bits), 70 bytes captured (560 bits)
+Ethernet II, Src: RealtekU_12:34:06 (52:54:00:12:34:06), Dst: de:ad:be:ef:01:03 (de:ad:be:ef:01:03)
+802.1Q Virtual LAN, PRI: 0, CFI: 0, ID: 103
+    000. .... .... .... = Priority: Best Effort (default) (0)
+    ...0 .... .... .... = CFI: Canonical (0)
+    .... 0000 0110 0111 = ID: 103
+Type: IP (0x0800)
+Internet Protocol Version 4, Src: 10.1.20.2 (10.1.20.2), Dst: 192.0.32.9 (192.0.32.9)
+Transmission Control Protocol, Src Port: 56075 (56075), Dst Port: http (80), Seq: 1, Ack: 1, Len: 0</screen>
+    </listitem>
+  </orderedlist>
+
+  <note>
+    <para>Le fichier de capture réseau comprenant l'ensemble des échanges est
+    téléchargeable : &url.multipath-host.pcap;</para>
+  </note>
+
+  <para>Avec ces trois étapes de l'établissement d'une connexion
+  <acronym>TCP</acronym> on caractérise bien la répartition du trafic sur les
+  deux liens de transit entre les passerelles de l'aire <acronym>OSPF</acronym>
+  et le routeur de niveau supérieur <systemitem
+  class='systemname'>ISP</systemitem>. Cette répartition n'est pas
+  nécessairement équitable dans la mesure où l'alternance de l'utilisation des
+  liens n'intervient que lors des permutations entre les adresses
+  <acronym>IP</acronym> source et destination. Ainsi, avec un profil
+  utilisateur de type «globe oculaire passif», le téléchargement de flux vidéo
+  n'utilise qu'un seul lien ; ce qui provoque un déséquilibre en volume de
+  trafic sachant que la requête <acronym>HTTP</acronym> n'occupe que quelques
+  centaines d'octets tandis que le fichier vidéo demandé occupe quelques
+  mégaoctets. Si on disposait d'un parc important de postes de travail en lieu
+  et place du seul système <systemitem class='systemname'>host</systemitem>, on
+  pourrait dire que la répartition de trafic est statistiquement
+  équitable.</para>
+
+  <para>Si la balance de charge entre plusieurs liens, telle qu'elle est
+  présentée ici est très intéressante, elle peut cependant engendrer de gros
+  problèmes dans le cas où un lien viendrait à être indisponible. En effet, la
+  solution de répartition utilise <emphasis>nécessairement</emphasis> toutes
+  les passerelles introduites dans les tables de routage. Il serait donc
+  souhaitable de compléter la solution en introduisant la notion de tolérance
+  aux pannes. C'est justement l'objet de la section suivante.</para>
+  </section>
+</section>
+
+<section xml:id='ospf-triangle-multiple-default.failover'>
+  <title>Tolérance aux pannes réseau - <wordasword>multilink
+  failover</wordasword></title>
+
+  <para>Pour aborder la tolérance aux pannes réseau sur les deux liens qui
+  relient l'aire <acronym>OSPF</acronym> au routeur de niveau supérieur
+  <systemitem class='systemname'>ISP</systemitem>, on reprend très exactement
+  la configuration de la section précédente avec répartition du trafic sur ces
+  deux mêmes liens.</para>
+
+  <para>Toujours comme dans le cas de la section précédente sur la répartition
+  de trafic, la tolérance aux pannes sur les passerelles de l'aire
+  <acronym>OSPF</acronym> est assurée par le protocole de routage dynamique. En
+  effet, <acronym>OSPF</acronym> étant un protocole à état de liens, l'ajout ou
+  le retrait d'un lien entraîne un nouveau calcul de la topologie par chacun
+  des routeurs de l'aire. On a vu précédemment, que les deux passerelles de
+  l'aire <acronym>OSPF</acronym> sont publiées par <systemitem
+  class='systemname'>R1</systemitem> et <systemitem
+  class='systemname'>R3</systemitem>. Les états des deux liens entre l'aire et
+  le routeur <systemitem class='systemname'>ISP</systemitem> sont donc intégrés
+  dans les calculs de topologie.</para>
+
+  <para>Une fois encore, sans configuration particulière le routeur <systemitem
+  class='systemname'>ISP</systemitem> ne dispose pas de fonctionnalité
+  permettant de faire évoluer sa table de routage en fonction de l'état des
+  liens sur lesquels il est directement connecté.</para>
+
+  <para>On se propose de compenser cette lacune en plusieurs étapes.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Au lieu de modifier une unique table de routage statique, on va créer
+    plusieurs tables de routage que l'on utilisera suivant le lien d'arrivée du
+    trafic sur le routeur <systemitem
+    class='systemname'>ISP</systemitem>.</para> 
+    </listitem>
+    <listitem>
+    <para>Pour identifier le trafic issu d'un lien, on va marquer ce trafic de
+    façon à ce que le trafic retour emprunte le même lien. Le point clé ici
+    étant que le routeur <systemitem class='systemname'>ISP</systemitem> ne
+    peut pas recevoir de trafic via un lien inactif.</para>
+    </listitem>
+  </itemizedlist>
+
+  <section xml:id='ospf-triangle-multiple-default.failover.rt_tables'>
+    <title>Tables de routage multiples sur le routeur ISP</title>
+
+  <para>Avec la distribution Debian GNU/Linux, le paquet
+  <application>iproute</application> fournit les outils nécessaires aux
+  manipulations sur les tables de routages multiples.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>On commence par éditer le fichier
+    <filename>/etc/iproute2/rt_tables</filename> qui permet de faire la
+    correspondance entre l'identifiant numérique de table et le nom que l'on
+    souhaite lui donner. Ici, on choisit de numéroter les deux tables de
+    routage supplémentaires avec les numéros des <acronym>VLAN</acronym>s de
+    chacun des liens de raccordement de l'aire <acronym>OSPF</acronym> au
+    routeur <systemitem class='systemname'>ISP</systemitem>.</para>
+
+<screen width='80'><prompt>$</prompt> cat /etc/iproute2/rt_tables 
+#
+# reserved values
+#
+255     local
+254     main
+253     default
+0       unspec
+#
+# local
+#
+101     link101
+103     link103</screen>
+    </listitem>
+    <listitem>
+    <para>Une fois les deux tables de routage supplémentaires disponibles, on
+    saisit la route de synthèse (<wordasword>static summary route</wordasword>)
+    dans chacune.</para>
+
+<screen width='80'><prompt>#</prompt> ip route add 10.1.0.0/19 via 10.1.30.1 src 10.1.30.2 table link101
+<prompt>#</prompt> ip route add 10.1.0.0/19 via 10.1.30.9 src 10.1.30.10 table link103</screen>
+
+    <para>Du point de vue configuration système, ces deux instructions sont
+    placées dans le fichier de configuration des interfaces réseau du <link
+    linkend='ospf-triangle-multiple-default.interfaces.isp'>routeur <systemitem
+    class='systemname'>ISP</systemitem></link>.</para>
+    </listitem>
+    <listitem>
+    <para>On définit ensuite les conditions dans lesquelles ces tables de
+    routage seront utilisées.</para>
+
+<screen width='80'><prompt>#</prompt> ip rule add fwmark 101 table link101
+<prompt>#</prompt> ip rule add fwmark 103 table link103</screen>
+
+    <para>Ainsi, tout paquet <acronym>IP</acronym> portant la marque
+    <option>101</option> sera routé via la table <option>link101</option>. Il
+    en ira de même avec la marque <option>103</option> et la table
+    <option>link103</option>.</para>
+    </listitem>
+  </orderedlist> 
+
+  <para>Dans les fonctions réseau du noyau Linux on parle de <citetitle>routage
+  avancé</citetitle> dès que l'on ne se contente plus de l'examen de l'adresse
+  <acronym>IP</acronym> destination des paquets reçus sur une interface
+  réseau. L'utilisation d'un marquage des paquets pour orienter le routage
+  entre bien dans cette catégorie.</para>
+
+  <para>Les fonctions de routage avancé utilisent une base de données de
+  politiques de routage ou <wordasword>Routing Policy DataBase</wordasword>
+  (<acronym>RPDB</acronym>). En utilisant cette base, il est possible de
+  prendre une décision d'acheminement des paquets sur les différents champs des
+  en-têtes de paquet <acronym>IP</acronym>, les protocoles réseau, les
+  protocoles de transports et même la charge utile des paquets. Dans notre cas,
+  c'est le marquage des paquets qui permet d'identifier les liens par lesquels
+  ils ont transité. Ce marquage est contrôlé par les outils de filtrage réseau
+  du noyau Linux : <application>netfilter/iptables</application>.</para>
+  </section>
+
+  <section xml:id='ospf-triangle-multiple-default.failover.mangle'>
+    <title>Marquage des paquets sur le routeur ISP</title>
+
+  <para>On distingue deux parties dans les outils de filtrage réseau du noyau
+  Linux. La partie noyau, baptisée <application>netfilter</application>,
+  comprend l'ensemble des fonctions disponibles ainsi que le découpage en
+  tables et en chaînes. Ces fonctions sont appelées et utilisées à l'aide de la
+  partie utilisateur baptisée <application>iptables</application>.
+  Généralement, la partie utilisateur est fournie avec un paquet du même nom.
+  Pour plus de détails sur l'organisation et la configuration du système de
+  filtrage, consulter le guide &url.iptables-tutorial.fr;.</para>
+
+  <para>Dans le cas de cet article, le marquage des paquets utilise la notion
+  d'altération de paquet ou <wordasword>packet mangling</wordasword>.</para>
+
+  <para>
+  <inlinemediaobject xml:id='ospf-triangle-multiple-default.failover.netfilter-mangle'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/netfilter-mangle.png' width='6cm' align='left' valign='top' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/netfilter-mangle.png' width='320px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Altération de paquets à l'aide des fonctions de filtrage du noyau Linux.</phrase>
+    </textobject>
+  </inlinemediaobject>
+  Comme le trafic émis et reçu par l'hôte <systemitem
+  class='systemname'>host</systemitem> ne fait que transiter par le routeur
+  <systemitem class='systemname'>ISP</systemitem>, on s'intéresse plus
+  particulièrement à la chaîne <systemitem>PREROUTING</systemitem> de la table
+  <systemitem>mangle</systemitem>. Les processus locaux du routeur ne sont donc
+  pas concernés par le marquage.
+  <warning>
+    <para>Le propos de cette section est le marquage et non le filtrage des
+    paquets routés par <systemitem class='systemname'>ISP</systemitem>. La
+    politique de filtrage est donc maintenue dans son état par défaut : «tout
+    ce qui n'est pas interdit est autorisé». Ici, aucun trafic n'est
+    interdit.</para>
+  </warning>
+  Une fois que la table et la chaîne sont choisies, il faut définir la
+  correspondance à utiliser. C'est à ce niveau qu'intervient une fonction très
+  intéressante : <systemitem>CONNMARK</systemitem>. Cette correspondance permet
+  d'associer le marquage des paquets au mécanisme de suivi des communications
+  réseau. Ainsi, un flux entrant dans le routeur <systemitem
+  class='systemname'>ISP</systemitem> via les interfaces de connexion à l'aire
+  <acronym>OSPF</acronym> (<option>eth1.101</option> ou
+  <option>eth1.103</option>) est marqué <emphasis>et enregistré</emphasis> dans
+  la table de suivi des communications. La marque peut alors être restituée à
+  l'arrivée du flux retour sur l'interface externe (<option>eth0</option>).
+  Les instructions correspondant aux choix effectués sont les suivantes.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Marquage des flux sortants de l'aire <acronym>OSPF</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> iptables -t mangle -A PREROUTING -i eth1.101 -j MARK --set-mark 0x65
+<prompt>#</prompt> iptables -t mangle -A PREROUTING -i eth1.103 -j MARK --set-mark 0x67
+<prompt>#</prompt> iptables -t mangle -A PREROUTING -i eth1.101 -j CONNMARK --save-mark
+<prompt>#</prompt> iptables -t mangle -A PREROUTING -i eth1.103 -j CONNMARK --save-mark</screen>
+    </listitem>
+    <listitem>
+    <para>Restauration du marquage des flux retours à destination de l'aire
+    <acronym>OSPF</acronym>.</para>
+
+<screen width='80'><prompt>#</prompt> iptables -t mangle -A PREROUTING -i eth0 -j CONNMARK --restore-mark</screen>
+    </listitem>
+  </itemizedlist>
+  
+  <para>Du point de vue configuration système, les règles appliquées à l'aide
+  de la commande <command>iptables</command> peuvent être enregistrées dans un
+  fichier de configuration et restaurées à chaque initialisation du routeur.
+  Voir <xref linkend='ospf-triangle-multiple-default.iptables' />.</para>
+
+  <para>Le fonctionnement du marquage peut être caractérisé à plusieurs
+  niveaux. En reprenant l'exemple de la consultation de pages
+  <wordasword>web</wordasword> depuis l'hôte <systemitem
+  class='systemname'>host</systemitem> et en consultant les résultats du
+  marquage des paquets, on obtient les informations suivantes.</para>
+
+  <variablelist>
+    <varlistentry>
+      <term>Consultation de la base FIB</term>
+      <term>Commutation de paquets IP</term>
+      <listitem>
+      <para>On retrouve les informations de marquage au niveau réseau dans la
+      <wordasword>Forwarding Information Base</wordasword>. La base
+      <acronym>FIB</acronym> est une table de hachage contenant une trace
+      l'ensemble des décisions de routage. La taille de la base augmente
+      rapidement avec le nombre des flux réseau routés par <systemitem
+      class='systemname'>ISP</systemitem>. C'est la raison pour laquelle on ne
+      donne pas une copie complète de cette base ci-dessous.</para>
+
+      <para>L'instruction de consultation de la base <acronym>FIB</acronym> est
+      la suivante.</para>
+
+<screen width='80'><prompt>$</prompt> ip route ls cache</screen>
+
+      <para>Deux exemples d'entrées portant la marque <option>101</option> ou
+      <option>0x65</option>.</para>
+
+<screen width='80'>192.0.32.8 from 10.1.20.2 via 192.0.2.1 dev eth0  src 10.1.30.2  mark 0x65
+    cache  iif eth1.101
+10.1.20.2 from 192.0.32.8 via 10.1.30.1 dev eth1.101  src 192.0.2.3  mark 0x65
+    cache  ipid 0x0be6 rtt 7ms rttvar 6ms cwnd 10 iif eth0</screen>
+
+      <para>La première ligne correspond à la décision d'acheminement des
+      paquets émis par <systemitem class='systemname'>host</systemitem>
+      (<systemitem class='ipaddress'>10.1.20.2</systemitem>) à destination de
+      l'adresse <systemitem class='ipaddress'>192.0.32.8</systemitem> reçus sur
+      l'interface <option>eth1.101</option>. La seconde ligne correspond à la
+      décision symétrique.</para>
+
+      <para>Deux exemples d'entrées portant la marque <option>103</option> ou
+      <option>0x67</option>.</para>
+
+<screen width='80'>192.0.32.9 from 10.1.20.2 via 192.0.2.1 dev eth0  src 10.1.30.2  mark 0x67
+    cache  iif eth1.103
+10.1.20.2 from 192.0.32.9 via 10.1.30.9 dev eth1.103  src 192.0.2.3  mark 0x67
+    cache  ipid 0x0be6 rtt 7ms rttvar 6ms cwnd 10 iif eth0</screen>
+
+      <para>Comme dans le cas des deux entrées précédentes, la première ligne
+      correspond à la décision d'acheminement des paquets émis par <systemitem
+      class='systemname'>host</systemitem> (<systemitem
+      class='ipaddress'>10.1.20.2</systemitem>) à destination de l'adresse
+      <systemitem class='ipaddress'>192.0.32.9</systemitem> reçus sur
+      l'interface <option>eth1.103</option> et la seconde ligne correspond à la
+      décision symétrique.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Consultation de la base conntrack</term>
+      <term>Table de suivi des communications</term>
+      <listitem>
+      <para>Les mêmes informations de marquage se retrouvent au niveau de la
+      table de suivi des communications réseau. Pour consulter les entrées de
+      cette table, on peut utiliser l'outil <command>conntrack</command> fourni
+      avec le paquet du même nom. Là encore, le nombre des entrées augmente
+      rapidement avec l'apparition de nouveaux flux réseau.</para>
+
+      <para>L'instruction de consultation de la table de suivi des
+      communications réseau est la suivante.</para>
+
+<screen width='80'><prompt>#</prompt> conntrack -L</screen>
+
+      <para>Deux exemples d'entrées portant la marque
+      <option>101</option>.</para>
+
+<screen width='80'>tcp      6 68 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37926 dport=80 src=192.0.32.8 dst=10.1.20.2 \
+                                      sport=80 dport=37926 [ASSURED] mark=101 use=1
+tcp      6 81 TIME_WAIT src=10.1.20.2 dst=192.0.32.8 sport=37927 dport=80 src=192.0.32.8 dst=10.1.20.2 \
+                                      sport=80 dport=37927 [ASSURED] mark=101 use=1</screen>
+
+      <para>Un autre exemple d'entrée portant la marque
+      <option>103</option>.</para>
+
+<screen width='80'>tcp      6 92 TIME_WAIT src=10.1.20.2 dst=192.0.32.9 sport=56108 dport=80 src=192.0.32.9 dst=10.1.20.2 \
+                                      sport=80 dport=56108 [ASSURED] mark=103 use=1</screen>
+
+      <para>La table <option>conntrack</option> fait apparaître les conditions
+      d'identification d'un flux retour en identifiant en plus du protocole de
+      couche transport les paires d'adresses <acronym>IP</acronym> en
+      communication ainsi que les paires de numéros de ports utilisés.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Maintenant que les fonctions de marquage des paquets sont en place, les
+  liens actifs entre l'aire <acronym>OSPF</acronym> et le routeur de niveau
+  supérieur sont identifiés. Il reste à qualifier la tolérance aux pannes à
+  l'aide de l'analyse réseau.</para>
+  </section>
+
+  <section xml:id='ospf-triangle-multiple-default.failover.wireshark'>
+    <title>Analyse réseau sur le routeur ISP avec tolérance aux pannes</title>
+
+  <para>Pour caractériser la tolérance aux pannes sur les liens réseau entre
+  l'aire <acronym>OSPF</acronym> et le routeur <systemitem
+  class='systemname'>ISP</systemitem>, on procède de la façon suivante.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>On lance la capture de trafic dans un terminal dédié sur le routeur
+    <systemitem class='systemname'>ISP</systemitem>.</para>
+    </listitem>
+    <listitem>
+    <para>On lance le téléchargement d'un image <acronym>iso</acronym> de
+    <acronym>DVD</acronym> dans un terminal dédié sur l'hôte <systemitem
+    class='systemname'>host</systemitem>. L'idée est d'effectuer les
+    interruptions de liens pendant qu'une transaction réseau est en
+    cours.</para>
+    </listitem>
+    <listitem>
+    <para>De retour sur <systemitem class='systemname'>ISP</systemitem>, on
+    identifie le lien utilisé pour le téléchargement à l'aide de la commande
+    <command>conntrack</command>. C'est ce lien que l'on doit interrompre en
+    premier de façon à provoquer le basculement d'un lien vers l'autre en cas
+    de panne.</para>
+    </listitem>
+    <listitem>
+    <para>Partant du routeur <systemitem class='systemname'>ISP</systemitem>,
+    on se connecte sur <systemitem class='systemname'>R3</systemitem> puis
+    <systemitem class='systemname'>R1</systemitem> pour faire «tomber» le lien
+    correspondant au <acronym>VLAN</acronym> et à la marque
+    <option>101</option>. On rétablit ensuite ce même lien.</para>
+    </listitem>
+    <listitem>
+    <para>Partant du routeur <systemitem class='systemname'>ISP</systemitem>,
+    on se connecte sur <systemitem class='systemname'>R1</systemitem> puis
+    <systemitem class='systemname'>R3</systemitem> pour faire «tomber» le lien
+    correspondant au <acronym>VLAN</acronym> et à la marque
+    <option>103</option>. On rétablit ensuite ce même lien.</para>
+    </listitem>
+    <listitem>
+    <para>On retourne sur l'hôte <systemitem
+    class='systemname'>host</systemitem> pour constater que le téléchargement
+    est toujours en cours et se poursuit normalement. Ce téléchargement peut
+    maintenant être arrêté.</para>
+    </listitem>
+    <listitem>
+    <para>On arrête la capture de trafic sur <systemitem
+    class='systemname'>ISP</systemitem> et récupère le fichier d'enregistrement
+    des paquets capturés pour l'analyser.</para>
+    </listitem>
+  </orderedlist>
+
+  <para>Voici une trace des commandes exécutées sur les différents routeurs et
+  sur l'hôte à l'initiative du trafic.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Sur le routeur <systemitem class='systemname'>ISP</systemitem>, la
+    capture de trafic est le point important.</para>
+
+<screen width='80'><prompt>$</prompt> screen tshark -i eth1 ! port 22  -w /var/tmp/failover-host.pcap</screen>
+    </listitem>
+    <listitem>
+    <para>Sur l'hôte <systemitem class='systemname'>host</systemitem>, on lance
+    le téléchargement «long».</para>
+
+<screen width='80'><prompt>$</prompt> screen wget http://cdimage.debian.org/debian-cd/6.0.3/amd64/iso-dvd/debian-6.0.3-amd64-DVD-1.iso</screen>
+    </listitem>
+    <listitem>
+    <para>Sur le routeur <systemitem class='systemname'>R1</systemitem>, on
+    désactive puis réactive le lien vers <systemitem
+    class='systemname'>ISP</systemitem>.</para>
+
+<screen width='80'><prompt>#</prompt> ifconfig eth0.101 down
+&lt;attendre un certain temps.../>
+<prompt>#</prompt> ifconfig eth0.101 up
+<prompt>#</prompt> ip ro add default via 10.1.30.2</screen>
+    </listitem>
+    <listitem>
+    <para>De même, sur le routeur <systemitem
+    class='systemname'>R3</systemitem>, on désactive puis réactive le lien vers
+    <systemitem class='systemname'>ISP</systemitem>.</para>
+
+<screen width='80'><prompt>#</prompt> ifconfig eth0.103 down
+&lt;attendre un certain temps.../>
+<prompt>#</prompt> ifconfig eth0.103 up
+<prompt>#</prompt> ip ro add default via 10.1.30.10</screen>
+    </listitem>
+  </itemizedlist>
+
+  <para>À la différence de la section <xref
+  linkend='ospf-triangle-multiple-default.load-balancing.wireshark' />, le
+  volume de trafic capturé est beaucoup plus important. On ne propose donc ici
+  qu'une représentation graphique caractérisant le basculement d'un lien sur
+  l'autre à chaque désactivation d'interface.</para>
+
+  <mediaobject xml:id='ospf-triangle-multiple-default.failover.wireshark.graph'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/failover-host.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/failover-host.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Caractérisation graphique de la tolérance aux pannes réseau.</phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Il y aurait beaucoup de remarques à faire sur cette capture de téléchargement. Simplement :</para>
+  
+  <itemizedlist>
+    <listitem>
+    <para>La courbe <emphasis>noire</emphasis> correspond à l'utilisation du
+    lien entre <systemitem class='systemname'>R1</systemitem> et <systemitem
+    class='systemname'>ISP</systemitem> : le <acronym>VLAN</acronym>
+    <option>101</option>.</para>
+    </listitem>
+    <listitem>
+    <para>La courbe <emphasis>rouge</emphasis> correspond à l'utilisation du
+    lien entre <systemitem class='systemname'>R3</systemitem> et <systemitem
+    class='systemname'>ISP</systemitem> : le <acronym>VLAN</acronym>
+    <option>103</option>.</para>
+    </listitem>
+    <listitem>
+    <para>La courbe <emphasis>verte</emphasis> est là pour indiquer que
+    certains délais observés lors des échanges sont dus à la communication de
+    bout en bout entre l'hôte <systemitem class='systemname'>host</systemitem>
+    et le serveur <wordasword>web</wordasword> et non au système de tolérance
+    aux pannes réseau.</para>
+    </listitem>
+  </itemizedlist>
+  </section>
+</section>
+
+<section xml:id='ospf-triangle-multiple-default.failover-inbound'>
+  <title>Tolérance aux pannes réseau sur les flux descendants -
+  <wordasword>customized keepalive</wordasword></title>
+
+  <para>Dans la section précédente, qui traite aussi de la tolérance aux pannes
+  réseau, on a uniquement caractérisé les flux sortants de l'aire
+  <acronym>OSPF</acronym>. Autrement dit, cette tolérance n'est effective que
+  pour les flux émis à partir des hôtes présents dans cette aire. Ces hôtes
+  sont donc nécessairement assimilés à des <emphasis>clients</emphasis> dans le
+  modèle client/serveur.</para>
+
+  <para>Considérons maintenant le cas où ces hôtes sont des serveurs dont le
+  contenu doit être accessible depuis l'Internet. Le trafic correspondant
+  transite toujours par le routeur <systemitem
+  class='systemname'>ISP</systemitem> mais celui-ci ne dispose d'aucun moyen de
+  détection de l'état des liens vers les routeurs <systemitem
+  class='systemname'>R1</systemitem> et <systemitem
+  class='systemname'>R3</systemitem>.</para>
+
+  <para>Les fonctions de détection de l'état des liens sont intrinsèques aux
+  protocoles de routage de type <wordasword>link-state</wordasword>. Une fois
+  que la convergence initiale est atteinte, les nouveaux calculs de topologie
+  n'interviennent que si un lien connu au préalable est désactivé ou réactivé.
+  La section 4.3 du standard &url.rfc2328; définit les 5 types de paquets du
+  protocole de routage. Le type 1 est justement le <wordasword>Hello
+  packet</wordasword> dont la fonction est de découvrir et de maintenir les
+  adjacences avec les routeurs <acronym>OSPF</acronym> voisins. Sur un réseau
+  de diffusion, comme dans le cas de cet article, ces paquets sont émis toutes
+  les 10 secondes et utilisent une adresse <acronym>IP</acronym> destination
+  multicast propre au protocole : <systemitem
+  class='ipaddress'>224.0.0.5</systemitem>.</para>
+
+  <para>Comme le routeur <systemitem class='systemname'>ISP</systemitem>
+  n'appartient pas au même domaine d'administration que les trois autres
+  routeurs de l'aire <acronym>OSPF</acronym>, aucune adjacence n'est formée sur
+  les deux liens de sortie de cette aire. On se propose donc de compenser
+  l'absence de contrôle d'état à l'aide de scripts maison.</para>
+
+  <section xml:id='ospf-triangle-multiple-default.failover-inbound.keepalive'>
+    <title>Scripts de contrôle d'état de lien - <wordasword>keepalive shell
+    scripts</wordasword></title>
+
+  <para>L'objectif ici n'est pas de reproduire un fonctionnement aussi
+  sophistiqué que celui offert par un protocole de routage dynamique, mais de
+  trouver une solution à moindre coût qui permette de manipuler les routes par
+  défaut des routeurs <systemitem class='systemname'>R1</systemitem> et
+  <systemitem class='systemname'>R3</systemitem> à partir des réponses aux
+  requêtes <acronym>ICMP</acronym> de type <option>8</option>
+  (<wordasword>echo</wordasword>).</para>
+
+  <para>Avant d'aller plus loin dans la présentation de la technique utilisée
+  ici, il faut rappeler que l'architecture étudiée ne comprend que des
+  interfaces Ethernet sur lesquelles transitent des trames avec balises
+  <acronym>IEEE 802.1Q</acronym>. On ne dispose donc pas d'informations
+  provenant de la couche physique sur le fonctionnement de ces interfaces. Si
+  les deux liens à contrôler étaient de type série, les scripts présentés
+  ci-dessous seraient totalement inutiles puisque les composants contrôleurs
+  des liaisons série détectent directement les interruptions de
+  transmission.</para>
+
+  <para>Il faut aussi ajouter que, même avec des réseaux locaux Ethernet,
+  d'autres solutions existent. Ainsi, il est possible d'utiliser le protocole
+  <acronym>PPPoE</acronym> qui offre toutes les fonctions du protocole
+  <acronym>PPP</acronym> sur des liaisons Ethernet. Pour un exemple de mise en
+  œuvre, voir l'article &url.pppoe;.</para>  
+
+  <para>Avec l'architecture correspondant à la vue <link
+  linkend='ospf-triangle-multiple-default.presentation.topology'>topologie
+  logique</link> présentée au début à la <xref
+  linkend='ospf-triangle-multiple-default.presentation' />, on place deux
+  scripts développés en langage <wordasword>shell</wordasword> qui fonctionnent
+  en permanence sur les routeurs <systemitem class='systemname'>R1</systemitem>
+  et <systemitem class='systemname'>R3</systemitem>. Le code ce ces deux
+  scripts est donné dans l'<xref
+  linkend='ospf-triangle-multiple-default.keepalive'/>.</para>
+
+  <para>La partie intéressante de ces deux scripts est extraite
+  ci-dessous.</para>
+
+<screen width='80'>while $(true) ; do
+  msg=$(/bin/ping -W 2 -n -c 1 ${neighbor} 2>&amp;1 | egrep '(bytes from|100% packet loss)') <co xml:id='keepalive.icmp'/>
+
+  if [[ "${msg}" =~ "bytes from" ]] &amp;&amp; [[ ! -e /tmp/${neighbor}_up ]]; then <co xml:id='keepalive.test.add'/>
+    ip route add default via ${neighbor} <co xml:id='keepalive.route.add'/>
+    touch /tmp/${neighbor}_up <co xml:id='keepalive.state.add'/>
+    keepalive_debug "${neighbor} is reachable, default route added" <co xml:id='keepalive.debug.add'/>
+  fi
+
+  if [[ "${msg}" =~ "100% packet loss" ]] &amp;&amp; [[ -e /tmp/${neighbor}_up ]]; then <co xml:id='keepalive.test.del'/>
+    ip route del default via ${neighbor} <co xml:id='keepalive.route.del'/>
+    rm -f /tmp/${neighbor}_up <co xml:id='keepalive.state.del'/>
+    keepalive_debug "${neighbor} is not reachable, default route deleted" <co xml:id='keepalive.debug.del'/>
+  fi
+
+  sleep ${delay} <co xml:id='keepalive.delay'/>
+done</screen>
+
+  <calloutlist>
+    <callout arearefs='keepalive.icmp'>
+    <para>La collecte du message d'information <acronym>ICMP</acronym> se fait
+    à l'aide d'une seule requête dont on a limité le temps d'attente de réponse
+    à 2 secondes. En fonction de cette réponse on extrait deux chaînes de
+    caractères : "<literal>bytes from</literal>" si la réponse est positive ou
+    "<literal>100% packet loss</literal>" si aucune réponse n'a été
+    obtenue dans le temps imparti.</para>
+
+    <para>La réponse stockée dans la variable <literal>${msg}</literal>.</para>
+    </callout>
+    <callout arearefs='keepalive.test.add keepalive.test.del'>
+    <para>Suivant le contenu de la variable <literal>${msg}</literal> et de
+    l'état précédemment enregistré du lien, on ajoute ou supprime la route par
+    défaut vers le routeur <systemitem
+    class='systemname'>ISP</systemitem>.</para>
+    </callout>
+    <callout arearefs='keepalive.route.add keepalive.route.del'>
+    <para>La commande d'ajout et de suppression de la route par défaut suppose
+    que le propriétaire du processus a la capacité à utiliser cette
+    instruction.</para>
+
+    <para>La variable <literal>${neighbor}</literal> contient l'adresse
+    <acronym>IP</acronym> de la passerelle à atteindre.</para>
+    </callout>
+    <callout arearefs='keepalive.state.add keepalive.state.del'>
+    <para>Le fichier <filename>/tmp/${neighbor}_up</filename> est utilisé comme
+    variable d'état. Il est créé lors de l'ajout de la route par défaut lorsque
+    le lien vers le routeur <systemitem class='systemname'>ISP</systemitem> est
+    à nouveau actif. Il est effacé lorsque ce même lien est perdu.</para>
+    </callout>
+    <callout arearefs='keepalive.debug.add keepalive.debug.del'>
+    <para>Les deux scripts utilisent une fonction de journalisation système
+    embryonnaire <literal>keepalive_debug</literal> qui permet d'enregistrer
+    les mouvements sur les liens. Une copie des messages générés à l'aide de
+    cette fonction est donnée à la fin de la section suivante sur l'analyse
+    réseau.</para>
+    </callout>
+    <callout arearefs='keepalive.delay'>
+    <para>Dans le cas de cette maquette, le délai a été fixé à 10 secondes par
+    l'intermédiaire de la variable <literal>${delay}</literal>. L'idée étant
+    d'avoir un comportement qui se rapproche de la période des
+    <wordasword>Hello packets</wordasword> du protocole
+    <acronym>OSPF</acronym>.</para>
+    </callout>
+  </calloutlist>
+  </section>
+
+<?custom-pagebreak?>
+  <section xml:id='ospf-triangle-multiple-default.failover-inbound.wireshark'>
+    <title>Analyse réseau sur le routeur ISP avec tolérance aux pannes sur les
+    flux entrants</title>
+
+  <para>Pour caractériser la tolérance aux pannes sur les flux entrants dans
+  l'aire <acronym>OSPF</acronym> via le routeur <systemitem
+  class='systemname'>ISP</systemitem>, on suit la séquence d'instructions
+  suivante.</para>
+
+  <orderedlist>
+    <listitem>
+    <para>Sur le système hôte, on créé un petit script de téléchargement en
+    boucle que l'on exécute dans un terminal dédié.</para>
+
+<screen width='80'><prompt>$</prompt> cat download.sh 
+#!/bin/bash
+
+while true
+do
+  wget http://10.1.20.2/debian-6.0.3-amd64-CD-1.iso
+  rm debian-6.0.3-amd64-CD-1.iso
+done</screen>
+
+<screen width='80'><prompt>$</prompt> screen sh -x download.sh</screen>
+    </listitem>
+    <listitem>
+    <para>Sur le routeur <systemitem class='systemname'>ISP</systemitem>, on
+    commence par lancer la capture de trafic dans un terminal dédié. Ensuite,
+    on désactive puis réactive les interfaces réseau connectées aux liaisons
+    avec l'aire <acronym>OSPF</acronym>.</para>
+
+<screen width='80'><prompt>$</prompt> screen tshark -i eth1 ! port 22 -a filesize:8192000 -w /var/tmp/failover-host-inbound.pcap</screen>
+
+    <para>Le choix du lien à désactiver dépend de l'enregistrement des
+    communications après marquage des paquets provenant de l'aire
+    <acronym>OSPF</acronym>. Dans le cas ci-dessous, c'est le lien entre
+    <systemitem class='systemname'>R1</systemitem> et <systemitem
+    class='systemname'>ISP</systemitem> qui était utilisé avant la
+    désactivation de l'interface <option>eth1.101</option>.</para>
+
+<screen width='80'><prompt>#</prompt> conntrack -L
+tcp      6 299 ESTABLISHED src=192.0.2.1 dst=10.1.20.2 sport=50403 dport=80 \
+                           src=10.1.20.2 dst=192.0.2.1 \
+                           sport=80 dport=50403 [ASSURED] <emphasis>mark=101</emphasis> use=1
+&lt;snipped/>
+<prompt>#</prompt> ip link set dev eth1.101 down
+&lt;attendre au moins 10s/>
+<prompt>#</prompt> conntrack -L
+tcp      6 299 ESTABLISHED src=192.0.2.1 dst=10.1.20.2 sport=50405 dport=80 \
+                           src=10.1.20.2 dst=192.0.2.1 \
+                           sport=80 dport=50405 [ASSURED] <emphasis>mark=103</emphasis> use=1
+&lt;snipped/>
+<prompt>#</prompt> ip link set dev eth1.101 up
+&lt;attendre au moins 10s/>
+<prompt>#</prompt> conntrack -L
+tcp      6 299 ESTABLISHED src=192.0.2.1 dst=10.1.20.2 sport=50405 dport=80 \
+                           src=10.1.20.2 dst=192.0.2.1 \
+                           sport=80 dport=50405 [ASSURED] <emphasis>mark=103</emphasis> use=1
+&lt;snipped/>
+<prompt>#</prompt> ip link set dev eth1.103 down
+&lt;attendre au moins 10s/>
+<prompt>#</prompt> conntrack -L
+tcp      6 299 ESTABLISHED src=192.0.2.1 dst=10.1.20.2 sport=50405 dport=80 \
+                           src=10.1.20.2 dst=192.0.2.1 \
+                           sport=80 dport=50405 [ASSURED] <emphasis>mark=101</emphasis> use=1
+&lt;snipped/>
+<prompt>#</prompt> ip link set dev eth1.103 up</screen>
+    </listitem>
+  </orderedlist>
+
+  <para>Comme le téléchargement est effectué entre le système hôte et une
+  instance de machine virtuelle, les débits disponibles sont importants et le
+  volume de trafic capturé pour caractériser le basculement d'un lien sur
+  l'autre augmente très rapidement. Le graphique ci-dessous est un extrait
+  obtenu à partir d'une capture d'environ 1.2Go.</para>
+
+  <mediaobject xml:id='ospf-triangle-multiple-default.failover-inblound.wireshark.graph'>
+    <imageobject role='fo'>
+    <imagedata format='PNG' fileref='images/failover-host-inbound.png' width='12cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+    <imagedata format='PNG' fileref='images/failover-host-inbound.png' width='640px' scalefit='1' />
+    </imageobject>
+    <textobject>
+    <phrase>Caractérisation graphique de la tolérance aux pannes réseau.</phrase>
+    </textobject>
+  </mediaobject>
+
+  <para>Les choix de couleurs de courbes sont les mêmes que dans la section
+  précédente.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>La courbe <emphasis>noire</emphasis> correspond à l'utilisation du
+    lien entre <systemitem class='systemname'>R1</systemitem> et <systemitem
+    class='systemname'>ISP</systemitem> : le <acronym>VLAN</acronym>
+    <option>101</option>.</para>
+    </listitem>
+    <listitem>
+    <para>La courbe <emphasis>rouge</emphasis> correspond à l'utilisation du
+    lien entre <systemitem class='systemname'>R3</systemitem> et <systemitem
+    class='systemname'>ISP</systemitem> : le <acronym>VLAN</acronym>
+    <option>103</option>.</para>
+    </listitem>
+    <listitem>
+    <para>La courbe <emphasis>verte</emphasis> est là pour indiquer que les
+    interruptions de trafic correspondent à la rotation des fichiers
+    téléchargés sur le système hôte depuis le serveur
+    <wordasword>web</wordasword> installé sur l'hôte <systemitem
+    class='systemname'>host</systemitem>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Suite aux manipulations effectuées sur les interfaces du routeur
+  <systemitem class='systemname'>ISP</systemitem>, les journaux système des
+  deux routeurs en vis-à-vis donnent les résultats suivants.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Vu du routeur <systemitem class='systemname'>R1</systemitem> :</para>
+<screen width='80'><prompt>$</prompt> cat /var/log/r1-keepalive.log
+janv. 04 22:05:01: START
+janv. 04 22:05:01: daemonize ./r1-keepalive.sh
+janv. 04 22:05:01: daemonized ./r1-keepalive.sh
+janv. 04 22:05:01: alive_ping
+janv. 04 22:05:01: 10.1.30.2 is reachable, default route added
+janv. 04 22:12:36: 10.1.30.2 is not reachable, default route deleted
+janv. 04 22:13:11: 10.1.30.2 is reachable, default route added</screen>
+    </listitem>
+    <listitem>
+    <para>Vu du routeur <systemitem class='systemname'>R3</systemitem> :</para>
+<screen width='80'><prompt>$</prompt> cat /var/log/r3-keepalive.log 
+janv. 04 22:06:34: START
+janv. 04 22:06:34: daemonize ./r3-keepalive.sh
+janv. 04 22:06:34: daemonized ./r3-keepalive.sh
+janv. 04 22:06:34: alive_ping
+janv. 04 22:13:29: 10.1.30.10 is not reachable, default route deleted
+janv. 05 16:26:22: 10.1.30.10 is reachable, default route added</screen>
+    </listitem>
+  </itemizedlist>
+  </section>
+</section>
+
+<section xml:id='ospf-triangle-multiple-default.conclusion'>
+  <title>Pour conclure</title>
+
+  <para>Cet article est une illustration de quelques notions de routage avancé
+  avec quatre instances de machines virtuelles. Il peut paraître un peu long ;
+  comme la plupart des documents publiés sur
+  <citetitle>inetdoc.net</citetitle>. Il se distingue cependant par le fait
+  qu'à chaque élément de configuration avancé, on précise la démarche suivie
+  pour caractériser la fonction implantée et on donne un extrait des résultats
+  obtenus.</para>
+
+  <para>Même s'il est question de routage «avancé», la section sur la
+  répartition de trafic illustre parfaitement le cours sur les modélisations.
+  On caractérise le fait que chaque paquet <acronym>IP</acronym> peut suivre un
+  chemin propre au niveau réseau tout en préservant une connexion de bout en
+  bout au niveau transport. On retrouve ainsi les notions de réseau à
+  commutation de paquets et de protocole orienté connexion.</para>
+
+  <para>Le marquage de paquets et l'enregistrement des communications sont
+  aussi très intéressants et montrent qu'il est possible d'utiliser ces
+  mécanismes sans nécessairement avoir recours à la traduction d'adresses.
+  Sujet au combien polémique.</para>
+
+  <para>Enfin, l'architecture étudiée n'est qu'un exemple de ce qu'il est
+  possible de faire avec des systèmes GNU/Linux. Il existe bien d'autres
+  solutions ou variations pour aboutir au même résultat !</para>
+</section>
+
+<?custom-pagebreak?>
+<appendix xml:id='ospf-triangle-multiple-default.vde'>
+  <title>Configuration de la commutation</title>
+
+  <para>Les interfaces réseau des instances de systèmes virtualisés sont un
+  brassées sur une instance de commutateur, virtuel lui aussi,
+  <citetitle>vde</citetitle>. Ce commutateur est fourni par le paquet
+  <systemitem>vde2</systemitem> et il est lancé lors de l'initialisation de
+  l'interface <option>tap0</option> sur le système hôte. Voici un extrait du
+  fichier <filename>/etc/network/interfaces</filename>.</para>
+
+<screen width='80'>auto tap0
+iface tap0 inet static
+        address 192.0.2.1
+        netmask 255.255.255.192
+        network 192.0.2.0
+        broadcast 192.0.2.63
+        vde2-switch -</screen>
+
+  <para>Le brassage correspondant à la vue <link
+  linkend='ospf-triangle-multiple-default.presentation.topology'>topologie
+  logique</link> est donné dans le tableau ci-dessous.</para> 
+
+  <table frame='all'>
+    <title>Brassage commutateur virtuel</title>
+  <tgroup cols='4' align='left' colsep='1' rowsep='1'>
+  <colspec colname='c1'/>
+  <colspec colname='c2'/>
+  <colspec colname='c3'/>
+  <colspec colname='c4'/>
+  <thead>
+    <row>
+      <entry align='center'>Port VDE</entry>
+      <entry align='center'>Hôte</entry>
+      <entry align='center'>Interface(s)</entry>
+      <entry align='center'>Liaison</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row>
+      <entry>1</entry>
+      <entry>Système hôte</entry>
+      <entry>tap0</entry>
+      <entry>commutateur vde</entry>
+    </row>
+    <row>
+      <entry>2</entry>
+      <entry>ISP</entry>
+      <entry>eth0</entry>
+      <entry>système hôte | Internet</entry>
+    </row>
+    <row>
+      <entry morerows='1'>3</entry>
+      <entry morerows='1'>ISP</entry>
+      <entry>eth1.101</entry>
+      <entry>link101</entry>
+    </row>
+    <row>
+      <entry>eth1.103</entry>
+      <entry>link103</entry>
+    </row>
+    <row>
+      <entry morerows='2'>4</entry>
+      <entry morerows='2'>R1</entry>
+      <entry>eth0.101</entry>
+      <entry>link101</entry>
+    </row>
+    <row>
+      <entry>eth0.13</entry>
+      <entry>trunk R1 + R3</entry>
+    </row>
+    <row>
+      <entry>eth0.12</entry>
+      <entry>trunk R1 + R2</entry>
+    </row>
+    <row>
+      <entry morerows='2'>5</entry>
+      <entry morerows='2'>R2</entry>
+      <entry>eth0</entry>
+      <entry>host</entry>
+    </row>
+    <row>
+      <entry>eth0.12</entry>
+      <entry>trunk R2 + R1</entry>
+    </row>
+    <row>
+      <entry>eth0.23</entry>
+      <entry>trunk R2 + R3</entry>
+    </row>
+    <row>
+      <entry morerows='2'>6</entry>
+      <entry morerows='2'>R3</entry>
+      <entry>eth0.103</entry>
+      <entry>link103</entry>
+    </row>
+    <row>
+      <entry>eth0.13</entry>
+      <entry>trunk R3 + R1</entry>
+    </row>
+    <row>
+      <entry>eth0.23</entry>
+      <entry>trunk R3 + R2</entry>
+    </row>
+    <row>
+      <entry>7</entry>
+      <entry>host</entry>
+      <entry>eth0</entry>
+      <entry>R2</entry>
+    </row>
+  </tbody>
+  </tgroup>
+  </table>
+
+  <para>Le fichier de configuration à charger au lancement du commutateur se
+  présente comme suit.</para>
+
+  <screen width='80'>&vde.conf;</screen>
+</appendix>
+
+<?custom-pagebreak?>
+<appendix xml:id='ospf-triangle-multiple-default.interfaces'>
+  <title>Configuration des interfaces</title>
+
+  <para>Les configurations des interfaces réseau des routeurs sont données
+  ci-dessous. Dans la liste des interfaces des différents routeurs, on retrouve
+  une sous-interface par <acronym>VLAN</acronym>. Ces sous-interfaces sont
+  configurées en utilisant la commande <command>ip</command> fournie avec le
+  paquet <application>iproute</application>. Comme cet article, s'appuie déjà
+  énormément sur <application>iproute</application>, on utilise aussi la
+  commande ip pour l'affectation des numéros de <acronym>VLAN</acronym>s. Par
+  défaut, les scripts spécifiques à la distribution Debian GNU/Linux utilisent
+  la commande <command>vconfig</command> fournie avec le paquet
+  <application>vlan</application>. Cette dernière commande est dorénavant
+  considérée comme obsolète.</para>
+
+  <variablelist>
+    <varlistentry xml:id='ospf-triangle-multiple-default.interfaces.isp'>
+      <term>Routeur <systemitem class='systemname'>ISP</systemitem></term>
+      <listitem>
+<screen width='80'>&isp-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='ospf-triangle-multiple-default.interfaces.r1'>
+      <term>Routeur <systemitem class='systemname'>R1</systemitem></term>
+      <listitem>
+<screen width='80'>&r1-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='ospf-triangle-multiple-default.interfaces.r2'>
+      <term>Routeur <systemitem class='systemname'>R2</systemitem></term>
+      <listitem>
+<screen width='80'>&r2-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='ospf-triangle-multiple-default.interfaces.r3'>
+      <term>Routeur <systemitem class='systemname'>R3</systemitem></term>
+      <listitem>
+<screen width='80'>&r3-interfaces;</screen>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</appendix>
+
+<?custom-pagebreak?>
+<appendix xml:id='ospf-triangle-multiple-default.frr'>
+  <title>Configuration du routage statique et dynamique</title>
+
+  <para>Les configurations des démons <systemitem
+  class='daemon'>zebra</systemitem> des trois routeurs sont données ci-dessous.
+  La seule particularité de ces configurations tient à la définition des bandes
+  passantes sur chaque interface. Ces bandes passantes sont utilisées par les
+  démons <systemitem class='daemon'>ospfd</systemitem> pour calculer les
+  métriques de chacun des liens.</para>
+
+  <informaltable frame='none'>
+    <tgroup cols='3'>
+    <colspec colwidth='1*'/>
+    <colspec colwidth='1*'/>
+    <colspec colwidth='1*'/>
+    <tbody>
+    <row>
+    <entry valign='top'><screen>&r1-zebra;</screen></entry>
+    <entry valign='top'><screen>&r2-zebra;</screen></entry>
+    <entry valign='top'><screen>&r3-zebra;</screen></entry>
+    </row>
+    </tbody>
+    </tgroup>
+  </informaltable>
+
+  <para>Les configurations des démons <systemitem
+  class='daemon'>ospfd</systemitem> des trois routeurs sont données ci-dessous.
+  Les deux routeurs de bordure <systemitem class='systemname'>R1</systemitem>
+  et <systemitem class='systemname'>R3</systemitem> publient une route par
+  défaut à l'aide de l'instruction <userinput>default-information
+  originate</userinput>.</para>
+
+  <informaltable frame='none'>
+    <tgroup cols='3'>
+    <colspec colwidth='1*'/>
+    <colspec colwidth='1*'/>
+    <colspec colwidth='1*'/>
+    <tbody>
+    <row>
+    <entry valign='top'><screen>&r1-ospfd;</screen></entry>
+    <entry valign='top'><screen>&r2-ospfd;</screen></entry>
+    <entry valign='top'><screen>&r3-ospfd;</screen></entry>
+    </row>
+    </tbody>
+    </tgroup>
+  </informaltable>
+</appendix>
+
+<?custom-pagebreak?>
+<appendix xml:id='ospf-triangle-multiple-default.iptables'>
+  <title>Configuration du filtrage réseau</title>
+
+  <para>Les règles de marquage des flux réseau transitant par le routeur
+  <systemitem class='systemname'>ISP</systemitem> sont enregistrées dans le
+  fichier <filename>/var/lib/iptables/active</filename> dont la copie est
+  donnée ci-dessous. Ce fichier est initialement créé à l'aide de l'instruction
+  suivante.</para>
+
+<screen width='80'><prompt>#</prompt> iptables-save >/var/lib/iptables/active</screen>
+
+  <para>Il est ensuite possible de l'éditer et de le compléter au
+  besoin.</para>
+
+<screen width='80'><prompt>#</prompt> cat /var/lib/iptables/active 
+# Table filter ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+# Table mangle ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*mangle
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+-A PREROUTING -i eth0 -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
+-A PREROUTING -i eth1.101 -j MARK --set-xmark 0x65/0xffffffff
+-A PREROUTING -i eth1.103 -j MARK --set-xmark 0x67/0xffffffff
+-A PREROUTING -i eth1.101 -j CONNMARK --save-mark --nfmask 0xffffffff --ctmask 0xffffffff
+-A PREROUTING -i eth1.103 -j CONNMARK --save-mark --nfmask 0xffffffff --ctmask 0xffffffff
+-A POSTROUTING -o eth0 -p tcp -m tcp --syn -m tcpmss --mss 1400:1536 -j TCPMSS --clamp-mss-to-pmtu
+COMMIT
+# Table nat    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+COMMIT</screen>
+
+  <para>Les règles contenues dans ce fichier sont appliquées à l'aide de
+  l'instruction suivante.</para>
+  
+<screen width='80'><prompt>#</prompt> iptables-restore &lt;/var/lib/iptables/active</screen>
+  
+  <para>On peut intégrer cette instruction dans les scripts d'initialisation
+  des interfaces réseau de façon à rendre  obligatoire l'application des
+  règles. Par exemple :</para>
+
+<screen width='80'><prompt>#</prompt> cat /etc/network/if-up.d/iptables 
+#!/bin/sh
+
+if [ -f "/var/lib/iptables/active" ]
+then
+  iptables-restore &lt;/var/lib/iptables/active
+fi
+
+exit 0</screen>
+</appendix>
+
+<?custom-pagebreak?>
+<appendix xml:id='ospf-triangle-multiple-default.keepalive'>
+  <title>Scripts de contrôle d'état de liens</title>
+
+  <para>Les deux scripts ci-dessous assurent un contrôle permanent sur les deux
+  liens entre l'aire <acronym>OSPF</acronym> et le routeur <systemitem
+  class='systemname'>ISP</systemitem> à l'aide des messages d'information
+  <acronym>ICMP</acronym> <wordasword>echo/reply</wordasword>. Le propriétaire
+  du processus doit avoir la capacité à ajouter ou supprimer une route au
+  niveau noyau.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Sur le routeur <systemitem class='systemname'>R1</systemitem>, la
+    passerelle à joindre est à l'adresse <systemitem
+    class='ipaddress'>10.1.30.2</systemitem>. Le code du script est
+    téléchargeable à partir du lien suivant : &url.r1-keepalive.sh;.</para>
+
+<screen width='80'><xi:include href='files/r1-keepalive.sh' parse='text'
+xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+    </listitem>
+    <listitem>
+    <para>Sur le routeur <systemitem class='systemname'>R3</systemitem>, la
+    passerelle à joindre est à l'adresse <systemitem
+    class='ipaddress'>10.1.30.10</systemitem>. Le code du script est
+    téléchargeable à partir du lien suivant : &url.r3-keepalive.sh;.</para>
+
+     <para>Le code de ce script est identique au précédent à l'exception de la
+     valeur attribuée à la variable <literal>${neighbor}</literal>.</para>
+    </listitem>
+  </itemizedlist>
+</appendix>
+</article>

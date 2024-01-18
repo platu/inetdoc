@@ -1,0 +1,3353 @@
+<chapter xml:id="targets">
+  <title xml:id="targets.title">Iptables cibles et sauts</title>
+  <indexterm zone="targets">
+    <primary>Target</primary>
+  </indexterm>
+  <indexterm zone="targets">
+    <primary>Iptables targets</primary>
+    <seealso>Target</seealso>
+  </indexterm>
+
+   <para>
+Target/jump indique à la règle que faire avec un paquet qui est 
+sélectionné avec la section correspondance de la règle. Il existe
+deux cibles de base, les cibles <command>ACCEPT</command> et
+<command>DROP</command>, que nous verrons en premier. Cependant, avant,
+jetons un bref regard sur la façon dont un saut est construit.
+    </para>
+
+    <para>
+La spécification saut est faite exactement de la même façon que la définition
+cible, sauf qu'elle nécessite une chaîne dans la même table. Pour faire un
+saut vers une chaîne spécifique, il faut bien sûr que la chaîne existe.
+Comme nous l'avons déjà expliqué, une chaîne définie par l'utilisateur est
+créée avec la commande <command>-N</command>. Par exemple, nous créons 
+une chaîne dans la table filter appelée <command>tcp_packets</command>, 
+comme ceci :
+    </para>
+
+<screen width='80'>
+<command>iptables -N tcp_packets</command></screen>
+
+    <para>
+Nous pouvons alors lui ajouter une cible saut comme :
+    </para>
+
+<screen width='80'>
+<command>iptables -A INPUT -p tcp -j tcp_packets</command></screen>
+
+    <para>
+Nous pourrons alors faire un saut depuis la chaîne <command>INPUT</command> 
+vers la chaîne <command>tcp_packets</command> et commencer à traverser
+la chaîne. Quand nous atteignons la fin de cette chaîne, nous retournons vers 
+la chaîne <command>INPUT</command> et le paquet démarre sa traversée de la 
+règle une étape après qu'il ait fait le saut vers l'autre chaîne 
+(tcp_packets dans ce cas).
+Si le paquet est <command>ACCEPT</command> dans une des sous-chaînes, elle 
+sera <command>ACCEPT</command> dans la chaîne de sur-ensemble également et ne
+traversera plus aucune des chaînes de sur-ensemble.
+Cependant, notez que le paquet traversera toutes les autres chaînes des
+autres tables. Pour plus d'information sur la traversée des tables et des
+chaînes, voir le chapitre 
+<link linkend="traversingoftables" endterm="traversingoftables.title"></link>.
+    </para>
+
+    <para> 
+D'un autre côté, les cibles spécifient une action a effectuer sur
+le paquet en question. Nous pouvons, par exemple, <command>DROP</command> ou
+<command>ACCEPT</command> selon ce que nous voulons faire.
+Il existe aussi plusieurs autres actions que nous pouvons effectuer, nous les 
+décrirons plus tard dans cette section. Certaines cibles stopperont le
+paquet dans sa traversée des chaînes, comme décrit au-dessus.
+De bons exemples de ces règles sont <command>DROP</command> et
+<command>ACCEPT</command>. Les règles qui sont stoppées, ne passeront plus
+à travers aucune règle suivante sur la chaîne ou sur une chaîne supérieure.
+D'autres cibles, peuvent avoir une action sur le paquet, lequel ensuite
+continuera à traverser les règles suivantes. De bons exemples de ceci peuvent  
+être les cibles <command>LOG</command>, <command>ULOG</command> et
+<command>TOS</command>. Ces cibles peuvent journaliser les paquets, les
+analyser et les passer à d'autres règles dans le même ensemble de chaînes.
+Nous pouvons, par exemple, vouloir analyser les valeurs TTL et TOS 
+d'un paquet/flux spécifique. Certaines cibles accepterons des options
+supplémentaires (quelle valeur TOS utiliser, etc.), tandis que d'autres
+n'en ont pas nécessairement besoin - mais peuvent en inclure si nous le
+souhaitons (journaliser les préfixes, masquer les ports, etc.).
+Nous essaierons de couvrir tous ces sujets quand nous verrons la description
+des cibles. Voyons de quelles sortes de cibles il s'agit.
+    </para>
+
+   <section xml:id="accepttarget">
+    <title xml:id="accepttarget.title">Cible ACCEPT</title>
+    <indexterm zone="accepttarget">
+      <primary>ACCEPT target</primary>
+    </indexterm>
+    <indexterm zone="accepttarget">
+      <primary>Target</primary>
+      <secondary>ACCEPT</secondary>
+    </indexterm>
+
+    <para> 
+Cette cible ne nécessite pas d'autre option. Aussitôt que la spécification
+de correspondance pour un paquet a été pleinement satisfaite, et que
+nous spécifions ACCEPT comme cible, la règle est acceptée et ne traversera
+pas la chaîne ou aucune autre chaîne dans la même table. Notez cependant, qu'un
+paquet qui a été accepté dans une chaîne peut toujours circuler à travers
+les chaînes dans d'autres tables, et peut toujours être supprimé à cet
+endroit là. Il n'y a rien de spécial concernant cette cible, et il n'est pas
+nécessaire d'y ajouter des options. Pour utiliser cette cible, spécifiez
+simplement <command>-j ACCEPT</command>.
+    </para>
+    
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="classifytarget">
+    <title xml:id="classifytarget.title">Cible CLASSIFY</title>
+    <indexterm zone="classifytarget">
+      <primary>CLASSIFY target</primary>
+    </indexterm>
+    <indexterm zone="table.classifytarget">
+      <primary>Target</primary>
+      <secondary>CLASSIFY</secondary>
+      <seealso>CLASSIFY target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>CLASSIFY</command> peut servir à classer les paquets
+de façon à ce qu'ils puissent être utilisés par deux ou plusieurs qdiscs
+(Queue Disciplines). Par exemple, atm, cbq, dsmark, pfifo_fast, htb.
+Pour plus d'information sur qdiscs et le contrôle de trafic, voir la page 
+<link linkend="lartc" endterm="lartc.title"></link>.
+    </para>
+    
+    <para>
+La cible <command>CLASSIFY</command> est valide uniquement dans la chaîne 
+<systemitem>POSTROUTING</systemitem> de la table 
+<systemitem>mangle</systemitem>.
+    </para>
+
+      <indexterm zone="table.classifytarget">
+        <primary>CLASSIFY target</primary>
+        <secondary>--set-class</secondary>
+      </indexterm>
+      <indexterm zone="table.classifytarget">
+        <primary>--set-class</primary>
+      </indexterm>
+      <indexterm zone="table.classifytarget">
+        <primary>Set-class target</primary>
+      </indexterm>
+
+    <table frame='all' xml:id="table.classifytarget">
+     <title xml:id="table.classifytarget.title">Options de la cible CLASSIFY</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--set-class</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A POSTROUTING -p tcp --dport 80 -j 
+CLASSIFY --set-class 20:10</command>
+        </entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+La cible <command>CLASSIFY</command> prend seulement un argument, le 
+<command>--set-class</command>. Il indique à la cible comment classer
+le paquet. Ce classement prend deux valeurs séparées par le signe deux points 
+(:), comme ceci MAJOR:MINOR. Encore une fois, si vous voulez plus 
+d'information, regardez la page  
+<link linkend="lartc" endterm="lartc.title"></link>.
+       </entry>
+     </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="clusteriptarget">
+     <title xml:id="clusteriptarget.title">Cible CLUSTERIP</title>
+     <indexterm zone="clusteriptarget">
+       <primary>CLUSTERIP target</primary>
+     </indexterm>
+     <indexterm zone="table.clusteriptarget">
+       <primary>Target</primary>
+       <secondary>CLUSTERIP</secondary>
+       <seealso>CLUSTERIP target</seealso>
+     </indexterm>
+
+     <para>
+La cible <command>CLUSTERIP</command> est utilisée pour créer des
+clusters (grappes de serveurs) de noeuds répondant à la même adresse 
+IP et MAC. C'est une forme simple de clustering où vous pouvez placer une 
+IP virtuelle (VIP) sur tous les hôtes participant au cluster, 
+et ensuite utiliser le <command>CLUSTERIP</command> sur chaque hôte qui 
+est supposé répondre aux requêtes. 
+La correspondance <command>CLUSTERIP</command> ne nécessite aucun matériel 
+ou machine d'équilibrage de charge, il fait simplement son travail sur
+chaque partie hôte du cluster de machines. C'est une solution de clustering 
+très simple et non prévue pour des clusters complexes et importants, elle 
+ne possède pas de gestion de détection de collision native, mais peut être
+implémentée comme un simple script.
+     </para>
+
+     <para>
+Tous les serveurs du cluster utilisent une Multicast MAC commune pour
+une VIP, et un algorithme spécial est utilisé dans la cible 
+<command>CLUSTERIP</command> pour savoir quels participants au cluster
+répondront à chaque connexion. Une Multicast MAC est une adresse MAC
+(adresse matérielle) démarrant avec 01:00:5e. Un exemple d'adresse
+MAC serait 01:00:5e:00:00:20. La VIP peut être n'importe quelle adresse IP, 
+mais doit être la même sur tous les hôtes.
+     </para>
+
+     <important>
+       <para>
+Souvenez vous que <command>CLUSTERIP</command> peut interrompre des
+protocoles comme SSH, etc. La connexion s'acheminera proprement, mais
+si vous essayez en même temps sur le même hôte, vous pourrez être connecté
+sur une autre machine du cluster, avec un jeu de clés différent, et votre
+client ssh peut refuser de se connecter ou afficher des erreurs. Pour cette
+raison, ça ne fonctionne pas très bien avec certains protocoles, et ce peut 
+être une bonne idée d'ajouter des adresses séparées qui peuvent être 
+utilisées pour la maintenance et l'administration. Une autre solution est 
+d'utiliser les mêmes clés SSH sur tous les hôtes du cluster.
+       </para>
+     </important>
+
+     <para>
+Le cluster peut être en équilibrage de charge avec trois sortes 
+d'empreintes numériques. La première est seulement l'IP source (sourceip),
+la seconde est la source IP et le port (sourceip-sourceport) et la 
+troisième la source IP le port source et le port destination
+(sourceip-sourceport-destport). La première est très utile si vous avez
+besoin de conserver les états entre connexions, par exemple un serveur web
+avec un panier d'achat virtuel peut conserver les états entre connexions, 
+cet équilibrage de charge peut devenir un peu brouillon -- différentes 
+machines peuvent avoir une charge plus haute que d'autres, etc. -- car
+les connexions depuis la même IP source iront vers le même serveur. 
+L'empreinte numérique sourceip-sourceport est utile si vous voulez obtenir
+un équilibrage de charge un peu plus uniforme, et où les états n'ont pas
+à être conservés sur chaque serveur entre les connexions. Par exemple, 
+une grosse page web de documentation avec peut être un simple moteur
+de recherche semble une bonne idée dans ce cas. La troisème empreinte
+numérique, sourceip-sourceport-destport, peut vous rendre des services si 
+vous avez un hôte sur lequel tournent plusieurs services qui ne nécessitent
+pas que les états soient préservés entre les connexions. Ce peut être par
+exemple un simple ntp, dns et serveur web sur le même hôte. Chaque
+connexion vers chaque nouvelle destination devra être "renégociée" 
+-- actuellement il n'y a pas de négociation, chaque hôte reçoit une connexion.
+     </para>
+
+     <para>
+Chaque cluster <command>CLUSTERIP</command> possède un fichier séparé dans le
+répertoire <filename>/proc/net/ipt_CLUSTERIP</filename>, basé sur la VIP du
+cluster. Si la VIP est 192.168.0.5 par exemple, faire un 
+<command>cat /proc/net/ipt_CLUSTERIP/192.168.0.5</command> pour voir à 
+quels noeuds la machine répond. Pour faire en sorte que la machine réponde
+à une autre machine, placez le noeud 2, en utilisant 
+<command>echo "+2" &gt;&gt; /proc/net/ipt_CLUSTERIP/192.168.0.5</command>. 
+Pour le supprimer lancez 
+<command>echo "-2" &gt;&gt; /proc/net/ipt_CLUSTERIP/192.168.0.5</command>.
+     </para>
+
+      <indexterm zone="table.clusteriptarget">
+        <primary>CLUSTERIP target</primary>
+        <secondary>--new</secondary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>--new</primary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>New target</primary>
+      </indexterm>
+
+      <indexterm zone="table.clusteriptarget">
+        <primary>CLUSTERIP target</primary>
+        <secondary>--hashmode</secondary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>--hashmode</primary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>Hashmode target</primary>
+      </indexterm>
+
+      <indexterm zone="table.clusteriptarget">
+        <primary>CLUSTERIP target</primary>
+        <secondary>--clustermac</secondary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>--clustermac</primary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>Clustermac target</primary>
+      </indexterm>
+
+      <indexterm zone="table.clusteriptarget">
+        <primary>CLUSTERIP target</primary>
+        <secondary>--total-nodes</secondary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>--total-nodes</primary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>Total-nodes target</primary>
+      </indexterm>
+
+      <indexterm zone="table.clusteriptarget">
+        <primary>CLUSTERIP target</primary>
+        <secondary>--local-node</secondary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>--local-node</primary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>Local-node target</primary>
+      </indexterm>
+
+      <indexterm zone="table.clusteriptarget">
+        <primary>CLUSTERIP target</primary>
+        <secondary>--hash-init</secondary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>--hash-init</primary>
+      </indexterm>
+      <indexterm zone="table.clusteriptarget">
+        <primary>Hash-init target</primary>
+      </indexterm>
+
+     <table frame='all' xml:id="table.clusteriptarget">
+       <title xml:id="table.clusteriptarget.title">Options de la cible CLUSTERIP</title>
+         <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+         <colspec colwidth='1.5*'/>
+         <colspec colwidth='8*'/>
+
+         <tbody>
+
+           <row>
+             <entry>Option</entry>
+             <entry><command>--new</command></entry>
+           </row>
+           <row>
+             <entry>Exemple</entry>
+             <entry><command>iptables -A INPUT -p tcp -d 192.168.0.5 --dport 80
+-j CLUSTERIP --new ...</command>
+             </entry>
+           </row>
+           <row>
+             <entry>Explication</entry>
+             <entry>
+Ceci crée une nouvelle entrée <command>CLUSTERIP</command>. Elle doit être
+placée dans la première règle pour une VIP, et est utilisée pour créer 
+un nouveau cluster. Si vous avez plusieurs règles de connexion vers le même  
+<command>CLUSTERIP</command> vous pouvez omettre le mot-clé 
+<command>--new</command> dans toutes les références secondaires 
+vers la même <systemitem>VIP</systemitem>. 
+             </entry>
+           </row>
+
+	   <row>
+             <entry>Option</entry>
+             <entry><command>--hashmode</command></entry>
+           </row>
+           <row>
+             <entry>Exemple</entry>
+             <entry><command>iptables -A INPUT -p tcp -d 192.168.0.5 --dport
+443 -j CLUSTERIP --new --hashmode sourceip ...</command>
+             </entry>
+           </row>
+           <row>
+             <entry>Explication</entry>
+             <entry><para>
+Le mot-clé <command>--hashmode</command> spécifie le genre d'empreinte
+numérique qui sera créée. Elle peut être l'une des trois suivantes :
+	     </para><itemizedlist>
+	       <listitem>
+	         <para>
+<command>sourceip</command>
+		 </para>
+	       </listitem>
+	       <listitem>
+	         <para>
+<command>sourceip-sourceport</command>
+		 </para>
+	       </listitem>
+	       <listitem>
+	         <para>
+<command>sourceip-sourceport-destport</command>
+		 </para>
+	       </listitem>
+	       </itemizedlist><para>
+L'empreinte numérique a été expliquée ci-dessus. De façon basique 
+<command>sourceip</command> donnera de meilleures performances entre les
+connexions, mais ne possède pas un bon équlibrage de charge entre les 
+machines. <command>sourceip-sourceport</command> procure un mode de
+hachage légèrement plus lent et n'a pas une bonne maintenance d'états entre
+les connexions, mais permet un meilleur équlibrage de charge. La dernière 
+crée des modes de hachage très lents consommant beaucoup de mémoire, mais 
+permet un équlibrage de charge très performant. 
+ 
+             </para></entry>
+           </row>
+
+           <row>
+             <entry>Option</entry>
+             <entry><command>--clustermac</command></entry>
+           </row>
+           <row>
+             <entry>Exemple</entry>
+             <entry><command>iptables -A INPUT -p tcp -d 192.168.0.5 --dport 80
+-j CLUSTERIP --new --hashmode sourceip --clustermac 01:00:5e:00:00:20 ...</command>
+             </entry>
+           </row>
+           <row>
+             <entry>Explication</entry>
+             <entry>
+L'adresse MAC que le cluster écoute pour les nouvelles connexions.
+C'est une adresse Multicast MAC sur laquelle tous les hôtes sont en
+écoute. Voir plus haut pour plus d'explication.
+             </entry>
+           </row>
+
+           <row>
+             <entry>Option</entry>
+             <entry><command>--total-nodes</command></entry>
+           </row>
+           <row>
+             <entry>Exemple</entry>
+             <entry><command>iptables -A INPUT -p tcp -d 192.168.0.5 --dport 80
+	     -j CLUSTERIP --new --hashmode sourceip --clustermac
+	     01:00:5e:00:00:20 --total-nodes 2 ...</command>
+             </entry>
+           </row>
+           <row>
+             <entry>Explication</entry>
+             <entry>
+Le mot-clé <command>--total-nodes</command> spécifie combien d'hôtes 
+participent au cluster et répondront aux requêtes. Voir plus haut pour 
+plus d'explication.
+             </entry>
+           </row>
+
+           <row>
+             <entry>Option</entry>
+             <entry><command>--local-node</command></entry>
+           </row>
+           <row>
+             <entry>Exemple</entry>
+             <entry><command>iptables -A INPUT -p tcp -d 192.168.0.5 --dport 80
+	     -j CLUSTERIP --new --hashmode sourceip --clustermac
+	     01:00:5e:00:00:20 --total-nodes 2 --local-node 1</command>
+             </entry>
+           </row>
+           <row>
+             <entry>Explication</entry>
+             <entry>
+C'est le numéro que cette machine a dans le cluster. Le cluster répond
+en séquence périodiquement, donc une fois qu'une nouvelle connexion est 
+établie par le cluster, la machine suivante répond, et la suivante, ainsi
+de suite.
+             </entry>
+           </row>
+
+           <row>
+             <entry>Option</entry>
+             <entry><command>--hash-init</command></entry>
+           </row>
+           <row>
+             <entry>Exemple</entry>
+             <entry><command>iptables -A INPUT -p tcp -d 192.168.0.5 --dport 80
+	     -j CLUSTERIP --new --hashmode sourceip --clustermac
+	     01:00:5e:00:00:20 --hash-init 1234</command>
+             </entry>
+           </row>
+           <row>
+             <entry>Explication</entry>
+             <entry>
+Spécifie un grenage aléatoire pour l'initialisation du hachage.
+             </entry>
+           </row>
+
+	 </tbody>
+       </tgroup>
+     </table>
+
+     <indexterm zone="clusterip.warning">
+       <primary>RFC</primary>
+       <secondary>1812</secondary>
+     </indexterm>
+     <warning xml:id="clusterip.warning">
+       <para>
+Cette cible est en violation de la <link linkend="rfc1812"
+endterm="rfc1812.title"></link> aussi méfiez vous des problèmes qui pourraient
+survenir. La section 3.3.2 indique qu'un routeur ne doit jamais faire
+confiance à un autre routeur ou hôte qui indique utiliser une Multicast MAC.
+       </para>
+     </warning>
+
+     <note>
+       <para>
+Fonctionne avec les derniers noyaux Linux 2.6, indiqué comme expérimental.
+       </para>
+     </note>
+   </section>
+   <section xml:id="connmarktarget">
+    <title xml:id="connmarktarget.title">Cible CONNMARK</title>
+    <indexterm zone="connmarktarget">
+      <primary>CONNMARK target</primary>
+    </indexterm>
+    <indexterm zone="table.connmarktarget">
+      <primary>Target</primary>
+      <secondary>CONNMARK</secondary>
+      <seealso>CONNMARK target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>CONNMARK</command> sert a placer une marque sur une 
+connexion, comme le fait la cible <command>MARK</command>. Elle peut alors 
+être utilisée avec la correspondance <command>connmark</command> pour 
+sélectionner la connexion dans le futur. Par exemple, nous voyons un
+comportement spécifique dans un en-tête, et nous ne voulons pas marquer
+juste le paquet, mais la connexion complète. 
+La cible <command>CONNMARK</command> est une solution parfaite dans ce cas.
+    </para>
+
+    <para>
+La cible <command>CONNMARK</command> est disponible dans toutes les chaînes
+et toutes les tables, mais souvenez vous que la table NAT n'est traversée
+seulement que par le premier paquet dans une connexion, ainsi la cible 
+<command>CONNMARK</command> n'aura pas d'effet si vous essayez de l'utiliser
+sur les paquets suivants le premier. Elle peut prendre une des quatre options
+différentes ci-dessous : 
+    </para>
+
+    <indexterm zone="table.connmarktarget">
+      <primary>CONNMARK target</primary>
+      <secondary>--set-mark</secondary>
+    </indexterm>
+    <indexterm zone="table.connmarktarget">
+      <primary>--set-mark</primary>
+    </indexterm>
+    <indexterm zone="table.connmarktarget">
+      <primary>Set-mark target</primary>
+    </indexterm>
+
+    <indexterm zone="table.connmarktarget">
+      <primary>CONNMARK target</primary>
+      <secondary>--save-mark</secondary>
+    </indexterm>
+    <indexterm zone="table.connmarktarget">
+      <primary>--save-mark</primary>
+    </indexterm>
+    <indexterm zone="table.connmarktarget">
+      <primary>Save-mark target</primary>
+    </indexterm>
+
+    <indexterm zone="table.connmarktarget">
+      <primary>CONNMARK target</primary>
+      <secondary>--restore-mark</secondary>
+    </indexterm>
+    <indexterm zone="table.connmarktarget">
+      <primary>--restore-mark</primary>
+    </indexterm>
+    <indexterm zone="table.connmarktarget">
+      <primary>Restore-mark target</primary>
+    </indexterm>
+
+    <indexterm zone="table.connmarktarget">
+      <primary>CONNMARK target</primary>
+      <secondary>--mask</secondary>
+    </indexterm>
+    <indexterm zone="table.connmarktarget">
+      <primary>--mask</primary>
+    </indexterm>
+    <indexterm zone="table.connmarktarget">
+      <primary>Mask target</primary>
+    </indexterm>
+
+    <table frame='all' xml:id="table.connmarktarget">
+      <title xml:id="table.connmarktarget.title">Options de la cible CONNMARK</title>
+      <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+ 
+        <colspec colwidth='1.5*'/>
+        <colspec colwidth='8*'/>
+
+        <tbody>
+
+          <row>
+            <entry>Option</entry>
+            <entry><command>--set-mark</command></entry>
+          </row>
+          <row>
+            <entry>Exemple</entry>
+            <entry><command>iptables -t nat -A PREROUTING -p tcp --dport 80 -j
+	    CONNMARK --set-mark 4</command></entry>
+          </row>
+          <row>
+            <entry>Explication</entry>
+            <entry>
+Cette option place une marque sur la connexion. La marque peut être un
+entier long non signé, ce qui indique que des valeurs entre 0 et 4294967295l 
+sont valides. Chaque bit peut aussi être marqué par la commande 
+<command>--set-mark 12/8</command>. Ceci permettra seulement aux bits du 
+masque d'être en dehors des bits de la marque. Dans cet exemple, seul le
+4e bit sera placé, pas le 3e. 12 traduit en binaire (1100), et 8 (1000), 
+et seulement les bits placés dans le masque sont autorisés. Hormis cela, seul 
+le 4e bit, ou 8, est placé dans la marque.
+            </entry>
+          </row>
+
+          <row>
+            <entry>Option</entry>
+            <entry><command>--save-mark</command></entry>
+          </row>
+          <row>
+            <entry>Exemple</entry>
+            <entry><command>iptables -t mangle -A PREROUTING --dport 80 -j
+	    CONNMARK --save-mark</command></entry>
+          </row>
+          <row>
+            <entry>Explication</entry>
+            <entry>
+L'option de la cible <command>--save-mark</command> sert à sauvegarder les 
+paquets marqués dans la marque de connexion. Par exemple, si vous avez
+placé un paquet marqué avec la cible <command>MARK</command>, vous pouvez
+alors déplacer cette marque pour marquer l'ensemble de la connexion avec 
+la correspondance <command>--save-mark</command>. La marque peut aussi être 
+masquée en utilisant l'option <command>--mask</command> décrite plus loin.
+            </entry>
+          </row>
+
+          <row>
+            <entry>Option</entry>
+            <entry><command>--restore-mark</command></entry>
+          </row>
+          <row>
+            <entry>Exemple</entry>
+            <entry><command>iptables -t mangle -A PREROUTING --dport 80 -j
+	    CONNMARK --restore-mark</command></entry>
+          </row>
+          <row>
+            <entry>Explication</entry>
+            <entry>
+Cette option de cible restaure le paquet marqué dans la marque de connexion
+comme défini par <command>CONNMARK</command>. Un masque peut aussi être
+défini par l'option <command>--mask</command> comme vu plus haut. Si une
+option mask est placée, seules les options masquées seront placées. Notez
+que cette option de cible n'est valide que dans la table mangle.
+            </entry>
+          </row>
+
+          <row>
+            <entry>Option</entry>
+            <entry><command>--mask</command></entry>
+          </row>
+          <row>
+            <entry>Exemple</entry>
+            <entry><command>iptables -t mangle -A PREROUTING --dport 80 -j
+	    CONNMARK --restore-mark --mask 12</command></entry>
+          </row>
+          <row>
+            <entry>Explication</entry>
+            <entry>
+L'option <command>--mask</command> doit être utilisée avec les options 
+<command>--save-mark</command> et <command>--restore-mark</command>.
+L'option <command>--mask</command> spécifie que devraient être appliquées
+les valeurs de marque que fournissent les deux autres options. Par exemple, 
+si restore-mark de l'exemple ci-dessus est à 15, ceci veut dire que la marque
+est 1111 en binaire, tandis que le masque est à 1100. 1111 et 1100 égale 1100.
+            </entry>
+          </row>
+
+        </tbody>
+      </tgroup>
+    </table>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="connsecmarktarget">
+    <title xml:id="connsecmarktarget.title">Cible CONNSECMARK</title>
+    <indexterm zone="connsecmarktarget">
+      <primary>CONNSECMARK target</primary>
+    </indexterm>
+    <indexterm zone="table.connsecmarktarget">
+      <primary>Target</primary>
+      <secondary>CONNSECMARK</secondary>
+      <seealso>CONNSECMARK target</seealso>
+    </indexterm>
+    <indexterm zone="connsecmarktarget">
+      <primary>SELinux</primary>
+    </indexterm>
+
+    <para>
+La cible <command>CONNSECMARK</command> place une marque dans le contexte
+de sécurité SELinux vers ou depuis une marque de paquet. Pour plus 
+d'information sur SELinux voir <link linkend="selinux"
+endterm="selinux.title"></link>. La cible n'est valide que dans la table
+mangle, elle est utilisée conjointement avec la cible 
+<command>SECMARK</command>, laquelle sert à placer la marque d'origine, 
+ensuite <command>CONNSECMARK</command> place la marque sur la connexion
+complète.
+
+    </para>
+
+    <para>
+SELinux est en dehors du propos de ce document, mais de façon basique c'est 
+un ajout de Mandatory Access Control à Linux. Il est plus précis que la 
+plupart des sytèmes de sécurité d'origine de beaucoup de Linux/Unix.
+Chaque objet peut avoir des attributs ou des contextes de sécurité, connecté
+à lui, et ces attributs sont ensuite sélectionnés pour permettre ou refuser
+à une tâche spécifique d'être exécutée. Cette cible permet à un contexte
+de sécurité d'être placé sur une connexion.
+    </para>
+
+    <indexterm zone="table.connsecmarktarget">
+      <primary>CONNSECMARK target</primary>
+      <secondary>--save</secondary>
+    </indexterm>
+    <indexterm zone="table.connsecmarktarget">
+      <primary>--save</primary>
+    </indexterm>
+    <indexterm zone="table.connsecmarktarget">
+      <primary>Save target</primary>
+    </indexterm>
+
+    <indexterm zone="table.connsecmarktarget">
+      <primary>CONNSECMARK target</primary>
+      <secondary>--restore</secondary>
+    </indexterm>
+    <indexterm zone="table.connsecmarktarget">
+      <primary>--restore</primary>
+    </indexterm>
+    <indexterm zone="table.connsecmarktarget">
+      <primary>Restore target</primary>
+    </indexterm>
+
+
+    <table frame='all' xml:id="table.connsecmarktarget">
+      <title xml:id="table.connsecmarktarget.title">Options de la cible CONNSECMARK</title>
+      <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+ 
+        <colspec colwidth='1.5*'/>
+        <colspec colwidth='8*'/>
+
+        <tbody>
+
+          <row>
+            <entry>Option</entry>
+            <entry><command>--save</command></entry>
+          </row>
+          <row>
+            <entry>Exemple</entry>
+            <entry><command>iptables -t mangle -A PREROUTING -p tcp --dport 80
+	    -j CONNSECMARK --save</command></entry>
+          </row>
+          <row>
+            <entry>Explication</entry>
+            <entry>
+Sauvegarde la marque du contexte de sécurité du paquet vers la connexion
+si la connexion n'est pas marquée avant.
+            </entry>
+          </row>
+
+          <row>
+            <entry>Option</entry>
+            <entry><command>--restore</command></entry>
+          </row>
+          <row>
+            <entry>Exemple</entry>
+            <entry><command>iptables -t mangle -A PREROUTING -p tcp --dport 80
+	    -j CONNSECMARK --restore</command></entry>
+          </row>
+          <row>
+            <entry>Explication</entry>
+            <entry>
+Si le paquet ne possède pas de marque de contexte de sécurité, l'option 
+<command>--restore</command> placera cette marque associée avec la
+connexion sur le paquet.
+            </entry>
+          </row>
+
+	</tbody>
+      </tgroup>
+    </table>
+
+
+
+   </section>
+
+   <section xml:id="dnattarget">
+    <title xml:id="dnattarget.title">Cible DNAT</title>
+    <indexterm zone="dnattarget">
+      <primary>DNAT target</primary>
+    </indexterm>
+    <indexterm zone="table.dnattarget">
+      <primary>Target</primary>
+      <secondary>DNAT</secondary>
+      <seealso>DNAT target</seealso>
+    </indexterm>
+    <indexterm zone="dnattarget">
+      <primary>PREROUTING</primary>
+    </indexterm>
+
+    <para>
+La cible <command>DNAT</command> est utilisée pour la Traduction d'Adresse
+Réseau de Destination, ce qui veut dire qu'elle sert à réécrire l'adresse 
+<envar>IP de Destination</envar> du paquet. Si un paquet est sélectionné, et
+qu'il est la cible de la règle, ce paquet et tous les paquets suivants du
+même flux seront traduits, et ensuite routés vers le matériel, l'hôte ou
+le réseau appropriés. Cette cible peut être extrêmement utile, par exemple,
+quand vous avez un hôte avec un serveur web dans un <emphasis>LAN</emphasis>, 
+mais pas d'IP réelle routable sur l'Internet. Vous pouvez alors indiquer
+au pare-feu de transférer tous les paquets allant vers son propre port HTTP, 
+vers le serveur web réel dans le <emphasis>LAN</emphasis>. Vous pouvez
+aussi spécifier une plage d'adresses IP de destination, et le 
+mécanisme <command>DNAT</command> choisira l'adresse IP de destination au
+hasard pour chaque flux. Nous pourrons donc réaliser une sorte
+d'équilibrage de charge en faisant ça.
+    </para>
+
+    <para>
+Notez que la cible <command>DNAT</command> est disponible uniquement dans 
+les chaînes <systemitem>PREROUTING</systemitem> et 
+<systemitem>OUTPUT</systemitem> de la table nat. Les chaînes contenant des
+cibles <command>DNAT</command> ne peuvent pas être utilisées depuis d'autres
+chaînes, comme la chaîne <systemitem>POSTROUTING</systemitem>.
+    </para>
+
+      <indexterm zone="table.dnattarget">
+        <primary>DNAT target</primary>
+        <secondary>--to-destination</secondary>
+      </indexterm>
+      <indexterm zone="table.dnattarget">
+        <primary>--to-destination</primary>
+      </indexterm>
+      <indexterm zone="table.dnattarget">
+        <primary>--to-destination target</primary>
+      </indexterm>
+
+    <table frame='all' xml:id="table.dnattarget">
+     <title xml:id="table.dnattarget.title">Options de la cible DNAT</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--to-destination</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t nat -A PREROUTING -p tcp -d 15.45.23.67
+--dport 80 -j DNAT --to-destination 192.168.1.1-192.168.1.10</command>
+        </entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--to-destination</command> indique au mécanisme 
+<systemitem>DNAT</systemitem> quelle <systemitem>Destination IP</systemitem> 
+placer dans l'en-tête IP, et où sont envoyés les paquets qui sont sélectionnés.
+L'exemple ci-dessus enverra tous les paquets destinés à l'adresse IP 
+15.45.23.67 dans une plage IP de réseau local comprise entre 192.168.1.1 
+jusqu'à 192.168.1.10. Notez que, comme décrit précédemment, un simple flux
+utilisera toujours le même hôte, et chaque flux aura une adresse IP attribuée
+au hasard, et qui sera toujours en direction de quelque part, dans ce flux.
+Nous pouvons aussi avoir à spécifier une seule adresse IP, dans ce cas nous
+serons toujours connectés au même hôte. Notez aussi que nous pouvons 
+ajouter un port ou une plage de ports vers lequel le trafic sera redirigé.
+Ceci se fait en ajoutant, par exemple, un :80 à l'adresse IP pour laquelle
+nous voulons traduire les paquets. Une règle peut alors ressembler à 
+<command>--to-destination 192.168.1.1:80</command> par exemple, ou 
+<command>--to-destination 192.168.1.1:80-100</command> si nous voulons 
+spécifier une plage de ports. Comme vous pouvez le voir, la syntaxe est à peu
+près la même que la cible <command>SNAT</command>, même si elles font 
+deux choses totalement différentes. Les spécifications de port sont 
+valides uniquement pour les règles qui précisent les protocoles TCP ou 
+UDP avec l'option <command>--protocol</command>.
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    <indexterm zone="dnattarget.more">
+      <primary>DNAT target examples</primary>
+    </indexterm>
+    <para xml:id="dnattarget.more">
+Comme <command>DNAT</command> nécessite pas mal de travail pour fonctionner
+correctement, j'ai décidé d'ajouter une explication plus complète sur
+ce sujet. Prenons un bref exemple pour comprendre comment les choses se 
+passent normalement. Nous voulons publier notre site web via notre
+connexion Internet. Nous ne possédons qu'une seule adresse IP, et le
+serveur HTTP est situé dans notre réseau interne. Notre pare-feu possède
+l'adresse IP externe <command>$INET_IP</command>, et notre serveur HTTP
+a l'adresse IP interne <command>$HTTP_IP</command> et enfin le pare-feu 
+a l'adresse IP interne <command>$LAN_IP</command>. La première chose à
+faire est d'ajouter la simple règle suivante à la chaîne PREROUTING
+dans la table nat :
+    </para>
+
+<screen width='80'>
+<command>iptables -t nat -A PREROUTING --dst $INET_IP -p tcp --dport 80 -j DNAT \
+--to-destination $HTTP_IP</command></screen>
+
+    <para> 
+Maintenant, tous les paquets provenant de l'Internet et allant vers le
+port 80 sur notre pare-feu, sont redirigés (ou <command>DNAT</command>és) 
+vers notre serveur HTTP interne. Si vous testez ceci depuis L'Internet, 
+tout devrait fonctionner parfaitement. mais, que se passe-t-il si vous
+essayez de vous connecter depuis un hôte sur le même réseau local que
+le serveur HTTP ? Il ne fonctionnera tout simplement pas. C'est un réel
+problème avec le routage. Commençons par voir ce qui se passe dans un cas
+normal. La machine externe possède une adresse IP <command>$EXT_BOX</command>,
+pour conserver la lisibilité.
+    </para>
+
+    <orderedlist>
+
+     <listitem>
+      <para>
+Le paquet quitte l'hôte connecté allant vers 
+<command>$INET_IP</command> et la source <command>$EXT_BOX</command>.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+     Le paquet atteint le pare-feu.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+     Le pare-feu <command>DNAT</command> le paquet et envoie celui-ci à 
+travers les différentes chaînes, etc.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+     Le paquet quitte la pare-feu pour aller vers le $HTTP_IP.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+      Le paquet atteint le serveur <systemitem>HTTP</systemitem>, et la
+machine HTTP répond en retour à travers le pare-feu, si c'est cette
+machine que la base de routage a entré comme passerelle pour 
+<command>$EXT_BOX</command>. Normalement, ça devrait être la passerelle
+par défaut du serveur HTTP.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+     Le pare-feu Un-<command>DNAT</command> le paquet de nouveau, ainsi
+le paquet semble provenir du pare-feu lui-même.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+     Le paquet en réponse transite vers le client <command>$EXT_BOX</command>.
+      </para>
+     </listitem>
+
+    </orderedlist>
+
+    <para> 
+Maintenant, voyons ce qui se passe si le paquet est généré par un client
+sur le même réseau que le serveur HTTP lui-même. Le client possède l'adresse
+IP <command>$LAN_BOX</command>, tandis que les autres machines ont les
+mêmes réglages.
+    </para>
+
+    <orderedlist>
+
+     <listitem>
+      <para>
+     Le paquet quitte la <command>$LAN_BOX</command> vers 
+<command>$INET_IP</command>.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+     Le paquet atteint le pare-feu.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+     Le paquet est <command>DNAT</command>é, et toutes les autres actions
+requises sont prises, cependant, le paquet n'est pas <command>SNAT</command>é,
+ainsi la même adresse source IP est utilisée pour le paquet. 
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+     Le paquet quitte le pare-feu et atteint le serveur HTTP.
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+     Le serveur HTTP essaie de répondre au paquet, et voit dans les tables
+de routage que le paquet provient d'une machine locale sur le même réseau,
+et donc tente d'envoyer le paquet directement à l'adresse source IP d'origine
+(qui devient alors l'adresse IP de destination).
+      </para>
+     </listitem>
+
+     <listitem>
+      <para>
+Le paquet atteint le client, et le client est dans la confusion car le
+paquet en retour ne provient pas de l'hôte qui a envoyé la requête d'origine.
+Donc, le client supprime le paquet, et attend une réponse "réelle".
+      </para>
+     </listitem>
+
+    </orderedlist>
+
+    <para> 
+La solution la plus simple à ce problème est de <command>SNAT</command>er 
+tous les paquets entrants dans le pare-feu sortant vers un hôte ou une IP
+sur lequel nous faisons du <command>DNAT</command>. Exemple, 
+regardons la règle ci-dessus. Nous SNATons les paquets entrants dans notre
+pare-feu qui sont destinés à <command>$HTTP_IP</command> port 80 et
+ainsi il est vu que des paquets proviennent d'une <command>$LAN_IP</command>. 
+Ceci force le serveur HTTP à envoyer ces paquets vers notre pare-feu, lequel 
+Un-<command>DNAT</command> ceux-ci et les envoie au client. La règle
+ressemble à ceci :
+    </para>
+
+<screen width='80'>
+<command>iptables -t nat -A POSTROUTING -p tcp --dst $HTTP_IP --dport 80 -j SNAT \
+--to-source $LAN_IP</command></screen>
+
+    <para> 
+Souvenez vous que la chaîne <systemitem>POSTROUTING</systemitem> 
+est exécutée en dernier, et donc le paquet sera déjà 
+<command>DNAT</command>é une fois qu'il joint cette chaîne spécifique.
+C'est la raison pour laquelle nous sélectionnons les paquets basés sur
+une adresse interne.
+    </para>
+
+    <warning>
+     <para>
+Cette dernière règle nuira sérieusement à votre journalisation, ainsi
+il n'est pas recommandé d'utiliser cette méthode, mais l'ensemble
+de l'exemple est valide. Que se passe-t-il alors, le paquet provient de
+l'Internet, est SNATé et DNATé et finalement atteint le serveur HTTP
+(par exemple). Le serveur HTTP voit maintenant les requêtes comme si elles
+provenaient du pare-feu, et donc journalisera <emphasis>toutes</emphasis> 
+ces requêtes provenant de l'Internet comme si elles provenaient du pare-feu.
+     </para>
+
+     <para>
+Ceci peut avoir également d'autres implications plus graves. Prenons un
+serveur SMTP sur un LAN, qui autorise les requêtes depuis le réseau interne,
+et vous avez un pare-feu paramétré pour transférer le trafic SMTP vers ce
+serveur. Vous avez donc créé un serveur SMTP en relais ouvert, avec une
+journalisation horrible !
+     </para>
+
+     <para>
+Une solution à ce problème est de rendre la règle SNAT plus spécifique dans 
+sa partie sélection, et de travailler seulement sur les
+paquets qui proviennent du LAN. En d'autres termes, ajoutez un 
+<command>-i $LAN_IFACE</command> à l'ensemble de la commande. Ceci fera
+que la règle ne fonctionnera que sur les flux provenant du LAN, et donc 
+n'affectera pas la source IP, ainsi les journaux seront corrects, sauf
+pour les flux venant du LAN.
+     </para>
+
+     <para>
+Vous auriez mieux fait, en d'autres termes, de résoudre ces problèmes
+soit en paramétrant un serveur DNS (serveur de nom) séparé pour votre LAN,
+soit en paramétrant une DMZ séparée, la dernière étant préférable si
+vous en avez les moyens.
+     </para>
+    </warning>
+
+    <para> 
+Vous pouvez penser que c'est suffisant, et c'est vrai, sauf à considérer
+un dernier aspect du scénario. Que se passe-t-il si le pare-feu lui-même
+essaie d'accéder au serveur HTTP, où va-t-il ? Il tentera malheureusement 
+d'accéder à son propre serveur HTTP, et pas au serveur situé sur 
+<command>$HTTP_IP</command>. Pour parer à ça, nous devons rajouter une règle 
+<command>DNAT</command> à la chaîne <systemitem>OUTPUT</systemitem>.
+Suivant l'exemple ci-dessus, ça ressemblerait à quelque chose comme :  
+    </para>
+
+<screen width='80'>
+<command>iptables -t nat -A OUTPUT --dst $INET_IP -p tcp --dport 80 -j DNAT \
+--to-destination $HTTP_IP</command></screen>
+
+    <para> 
+Tous les réseaux séparés qui ne sont pas situés sur le même réseau que
+le serveur HTTP fonctionneront sans soucis, tous les hôtes sur le même
+réseau que le serveur HTTP pourront s'y connecter et enfin, le pare-feu
+pourra exécuter ses connexions correctement. Maintenant, tout fonctionne
+et aucun problème ne devrait survenir.
+    </para>
+
+    <note>
+     <para>
+Tout le monde devrait réaliser que ces règles affectent seulement la façon
+dont le paquet est DNATé et SNATé. En plus de ces règles, nous avons 
+aussi besoin de règles supplémentaires dans la table filter (chaîne
+FORWARD) pour permettre aux paquets de traverser ces chaînes. N'oubliez pas
+que tous les paquets sont déjà passés par la chaîne PREROUTING, et donc
+ont vu leur adresse de destination réécrite par DNAT.
+     </para>
+    </note>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="droptarget">
+    <title xml:id="droptarget.title">Cible DROP</title>
+    <indexterm zone="droptarget">
+      <primary>DROP target</primary>
+    </indexterm>
+    <indexterm zone="droptarget">
+      <primary>Target</primary>
+      <secondary>DROP</secondary>
+      <seealso>DROP target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>DROP</command> fait exactement ce qu'elle veut dire, elle
+supprime des paquets morts et n'effectue aucun autre processus supplémentaire.
+Un paquet qui s'apparie parfaitement à une règle et est ensuite effacé sera
+bloqué. Notez que cette action peut avoir, dans certains cas, des effets
+inattendus, car elle peut laisser des interfaces de connexions mortes sur
+quelques hôtes. Une meilleure solution dans ces cas là serait d'utiliser   
+la cible <command>REJECT</command>, spécialement quand vous voulez bloquer 
+le balayage (scan) de ports pour ne pas donner trop d'informations, ou
+le filtrage de ports, etc. Notez également que si le paquet subit l'action 
+<command>DROP</command> dans une sous-chaîne, ce paquet ne sera traité
+dans aucune des chaînes principales, soit dans la table présente ou dans
+une quelconque autre table. Le paquet est, en d'autres termes, totalement
+mort. Comme nous l'avons vu précédemment, la cible n'enverra aucune autre
+sorte d'information dans aucune direction, même par des intermédiaires comme
+les routeurs.
+    </para>
+    
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="dscptarget">
+    <title xml:id="dscptarget.title">Cible DSCP</title>
+    <indexterm zone="dscptarget">
+      <primary>DSCP target</primary>
+    </indexterm>
+    <indexterm zone="table.dscptarget">
+      <primary>Target</primary>
+      <secondary>DSCP</secondary>
+      <seealso>DSCP target</seealso>
+    </indexterm>
+    <indexterm zone="dscptarget">
+      <primary>RFC</primary>
+      <secondary>2474</secondary>
+    </indexterm>
+ 
+    <para>
+C'est une cible qui modifie les repères DSCP (Differentiated Services Field) 
+dans un paquet. La cible <command>DSCP</command> peut placer n'importe quelle
+valeur DSCP dans un paquet TCP, ce qui est un moyen d'indiquer aux routeurs
+la priorité du paquet en question. Pour plus d'information sur DSCP, 
+voyez la <link linkend="rfc2474" endterm="rfc2474.title"></link>.
+    </para>
+    
+    <para>
+De façon basique, DSCP est un moyen de différencier divers services de
+catégories séparées, et leur donner différentes priorités à travers
+les routeurs. De cette façon, vous pouvez donner à des sessions TCP
+interactives (comme telnet, SSH, POP3) une très grande vitesse de connexion,
+celles-ci pouvant ne pas être très appropriées pour des tranferts importants.
+Si la connexion est de plus faible importance (SMTP, ou ce que vous voulez 
+classer en basse priorité), vous pouvez employer un temps de latence plus
+important, ce qui est meilleur marché que d'utiliser des connexions en
+haute ou basse latence.
+    </para>
+
+    <indexterm zone="table.dscptarget">
+      <primary>DSCP target</primary>
+      <secondary>--set-dscp</secondary>
+    </indexterm>
+    <indexterm zone="table.dscptarget">
+      <primary>--set-dscp</primary>
+    </indexterm>
+    <indexterm zone="table.dscptarget">
+      <primary>Set-dscp target</primary>
+    </indexterm>
+
+    <indexterm zone="table.dscptarget">
+      <primary>DSCP Target</primary>
+      <secondary>--set-dscp-class</secondary>
+    </indexterm>
+    <indexterm zone="table.dscptarget">
+      <primary>--set-dscp-class</primary>
+    </indexterm>
+    <indexterm zone="table.dscptarget">
+      <primary>Set-dscp-class target</primary>
+    </indexterm>
+
+    <table frame='all' xml:id="table.dscptarget">
+     <title xml:id="table.dscptarget.title">Options de la cible DSCP</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--set-dscp</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A FORWARD -p tcp --dport 80 -j 
+DSCP --set-dscp 1</command>
+        </entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Ceci place la valeur DSCP à la valeur spécifiée. Les valeurs peuvent être
+placées soit par class, voir ci-dessous, soit avec 
+<command>--set-dscp</command>, qui prend une valeur entière ou une valeur
+hexadécimale.
+        </entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--set-dscp-class</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A FORWARD -p tcp --dport 80 -j 
+DSCP --set-dscp-class EF</command>
+        </entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Place le champ DSCP selon une classe Diffserv prédéfinie. Certaines des
+valeurs possibles sont EF, BE et les valeurs CSxx et AFxx disponibles.
+Vous pouvez trouver plus d'information sur le site 
+ <link linkend="ciscodscp" endterm="ciscodscp.title"></link>. Notez que les
+commandes <command>--set-dscp-class</command> et <command>--set-dscp</command>
+sont mutuellement exclusives, ce qui veut dire que vous ne pouvez pas
+les utiliser ensemble dans la même commande ! 
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+   
+
+   <section xml:id="ecntarget">
+    <title xml:id="ecntarget.title">Cible ECN</title>
+    <indexterm zone="ecntarget">
+      <primary>ECN target</primary>
+    </indexterm>
+    <indexterm zone="table.ecntarget">
+      <primary>Target</primary>
+      <secondary>ECN</secondary>
+      <seealso>ECN target</seealso>
+    </indexterm>
+
+    <para>
+Cette cible peut être extraordinaire, utilisée correctement. Simplement
+placée, la cible <command>ECN</command> peut être utilisée pour 
+réinitialiser les bits ECN depuis l'en-tête IPv4, ou les réinitialiser 
+à 0 au moins. ECN est une chose relativement nouvelle sur le net, et il
+y a quelques problèmes avec elle. Par exemple, elle utilise 2 bits définis
+dans la RFC originale du protocole TCP comme devant être à 0. Certains 
+routeurs et autres serveurs Internet ne transfèrent pas les paquets dont
+les bits sont placés à 1. Si vous voulez faire usage d'une partie au moins
+des fonctionnalités de ECN depuis vos hôtes, vous pourrez par exemple
+réinitialiser les bits ECN à 0 pour les réseaux spécifiques dont nous
+savons qu'il y a des problèmes de connexion à cause de ECN.
+    </para>
+    
+    <note>
+      <para>
+Notez qu'il n'est pas possible d'activer ECN au milieu d'un flux. Ce n'est 
+pas autorisé selon la RFC, et ne sera possible en aucune façon.
+Les deux points limites d'un flux doivent négocier l'ECN. Si nous l'activons,
+un des hôtes n'est pas informé de cela, et ne peux répondre proprement
+aux notifications ECN.
+      </para>
+    </note>
+
+    <indexterm zone="table.ecntarget">
+      <primary>ECN target</primary>
+      <secondary>--ecn-tcp-remove</secondary>
+    </indexterm>
+    <indexterm zone="table.ecntarget">
+      <primary>--ecn-tcp-remove</primary>
+    </indexterm>
+    <indexterm zone="table.ecntarget">
+      <primary>Ecn-tcp-remove target</primary>
+    </indexterm>
+
+
+    <table frame='all' xml:id="table.ecntarget">
+     <title xml:id="table.ecntarget.title">Options de la cible ECN</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--ecn-tcp-remove</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A FORWARD -p tcp --dport 80 -j 
+ECN --ecn-tcp-remove</command>
+        </entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+La cible ECN prend un seul argument, <command>--ecn-tcp-remove</command>.
+Ceci indique à la cible de supprimer les bits ECN des en-têtes TCP.
+Voir au-dessus pour plus d'information.
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+   
+   
+   <section xml:id="logtarget">
+    <title xml:id="logtarget.title">Options de la cible LOG</title>
+    <indexterm zone="logtarget">
+      <primary>LOG target</primary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>Target</primary>
+      <secondary>LOG</secondary>
+      <seealso>LOG target</seealso>
+    </indexterm>
+    <indexterm zone="logtarget">
+      <primary>Syslog</primary>
+    </indexterm>
+    <indexterm zone="logtarget">
+      <primary>Dmesg</primary>
+    </indexterm>
+ 
+
+    <para>
+La cible <command>LOG</command> est spécialement destinée à journaliser
+des informations détaillées sur les paquets. Ceci peut, par exemple, être
+considéré comme illégal. Mais la journalisation peut servir à la recherche de
+bogues et d'erreurs. La cible <command>LOG</command> renverra une information
+spécifique sur les paquets, comme les en-têtes IP et autre détails
+considérés comme intéressants. Ceci se réalise par les fonctionnalités
+de journalisation du noyau, normalement <command>syslogd</command>. Cette
+information peut alors être lue directement avec la commande 
+<command>dmesg</command>, ou depuis les journaux 
+<command>syslogd</command>, ou avec d'autres programmes ou applications.
+C'est une excellente cible utilisée comme débogage des tables de règles, 
+ainsi vous pouvez voir où vont les paquets et comment les règles
+sont appliquées et sur quels paquets. Notez que ce peut être une très bonne
+idée d'utiliser la cible <command>LOG</command> au lieu de la cible 
+<command>DROP</command> lorsque vous testez une règle dont vous n'êtes pas
+sûrs à 100% de son efficacité dans un pare-feu en production, car une
+erreur de syntaxe dans la table de règles pourrait causer de sévères
+problèmes de connectivité entre vos utilisateurs. Notez aussi que la cible 
+<command>ULOG</command> peut être intéressante si vous utilisez réellement
+une journalisation extensive, car <command>ULOG</command> supporte 
+directement la journalisation dans les bases de données 
+<systemitem>MySQL</systemitem> et d'autres.
+    </para>
+
+    <note>
+     <para>
+Notez que si vous obtenez une sortie de journalisation directement
+vers les consoles, ce n'est pas un problème de <command>iptables</command> 
+ou Netfilter, mais plutôt un problème causé par votre configuration de
+syslogd - probablement <filename>/etc/syslog.conf</filename>. 
+Pour en savoir plus <command>man syslog.conf</command>.
+     </para>
+     
+     <para>
+Vous pourriez aussi désirer revoir les paramétrages de 
+<command>dmesg</command>. <command>dmesg</command> est la commande qui
+permet de voir sur une console les erreurs envoyées par le noyau.
+<command>dmesg -n 1</command> enverra tous les messages sur la console, sauf
+les messages de panique. Les niveaux de message de dmesg s'apparient exactement
+aux niveaux de syslogd, et fonctionnent seulement sur les messages de
+journalisation depuis les fonctionnalités du noyau. Pour plus d'information 
+voir <command>man dmesg</command>.
+     </para>
+    </note>
+
+    <para>
+La cible <command>LOG</command> prend actuellement cinq options qui 
+peuvent être intéressantes si vous recherchez une information précise,
+ou désirez placer différentes options pour certaines valeurs. Elles
+sont présentées ci-dessous.
+    </para>
+
+    <indexterm zone="table.logtarget">
+      <primary>LOG target</primary>
+      <secondary>--log-level</secondary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>--log-level</primary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>Log-level target</primary>
+    </indexterm>
+
+    <indexterm zone="table.logtarget">
+      <primary>LOG target</primary>
+      <secondary>--log-prefix</secondary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>--log-prefix</primary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>Log-prefix target</primary>
+    </indexterm>
+
+    <indexterm zone="table.logtarget">
+      <primary>LOG target</primary>
+      <secondary>--log-tcp-sequence</secondary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>--log-tcp-sequence</primary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>Log-tcp-sequence target</primary>
+    </indexterm>
+
+    <indexterm zone="table.logtarget">
+      <primary>LOG target</primary>
+      <secondary>--log-tcp-options</secondary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>--log-tcp-options</primary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>Log-tcp-options target</primary>
+    </indexterm>
+
+    <indexterm zone="table.logtarget">
+      <primary>LOG target</primary>
+      <secondary>--log-ip-options</secondary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>--log-ip-options</primary>
+    </indexterm>
+    <indexterm zone="table.logtarget">
+      <primary>Log-ip-options target</primary>
+    </indexterm>
+
+    <table frame='all' xml:id="table.logtarget">
+     <title xml:id="table.logtarget.title">Options de la cible LOG</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--log-level</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A FORWARD -p tcp -j LOG --log-level
+debug</command>
+        </entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+C'est l'option qui indique à <command>iptables</command> et
+<command>syslog</command> quel niveau de journalisation utiliser. Pour une
+liste complète des niveaux de journalisation lisez le manuel 
+<filename>syslog.conf</filename>. Normalement il y a les niveaux de 
+journalisation suivants, ou les priorités qui s'y réfèrent : 
+<systemitem>debug</systemitem>, <systemitem>info</systemitem>,
+<systemitem>notice</systemitem>, <systemitem>warning</systemitem>,
+<systemitem>warn</systemitem>, <systemitem>err</systemitem>,
+<systemitem>error</systemitem>, <systemitem>crit</systemitem>,
+<systemitem>alert</systemitem>, <systemitem>emerg</systemitem> et
+<systemitem>panic</systemitem>. le mot-clé <systemitem>error</systemitem> est
+le même que <systemitem>err</systemitem>, <systemitem>warn</systemitem> est 
+le même que <systemitem>warning</systemitem> et <systemitem>panic</systemitem> le même que <systemitem>emerg</systemitem>. Notez que tous les trois sont 
+obsolètes, en d'autres termes n'utilisez pas <systemitem>error</systemitem>,
+<systemitem>warn</systemitem> et <systemitem>panic</systemitem>. 
+La priorité définit le niveau de rigueur des messages journalisés. Tous les
+messages sont journalisés par les fonctionnalités du noyau. En d'autres
+termes, placer <command>kern.=info /var/log/iptables</command> dans votre 
+fichier <filename>syslog.conf</filename> et ensuite laisser tous vos messages 
+de <command>LOG</command> dans <command>iptables</command> utilise le niveau
+info, ce qui fera que tous vos messages apparaîtront dans le fichier 
+<filename>/var/log/iptables</filename>. Notez qu'il peut y avoir d'autres
+messages provenant d'autres parties du noyau qui utilisent la priorité info.
+Pour plus d'information sur la journalisation, je vous recommande de
+lire les pages de manuel de <command>syslog</command> et 
+<filename>syslog.conf</filename> comme les autres HOWTO, etc.
+        </entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--log-prefix</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A INPUT -p tcp -j LOG --log-prefix "INPUT
+packets"</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette option indique à <command>iptables</command> de préfixer tous les
+messages de journalisation avec un préfixe spécifique, qui peut être
+facilement combiné avec <command>grep</command> ou d'autres outils qui
+permettent de tracer ces problèmes et les sorties des différentes règles.
+Le préfixe peut avoir jusqu'à 29 lettres de long, incluant les espaces
+et autres symboles spéciaux.
+        </entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--log-tcp-sequence</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A INPUT -p tcp -j LOG
+--log-tcp-sequence</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette option journalisera les numéros des 
+<systemitem>Séquences TCP</systemitem>, avec le message de journalisation. 
+Les numéros de Séquences TCP sont des nombres spéciaux qui identifient
+chaque paquet et qu'ils ajustent dans une séquence TCP, et permettent
+de savoir comment le flux sera réassemblé. Notez que cette option
+constitue un risque de sécurité si les journaux sont lisibles par
+des utilisateurs non autorisés, ou par tout le monde.
+        </entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--log-tcp-options</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A FORWARD -p tcp -j LOG
+--log-tcp-options</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--log-tcp-options</command> journalise les différentes 
+options des en-têtes des paquets TCP et peuvent être utiles lors du 
+débogage. Cette option ne prend aucun champ de variable, comme beaucoup
+d'options <command>LOG</command>.
+        </entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--log-ip-options</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A FORWARD -p tcp -j LOG
+--log-ip-options</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--log-ip-options</command> journalisera la plupart des
+options des en-têtes de paquets IP. Elle fonctionne exactement comme l'option 
+<command>--log-tcp-options</command>, mais sur les options IP.
+Ces messages de journalisation peuvent être utiles pour le débogage ou le
+traçage, comme dans l'option précédente.
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="marktarget">
+    <title xml:id="marktarget.title">Cible MARK</title>
+    <indexterm zone="marktarget">
+      <primary>MARK target</primary>
+    </indexterm>
+    <indexterm zone="table.marktarget">
+      <primary>Target</primary>
+      <secondary>MARK</secondary>
+      <seealso>MARK target</seealso>
+    </indexterm>
+    <indexterm zone="marktarget">
+      <primary>Qdisc</primary>
+    </indexterm>
+    <indexterm zone="marktarget">
+      <primary>Routing</primary>
+    </indexterm>
+
+     <para>
+La cible <command>MARK</command> sert à placer les valeurs de marquage 
+<command>Netfilter</command> qui sont associées à des paquets spécifiques.
+Cette cible n'est valide que dans la table mangle, et ne fonctionne pas en
+dehors de celle-ci. Les valeurs <command>MARK</command> peuvent être utilisées
+conjointement avec les possibilités de routage avancé de Linux pour envoyer
+différents paquets à travers différentes routes et indiquer d'utiliser
+différentes disciplines de files d'attente (qdisc), etc. Pour plus
+d'information sur le routage avancé, voyez le
+ <link linkend="lartc" endterm="lartc.title"></link>. Notez que la valeur
+de marquage n'est pas incluse dans le paquetage actuel, mais est associée
+au paquet dans le noyau. En d'autres termes, vous ne pouvez pas placer une 
+<command>MARK</command> pour un paquet et ensuite espérer que la 
+<command>MARK</command> sera toujours présente sur un autre hôte.
+Si c'est ce que vous voulez, vous feriez mieux d'utiliser la cible 
+<command>TOS</command> qui analysera la valeur TOS dans l'en-tête IP.
+     </para>
+
+    <indexterm zone="table.marktarget">
+      <primary>MARK target</primary>
+      <secondary>--set-mark</secondary>
+    </indexterm>
+    <indexterm zone="table.marktarget">
+      <primary>--set-mark</primary>
+    </indexterm>
+    <indexterm zone="table.marktarget">
+      <primary>Set-mark target</primary>
+    </indexterm>
+
+    <table frame='all' xml:id="table.marktarget">
+     <title xml:id="table.marktarget.title">Options de la cible MARK</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--set-mark</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A PREROUTING -p tcp --dport 22 -j
+MARK --set-mark 2</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--set-mark</command> est nécessaire pour placer une marque.
+<command>--set-mark</command> prend une valeur entière. Par exemple, nous
+pouvons placer la marque à 2 sur un flux spécifique de paquets, ou sur tous
+les paquets provenant d'un hôte précis et ensuite faire du routage
+avancé sur cet hôte, pour augmenter ou diminuer la bande passante du réseau,
+etc.
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+    
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="masqueradetarget">
+    <title xml:id="masqueradetarget.title">Cible MASQUERADE</title>
+    <indexterm zone="masqueradetarget">
+      <primary>MASQUERADE target</primary>
+    </indexterm>
+    <indexterm zone="table.masqueradetarget">
+      <primary>Target</primary>
+      <secondary>MASQUERADE</secondary>
+      <seealso>MASQUERADE target</seealso>
+    </indexterm>
+    <indexterm zone="masqueradetarget">
+      <primary>NAT</primary>
+    </indexterm>
+    <indexterm zone="masqueradetarget">
+      <primary>DHCP</primary>
+    </indexterm>
+
+    <para>
+La cible <command>MASQUERADE</command> est utilisée (de façon basique) comme
+la cible <command>SNAT</command>, mais ne nécessite aucune option 
+<command>--to-source</command>. La raison de ceci est que la cible 
+<command>MASQUERADE</command> a été créée pour fonctionner avec, par exemple,
+des connexions en dial-up (accès par ligne commutée), ou en DHCP, qui
+récupèrent des adresses IP dynamiques lors de la connexion au réseau.
+Ceci veut dire que vous n'utiliserez la cible <command>MASQUERADE</command> 
+qu'avec des connexions fournissant des adresses IP dynamiques. Si vous avez
+une adresse IP statique, vous utiliserez dans ce cas la cible 
+<command>SNAT</command>.
+    </para>
+
+    <para>
+Quand vous masquez une connexion, cela indique que vous placez l'adresse IP
+utilisée sur une interface réseau spécifique au lieu de l'option 
+<command>--to-source</command>, et l'adresse IP est automatiquement 
+récupérée depuis cette interface spécifique. La cible 
+ <command>MASQUERADE</command> a également pour effet que les connexions
+sont abandonnées quand une interface est coupée, ce qui est extrêmement
+intéressant si nous coupons une interface spécifique.
+Ceci est, en général, le comportement correct avec les lignes en dial-up 
+qui ont sans doute des IP assignées à chaque connexion. Lorsque une IP 
+différente est attribuée, la connexion est perdue, et il est inutile d'en 
+conserver les entrées.
+    </para>
+
+    <para>
+Il est toujours possible d'utiliser la cible <command>MASQUERADE</command> 
+au lieu de <command>SNAT</command> même si vous avez une IP statique,
+cependant, ce n'est pas très intéressant car ça ajoute un surdébit, et 
+peut aller à l'encontre de vos scripts et les rendre inutilisables.
+    </para>
+
+    <para>
+Notez que la cible <command>MASQUERADE</command> n'est valide que dans la
+chaîne <systemitem>POSTROUTING</systemitem> de la table nat, comme la cible 
+<command>SNAT</command>. <command>MASQUERADE</command> ne prend qu'une option
+spécifiée ci-dessous, et qui est optionnelle.
+    </para>
+
+    <indexterm zone="table.masqueradetarget">
+      <primary>MASQUERADE target</primary>
+      <secondary>--to-ports</secondary>
+    </indexterm>
+    <indexterm zone="table.masqueradetarget">
+      <primary>--to-ports</primary>
+    </indexterm>
+    <indexterm zone="table.masqueradetarget">
+      <primary>To-ports target</primary>
+    </indexterm>
+
+    <table frame='all' xml:id="table.masqueradetarget">
+     <title xml:id="table.masqueradetarget.title">Options de la cible MASQUERADE</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--to-ports</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t nat -A POSTROUTING -p TCP -j MASQUERADE
+--to-ports 1024-31000</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--to-ports</command> est utilisée pour placer le port
+source ou d'autres ports sur des paquets sortants. Soit vous pouvez spécifier
+un seul port comme <command>--to-ports 1025</command> soit une plage de
+ports comme <command>--to-ports 1024-3000</command>. En d'autres termes,
+les délimitations des plages de ports la plus basse et la plus haute 
+séparées par un tiret. Ceci modifie la sélection de port par défaut
+de SNAT comme décrit dans la section 
+ <link linkend="snattarget" endterm="snattarget.title"></link>. L'option 
+<command>--to-ports</command> n'est valide que si la section de 
+correspondance de la règle spécifie les protocoles TCP ou UDP avec
+la correspondance <command>--protocol</command>.
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+    
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+
+   <section xml:id="mirrortarget">
+    <title xml:id="mirrortarget.title">Cible MIRROR</title>
+    <indexterm zone="mirrortarget">
+      <primary>MIRROR target</primary>
+    </indexterm>
+    <indexterm zone="mirrortarget">
+      <primary>Target</primary>
+      <secondary>MIRROR</secondary>
+      <seealso>MIRROR target</seealso>
+    </indexterm>
+
+    <warning>
+      <para>
+Attention, <command>MIRROR</command> est dangereux et n'a été développé
+que comme exemple de code pour le nouveau conntrack et NAT. Elle peut
+provoquer des failles dangereuses, et de très sérieux DDoS/DoS sont
+possibles si elle est utilisée improprement. Évitez de l'utiliser dans
+tous les cas ! Elle a été supprimée dans les noyaux 2.5 et 2.6 à cause
+de ses implications pour la sécurité.
+      </para>
+    </warning>
+    
+    
+    <para>
+La cible <command>MIRROR</command> est expérimentale, et vous êtes prévenus
+qu'il peut en résulter de sérieux problèmes de Denial of Service. 
+<command>MIRROR</command> est utilisée pour inverser les champs source
+et destination dans l'en-tête IP, avant de retransmettre le paquet.
+Ceci peut causer quelques effets comiques, un cracker a cracké sa propre
+machine en l'utilisant. Plaçons une cible <command>MIRROR</command>  sur
+le port 80 d'un ordinateur A. Si l'hôte B vient de yahoo.com, et essaie
+d'accéder au serveur HTTP de A, le cible <command>MIRROR</command> 
+renverra l'hôte yahoo à sa propre page web (car c'est de là que vient
+la requête).
+    </para>
+
+    <para>
+Notez que la cible <command>MIRROR</command> n'est valide que dans les chaînes 
+<systemitem>INPUT</systemitem>, <systemitem>FORWARD</systemitem> et
+<systemitem>PREROUTING</systemitem>, et les chaînes définies par l'utilisateur.
+Notez aussi que les paquets sortants sont le résultat de la cible 
+<command>MIRROR</command> et ne sont vus par aucune des chaînes normales
+du filtre, les tables nat ou mangle, qui peuvent provoquer des boucles et
+autres problèmes. Ceci peut faire que la cible soit la cause de maux de têtes
+inattendus. Par exemple, un hôte peut envoyer un paquet de mystification
+vers un autre hôte qui utilise la commande  <command>MIRROR</command> avec
+un TTL de 255, en même temps il mystifie son propre paquet, comme s'il
+semblait qu'il venait d'un troisième hôte utilisant cette commande  
+<command>MIRROR</command>. Le paquet sera alors renvoyé sans arrêt, du 
+nombre de sauts nécessaires pour qu'il soit complété. S'il n'y a qu'un
+seul saut, le paquet reviendra 240-255 fois. C'est intéressant pour
+un cracker, en d'autres termes, envoyer 1500 octets de données consomme
+380 ko de votre connexion. Notez que ceci est le meilleur scenario pour
+un cracker.
+    </para>
+    
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3 et 2.4. A été supprimé dans les noyaux
+2.5 et 2.6 à cause de problèmes de sécurité. N'utilisez pas cette cible !
+      </para>
+    </note>
+
+   </section>
+   <section xml:id="netmaptarget">
+    <title xml:id="netmaptarget.title">Cible NETMAP</title>
+    <indexterm zone="netmaptarget">
+      <primary>NETMAP target</primary>
+    </indexterm>
+    <indexterm zone="table.netmaptarget">
+      <primary>Target</primary>
+      <secondary>NETMAP</secondary>
+      <seealso>NETMAP target</seealso>
+    </indexterm>
+
+    <para>
+<command>NETMAP</command> est une nouvelle implémentation des cibles 
+<command>SNAT</command> et <command>DNAT</command> où la partie hôte  
+de l'adresse IP n'est pas changée. Elle procure une fonction 
+<systemitem>NAT</systemitem> 1:1 pour l'ensemble des réseaux qui n'ont pas 
+de fonctions  <command>SNAT</command> et <command>DNAT</command> standard.
+Par exemple, nous avons un réseau de 254 hôtes utilisant des adresses IP
+privées (un réseau /24), et nous avons un nouveau réseau /24 d'adresses IP
+publiques. Au lieu de changer les IP de chacun des hôtes, il sera plus simple
+d'utiliser la cible <command>NETMAP</command> comme -j NETMAP -to 
+10.5.6.0/24, tous les hôtes seront vus comme 10.5.6.x quand ils quitteront
+le pare-feu. Exemple, 192.168.0.26 deviendra 10.5.6.26.
+     </para>
+     
+    <indexterm zone="table.netmaptarget">
+      <primary>NETMAP target</primary>
+      <secondary>--to</secondary>
+    </indexterm>
+    <indexterm zone="table.netmaptarget">
+      <primary>--to</primary>
+    </indexterm>
+    <indexterm zone="table.netmaptarget">
+      <primary>To target</primary>
+    </indexterm>
+
+     <table frame='all' xml:id="table.netmaptarget">
+     <title xml:id="table.netmaptarget.title">Options de la cible NETMAP</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--to</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A PREROUTING -s 192.168.1.0/24 -j
+NETMAP --to 10.5.6.0/24</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+C'est la seule option de la cible <command>NETMAP</command>. Dans l'exemple
+précédent, les hôtes 192.168.1.x seront directement traduits en 10.5.6.x.
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.5 et 2.6.
+      </para>
+    </note>
+   </section>
+
+   <section xml:id="nfqueuetarget">
+     <title xml:id="nfqueuetarget.title">Cible NFQUEUE</title>
+     <indexterm zone="nfqueuetarget">
+       <primary>NFQUEUE target</primary>
+     </indexterm>
+     <indexterm zone="table.nfqueuetarget">
+       <primary>Target</primary>
+       <secondary>NFQUEUE</secondary>
+       <seealso>NFQUEUE target</seealso>
+     </indexterm>
+
+     <para>
+La cible <command>NFQUEUE</command> est utilisée de la même façon que la cible 
+<command>QUEUE</command>, et elle est, en gros, une extension de celle-ci.
+<command>NFQUEUE</command> permet d'envoyer des paquets pour des files
+d'attente séparées et spécifiques. La file d'attente est identifiée par 
+un id de 16 bits.
+     </para>
+
+     <para>
+Cette cible nécessite le support de nfnetlink_queue dans le noyau pour
+fonctionner. Pour plus d'information sur ce que vous pouvez faire avec 
+<command>NFQUEUE</command> voir <link linkend="queuetarget"
+endterm="queuetarget.title"></link>. 
+     </para>
+
+     <indexterm zone="table.nfqueuetarget">
+       <primary>NFQUEUE target</primary>
+       <secondary>--queue-num</secondary>
+     </indexterm>
+     <indexterm zone="table.nfqueuetarget">
+       <primary>--queue-num</primary>
+     </indexterm>
+     <indexterm zone="table.nfqueuetarget">
+       <primary>Queue-num target</primary>
+     </indexterm>
+
+
+     <table frame='all' xml:id="table.nfqueuetarget">
+       <title xml:id="table.nfqueuetarget.title">Options de la cible NFQUEUE</title>
+       <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+ 
+         <colspec colwidth='1.5*'/>
+         <colspec colwidth='8*'/>
+
+         <tbody>
+
+           <row>
+             <entry>Option</entry>
+             <entry><command>--queue-num</command></entry>
+           </row>
+           <row>
+             <entry>Exemple</entry>
+             <entry><command>iptables -t nat -A PREROUTING -p tcp --dport 80 -j
+NFQUEUE --queue-num 30</command></entry>
+           </row>
+           <row>
+             <entry>Explication</entry>
+             <entry>
+L'option <command>--queue-num</command> spécifie quelle file d'attente
+utiliser et vers où envoyer les données. Si cette option n'est pas placée
+la file d'attente par défaut sera à 0. Le chiffre de la file d'attente est 
+un entier non signé de 16 bits, ce qui veut dire qu'elle peut prendre 
+n'importe quelle valeur comprise entre 0 et 65535. La valeur 0 par défaut
+est aussi utilisée par la cible <command>QUEUE</command>.
+             </entry>
+           </row>
+ 	 </tbody>
+       </tgroup>
+     </table>
+
+     <note>
+       <para>
+Fonctionne avec les noyaux Linux 2.6.14 et supérieur.
+       </para>
+     </note>
+   </section>
+
+   <section xml:id='notracktarget'>
+     <title xml:id="notracktarget.title">Cible NOTRACK</title>
+     <indexterm zone="notracktarget">
+       <primary>NOTRACK target</primary>
+     </indexterm>
+     <indexterm zone="notracktarget">
+       <primary>Target</primary>
+       <secondary>NOTRACK</secondary>
+       <seealso>NOTRACK target</seealso>
+     </indexterm>
+
+     <para>
+Cette cible sert à annuler le traçage de connexion pour tous les paquets
+sélectionnés dans cette règle. Cette cible a été présentée dans la section 
+<link linkend="untrackedconns" endterm="untrackedconns.title"></link> du
+chapitre <link linkend="statemachine" endterm="statemachine.title"></link>. 
+     </para>
+
+     <para>
+La cible ne prend pas d'option et est très facile à utiliser. Sélectionnez les 
+paquets que vous ne voulez pas tracer, et placez <command>NOTRACK</command> 
+dans les règles sélectionnant les paquets.
+     </para>
+
+     <note>
+       <para>
+La cible n'est valide que dans la table raw.
+       </para>
+     </note>
+
+     <note>
+       <para>
+Fonctionne avec les derniers noyaux Linux 2.6.
+       </para>
+     </note>
+
+   </section>
+
+   <section xml:id="queuetarget">
+    <title xml:id="queuetarget.title">QUEUE target</title>
+    <indexterm zone="queuetarget">
+      <primary>QUEUE target</primary>
+    </indexterm>
+    <indexterm zone="queuetarget">
+      <primary>Target</primary>
+      <secondary>QUEUE</secondary>
+      <seealso>QUEUE target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>QUEUE</command> sert à mettre les paquets en attente
+pour les programmes et applications du domaine utilisateur. Elle est
+utilisée conjointement avec des programmes ou des utilitaires étrangers
+à Iptables et qui peuvent être utilisés, par exemple, pour des réseaux 
+comptables, ou pour des applications avancées et spécifiques qui filtrent 
+ou mettent en cache les paquets. Nous ne parlerons pas de cette cible en 
+détail, car le codage de certaines applications est hors du sujet de ce 
+didacticiel.
+En premier, ça nous prendrait trop de temps, ensuite cette documentation
+n'a pas grand chose à faire avec l'aspect programmation de Netfilter
+et Iptables. Voir le 
+<link linkend="netfilterhackinghowto">Netfilter Hacking HOW-TO</link>.
+    </para>
+
+    <important>
+      <para>
+Dans le noyau 2.6.14 le comportement de netfilter a changé. Un nouveau 
+système de dialogue avec <command>QUEUE</command> a été matérialisé, appelé 
+<systemitem>nfnetlink_queue</systemitem>. La cible <command>QUEUE</command> 
+est, de façon basique, un pointeur vers <command>NFQUEUE</command> 0 
+aujourd'hui. 
+Pour les questions de programmation, voir le lien ci-dessus. Requiert
+le module <filename>nfnetlink_queue.ko</filename>.  
+      </para>
+    </important>
+    
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="redirecttarget">
+    <title xml:id="redirecttarget.title">Cible REDIRECT</title>
+    <indexterm zone="redirecttarget">
+      <primary>REDIRECT target</primary>
+    </indexterm>
+    <indexterm zone="table.redirecttarget">
+      <primary>Target</primary>
+      <secondary>REDIRECT</secondary>
+      <seealso>REDIRECT target</seealso>
+    </indexterm>
+    <indexterm zone="redirecttarget">
+      <primary>Squid</primary>
+    </indexterm>
+ 
+
+    <para>
+La cible <command>REDIRECT</command> est utilisée pour rediriger les paquets
+et les flux vers la machine elle-même. Ceci veut dire que nous pouvons,
+par exemple <command>REDIRECT</command> tous les paquets destinés aux ports 
+<systemitem>HTTP</systemitem> vers un proxy HTTP comme Squid, sur notre propre
+machine. Les paquets générés localement sont mappés vers les adresses
+127.0.0.1. En d'autres termes, elle réécrit les adresses de destination 
+vers votre propre machine pour les paquets qui sont transmis, ou quelque 
+chose comme ça. La cible <command>REDIRECT</command> est très utile
+quand vous voulez, par exemple, faire du proxy transparent, où l'hôte
+du <emphasis>LAN</emphasis> n'a pas connaissance du proxy.
+    </para>
+
+    <para>
+Notez que la cible <command>REDIRECT</command> est uniquement valide dans les
+chaînes <systemitem>PREROUTING</systemitem> et <systemitem>OUTPUT</systemitem> 
+de la table nat. Elle est aussi valide dans les chaînes définies par 
+l'utilisateur. <command>REDIRECT</command> ne prend qu'une option, comme
+décrit ci-dessous.
+    </para>
+
+    <indexterm zone="table.redirecttarget">
+      <primary>REDIRECT target</primary>
+      <secondary>--to-ports</secondary>
+    </indexterm>
+    <indexterm zone="table.redirecttarget">
+      <primary>--to-ports</primary>
+    </indexterm>
+    <indexterm zone="table.redirecttarget">
+      <primary>To-ports target</primary>
+    </indexterm>
+
+    <table frame='all' xml:id="table.redirecttarget">
+     <title xml:id="table.redirecttarget.title">Options de la cible REDIRECT</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--to-ports</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t nat -A PREROUTING -p tcp --dport 80 -j
+REDIRECT --to-ports 8080</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry><para>
+L'option <command>--to-ports</command> spécifie le port de destination, ou
+la plage de ports, à utiliser. Sans <command>--to-ports</command>, le port de 
+destination n'est jamais modifié.
+Ceci est spécifié, comme au-dessus <command>--to-ports 8080</command> dans les
+cas où nous voulons seulement préciser un seul port. Si nous voulons
+spécifier une plage de ports, nous écrirons 
+<command>--to-ports 8080-8090</command>, qui indique à la cible 
+<command>REDIRECT</command> de rediriger les paquets vers les ports 8080
+jusqu'à 8090. Cette option n'est disponible que dans les règles spécifiant
+le protocole TCP ou UDP avec le module <command>--protocol</command>.
+</para></entry>
+      </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="rejecttarget">
+    <title xml:id="rejecttarget.title">Cible REJECT</title>
+    <indexterm zone="rejecttarget">
+      <primary>REJECT target</primary>
+    </indexterm>
+    <indexterm zone="table.rejecttarget">
+      <primary>Target</primary>
+      <secondary>REJECT</secondary>
+      <seealso>REJECT target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>REJECT</command> fonctionne à la base comme la cible 
+<command>DROP</command>, mais elle renvoie un message d'erreur à l'hôte 
+qui a envoyé le paquet. <command>REJECT</command> n'est valide que dans 
+les chaînes <systemitem>INPUT</systemitem>, <systemitem>FORWARD</systemitem> et
+<systemitem>OUTPUT</systemitem> ou leurs sous-chaînes.
+Après tout, ce sont les seules chaînes dans lesquelles il soit sensé de
+placer cette cible. Notez que toutes les chaînes qui utilisent 
+<command>REJECT</command> ne peuvent être invoquées que par 
+<systemitem>INPUT</systemitem>, <systemitem>FORWARD</systemitem>, et 
+<systemitem>OUTPUT</systemitem>, sinon elles ne fonctionnent pas.
+Il n'y a qu'une option qui contrôle le fonctionnement de cette cible.
+     </para>
+
+    <indexterm zone="table.rejecttarget">
+      <primary>REJECT target</primary>
+      <secondary>--reject-with</secondary>
+    </indexterm>
+    <indexterm zone="table.rejecttarget">
+      <primary>--reject-with</primary>
+    </indexterm>
+    <indexterm zone="table.rejecttarget">
+      <primary>Reject-with target</primary>
+    </indexterm>
+    <indexterm zone="table.rejecttarget">
+      <primary>RFC</primary>
+      <secondary>793</secondary>
+    </indexterm>
+ 
+    <table frame='all' xml:id="table.rejecttarget">
+     <title xml:id="table.rejecttarget.title">Options de la cible REJECT</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--reject-with</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A FORWARD -p TCP --dport 22 -j REJECT
+--reject-with
+tcp-reset</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette option indique à la cible <command>REJECT</command> quelle réponse
+envoyer à l'hôte qui a expédié le paquet qui a été rejeté. Quand nous 
+sommes en présence d'un paquet qui sélectionne une règle dans laquelle nous
+avons spécifié cette cible, notre hôte envoie la réponse associée, et le
+paquet est ensuite supprimé, comme pour la cible <command>DROP</command>.
+Les types suivants de rejet sont valides : 
+<computeroutput>icmp-net-unreachable</computeroutput>,
+<computeroutput>icmp-host-unreachable</computeroutput>,
+<computeroutput>icmp-port-unreachable</computeroutput>,
+<computeroutput>icmp-proto-unreachable</computeroutput>,
+<computeroutput>icmp-net-prohibited</computeroutput> et
+<computeroutput>icmp-host-prohibited</computeroutput>. Le message d'erreur
+par défaut expédie un <command>port-unreachable</command> à l'hôte.
+Tous sont des messages d'erreur <systemitem>ICMP</systemitem> et peuvent
+être paramétrés comme vous le voulez. Vous trouverez plus d'information dans 
+l'annexe <link linkend="icmptypes" endterm="icmptypes.title"></link>. 
+Enfin, il existe une option supplémentaire appelée 
+<command>tcp-reset</command>, qui peut être utilisée seulement avec le 
+protocole TCP.
+L'option <command>tcp-reset</command> qui indique le 
+<command>REJECT</command> envoie un paquet TCP RST en réponse à l'hôte 
+expéditeur. Les paquets TCP RST sont utilisés pour clore les connexions TCP. 
+Pour plus d'information
+sur TCP RST voir la <link linkend="rfc793" endterm="rfc793.title"></link>.
+Comme indiqué dans le manuel d'<command>iptables</command>, elle est 
+principalement utilisée pour bloquer les sondeurs d'identité.
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="returntarget">
+    <title xml:id="returntarget.title">Cible RETURN</title>
+    <indexterm zone="returntarget">
+      <primary>RETURN target</primary>
+    </indexterm>
+    <indexterm zone="returntarget">
+      <primary>Target</primary>
+      <secondary>RETURN</secondary>
+      <seealso>RETURN target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>RETURN</command> stoppe un paquet traversant la chaîne
+dans laquelle la règle est placée. Si c'est une sous-chaîne d'une autre
+chaîne, le paquet continuera sa route vers les chaînes supérieures comme
+si rien ne s'était passé. Si cette chaîne est la chaîne principale, par
+exemple la chaîne INPUT, le paquet aura le comportement par défaut.
+Ce comportement par défaut est normalement <command>ACCEPT</command>,
+<command>DROP</command> ou similaire.
+     </para>
+
+     <para>
+Exemple, un paquet entre dans la chaîne INPUT, rencontre une règle
+qui le sélectionne et indique <command>--jump EXAMPLE_CHAIN</command>.
+Ce paquet traversera alors <command>EXAMPLE_CHAIN</command>, et 
+soudain il rencontre une règle qui a la cible <command>--jump RETURN</command>.
+Il retournera alors vers la chaîne <systemitem>INPUT</systemitem>. 
+Un autre exemple, si le paquet rencontre une règle 
+<command>--jump RETURN</command> dans la chaîne INPUT. Il sera alors
+droppé selon le comportement par défaut décrit plus haut, et plus aucune
+action ne sera faite dans cette chaîne.
+
+    </para>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="sametarget">
+    <title xml:id="sametarget.title">Cible SAME</title>
+    <indexterm zone="sametarget">
+      <primary>SAME target</primary>
+    </indexterm>
+    <indexterm zone="table.sametarget">
+      <primary>Target</primary>
+      <secondary>SAME</secondary>
+      <seealso>SAME target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>SAME</command> fonctionne à peu près comme 
+<command>SNAT</command>, mais diffère légèrement. À la base, 
+<command>SAME</command> tentera d'utiliser la même adresse IP en sortie pour
+toutes les connexions initiées par un hôte sur le réseau. Par exemple,
+vous avez un réseau en /24 (192.168.1.0) et 3 adresses IP (10.5.6.7-9).
+Maintenant, si 192.168.1.20 sort de l'adresse .7 une première fois, le
+pare-feu tentera de conserver à cette machine toujours la même adresse IP.
+    </para>
+
+    <indexterm zone="table.sametarget">
+      <primary>SAME target</primary>
+      <secondary>--to</secondary>
+    </indexterm>
+    <indexterm zone="table.sametarget">
+      <primary>--to</primary>
+    </indexterm>
+    <indexterm zone="table.sametarget">
+      <primary>To target</primary>
+    </indexterm>
+
+    <indexterm zone="table.sametarget">
+      <primary>SAME target</primary>
+      <secondary>--nodst</secondary>
+    </indexterm>
+    <indexterm zone="table.sametarget">
+      <primary>--nodst</primary>
+    </indexterm>
+    <indexterm zone="table.sametarget">
+      <primary>Nodst target</primary>
+    </indexterm>
+
+     <table frame='all' xml:id="table.sametarget">
+     <title xml:id="table.sametarget.title">Options de la cible SAME</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--to</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A PREROUTING -s 192.168.1.0/24 -j
+SAME --to 10.5.6.7-10.5.6.9</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Comme vous pouvez le voir, l'argument --to prend deux adresses IP liées
+ensemble par le signe -. Ces adresses IP, et toutes les autres comprises
+dans cette plage, sont des adresses que nous NATons en utilisant l'algorithme 
+<command>SAME</command>.
+        </entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--nodst</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A PREROUTING -s 192.168.1.0/24 -j
+SAME --to 10.5.6.7-10.5.6.9 --nodst</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Au cours d'une action normale, la cible <command>SAME</command> calcule
+le suivi de connexions fondé sur les adresses IP source et destination.
+L'option --nodst, permet de n'utiliser que l'adresse IP source pour savoir de 
+quelle IP la fonction NAT se sert pour la connexion spécifique. Sans cet
+argument, elle utilise une combinaison de l'adresse IP source et
+destination.
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="secmarktarget">
+     <title xml:id="secmarktarget.title">Cible SECMARK</title>
+    <indexterm zone="secmarktarget">
+      <primary>SECMARK target</primary>
+    </indexterm>
+     <indexterm zone="table.secmarktarget">
+       <primary>Target</primary>
+       <secondary>SECMARK</secondary>
+       <seealso>SECMARK target</seealso>
+     </indexterm>
+    <indexterm zone="secmarktarget">
+      <primary>SELinux</primary>
+    </indexterm>
+ 
+     <para>
+La cible <command>SECMARK</command> sert à placer une marque dans un
+contexte de sécurité sur un paquet, comme défini par SELinux et les 
+systèmes de sécurité. Elle en est encore dans son enfance sous Linux, mais 
+devrait prendre de plus en plus de place dans le futur. SELinux est hors de
+propos de ce document, je vous suggère de voir la page 
+<link linkend="selinux" endterm="selinux.title"></link> pour plus 
+d'information.
+
+     </para>
+
+     <para>
+En bref, SELinux est un système nouveau et amélioré pour ajouter un
+Mandatory Access Control (MAC) à Linux, implémenté par la NSA comme 
+test du concept. SELinux place des attributs de sécurité pour différents
+objets et ensuite les sélectionne dans des contextes de sécurité. La
+cible <command>SECMARK</command> sert à placer un contexte de sécurité
+sur un paquet qui peut être utilisé dans des sous-systèmes de sécurité.
+     </para>
+
+     <note>
+      <para>
+La cible SECMARK n'est valide que dans la table mangle.
+      </para>
+     </note>
+
+     <indexterm zone="table.secmarktarget">
+       <primary>SECMARK target</primary>
+       <secondary>--selctx</secondary>
+     </indexterm>
+     <indexterm zone="table.secmarktarget">
+       <primary>--selctx</primary>
+     </indexterm>
+     <indexterm zone="table.secmarktarget">
+       <primary>Selctx target</primary>
+     </indexterm>
+
+     <table frame='all' xml:id="table.secmarktarget">
+       <title xml:id="table.secmarktarget.title">Options de la cible SECMARK</title>
+       <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+ 
+         <colspec colwidth='1.5*'/>
+         <colspec colwidth='8*'/>
+
+         <tbody>
+
+           <row>
+             <entry>Option</entry>
+             <entry><command>--selctx</command></entry>
+           </row>
+           <row>
+             <entry>Exemple</entry>
+             <entry><command>iptables -t mangle -A PREROUTING -p tcp --dport 80
+             -j SECMARK --selctx httpcontext</command></entry>
+           </row>
+           <row>
+             <entry>Explication</entry>
+             <entry>
+L'option <command>--selctx</command> sert à spécifier quel contexte
+de sécurité placer sur un paquet. Le contexte peut ensuite être utilisé
+pour sélectionner les systèmes de sécurité de Linux.
+             </entry>
+           </row>
+	 </tbody>
+       </tgroup>
+     </table>
+
+   </section>
+   
+   
+   <section xml:id="snattarget">
+    <title xml:id="snattarget.title">Cible SNAT</title>
+    <indexterm zone="snattarget">
+      <primary>SNAT target</primary>
+    </indexterm>
+    <indexterm zone="table.snattarget">
+      <primary>Target</primary>
+      <secondary>SNAT</secondary>
+      <seealso>SNAT target</seealso>
+    </indexterm>
+    <indexterm zone="snattarget">
+      <primary>POSTROUTING</primary>
+    </indexterm>
+
+    <para>
+La cible <command>SNAT</command> est utilisée pour la Traduction d'Adresse
+Réseau Source, ce qui veut dire que cette cible réécrira l'adresse IP
+source dans l'en-tête IP du paquet. Exemple, quand plusieurs hôtes doivent
+partager une connexion Internet. Nous pouvons alors activer le transfert
+d'IP (IP Forwarding) dans le noyau, et écrire une règle 
+<command>SNAT</command> qui traduira tous les paquets sortants du réseau
+local vers l'<command>IP source</command> de notre connexion Internet.
+Sans cela, le monde extérieur ne saurait pas où envoyer les paquets en réponse,
+car les réseaux locaux utilisent la plupart du temps des adresses IP 
+spécifiées par le IANA et qui sont allouées aux <command>LAN</command> (donc 
+non routables sur l'Internet). 
+Si nous transférons les paquets tels quels, personne sur l'Internet ne
+saura qu'ils proviennent de nous. La cible <command>SNAT</command> fait
+toutes les traductions nécessaires pour réaliser ce genre de chose, 
+permettant à tous les paquets quittant notre <command>LAN</command> d'être
+vus comme provenant d'un hôte unique, qui pourrait être notre pare-feu.
+    </para>
+
+    <para>
+<command>SNAT</command> n'est valide que dans la table nat, à l'intérieur 
+de la chaîne POSTROUTING. C'est, en d'autres termes, la seule chaîne
+dans laquelle vous pouvez utiliser <command>SNAT</command>. Seul le premier
+paquet d'une connexion est analysé par <command>SNAT</command>, et ensuite
+tous les paquets utilisant la même connexion seront également 
+<command>SNAT</command>és. De plus, les règles initiales de la chaîne
+POSTROUTING seront appliquées à tous les paquets du même flux. 
+     </para>
+
+    <indexterm zone="table.snattarget">
+      <primary>SNAT target</primary>
+      <secondary>--to-source</secondary>
+    </indexterm>
+    <indexterm zone="table.snattarget">
+      <primary>--to-source</primary>
+    </indexterm>
+    <indexterm zone="table.snattarget">
+      <primary>To-source target</primary>
+    </indexterm>
+
+    <table frame='all' xml:id="table.snattarget">
+     <title xml:id="table.snattarget.title">Options de la cible SNAT</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--to-source</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t nat -A POSTROUTING -p tcp -o eth0 -j 
+SNAT --to-source 194.236.50.155-194.236.50.160:1024-32000</command>
+        </entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--to-source</command> est utilisée pour spécifier quelle
+source le paquet doit utiliser. Cette option, la plus simple, prend l'adresse
+IP que nous voulons utiliser comme adresse <command>IP source</command> 
+dans  l'<command>en-tête IP</command>. Si nous voulons faire ceci entre
+plusieurs adresses IP, nous pouvons utiliser une plage d'adresses, 
+séparées par un tiret. Les numéros IP --to--source peuvent alors 
+ressembler à notre exemple ci-dessus : 194.236.50.155-194.236.50.160.
+L'IP source pour chaque flux que nous ouvrons sera allouée aléatoirement, 
+et un flux utilisera toujours la même adresse IP pour tous les paquets 
+transitants dans ce flux. Nous pouvons aussi spécifier une plage de ports
+à utiliser par <command>SNAT</command>. Tous les ports source seront alors
+confinés aux ports spécifiés. Le bit de port de la règle ressemblera alors
+à notre exemple, :1024-32000. Ce n'est valide que si -p tcp ou -p udp
+sont spécifiés quelque part dans la correspondance de la règle en question.
+Iptables essaiera toujours d'éviter de modifier les ports si possible, mais
+si deux hôtes tentent d'utiliser les mêmes ports, Iptables redirigera un 
+de ceux-là vers un autre port. Si aucune plage de ports n'est précisée, 
+et si elles sont requises, tous les ports source au dessous de 512 seront
+redirigés vers d'autres ports en dessous de 512. Ceux entre les ports source
+512 et 1023 seront redirigés en dessous de 1023. Tous les autres ports seront
+redirigés vers 1024 et au dessus. Comme indiqué précédemment, Iptables tentera
+toujours de conserver les ports source utilisés par la machine établissant
+la connexion. Notez que ceci n'a rien à voir avec les ports destination, 
+si un client essaie de prendre contact avec un serveur 
+<command>HTTP</command> en dehors du pare-feu, il ne sera pas redirigé vers
+le port <command>FTP control</command>.
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+    
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+      
+   <section xml:id="tcpmsstarget">
+    <title xml:id="tcpmsstarget.title">Cible TCPMSS</title>
+    <indexterm zone="tcpmsstarget">
+      <primary>TCPMSS target</primary>
+    </indexterm>
+    <indexterm zone="table.tcpmsstarget">
+      <primary>Target</primary>
+      <secondary>TCPMSS</secondary>
+      <seealso>TCPMSS target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>TCPMSS</command> peut être utilisée pour modifier la valeur
+MSS (Maximum Segment Size) des paquets TCP SYN que le pare-feu examine.
+La valeur MSS sert à contrôler la taille maximum des paquets d'une 
+connexion spécifique. Dans des circonstances normales, ceci indique la
+taille de la valeur MTU (Maximum Transfert Unit), moins 40 octets.
+Elle est utilisée pour éviter que certains fournisseurs d'accès ou serveurs
+bloquent la fragmentation ICMP des paquets, ce qui peut provoquer des
+problèmes mystérieux, qui peuvent être décrits principalement par le fait
+que tout fonctionne parfaitement au niveau de notre routeur/pare-feu, mais
+que nos hôtes locaux derrière le pare-feu ne peuvent échanger des paquets
+importants. Ceci peut se traduire par certaines choses comme des serveurs
+de courrier capables d'envoyer des petits mails, mais pas des gros, des
+navigateurs web qui se connectent mais ensuite se figent en ne recevant
+aucune donnée, une connexion ssh propre, mais dont le scp est suspendu
+après l'établissement de la liaison. Autrement dit, tout ce qui utilise
+des paquets importants sera incapable de fonctionner.
+     </para>
+     
+     <para>
+La cible TCPMSS est capable de résoudre ces problèmes, en changeant la
+taille des paquets sortants d'une connexion. Notez que nous avons
+uniquement besoin de placer le MSS sur le paquet SYN, les hôtes s'occupant
+du MSS après ça. La cible prend deux arguments.
+     </para>
+
+    <indexterm zone="table.tcpmsstarget">
+      <primary>TCPMSS target</primary>
+      <secondary>--set-mss</secondary>
+    </indexterm>
+    <indexterm zone="table.tcpmsstarget">
+      <primary>--set-mss</primary>
+    </indexterm>
+    <indexterm zone="table.tcpmsstarget">
+      <primary>Set-mss target</primary>
+    </indexterm>
+
+    <indexterm zone="table.tcpmsstarget">
+      <primary>TCPMSS target</primary>
+      <secondary>--clamp-mss-to-pmtu</secondary>
+    </indexterm>
+    <indexterm zone="table.tcpmsstarget">
+      <primary>--clamp-mss-to-pmtu</primary>
+    </indexterm>
+    <indexterm zone="table.tcpmsstarget">
+      <primary>Clamp-mss-to-pmtu target</primary>
+    </indexterm>
+
+    <table frame='all' xml:id="table.tcpmsstarget">
+     <title xml:id="table.tcpmsstarget.title">Options de la cible TCPMSS</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--set-mss</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A POSTROUTING -p tcp --tcp-flags 
+SYN,RST SYN -o eth0 -j TCPMSS --set-mss 1460</command>
+        </entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'argument <command>--set-mss</command> place une valeur MSS spécifique
+pour tous les paquets sortants. Dans l'exemple ci-dessus, nous plaçons
+le MSS de tous les paquets SYN sortants sur l'interface eth0 à 1460 octets -- 
+le MTU normal pour l'ethernet est de 1500 octets, moins 40 octets soit
+1460 octets. MSS doit seulement être placé correctement dans le paquet SYN,
+ensuite les hôtes pairs s'occupent du MSS automatiquement. 
+        </entry>
+       </row>
+       
+       <row>
+        <entry>Option</entry>
+        <entry><command>--clamp-mss-to-pmtu</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A POSTROUTING -p tcp --tcp-flags 
+SYN,RST SYN -o eth0 -j TCPMSS --clamp-mss-to-pmtu</command>
+        </entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+<command>--clamp-mss-to-pmtu</command> place automatiquement le MSS à
+la bonne valeur, et désormais vous n'aurez plus besoin de le disposer
+explicitement. Il est placé de façon automatique en PMTU (Path Maximum
+Transfer Unit) moins 40 octets, ce qui est une valeur raisonnable pour
+la plupart des applications.
+        </entry>
+       </row>       
+
+     </tbody>
+     </tgroup>
+    </table>     
+    
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+   
+
+   <section xml:id="tostarget">
+    <title xml:id="tostarget.title">Cible TOS</title>
+    <indexterm zone="tostarget">
+      <primary>TOS target</primary>
+    </indexterm>
+    <indexterm zone="table.tostarget">
+      <primary>Target</primary>
+      <secondary>TOS</secondary>
+      <seealso>TOS target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>TOS</command> sert à disposer le champ Type de Service
+dans un en-tête IP. Le champ TOS consiste en 8 bits utilisés pour
+aider au routage de paquets. C'est un des champs qui peut être utilisé
+directement dans <command>iproute2</command> et son sous-système pour
+les stratégies de routage. Notez de plus, que si vous maintenez plusieurs
+pare-feux et routeurs séparés, c'est le seul moyen pour propager les
+informations de routage dans les paquets entre ces routeurs et pare-feux.
+Comme noté précédemment, la cible <command>MARK</command> - laquelle 
+dispose un <command>MARK</command> associé à un paquet spécifique - est
+disponible seulement dans le noyau, et ne peut pas être propagée avec
+le paquet. Si vous avez besoin de propager des informations de routage 
+pour un paquet spécifique ou un flux, vous devrez donc placer le champ TOS,
+qui a été créé pour ça.
+    </para>
+
+    <para>
+Il existe un grand nombre de routeurs sur Internet qui font du mauvais
+travail à ce sujet, ce qui fait qu'il peut être moins utile maintenant
+d'essayer de faire de l'analyse TOS avant d'envoyer les paquets sur
+Internet. Dans le meilleur des cas les routeurs ne font pas attention
+au champ TOS. Dans le pire, ils examineront le champ TOS et feront
+de mauvaises choses. Cependant, le champ TOS peut être placé avec une
+grande utilité si vous avez un grand WAN ou LAN avec de multiples routeurs.
+Vous avez la possibilité de donner aux paquets différentes routes et
+préférences, basées sur leur valeur TOS.
+    </para>
+
+    <caution>
+     <para>
+La cible <command>TOS</command> ne place que des valeurs spécifiques, ou
+valeurs nommées sur des paquets. Ces valeurs prédéfinies peuvent être
+trouvées dans les fichiers "include" du noyau, ou plus précisément le fichier 
+<filename>Linux/ip.h</filename>. Les raisons sont multiples, et vous n'aurez
+actuellement besoin de placer aucune autre valeur; cependant, il existe
+d'autres moyens par rapport à cette limitation. Pour contourner cette
+limitation de ne pouvoir placer que des valeurs nommées sur les paquets,
+vous pouvez utiliser le patch FTOS disponible sur le site 
+<link linkend="paksecured" endterm="paksecured.title"></link> maintenu par
+Matthew G. Marsh. Attention, soyez prudents avec ce patch ! Vous ne devriez
+pas avoir besoin d'autre chose que les valeurs par défaut, sauf dans des
+cas extrêmes.
+     </para>
+    </caution>
+
+    <note>
+     <para>
+Cette cible n'est valide que dans la table <systemitem>mangle</systemitem> 
+et ne peut être utilisée hors de celle-ci.
+    </para>
+   </note>
+
+   <note>
+    <para>
+Notez aussi que certaines versions anciennes (1.2.2 ou avant) d'Iptables
+fournissaient une implémentation de cette cible qui ne fixait pas la
+somme de contrôle dans l'analyse, ce qui corrompait les paquets et
+provoquait des connexions qui n'aboutissaient pas.
+    </para>
+   </note>
+
+    <para>
+<command>TOS</command> ne prend qu'une option décrite ci-dessous.
+    </para>
+
+    <indexterm zone="table.tostarget">
+      <primary>TOS target</primary>
+      <secondary>--set-tos</secondary>
+    </indexterm>
+    <indexterm zone="table.tostarget">
+      <primary>--set-tos</primary>
+    </indexterm>
+    <indexterm zone="table.tostarget">
+      <primary>Set-tos target</primary>
+    </indexterm>
+
+
+    <table frame='all' xml:id="table.tostarget">
+     <title xml:id="table.tostarget.title">Options de la cible TOS</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--set-tos</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A PREROUTING -p TCP --dport 22 -j
+TOS --set-tos 0x10</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--set-tos</command> indique à l'analyseur 
+<command>TOS</command> quelle valeur placer sur les paquets qui sont
+examinés. L'option prend une valeur numérique, soit en hexadécimal soit
+en décimal. Comme la valeur TOS consiste en 8 bits, la valeur peut être
+0-255, ou en hexadécimal 0x00-0xFF. Notez que dans la cible TOS standard
+vous êtes limité à l'utilisation des valeurs nommées disponibles (qui
+sont plus ou moins standard), comme mentionné précédemment. Ces valeurs sont 
+<computeroutput>Minimize-Delay</computeroutput> (valeur décimale 16, valeur
+hexadécimale 0x10), <computeroutput>Maximize-Throughput</computeroutput> 
+(valeur décimale 8, valeur hexadécimale 0x08), 
+<computeroutput>Maximize-Reliability</computeroutput>
+(valeur décimale 4, valeur hexadécimale 0x04),
+<computeroutput>Minimize-Cost</computeroutput> (valeur décimale 2, valeur
+hexadécimale 0x02), ou 
+<computeroutput>Normal-Service</computeroutput> (valeur décimale 0, valeur 
+hexadécimale 0x00). La valeur par défaut pour la plupart des paquets est 
+<computeroutput>Normal-Service</computeroutput>, ou 0. Notez que vous pouvez,
+bien sûr, utiliser les noms au lieu des valeurs hexadécimales pour placer 
+la valeur TOS; en fait, c'est généralement recommandé, car les valeurs
+associées avec les noms peuvent être changées par la suite. Pour une liste
+complète des valeurs descriptives, tapez la commande : 
+<command>iptables -j TOS -h</command>. 
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+    
+    <note>
+      <para>
+Fonctionne avec les noyaux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="ttltarget">
+    <title xml:id="ttltarget.title">Cible TTL</title>
+    <indexterm zone="ttltarget">
+      <primary>TTL target</primary>
+    </indexterm>
+    <indexterm zone="table.ttltarget">
+      <primary>Target</primary>
+      <secondary>TTL</secondary>
+      <seealso>TTL target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>TTL</command> modifie le champ Durée de Vie (Time To Live)
+dans l'en-tête IP. Une application très utile de ceci est de pouvoir
+changer toutes les valeurs de durée de vie en une valeur identique pour
+tous les paquets sortants. Une raison de faire ceci peut être que, vous avez 
+un fournisseur d'accès un peu rigide qui ne vous permet pas d'avoir plus
+d'une machine connectée à la même connexion Internet. En mettant toutes
+les valeurs <command>TTL</command> à la même valeur, il sera plus difficile
+pour lui de voir ce que vous faites. Nous pouvons alors réinitialiser la
+valeur <command>TTL</command> de tous les paquets sortants à une valeur
+standard, comme 64 ainsi que spécifié dans le noyau Linux.
+    </para>
+
+    <para>
+Pour plus d'information pour savoir comment placer la valeur par défaut
+utilisée dans Linux, lisez le <link linkend="ip-sysctltxt"
+endterm="ip-sysctltxt.title"></link>, que vous pouvez trouver dans 
+l'annexe 
+<xref linkend="otherresources"/>.
+    </para>
+
+    <para>
+La cible <command>TTL</command> n'est valide que dans la table mangle, et
+nulle part ailleurs. Elle prend trois options, décrites ci-dessous.
+    </para>
+
+    <indexterm zone="table.ttltarget">
+      <primary>TTL target</primary>
+      <secondary>--ttl-set</secondary>
+    </indexterm>
+    <indexterm zone="table.ttltarget">
+      <primary>--ttl-set</primary>
+    </indexterm>
+    <indexterm zone="table.ttltarget">
+      <primary>Ttl-set target</primary>
+    </indexterm>
+
+    <indexterm zone="table.ttltarget">
+      <primary>TTL target</primary>
+      <secondary>--ttl-dec</secondary>
+    </indexterm>
+    <indexterm zone="table.ttltarget">
+      <primary>--ttl-dec</primary>
+    </indexterm>
+    <indexterm zone="table.ttltarget">
+      <primary>Ttl-dec target</primary>
+    </indexterm>
+
+    <indexterm zone="table.ttltarget">
+      <primary>TTL target</primary>
+      <secondary>--ttl-inc</secondary>
+    </indexterm>
+    <indexterm zone="table.ttltarget">
+      <primary>--ttl-inc</primary>
+    </indexterm>
+    <indexterm zone="table.ttltarget">
+      <primary>Ttl-inc target</primary>
+    </indexterm>
+
+    <table frame='all' xml:id="table.ttltarget">
+     <title xml:id="table.ttltarget.title">Options de la cible TTL</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--ttl-set</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A PREROUTING -i eth0 -j TTL
+--ttl-set 64</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--ttl-set</command> indique à la cible 
+<command>TTL</command> quelle valeur placer sur le paquet en question.
+Une bonne valeur serait aux alentours de 64. Ce n'est ni trop long ni 
+trop court. Ne placez pas cette valeur trop haut, car elle peut affecter votre
+réseau. Cette cible peut être utilisée pour limiter la distance de vos clients.
+Un bon exemple de ceci peut être les serveurs DNS, pour lesquels nous 
+ne voulons pas que les clients soient trop éloignés.
+        </entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--ttl-dec</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A PREROUTING -i eth0 -j TTL
+--ttl-dec 1</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--ttl-dec</command> indique à la cible 
+<command>TTL</command> de décrémenter la valeur TTL d'un montant précis
+après le <command>--ttl-dec</command>. En d'autres termes, si le TTL d'un 
+paquet entrant était de 53 et que nous avons ajouté 
+<command>--ttl-dec 4</command>, le paquet quittera l'hôte avec une valeur
+de 49. La raison en est que le code réseau décrémentera automatiquement
+la valeur TTL par 1, donc le paquet sera décrémenté en 4 étapes, de 53 à 49.
+Ceci peut être utilisé quand nous voulons limiter l'éloignement de clients
+utilisant nos services. Exemple, les hôtes utilisent toujours un
+DNS proche, et donc nous pouvons sélectionner tous les paquets quittant notre
+serveur DNS et réduire la distance en plusieurs étapes. Bien sûr, le  
+<command>--set-ttl</command> peut être une meilleure idée pour cet usage.
+       </entry>
+
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--ttl-inc</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -t mangle -A PREROUTING -i eth0 -j TTL
+--ttl-inc 1</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--ttl-inc</command> indique à la cible 
+<command>TTL</command> d'incrémenter la valeur 
+<systemitem>Time To Live</systemitem> d'une valeur spécifiée avec 
+<command>--ttl-inc</command>. Ceci indique que nous voulons augmenter le TTL
+avec une valeur spécifiée dans l'option 
+ <command>--ttl-inc</command>, et que si nous spécifions 
+<command>--ttl-inc 4</command>, un paquet entrant avec un TTL de 52 quittera
+l'hôte avec un TTL de 56. Notez que la même chose dans l'exemple 
+<command>--ttl-dec</command> s'applique ici, dans lequel le code réseau
+décrémentait automatiquement la valeur TTL par 1, ce qui est toujours le cas.
+Ceci peut être utilisé pour rendre notre pare-feu un peu plus furtif pour
+les traceroutes parmi d'autres choses. En mettant le TTL à une valeur
+plus haute pour tous les paquets entrants, nous rendons effectivement le
+pare-feu plus dissimulé pour les traceroutes. Les traceroutes sont des
+choses adorables et détestables, car elles fournissent d'excellentes
+informations sur les problèmes de connexion et indiquent à quel endroit
+ils se produisent, mais en même temps ils fournissent au hacker/cracker 
+des informations dans le sens montant s'il nous a pris pour cible.
+Pour un bon exemple de son utilisation, voir le script 
+<link linkend="ttl-inctxt" endterm="ttl-inctxt.title"></link>.
+       </entry>
+
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+   </section>
+
+   <section xml:id="ulogtarget">
+    <title xml:id="ulogtarget.title">Cible ULOG</title>
+    <indexterm zone="ulogtarget">
+      <primary>ULOG target</primary>
+    </indexterm>
+    <indexterm zone="table.ulogtarget">
+      <primary>Target</primary>
+      <secondary>ULOG</secondary>
+      <seealso>ULOG target</seealso>
+    </indexterm>
+
+    <para>
+La cible <command>ULOG</command> sert à la journalisation des paquets
+sélectionnés de l'espace utilisateur. Si un paquet est examiné et la cible 
+<command>ULOG</command> placée, l'information du paquet est multidiffusée
+avec le paquet complet à travers une interface de connexion réseau. Un ou
+plusieurs processus espace utilisateur peuvent souscrire aux divers groupes
+de multidiffusion et recevoir le paquet. C'est une possibilité de 
+journalisation plus complète et plus sophistiquée qui est utilisée par
+Iptables et Netfilter. Cette cible nous permet de journaliser l'information
+dans des bases de données MySQL, ou autres bases, rendant plus simple la
+recherche de paquets spécifiques, et groupant les entrées de journal.
+Vous pouvez trouver les applications domaine utilisateur ULOGD à 
+<link linkend="ulogdsite" endterm="ulogdsite.title"></link>.
+    </para>
+
+    <indexterm zone="table.ulogtarget">
+      <primary>ULOG target</primary>
+      <secondary>--ulog-nlgroup</secondary>
+    </indexterm>
+    <indexterm zone="table.ulogtarget">
+      <primary>--ulog-nlgroup</primary>
+    </indexterm>
+    <indexterm zone="table.ulogtarget">
+      <primary>Ulog-nlgroup target</primary>
+    </indexterm>
+
+    <indexterm zone="table.ulogtarget">
+      <primary>ULOG target</primary>
+      <secondary>--ulog-prefix</secondary>
+    </indexterm>
+    <indexterm zone="table.ulogtarget">
+      <primary>--ulog-prefix</primary>
+    </indexterm>
+    <indexterm zone="table.ulogtarget">
+      <primary>Ulog-prefix target</primary>
+    </indexterm>
+
+    <indexterm zone="table.ulogtarget">
+      <primary>ULOG target</primary>
+      <secondary>--ulog-cprange</secondary>
+    </indexterm>
+    <indexterm zone="table.ulogtarget">
+      <primary>--ulog-cprange</primary>
+    </indexterm>
+    <indexterm zone="table.ulogtarget">
+      <primary>Ulog-cprange target</primary>
+    </indexterm>
+
+    <indexterm zone="table.ulogtarget">
+      <primary>ULOG target</primary>
+      <secondary>--ulog-qthreshold</secondary>
+    </indexterm>
+    <indexterm zone="table.ulogtarget">
+      <primary>--ulog-qthreshold</primary>
+    </indexterm>
+    <indexterm zone="table.ulogtarget">
+      <primary>Ulog-qthreshold target</primary>
+    </indexterm>
+
+    <table frame='all' xml:id="table.ulogtarget">
+     <title xml:id="table.ulogtarget.title">Options de la cible ULOG</title>
+     <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+
+      <colspec colwidth='1.5*'/>
+      <colspec colwidth='8*'/>
+
+      <tbody>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--ulog-nlgroup</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A INPUT -p TCP --dport 22 -j
+ULOG --ulog-nlgroup 2</command></entry>
+
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--ulog-nlgroup</command> indique à la cible 
+<command>ULOG</command> à quel groupe netlink envoyer les paquets.
+Il existe 32 groupes netlink, qui sont simplement spécifiés 1-32.
+Si nous voulons joindre le groupe netlink 5, nous écrirons simplement
+<command>--ulog-nlgroup 5</command>. Le groupe netlink par défaut est 1.
+        </entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--ulog-prefix</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A INPUT -p TCP --dport 22 -j ULOG
+--ulog-prefix "SSH connection attempt: "</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--ulog-prefix</command> fonctionne comme la valeur
+de préfixe de la cible <command>LOG</command> standard. Cette option préfixe 
+toutes les entrées du journal avec un préfixe utilisateur. Il peut être
+de 32 caractères de longueur, il est le plus utilisé pour distinguer les 
+différents messages du journal et d'où ils proviennent.
+        </entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--ulog-cprange</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A INPUT -p TCP --dport 22 -j ULOG
+--ulog-cprange 100</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+L'option <command>--ulog-cprange</command> indique à la cible 
+<command>ULOG</command> combien d'octets du paquet envoyer au démon de
+l'espace utilisateur de <command>ULOG</command>. Si nous spécifions 100 ou
+plus, nous copierons 100 octets du paquet vers l'espace utilisateur, ce
+qui inclura l'en-tête complet normalement, plus certaines données. Si nous
+spécifions 0, le paquet complet sera copié vers l'espace utilisateur, sans
+faire attention à la taille des paquets. La valeur par défaut est 0, ainsi
+l'ensemble du paquet sera copié vers l'espace utilisateur.
+        </entry>
+       </row>
+
+       <row>
+        <entry>Option</entry>
+        <entry><command>--ulog-qthreshold</command></entry>
+       </row>
+       <row>
+        <entry>Exemple</entry>
+        <entry><command>iptables -A INPUT -p TCP --dport 22 -j ULOG
+--ulog-qthreshold 10</command></entry>
+       </row>
+       <row>
+        <entry>Explication</entry>
+        <entry>
+Cette option <command>--ulog-qthreshold</command> indique à la cible 
+<command>ULOG</command> combien de paquets seront en attente dans le noyau
+avant d'envoyer les données vers l'espace utilisateur. Par exemple, si
+nous indiquons un seuil de 10 ou plus, le noyau accumulera 10 paquets, 
+et les transmettra ensuite à l'espace utilisateur comme un simple
+message netlink multiparties. La valeur par défaut ici est à 1 à cause
+de la compatibilité de l'affichage précédent, le démon de l'espace utilisateur
+ne connaissant pas le nombre de messages multiparties précédents.
+        </entry>
+       </row>
+
+     </tbody>
+     </tgroup>
+    </table>
+
+    <note>
+      <para>
+Fonctionne avec les noyaux Linux 2.3, 2.4, 2.5 et 2.6.
+      </para>
+    </note>
+
+    </section>
+
+    <section>
+      <title>Prochain chapitre</title>
+
+
+      <para>
+Dans le prochain chapitre nous verrons comment déboguer vos scripts de 
+pare-feu et quelles techniques sont disponibles pour cela. Nous montrerons
+le débogage simple avec les commandes <command>bash</command> et
+<command>echo,</command> et des outils plus complexes comme 
+<command>nmap</command> et <command>nessus</command>.
+      </para>
+    </section>
+</chapter>

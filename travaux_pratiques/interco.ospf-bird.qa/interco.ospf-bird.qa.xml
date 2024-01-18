@@ -1,0 +1,1718 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+	"/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!-- inetdoc -->
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!-- ospf -->
+<!ENTITY url.ospf
+	"<link xmlns='http://docbook.org/ns/docbook'
+	xlink:href='https://en.wikipedia.org/wiki/Open_Shortest_Path_First'>Open Shortest Path First</link>">
+
+<!-- bird -->
+<!ENTITY url.bird-users-guide
+	"<link xmlns='http://docbook.org/ns/docbook'
+	xlink:href='https://bird.network.cz/&#63;get_doc&amp;f=bird.html&amp;v=16'>BIRD User's Guide</link>">
+
+<!ENTITY url.bird-remote-control
+	"<link xmlns='http://docbook.org/ns/docbook'
+	xlink:href='https://bird.network.cz/&#63;get_doc&amp;v=16&amp;f=bird-4.html'>Remote control</link>">
+
+<!ENTITY url.bird-ospf-example
+	"<link xmlns='http://docbook.org/ns/docbook'
+	xlink:href='https://gitlab.labs.nic.cz/labs/bird/wikis/OSPF_example'>OSPF example</link>">
+
+<!-- A copy of http://www.w3.org/2003/entities/2007/w3centities-f.ent is at:
+/usr/local/share -->
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"/usr/local/share/w3centities-f.ent">
+%w3centities-f;
+]>
+
+<article xml:id='interco.ospf-bird' xml:lang='fr'>
+
+<info>
+	<title>Introduction au routage dynamique OSPF avec Bird</title>
+
+	&author;
+	<abstract>
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='5*'/>
+	<colspec colwidth='220px'/>
+	<tbody>
+    <row>
+    <entry valign='top'>
+	<para>L'objectif de ce support de travaux pratiques est d'étudier le
+	protocole de routage dynamique <acronym>OSPF</acronym>. Cette illustration
+	s'appuie sur une topologie minimale très classique&nbsp;: le triangle.
+	L'originalité consiste à utiliser les <acronym>VLAN</acronym>s pour
+	distinguer la topologie physique (l'étoile) de la topologie logique (le
+	triangle). Cette version du support utilise le logiciel
+	<application>Bird</application>.</para>
+	</entry>
+	<entry>
+	<inlinemediaobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/interco.ospf.physical-topology.png' format='PNG' width='220px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/interco.ospf.physical-topology.png' format='PNG' width='4.5cm' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+	</abstract>
+
+	<keywordset>
+	<keyword>kvm</keyword>
+	<keyword>openvswitch</keyword>
+	<keyword>ospf</keyword>
+	<keyword>qemu</keyword>
+	<keyword>bird</keyword>
+	<keyword>routage</keyword>
+	<keyword>trunk</keyword>
+	<keyword>vlan</keyword>
+	</keywordset>
+</info>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.ospf-bird.legal.meta'>
+	&legal;
+
+<sect2 xml:id='interco.ospf-bird.meta'>
+	<title>Méta-information</title>
+    
+	<para>Ce document est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+	XML sur un système <link
+	xlink:href="https://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+	format PDF&nbsp;: <link
+	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+	<para>Toutes les commandes utilisées dans ce document ne sont pas
+	spécifiques à une version particulière des systèmes UNIX ou GNU/Linux.
+	C'est la distribution <citetitle>Debian GNU/Linux</citetitle> qui est
+	utilisée pour les tests présentés. Voici une liste des paquets contenant
+	les commandes&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+		<para><application>procps</application> - Utilitaires pour le système
+		de fichiers /proc</para>
+	</listitem>
+	<listitem>
+		<para><application>iproute2</application> - Outils de contrôle du
+		trafic et du réseau</para>
+	</listitem>
+	<listitem>
+		<para><application>ifupdown</application> - Outils de haut niveau pour
+		configurer les interfaces réseau</para>
+	</listitem>
+	<listitem>
+		<para><application>iputils-ping</application> - Outils pour tester
+		l'accessibilité de noeuds réseaux</para>
+	</listitem>
+	<listitem>
+		<para><application>bird</application> - Internet Routing Daemon</para>
+	</listitem>
+	</itemizedlist>
+</sect2>
+
+<sect2 xml:id='interco.ospf-bird.convtypo'>
+	<title>Conventions typographiques</title>
+
+	<para>Tous les exemples d'exécution des commandes sont précédés d'une
+	invite utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau
+	des droits utilisateurs nécessaires sur le système.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Toute commande précédée de l'invite <prompt>$</prompt> ne
+		nécessite aucun privilège particulier et peut être utilisée au niveau
+		utilisateur simple.</para>
+	</listitem>
+	<listitem>
+		<para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite
+		les privilèges du super-utilisateur.</para>
+	</listitem>
+	</itemizedlist>
+</sect2>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.ospf-bird.prepare-config'>
+	<title>Préparer les systèmes pour le routage IPv4 et IPv6</title>
+
+	<para>La première étape consiste à installer les outils sur les trois
+	routeurs, à appliquer une configuration commune et à mettre en place la
+	topologie physique.</para>
+
+	<orderedlist>
+	<listitem>
+	<para>Installer le paquet <application>bird</application> avant de brasser
+	les postes sur les commutateurs attribués avec le plan d'adressage de la
+	salle de travaux pratiques.</para>
+
+<screen><prompt>$</prompt> aptitude search ~ibird
+i   bird              - démon de routage internet</screen>
+
+	<para>Sans configuration particulière, les services
+	<application>bird</application> et <application>bird6</application> sont
+	lancés.</para>
+
+<screen><prompt>R1:~#</prompt> systemctl status <emphasis>bird</emphasis>
+● bird.service - BIRD Internet Routing Daemon (IPv4)
+   Loaded: loaded (/lib/systemd/system/bird.service; enabled; vendor preset: enabled)
+   Active: <emphasis>active (running)</emphasis> since Sat 2018-10-20 12:58:52 UTC; 2min 23s ago
+ Main PID: 751 (bird)
+   Memory: 632.0K
+   CGroup: /system.slice/bird.service
+           └─751 /usr/sbin/bird -f -u bird -g bird
+
+oct. 20 12:58:52 R1 systemd[1]: Starting BIRD Internet Routing Daemon (IPv4)...
+oct. 20 12:58:52 R1 systemd[1]: Started BIRD Internet Routing Daemon (IPv4).
+oct. 20 12:58:52 R1 bird[751]: Started</screen>
+
+<screen><prompt>R1:~#</prompt> systemctl status <emphasis>bird6</emphasis>
+● bird6.service - BIRD Internet Routing Daemon (IPv6)
+   Loaded: loaded (/lib/systemd/system/bird6.service; enabled; vendor preset: enabled)
+   Active: <emphasis>active (running)</emphasis> since Sat 2018-10-20 17:18:50 UTC; 3h 9min ago
+  Process: 1728 ExecStartPre=/usr/sbin/bird6 -p (code=exited, status=0/SUCCESS)
+  Process: 1722 ExecStartPre=/usr/lib/bird/prepare-environment (code=exited, status=0/SUCCESS)
+ Main PID: 1729 (bird6)
+   Memory: 788.0K
+   CGroup: /system.slice/bird6.service
+           └─1729 /usr/sbin/bird6 -f -u bird -g bird
+
+oct. 20 17:18:50 R1 systemd[1]: Starting BIRD Internet Routing Daemon (IPv6)...
+oct. 20 17:18:50 R1 systemd[1]: Started BIRD Internet Routing Daemon (IPv6).
+oct. 20 17:18:50 R1 bird6[1729]: Started</screen>
+	</listitem>
+
+	<listitem xml:id='interco.ospf-bird.prepare-config.routing'>
+	<para>Activer le routage <acronym>IPv4</acronym> et <acronym>IPv6</acronym>
+	au niveau noyau.</para>
+
+	<para>Il faut éditer le fichier <filename>/etc/sysctl.conf</filename> pour
+	fixer les valeurs des paramètres de configuration du routage. Voir la
+	section <citetitle>Fonctions réseau d'une interface</citetitle> du support
+	&url.config.interface.lan;.</para>
+
+<screen><prompt>#</prompt>sysctl -p
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+<emphasis>net.ipv4.ip_forward = 1</emphasis>
+<emphasis>net.ipv6.conf.all.forwarding = 1</emphasis>
+net.ipv4.conf.all.secure_redirects = 1
+net.ipv4.conf.all.log_martians = 1</screen>
+	</listitem>
+
+	<listitem xml:id='interco.ospf-bird.prepare-config.subinterfaces'>
+	<para>Créer les sous-interfaces associées aux <acronym>VLAN</acronym>s sur
+	chacun des routeurs <systemitem>R1</systemitem>,
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem>.</para>
+
+	<para>Sur le routeur <systemitem>R1</systemitem>, on utilise le script avec
+	les numéros de <acronym>VLAN</acronym>s 12 et 13 par exemple.</para>
+
+<screen>R1:~# sh ./subinterfaces.sh 12 13</screen>
+
+	<para>On adapte l'utilisation du même script aux routeurs
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> avec les numéros
+	de <acronym>VLAN</acronym>s concernés.</para>
+
+	<para>Il est aussi possible d'éditer le fichier
+	<filename>/etc/network/interfaces</filename> de façon à rendre cette
+	configuration permanente. Voici une copie de ce fichier pour le routeur
+	<systemitem>R1</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R1-interfaces'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	</listitem>
+	</orderedlist>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.ospf-bird.pointopoint'>
+	<title>Valider les communications entre routeurs</title>
+
+	<para>Avant d'aborder le déploiement du protocole de routage dynamique, il
+	est nécessaire de valider le raccordement des routeurs aux commutateurs
+	désignés, les communications entre chaque routeur et la visualisation des
+	tables de routage pour les interfaces réseau configurées.</para>
+
+<qandaset>
+<qandadiv>
+	<qandaentry>
+	<question>
+		<para><phrase>Quelles sont les opérations à effectuer pour implanter
+		les adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym> des
+		interfaces correspondant à chacun des <acronym>VLAN</acronym>s
+		routés&nbsp;?</phrase></para>
+
+		<para>Au niveau liaison, les sous-interfaces ont déjà été configurées
+		avec le script <link
+		linkend='interco.ospf-bird.prepare-config.subinterfaces'>subinterfaces.sh</link>.
+		Il reste à paramétrer les adresses de ces sous-interfaces.</para>
+	</question>
+	<answer>
+	<variablelist>
+		<varlistentry>
+			<term>Routeur R1</term>
+		<listitem>
+<screen><prompt>R1:~#</prompt> ip addr add 10.1.12.1/26 brd + dev eth0.12
+<prompt>R1:~#</prompt> ip -6 addr add 2001:678:3fc:c::1/64 dev eth0.12
+<prompt>R1:~#</prompt> ip addr add 10.1.13.1/26 brd + dev eth0.13
+<prompt>R1:~#</prompt> ip -6 addr add 2001:678:3fc:d::1/64 dev eth0.13</screen>
+		</listitem>
+		</varlistentry>
+		<varlistentry>
+			<term>Routeur R2</term>
+		<listitem>
+<screen><prompt>R2:~#</prompt> ip addr add 10.1.12.2/26 brd + dev eth0.12
+<prompt>R2:~#</prompt> ip -6 addr add 2001:678:3fc:c::2/64 dev eth0.12
+<prompt>R2:~#</prompt> ip addr add 10.1.23.2/26 brd + dev eth0.23
+<prompt>R2:~#</prompt> ip -6 addr add 2001:678:3fc:17::2/64 dev eth0.23</screen>
+		</listitem>
+		</varlistentry>
+		<varlistentry>
+			<term>Routeur R3</term>
+		<listitem>
+<screen><prompt>R3:~#</prompt> ip addr add 10.1.13.3/26 brd + dev eth0.13
+<prompt>R3:~#</prompt> ip -6 addr add 2001:678:3fc:d::3/64 dev eth0.13
+<prompt>R3:~#</prompt> ip addr add 10.1.23.3/26 brd + dev eth0.23
+<prompt>R3:~#</prompt> ip -6 addr add 2001:678:3fc:17::3/64 dev eth0.23</screen>
+		</listitem>
+		</varlistentry>
+	</variablelist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Quelles sont les opérations à effectuer pour valider les
+		communications <acronym>IP</acronym> entre
+		routeurs&nbsp;?</phrase></para>
+
+		<para>Lancer les tests <acronym>ICMP</acronym> usuels entre chaque
+		routeur sur chaque lien actif.</para>
+	</question>
+	<answer>
+		<variablelist>
+		<varlistentry>
+			<term>Exemple entre R1 et R2</term>
+		<listitem>
+<screen><prompt>R1:~#</prompt> ping -qc2 10.1.12.2
+PING 10.1.12.2 (10.1.12.2) 56(84) bytes of data.
+
+--- 10.1.12.2 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 6ms
+rtt min/avg/max/mdev = 0.068/0.309/0.551/0.242 ms</screen>
+
+<screen><prompt>R1:~#</prompt> ping -qc2 2001:678:3fc:c::2
+PING 2001:678:3fc:c::2(2001:678:3fc:c::2) 56 data bytes
+
+--- 2001:678:3fc:c::2 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 19ms
+rtt min/avg/max/mdev = 0.070/0.295/0.521/0.226 ms</screen>
+		</listitem>
+		</varlistentry>
+		</variablelist>
+
+		<para>L'opération est à répéter sur chaque lien entre deux routeurs
+		reliés sur le même <acronym>VLAN</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment visualiser la table de routage au niveau
+		système&nbsp;?</phrase></para>
+
+		<para>Utiliser la commande <command>ip</command> pour visualiser la
+		table de routage</para>
+
+		<para>Toutes les routes affichées correspondent à des réseaux
+		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> sur lesquels le
+		routeur est directement connecté via une interface active correctement
+		configurée.</para>
+	</question>
+	<answer>
+		<variablelist>
+		<varlistentry>
+			<term>Routeur R1 - niveau système</term>
+		<listitem>
+<screen><prompt>R1:~#</prompt> ip route ls
+default via 192.0.2.1 dev eth0 onlink
+10.1.12.0/26 dev eth0.12 proto kernel scope link src 10.1.12.1
+10.1.13.0/26 dev eth0.13 proto kernel scope link src 10.1.13.1
+192.0.2.0/27 dev eth0 proto kernel scope link src 192.0.2.7</screen>
+
+<screen><prompt>R1:~#</prompt> ip -6 route ls
+2001:678:3fc:a::/64 dev eth0 proto kernel metric 256 pref medium
+2001:678:3fc:c::/64 dev eth0.12 proto kernel metric 256 pref medium
+2001:678:3fc:d::/64 dev eth0.13 proto kernel metric 256 pref medium
+fe80::/64 dev eth0 proto kernel metric 256 pref medium
+fe80::/64 dev eth0.12 proto kernel metric 256 pref medium
+fe80::/64 dev eth0.13 proto kernel metric 256 pref medium
+default via fe80::dc02:44ff:fe64:4834 dev eth0 metric 1024 onlink pref medium</screen>
+		</listitem>
+		</varlistentry>
+
+		<varlistentry>
+			<term>Routeur R2 - niveau système</term>
+		<listitem>
+<screen><prompt>R2:~#</prompt> ip route ls
+10.1.12.0/26 dev eth0.12 proto kernel scope link src 10.1.12.2
+10.1.23.0/26 dev eth0.23 proto kernel scope link src 10.1.23.2</screen>
+
+<screen><prompt>R2:~#</prompt> ip -6 route ls
+2001:678:3fc:c::/64 dev eth0.12 proto kernel metric 256 pref medium
+2001:678:3fc:17::/64 dev eth0.23 proto kernel metric 256 pref medium
+fe80::/64 dev eth0 proto kernel metric 256 pref medium
+fe80::/64 dev eth0.12 proto kernel metric 256 pref medium
+fe80::/64 dev eth0.23 proto kernel metric 256 pref medium</screen>
+		</listitem>
+		</varlistentry>
+
+		<varlistentry>
+			<term>Routeur R3 - niveau système</term>
+		<listitem>
+<screen><prompt>R3:~#</prompt> ip route ls
+10.1.13.0/26 dev eth0.13 proto kernel scope link src 10.1.13.3
+10.1.23.0/26 dev eth0.23 proto kernel scope link src 10.1.23.3</screen>
+
+<screen><prompt>R3:~#</prompt> ip -6 route ls
+2001:678:3fc:d::/64 dev eth0.13 proto kernel metric 256 pref medium
+2001:678:3fc:17::/64 dev eth0.23 proto kernel metric 256 pref medium
+fe80::/64 dev eth0 proto kernel metric 256 pref medium
+fe80::/64 dev eth0.13 proto kernel metric 256 pref medium
+fe80::/64 dev eth0.23 proto kernel metric 256 pref medium</screen>
+		</listitem>
+		</varlistentry>
+		</variablelist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment activer la fonction routage du noyau
+		Linux&nbsp;?</phrase></para>
+
+		<para>Reprendre l'instruction présentée dans le document
+		&url.config.interface.lan.proc;.</para>
+
+		<para>L'opération doit être répétée sur chacun des trois routeurs pour
+		que le protocole de routage dynamique puisse fonctionner
+		normalement.</para>
+	</question>
+	<answer>
+		<para>Si cette fonction n'est pas active dans le noyau Linux, aucune
+		décision d'acheminement d'un paquet d'une interface vers l'autre ne
+		sera prise. Les paquets à router sont simplement jetés.</para>
+
+		<para>Les instructions d'activation de la fonction de routage sont
+		données dans la section <link
+		linkend='interco.ospf-bird.prepare-config.routing'>Préparation des
+		routeurs</link>.</para>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.ospf-bird.protocol-config'>
+	<title>Configurer les démons OSPF Bird</title>
+
+	<para>Dans cette section, on introduit les premières commandes de
+	configuration du protocole de routage dynamique <acronym>OSPF</acronym> qui
+	permettent d'activer le protocole puis d'ajouter des entrées de réseau dans
+	la base de données de ce protocole.</para>
+
+<qandaset>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les fichiers de configuration à éditer pour
+	activer les protocoles <acronym>OSPFv2</acronym> et
+	<acronym>OSPFv3</acronym> sur le routeur&nbsp;?</phrase></para>
+
+	<para>Une fois le paquet <systemitem class='daemon'>bird</systemitem>
+	installé, deux démons distincts sont lancés&nbsp;: <systemitem
+	class='daemon'>bird</systemitem> pour <acronym>IPv4</acronym> et
+	<systemitem class='daemon'>bird6</systemitem> pour <acronym>IPv6</acronym>.
+	Rechercher dans la liste des fichiers fournis avec le paquet, les exemples
+	de fichiers de configuration.</para>
+	</question>
+	<answer>
+	<para>Les fichiers de configuration sont au nombre de deux. Ils sont placés
+	dans le dossier <filename class='directory'>/etc/bird/</filename>. Deux
+	exemples de ces fichiers sont données dans le dossier de documentation du
+	paquet.</para>
+
+<screen><prompt>R1:~#</prompt> dpkg -L bird | grep example
+/usr/share/doc/bird/examples
+/usr/share/doc/bird/examples/bird.conf.gz
+/usr/share/doc/bird/examples/bird6.conf.gz</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment accéder à l'état des différents protocoles actifs
+	pour chaque démon&nbsp;?</phrase></para>
+
+	<para>À chaque édition d'un fichier de configuration, il faut relancer le
+	démon correspondant. C'est à nouveau dans la liste des fichiers du paquet
+	que l'on identifie les outils d'accès à la configuration active des deux
+	démons.</para>
+
+	<para>Il faut consulter la section &url.bird-remote-control; de la
+	documentation <application>Bird</application>. Les commandes utiles pour
+	cette question sont les suivantes.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show status</command></member>
+		<member><command>show protocols</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Chaque démon dispose d'une console propre avec les outils
+	<command>birdc</command> et <command>birdc6</command>. Ce sont ces deux
+	consoles qui permettent de connaître le statut du démon, la liste des
+	protocoles actifs et les informations relatives au fonctionnement de ces
+	protocoles.</para>
+
+<screen><prompt>R1:~#</prompt> birdc
+BIRD 1.6.4 ready.
+bird> sh status
+BIRD 1.6.4
+Router ID is 0.0.4.1
+Current server time is 2018-10-20 20:59:04
+Last reboot on 2018-10-20 16:54:04
+Last reconfiguration on 2018-10-20 20:58:58
+<emphasis>Daemon is up and running</emphasis></screen>
+
+<screen><prompt>R1:~#</prompt> birdc6
+BIRD 1.6.4 ready.
+bird> sh status
+BIRD 1.6.4
+Router ID is 0.0.6.1
+Current server time is 2018-10-20 21:00:22
+Last reboot on 2018-10-20 17:18:49
+Last reconfiguration on 2018-10-20 17:18:49
+<emphasis>Daemon is up and running</emphasis></screen>
+
+	<para>De la même façon, on peut connaître la liste des protocoles
+	actifs de chaque démon.</para>
+
+<screen><prompt>bird></prompt> sh protocols
+name     proto    table    state  since       info
+device1  Device   master   up     16:54:04
+kernel1  Kernel   master   up     20:58:58</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer le protocole de routage
+	<acronym>OSPF</acronym> et attribuer l'identifiant du
+	routeur&nbsp;?</phrase></para>
+
+	<para>Consulter le document &url.bird-users-guide; à la section
+	<acronym>OSPF</acronym> pour activer le protocole. Consulter les tableaux
+	des plans d'adressage pour obtenir la valeur de l'identifiant du routeur à
+	configurer.</para>
+
+	<para>On édite les fichiers <filename>/etc/bird.conf</filename> et
+	<filename>/etc/bird6.conf</filename> avec les paramètres suivants.</para>
+
+	<simplelist type='horiz'>
+		<member><command>router id IPv4 address</command></member>
+		<member><command>protocol ospf &lt;name></command></member>
+		<member><command>area &lt;id></command></member>
+	</simplelist>
+    </question>
+    <answer>
+	<para>Voici une copie des fichiers du routeur <systemitem
+	class='systemname'>R1</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> grep -v ^# /etc/bird/bird.conf
+
+router id 0.0.1.4;
+
+protocol kernel {
+        scan time 10;
+        import none;
+}
+
+protocol device {
+        scan time 10;
+}
+
+protocol ospf OSPFv2R1 {
+        area 0 {
+        };
+}</screen>
+
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> grep -v ^# /etc/bird/bird6.conf
+
+router id 0.0.1.6;
+
+protocol kernel {
+        scan time 10;
+        import none;
+}
+
+protocol device {
+        scan time 10;
+}
+
+protocol ospf OSPFv3R1 {
+        area 0 {
+        };
+}</screen>
+
+	<para>Une fois les deux services relancés, on peut vérifier que les
+	éléments demandés sont bien présents dans la configuration des démons de
+	routage <acronym>OSPF</acronym>.</para>
+
+<screen><prompt>R1:~#</prompt> systemctl restart bird
+
+<prompt>R1:~#</prompt> birdc sh protocols
+BIRD 1.6.4 ready.
+name     proto    table    state  since       info
+kernel1  Kernel   master   up     09:38:34
+device1  Device   master   up     09:38:34
+<emphasis>OSPFv2R1 OSPF     master   up     09:38:34    Alone</emphasis>
+
+<prompt>R1:~#</prompt> birdc sh ospf state
+BIRD 1.6.4 ready.
+
+area 0.0.0.0
+
+        <emphasis>router 0.0.1.4</emphasis>
+                distance 0</screen>
+
+<screen><prompt>R1:~#</prompt> systemctl restart bird6
+
+<prompt>R1:~#</prompt> birdc6 sh protocols
+BIRD 1.6.4 ready.
+name     proto    table    state  since       info
+kernel1  Kernel   master   up     09:42:33
+device1  Device   master   up     09:42:33
+<emphasis>OSPFv3R1 OSPF     master   up     09:42:33    Alone</emphasis>
+
+<prompt>R1:~#</prompt> birdc6 sh ospf state
+BIRD 1.6.4 ready.
+
+area 0.0.0.0
+
+        <emphasis>router 0.0.1.6</emphasis>
+                distance 0</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer et valider le protocole de routage
+	<acronym>OSPF</acronym> pour les réseaux <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> connus de chaque routeur&nbsp;?</phrase></para>
+
+	<para>Consulter la section <acronym>OSPF</acronym> de la documentation
+	&url.bird-users-guide; ainsi que l'exemple &url.bird-ospf-example;. Il
+	suffit d'adapter les exemples avec les noms d'interfaces en fonction du
+	contexte.</para>
+
+	<para>On édite les fichiers <filename>/etc/bird.conf</filename> et
+	<filename>/etc/bird6.conf</filename> avec les paramètres suivants.</para>
+
+	<simplelist type='horiz'>
+		<member><command>interface &lt;interface pattern></command></member>
+		<member><command>authentication none|simple|cryptographic;</command></member>
+	</simplelist>
+
+	<para>On vérifie au niveau console (Voir &url.bird-remote-control;) l'état
+	de la base de connaissance des deux processus <acronym>OSPF</acronym> avec
+	la commande suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show ospf state</command></member>
+	</simplelist>
+	</question>
+	<answer>
+		<variablelist>
+		<varlistentry>
+			<term>Routeur R1&nbsp;: <acronym>OSPFv2</acronym> &amp;
+			interfaces</term>
+		<listitem>
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> grep -v ^# /etc/bird/bird.conf
+
+router id 0.0.1.4;
+
+protocol kernel {
+        scan time 10;
+        import none;
+}
+
+protocol device {
+        scan time 10;
+}
+
+protocol ospf OSPFv2R1 {
+        rfc1583compat yes;
+        area 0 {
+                interface "eth0.12", "eth0.13" {
+                        authentication none;
+                };
+        };
+}</screen>
+		</listitem>
+		</varlistentry>
+
+		<varlistentry>
+			<term>Routeur R1&nbsp;: base de connaissance
+			<acronym>OSPFv2</acronym></term>
+		<listitem>
+		<para>Dans la copie d'écran ci-dessous, on relève les deux routeurs
+		voisins de <systemitem class='systemname'>R1</systemitem> ainsi que le
+		réseau distant <systemitem
+		class='ipaddress'>10.1.23.0/26</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> birdc sh ospf state
+BIRD 1.6.4 ready.
+
+area 0.0.0.0
+
+        router 0.0.1.4
+                distance 0
+                network 10.1.12.0/26 metric 10
+                network 10.1.13.0/26 metric 10
+
+        <emphasis>router 0.0.2.4</emphasis>
+                distance 10
+                network 10.1.12.0/26 metric 10
+                network 10.1.23.0/26 metric 10
+
+        <emphasis>router 0.0.3.4</emphasis>
+                distance 10
+                network 10.1.13.0/26 metric 10
+                network 10.1.23.0/26 metric 10
+
+        network 10.1.12.0/26
+                dr 0.0.2.4
+                distance 10
+                router 0.0.2.4
+                router 0.0.1.4
+
+        network 10.1.13.0/26
+                dr 0.0.3.4
+                distance 10
+                router 0.0.3.4
+                router 0.0.1.4
+
+        <emphasis>network 10.1.23.0/26</emphasis>
+                dr 0.0.2.4
+                distance 20
+                router 0.0.2.4
+                router 0.0.3.4</screen>
+		</listitem>
+		</varlistentry>
+
+		<varlistentry>
+			<term>Routeur R1&nbsp;: <acronym>OSPFv3</acronym> &amp;
+			interfaces</term>
+		<listitem>
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> grep -v ^# /etc/bird/bird6.conf
+
+router id 0.0.1.6;
+
+protocol kernel {
+        scan time 10;
+        import none;
+}
+
+protocol device {
+        scan time 10;
+}
+
+protocol ospf OSPFv3R1 {
+        area 0 {
+                interface "eth0.12", "eth0.13" {
+                        authentication none;
+                };
+        };
+}</screen>
+		</listitem>
+		</varlistentry>
+
+		<varlistentry>
+			<term>Routeur R1&nbsp;: base de connaissance
+			<acronym>OSPFv3</acronym></term>
+		<listitem>
+		<para>Dans la copie d'écran ci-dessous, on relève les deux routeurs
+		voisins de <systemitem class='systemname'>R1</systemitem> ainsi que le
+		réseau distant <systemitem
+		class='ipaddress'>2001:678:3fc:17::/64</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> birdc6 sh ospf state
+BIRD 1.6.4 ready.
+
+area 0.0.0.0
+
+        router 0.0.1.6
+                distance 0
+                network [0.0.1.6-2] metric 10
+                network [0.0.1.6-3] metric 10
+
+        <emphasis>router 0.0.2.6</emphasis>
+                distance 10
+                network [0.0.1.6-2] metric 10
+                network [0.0.3.6-3] metric 10
+
+        <emphasis>router 0.0.3.6</emphasis>
+                distance 10
+                network [0.0.1.6-3] metric 10
+                network [0.0.3.6-3] metric 10
+
+        network [0.0.1.6-2]
+                distance 10
+                router 0.0.1.6
+                router 0.0.2.6
+                address 2001:678:3fc:c::/64
+
+        network [0.0.1.6-3]
+                distance 10
+                router 0.0.1.6
+                router 0.0.3.6
+                address 2001:678:3fc:d::/64
+
+        network [0.0.3.6-3]
+                distance 20
+                router 0.0.3.6
+                router 0.0.2.6
+                <emphasis>address 2001:678:3fc:17::/64</emphasis></screen>
+		</listitem>
+		</varlistentry>
+		</variablelist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment identifier le type de réseau des interfaces actives
+	d'un routeur pour chaque version du protocole de routage
+	<acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+	<para>La question précédente montre que la configuration des deux processus
+	<systemitem class='daemon'>bird</systemitem> et <systemitem
+	class='daemon'>bird6</systemitem> est basée sur l'activation du protocole
+	par interface. Il faut donc rechercher dans la section
+	&url.bird-remote-control; l'instruction qui donne l'état des interfaces
+	actives.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show ospf interface</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Comme on utilise uniquement des liens Ethernet dans ce contexte de
+	travaux pratiques, le type de réseau est nécessairement diffusion.</para>
+
+	<variablelist>
+	<varlistentry>
+		<term>Routeur R1&nbsp;: <acronym>OSPFv2</acronym> &amp;
+		interfaces</term>
+	<listitem>
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> birdc sh ospf interface
+BIRD 1.6.4 ready.
+OSPFv2R1:
+Interface eth0.12 (10.1.12.0/26)
+        <emphasis>Type: broadcast</emphasis>
+        Area: 0.0.0.0 (0)
+        State: Backup
+        Priority: 1
+        Cost: 10
+        Hello timer: 10
+        Wait timer: 40
+        Dead timer: 40
+        Retransmit timer: 5
+        Designated router (ID): 0.0.2.4
+        Designated router (IP): 10.1.12.2
+        Backup designated router (ID): 0.0.1.4
+        Backup designated router (IP): 10.1.12.1
+Interface eth0.13 (10.1.13.0/26)
+        <emphasis>Type: broadcast</emphasis>
+        Area: 0.0.0.0 (0)
+        State: Backup
+        Priority: 1
+        Cost: 10
+        Hello timer: 10
+        Wait timer: 40
+        Dead timer: 40
+        Retransmit timer: 5
+        Designated router (ID): 0.0.3.4
+        Designated router (IP): 10.1.13.3
+        Backup designated router (ID): 0.0.1.4
+        Backup designated router (IP): 10.1.13.1</screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+		<term>Routeur R1&nbsp;: <acronym>OSPFv3</acronym> &amp;
+		interfaces</term>
+	<listitem>
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> birdc6 sh ospf interface
+BIRD 1.6.4 ready.
+OSPFv3R1:
+Interface eth0.12 (IID 0)
+        <emphasis>Type: broadcast</emphasis>
+        Area: 0.0.0.0 (0)
+        State: DR
+        Priority: 1
+        Cost: 10
+        Hello timer: 10
+        Wait timer: 40
+        Dead timer: 40
+        Retransmit timer: 5
+        Designated router (ID): 0.0.1.6
+        Designated router (IP): fe80::70de:4fff:fe1d:68b4
+        Backup designated router (ID): 0.0.2.6
+        Backup designated router (IP): fe80::943a:41ff:fe65:7307
+Interface eth0.13 (IID 0)
+        <emphasis>Type: broadcast</emphasis>
+        Area: 0.0.0.0 (0)
+        State: DR
+        Priority: 1
+        Cost: 10
+        Hello timer: 10
+        Wait timer: 40
+        Dead timer: 40
+        Retransmit timer: 5
+        Designated router (ID): 0.0.1.6
+        Designated router (IP): fe80::70de:4fff:fe1d:68b4
+        Backup designated router (ID): 0.0.3.6
+        Backup designated router (IP): fe80::3032:e9ff:fe73:6322</screen>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment obtenir la liste du ou des routeurs voisins pour
+		chaque processus de protocole de routage dynamique
+		<acronym>OSPFv2</acronym> ou
+		<acronym>OSPFv3</acronym>&nbsp;?</phrase></para>
+
+		<para>Dès qu'une interface est active, il y a émission de paquets
+		<option>HELLO</option> et si un routeur avec un démon
+		<acronym>OSPF</acronym> envoie aussi des paquets
+		<option>HELLO</option> dans le même <acronym>VLAN</acronym>, les deux
+		routeurs cherchent à former une adjacence.</para> 
+
+		<para>La commande utile de la section &url.bird-remote-control; est la suivante.</para>
+
+		<simplelist type='horiz'>
+		<member><command>show ospf neighbors</command></member>
+		</simplelist>
+	</question>
+	<answer>
+		<para>À nouveau sur le routeur <systemitem>R1</systemitem>, voici un
+		exemple de liste de routeurs <acronym>OSPF</acronym> voisins dans
+		laquelle on reconnaît les identifiants des routeurs
+		<systemitem>R2</systemitem> et <systemitem>R3</systemitem>.</para>
+
+<screen><prompt>R1:~#</prompt> birdc sh ospf neighbors
+BIRD 1.6.4 ready.
+OSPFv2R1:
+Router ID       Pri          State      DTime   Interface  Router IP
+0.0.2.4   1     Full/DR         00:31   eth0.12    10.1.12.2
+0.0.3.4   1     Full/DR         00:34   eth0.13    10.1.13.3</screen>
+
+<screen><prompt>R1:~#</prompt> birdc6 sh ospf neighbors
+BIRD 1.6.4 ready.
+OSPFv3R1:
+Router ID       Pri          State      DTime   Interface  Router IP
+0.0.2.6   1     Full/BDR        00:33   eth0.12    fe80::943a:41ff:fe65:7307
+0.0.3.6   1     Full/BDR        00:36   eth0.13    fe80::3032:e9ff:fe73:6322</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Comment identifier le rôle des différentes interfaces des
+		routeurs pour chacun des liens du triangle de la topologie
+		logique&nbsp;?</phrase></para>
+
+	<warning>
+		<para>La réponse à cette question suppose que les démons
+		<acronym>OSPF</acronym> des trois routeurs de la topologie logique en
+		triangle aient convergé. On doit repérer l'état <option>Full</option>
+		pour les listes de routeurs voisins.</para>
+
+		<para>De plus, la réponse varie en fonction de l'ordre d'activation des
+		démons <acronym>OSPF</acronym> des différents routeurs. En effet, un
+		routeur peut être élu routeur désigné (<acronym>DR</acronym>) en
+		l'absence de routeurs voisins. Cette élection n'est pas remise en cause
+		tant qu'il n'y pas de changement d'état de lien.</para>
+	</warning>
+
+		<para>À partir des résultats des questions précédentes sur les
+		interfaces actives, il est possible de compléter le schéma de la
+		topologie étudiée avec l'état des interfaces pour chacun des trois
+		liens.</para>
+	</question>
+	<answer>
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata format='PNG'
+		fileref='images/interco.ospf.logical-topology-link-state.png'
+		width='9cm' scalefit='1' />
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata format='PNG'
+		fileref='images/interco.ospf.logical-topology-link-state.png'
+		width='480px' scalefit='1' />
+	</imageobject>
+	<textobject>
+		<phrase>Topologie logique OSPF et rôle des interfaces de
+		routeurs</phrase>
+	</textobject>
+	</mediaobject>
+
+		<para>Sur un même réseau de diffusion, il est possible de trouver
+		plusieurs routeurs <acronym>OSPF</acronym>. Établir une relation de
+		voisinage et procéder aux échanges de bases de données topologiques
+		entre chaque routeur revient à constituer un réseau de relations
+		complètement maillé. À chaque recalcul de topologie, ce réseau
+		complètement maillé est inefficace. C'est la raison pour laquelle la
+		notion de routeur référent ou <wordasword>Designated
+		Router</wordasword> a été introduite. Lors d'un recalcul de topologie,
+		tous les routeurs s'adressent au référent qui correspond au cœur d'un
+		réseau en topologie étoile.</para>
+
+		<para>Dans le contexte de la topologie triangle étudiée, il y a bien
+		élection d'un routeur référent et d'un routeur référent de secours.
+		Cependant, comme il n'y a que deux routeurs par domaine de diffusion ou
+		<acronym>VLAN</acronym>, on ne peut pas caractériser l'utilité de cette
+		élection.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+		<para><phrase>Quelles sont les réseaux <acronym>IPv4</acronym> et
+		<acronym>IPv6</acronym> présents dans la base calcul du protocole
+		<acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+		<para>On cherche a visualiser la liste des préfixes des réseaux connus
+		des deux démons <acronym>OSPF</acronym>.</para>
+
+		<para>La commande utile dans les deux consoles est la suivante.</para>
+
+		<simplelist type='horiz'>
+		<member><command>show route</command></member>
+		</simplelist>
+	</question>
+	<answer>
+		<para>Une fois que les trois routeurs de la topologie ont convergé,
+		chaque démon connaît les trois préfixes qui correspondent aux trois
+		côtés du triangle. Un routeur correspond à un sommet du triangle et il
+		doit apprendre le préfixe réseau du côté opposé via ses deux routeurs
+		voisins.</para>
+
+		<para>Voici la vue depuis le routeur
+		<systemitem>R1</systemitem>.</para>
+
+<screen><prompt>R1:~#</prompt> birdc sh route
+BIRD 1.6.4 ready.
+10.1.12.0/26       dev eth0.12 [OSPFv2R1 16:47:15] * I (150/10) [0.0.2.4]
+10.1.13.0/26       dev eth0.13 [OSPFv2R1 16:47:10] * I (150/10) [0.0.3.4]
+10.1.23.0/26       via 10.1.13.3 on eth0.13 [OSPFv2R1 16:47:10] * I (150/20) [0.0.2.4]</screen>
+
+		<para>Les valeurs notées entre parenthèses correspondent à la métrique du
+		lien pour joindre le réseau noté à gauche. Pour le protocole
+		<acronym>OSPF</acronym>, le calcul de métrique se fait à partir du coût
+		de lien par défaut pour chaque interface active. La valeur par défaut
+		est <option>10</option></para>
+
+		<para>Les deux premiers réseaux de la table sont joignable via un lien
+		direct&nbsp;; soit une métrique de <option>10</option>. Le troisième
+		réseau est joignable via deux liens Ethernet&nbsp;; d'où la métrique de
+		<option>20</option>.</para>
+
+		<para>Pour les réseaux <acronym>IPv6</acronym>, on retrouve les mêmes
+		métriques puisque la topologie est identique pour les deux version du
+		protocole <acronym>IP</acronym>.</para>
+
+<screen><prompt>R1:~#</prompt> birdc6 sh route
+BIRD 1.6.4 ready.
+2001:678:3fc:d::/64 dev eth0.13 [OSPFv3R1 10:01:30] * I (150/10) [0.0.1.6]
+2001:678:3fc:c::/64 dev eth0.12 [OSPFv3R1 10:05:36] * I (150/10) [0.0.1.6]
+2001:678:3fc:17::/64 via fe80::3032:e9ff:fe73:6322 on eth0.13 [OSPFv3R1 10:05:38] * I (150/20) [0.0.3.6]</screen>
+
+		<para>Avec <acronym>OSPFv3</acronym>, les relations de voisinage entre
+		routeurs utilisent nécessairement les adresses de lien local
+		appartenant au préfixe <systemitem
+		class='ipaddress'>fe80::/10</systemitem>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment utiliser toutes les solutions disponibles pour
+	joindre le réseau distant depuis chacun des  sommets de la topologie
+	triangle&nbsp;?</phrase></para>
+
+	<para>Avec la topologie logique triangle, le réseau du côté opposé à un
+	sommet (au routeur) doit être joignable depuis les deux réseaux locaux
+	raccordés à ce routeur. Nous sommes donc dans un contexte
+	multi chemins.</para>
+
+	<para>Consulter la section <acronym>OSPF</acronym> de la documentation
+	&url.bird-users-guide; et rechercher l'intsruction qui permet l'utilisation
+	de plusieurs chemins à coût égal.</para>
+
+	<simplelist type='horiz'>
+		<member><command>ecmp switch [limit number]</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>La fonction réseau du noyau Linux recherchée est connue sous le nom
+	<wordasword>Equal Cost Multi Path</wordasword> ou
+	<acronym>ECMP</acronym>.</para>
+
+	<para>Sur le routeur <systemitem class='systemname'>R1</systemitem>, la
+	configuration du bloc d'instructions <acronym>OSPF</acronym> de chaque
+	processus est la suivante.</para>
+
+<screen><prompt>R1:~#</prompt> sed -n '/protocol ospf/,//p' /etc/bird/bird.conf
+protocol ospf OSPFv2R1 {
+        rfc1583compat yes;
+        <emphasis>ecmp yes;</emphasis>
+        area 0 {
+                interface "eth0.12", "eth0.13" {
+                        authentication none;
+                };
+        };
+}</screen>
+
+<screen><prompt>R1:~#</prompt> sed -n '/protocol ospf/,//p' /etc/bird/bird6.conf
+protocol ospf OSPFv3R1 {
+        <emphasis>ecmp yes;</emphasis>
+        area 0 {
+                interface "eth0.12", "eth0.13" {
+                        authentication none;
+                };
+        };
+}</screen>
+
+	<para>Relativement aux questions précédentes, les tables de routage
+	proposées par les processus <systemitem class='daemon'>bird</systemitem> et
+	<systemitem class='daemon'>bird6</systemitem> font apparaître les deux
+	chemins disponibles pour joindre le réseau distant du sommet de la
+	topologie triangle.</para>
+
+<screen><prompt>R1:~#</prompt> birdc sh route
+BIRD 1.6.4 ready.
+10.1.12.0/26       dev eth0.12 [OSPFv2R1 19:49:42] * I (150/10) [0.0.1.4]
+10.1.13.0/26       dev eth0.13 [OSPFv2R1 19:50:37] * I (150/10) [0.0.1.4]
+10.1.23.0/26       multipath [OSPFv2R1 19:50:48] * I (150/20) [0.0.2.4]
+        <emphasis>via 10.1.12.2 on eth0.12 weight 1</emphasis>
+        <emphasis>via 10.1.13.3 on eth0.13 weight 1</emphasis></screen>
+
+<screen><prompt>R1:~#</prompt> birdc6 sh route
+BIRD 1.6.4 ready.
+2001:678:3fc:d::/64 dev eth0.13 [OSPFv3R1 19:50:38] * I (150/10) [0.0.1.6]
+2001:678:3fc:c::/64 dev eth0.12 [OSPFv3R1 19:49:44] * I (150/10) [0.0.1.6]
+2001:678:3fc:17::/64 multipath [OSPFv3R1 19:50:50] * I (150/20) [0.0.2.6]
+        <emphasis>via fe80::3032:e9ff:fe73:6322 on eth0.13 weight 1</emphasis>
+        <emphasis>via fe80::943a:41ff:fe65:7307 on eth0.12 weight 1</emphasis></screen>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect1>
+
+<sect1 xml:id='interco.ospf-bird.import-export'>
+	<title>Échanger les routes entre Bird et le système</title>
+
+	<para>Dans la section précédente, tous les échanges de préfixes réseau
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> se font entre les démons
+	<application>Bird</application> installés sur les trois routeurs de la
+	topologie étudiée. Il faut maintenant être capable d'échanger les résultats
+	des traitements <acronym>OSPFv2</acronym> et <acronym>OSPFv3</acronym> avec
+	le sous-système réseau du noyau de chaque routeur.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Sur <systemitem class='systemname'>R1</systemitem>, les deux
+		démons <application>Bird</application> doivent importer la route par
+		défaut déjà connue au niveau système. De plus, les routes vers les
+		réseaux fictifs de <systemitem class='systemname'>R2</systemitem> et
+		<systemitem class='systemname'>R3</systemitem> apprise via
+		<acronym>OSPF</acronym> doivent être exportées vers le sous-système
+		réseau du noyau de <systemitem
+		class='systemname'>R1</systemitem>.</para>
+	</listitem>
+	<listitem>
+		<para>Sur les routeurs <systemitem class='systemname'>R2</systemitem>
+		et <systemitem class='systemname'>R3</systemitem>, les routes par
+		défaut apprises via <acronym>OSPF</acronym> doivent être exportées vers
+		le sous-système réseau du noyau. De plus les routes des réseaux fictifs
+		doivent être importées dans les démons <application>Bird</application>
+		pour être publiées via <acronym>OSPF</acronym>.</para>
+	</listitem>
+	</itemizedlist>
+
+	<warning>
+	<para>Les résultats des questions de cette section ne sont visibles que si
+	les routes sont déjà présentes, soit dans les démons de routage
+	<application>Bird</application>, soit au niveau système.</para>
+	</warning>
+
+	<qandaset>
+	<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment faire pour que les routes connues du sous-système
+	réseau du noyau Linux soient importées dans les deux démons <systemitem
+	class='daemon'>bird</systemitem> et <systemitem
+	class='daemon'>bird6</systemitem>&nbsp;?</phrase></para>
+
+	<para>Consulter la section <wordasword>kernel</wordasword> de la
+	documentation &url.bird-users-guide; à la recherche des paramètres
+	d'importation. Les commandes utiles pour cette question sont les
+	suivantes.</para>
+
+	<simplelist type='horiz'>
+		<member><command>import</command></member>
+		<member><command>learn switch</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Pour cette question, les configurations des démons <systemitem
+	class='daemon'>bird</systemitem> et <systemitem
+	class='daemon'>bird6</systemitem> sont identiques quel que soit le routeur
+	considéré. Voici un extrait de fichier de configuration.</para>
+
+<screen><prompt>R1:~#</prompt> sed -n '/protocol kernel/,/^}/p' /etc/bird/bird.conf
+protocol kernel {
+        scan time 10;
+        <emphasis>import all;</emphasis>
+        <emphasis>learn yes;</emphasis>
+#       export all;   # Actually insert routes into the kernel routing table
+}</screen>
+
+	<para>Tant que les questions sur l'ajout de réseaux fictifs ne sont pas
+	traitées, seul les démons du routeur <systemitem
+	class='systemname'>R1</systemitem> ont un résultat observable. Les routes
+	par défaut sont importées dans les démons
+	<application>Bird</application>.</para>
+
+<screen><prompt>R1:~#</prompt> birdc show route 0.0.0.0/0
+BIRD 1.6.4 ready.
+0.0.0.0/0          via 192.0.2.1 on eth0 [<emphasis>kernel1</emphasis> 13:47:04] * (10)</screen>
+
+<screen><prompt>R1:~#</prompt> birdc6 show route ::/0
+BIRD 1.6.4 ready.
+::/0               via fe80::dc02:44ff:fe64:4834 on eth0 [<emphasis>kernel1</emphasis> 2018-10-21] * (10)</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment faire pour que les routes calculées par les processus
+	<systemitem class='daemon'>bird</systemitem> et <systemitem
+	class='daemon'>bird6</systemitem> soient soumises au sous-système réseau du
+	noyau Linux&nbsp;?</phrase></para>
+
+	<para>Consulter la section <wordasword>kernel</wordasword> de la
+	documentation &url.bird-users-guide; à la recherche des paramètres
+	d'exportation. La commande utile pour cette question est la
+	suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>export</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>En reprenant l'exemple du routeur <systemitem
+	class='systemname'>R1</systemitem>, la configuration des blocs
+	d'instructions <option>kernel</option> de chaque processus
+	devient&nbsp;:</para>
+
+<screen><prompt>R1:~#</prompt> sed -n '/protocol kernel/,/^}/p' /etc/bird/bird.conf
+protocol kernel {
+        scan time 10;
+        import all;
+        learn yes;
+        <emphasis>export all</emphasis>;   # Actually insert routes into the kernel routing table
+}</screen>
+
+	<para>Avec la commande <command>ip</command> au niveau système, on voit
+	apparaître les «sources» d'alimentation de la table de routage du système
+	en question&nbsp;: <option>kernel</option> et <option>bird</option>.</para>
+
+<screen><prompt>R1:~#</prompt> ip route ls
+default via 192.0.2.1 dev eth0 onlink
+10.1.12.0/26 dev eth0.12 <emphasis>proto kernel</emphasis> scope link src 10.1.12.1
+10.1.13.0/26 dev eth0.13 proto kernel scope link src 10.1.13.1
+10.1.23.0/26 <emphasis>proto bird</emphasis>
+        nexthop via 10.1.12.2 dev eth0.12 weight 1
+        nexthop via 10.1.13.3 dev eth0.13 weight 1
+192.0.2.0/27 dev eth0 proto kernel scope link src 192.0.2.7</screen>
+
+<screen><prompt>R1:~#</prompt> ip -6 route ls
+2001:678:3fc:a::/64 dev eth0 proto kernel metric 256 pref medium
+2001:678:3fc:c::/64 dev eth0.12 <emphasis>proto kernel</emphasis> metric 256 pref medium
+2001:678:3fc:d::/64 dev eth0.13 proto kernel metric 256 pref medium
+2001:678:3fc:17::/64 <emphasis>proto bird</emphasis> metric 1024
+        nexthop via fe80::3032:e9ff:fe73:6322 dev eth0.13 weight 1
+        nexthop via fe80::943a:41ff:fe65:7307 dev eth0.12 weight 1 pref medium
+fe80::/64 dev eth0 proto kernel metric 256 pref medium
+fe80::/64 dev eth0.12 proto kernel metric 256 pref medium
+fe80::/64 dev eth0.13 proto kernel metric 256 pref medium
+default via fe80::dc02:44ff:fe64:4834 dev eth0 metric 1024 onlink pref medium</screen>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.ospf-bird.default-information'>
+	<title>Publier les routes par défaut via OSPF</title>
+
+	<para>Dans la topologie logique étudiée, le routeur <systemitem
+	class='systemname'>R1</systemitem> dispose d'un lien vers l'Internet. On
+	considère ce lien comme la route par défaut vers tous les réseaux non
+	connus de l'aire <acronym>OSPF</acronym>	contenant les trois
+	routeurs.</para>
+
+	<para>Il est possible de publier une route par défaut via le protocole
+	<acronym>OSPF</acronym> depuis le routeur <systemitem
+	class='systemname'>R1</systemitem> vers les deux routeurs <systemitem
+	class='systemname'>R2</systemitem> et <systemitem
+	class='systemname'>R3</systemitem>.</para>
+
+	<para>Avant publication de la route par défaut depuis le routeur
+	<systemitem class='systemname'>R1</systemitem>, les démons
+	<acronym>OSPF</acronym> n'utilisent que des annonces <acronym>LSA</acronym>
+	(<wordasword>Link State Advertisement</wordasword>) de type 1 et 2. Voici
+	un tableau de référence pour le codage des <acronym>LSAs</acronym>.</para>
+
+	<table xml:id='interco.ospf-bird.lsa' frame='all' pgwide='0'>
+		<title>Codage des annonces OSPF</title>
+	<tgroup cols='4'>
+		<colspec colnum='1' colwidth='1*'/>
+		<colspec colnum='2' colwidth='3*'/>
+		<colspec colnum='3' colwidth='1*'/>
+		<colspec colnum='4' colwidth='3*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>OSPFv2</entry>
+		<entry>Description</entry>
+		<entry>OSPFv3</entry>
+		<entry>Description</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+		<entry>1</entry>
+		<entry>Router LSA</entry>
+		<entry>0x2001</entry>
+		<entry>Router LSA</entry>
+	</row>
+	<row>
+		<entry>2</entry>
+		<entry>Network LSA</entry>
+		<entry>0x2002</entry>
+		<entry>Network LSA</entry>
+	</row>
+	<row>
+		<entry>3</entry>
+		<entry>Network Summary LSA</entry>
+		<entry>0x2003</entry>
+		<entry>Inter-Area Prefix LSA for ABRs</entry>
+	</row>
+	<row>
+		<entry>4</entry>
+		<entry>ASBR Summary LSA</entry>
+		<entry>0x2004</entry>
+		<entry>Inter-Area Router LSA for ABRs</entry>
+	</row>
+	<row>
+		<entry>5</entry>
+		<entry>AS-external LSA</entry>
+		<entry>0x4005</entry>
+		<entry>AS-external LSA</entry>
+	</row>
+	<row>
+		<entry>6</entry>
+		<entry>Group Membership LSA</entry>
+		<entry>0x2006</entry>
+		<entry>Group Membership LSA</entry>
+	</row>
+	<row>
+		<entry>7</entry>
+		<entry>Not So Stubby Area LSA</entry>
+		<entry>0x2007</entry>
+		<entry>Type-7 LSA</entry>
+	</row>
+	<row>
+		<entry>8</entry>
+		<entry>&nbsp;</entry>
+		<entry>0x2008</entry>
+		<entry>Link LSA</entry>
+	</row>
+	<row>
+		<entry>9</entry>
+		<entry>&nbsp;</entry>
+		<entry>0x2009</entry>
+		<entry>Intra-Area Prefix LSA</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</table>
+
+	<itemizedlist>
+	<listitem>
+	<para><acronym>ABR</acronym>&nbsp;: <wordasword>Area Border
+	Router</wordasword></para>
+	</listitem>
+	<listitem>
+	<para><acronym>ASBR</acronym>&nbsp;: <wordasword>Autonomous System Border
+	Router</wordasword></para>
+	</listitem>
+	</itemizedlist>
+
+	<para>Les listes des annonces connues du routeur <systemitem
+	class='systemname'>R1</systemitem> avant publication des routes par défaut
+	sont données dans les copies d'écran ci-dessous.</para>
+
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> birdc show ospf lsadb
+BIRD 1.6.4 ready.
+
+Area 0.0.0.0
+
+ Type   LS ID           Router          Sequence   Age  Checksum
+ 0001  0.0.1.4         0.0.1.4          80000148  1465    88f0
+ 0001  0.0.2.4         0.0.2.4          80000146  1466    70f2
+ 0002  10.1.12.2       0.0.2.4          80000003  1466    3439
+ 0001  0.0.3.4         0.0.3.4          80000147  1469    a4b6
+ 0002  10.1.13.3       0.0.3.4          80000003  1470    2148
+ 0002  10.1.23.3       0.0.3.4          80000003   375    bf9e</screen>
+
+<screen><?dbfo keep-together="auto" ?><prompt>R1:~#</prompt> birdc6 show ospf lsadb
+BIRD 1.6.4 ready.
+
+Area 0.0.0.0
+
+ Type   LS ID           Router          Sequence   Age  Checksum
+ 2001  0.0.0.0         0.0.1.6          8000015c  1643    116b
+ 2009  0.0.0.0         0.0.1.6          8000015c  1643    7e2b
+ 2001  0.0.0.0         0.0.2.6          80000151  1647    4243
+ 2009  0.0.0.0         0.0.2.6          80000151  1647    9a18
+ 2002  0.0.0.2         0.0.2.6          80000001  1647    9976
+ 2009  0.0.0.2         0.0.2.6          80000001  1647    a95c
+ 2001  0.0.0.0         0.0.3.6          80000153  1646    4c35
+ 2009  0.0.0.0         0.0.3.6          80000153  1646    9c12
+ 2002  0.0.0.2         0.0.3.6          80000001  1646    9b72
+ 2009  0.0.0.2         0.0.3.6          80000001  1646    c939
+ 2002  0.0.0.3         0.0.3.6          80000003   575    9a6f
+ 2009  0.0.0.3         0.0.3.6          80000003   575    ca2a
+
+Link eth0.12
+
+ Type   LS ID           Router          Sequence   Age  Checksum
+ 0008  0.0.0.2         0.0.1.6          80000137  1648    c5df
+ 0008  0.0.0.2         0.0.2.6          8000012e   575    5640
+
+Link eth0.13
+
+ Type   LS ID           Router          Sequence   Age  Checksum
+ 0008  0.0.0.3         0.0.1.6          80000137  1646    e1c1
+ 0008  0.0.0.2         0.0.3.6          8000012e   610    62dc</screen>
+
+<qandaset>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est la condition préalable à respecter pour que le
+	routeur <systemitem class='systemname'>R1</systemitem> soit en mesure de
+	publier une route par défaut via
+	<acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+	<para>Avant de procéder à l'importation de route dans les démons
+	<application>Bird</application>, on doit s'assurer de la présence des deux
+	routes par défaut <acronym>IPv4</acronym> et <acronym>IPv6</acronym> dans
+	les tables de routage au niveau système.</para>
+	</question>
+	<answer>
+	<para>Sur le routeur <systemitem class='systemname'>R1</systemitem>
+	uniquement, on valide la présence des routes par défaut.</para>
+
+<screen><prompt>R1:~#</prompt> ip route ls default
+default via 192.0.2.1 dev eth0 onlink
+
+<prompt>R1:~#</prompt> ip -6 route ls default
+default via fe80::dc02:44ff:fe64:4834 dev eth0 metric 1024 onlink pref medium</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider l'importation des routes par défaut dans les
+	deux démons <systemitem class='daemon'>bird</systemitem> et <systemitem
+	class='daemon'>bird6</systemitem>&nbsp;?</phrase></para>
+
+	<para>L'importation des routes depuis le niveau système dans les démons
+	<application>Bird</application> a été traitée à la <xref
+	linkend='interco.ospf-bird.import-export' />. Ici, on se contente de
+	vérifier la présence des routes par défaut au niveau des consoles de chaque
+	démon.</para>
+	</question>
+	<answer>
+	<para>On peut spécifier le préfixe réseau directement dans l'affichage de
+	la table de routage de chaque démon.</para>
+
+<screen><prompt>R1:~#</prompt> birdc show route 0.0.0.0/0
+BIRD 1.6.4 ready.
+0.0.0.0/0          via 192.0.2.1 on eth0 [kernel1 2018-10-27] * (10)
+
+<prompt>R1:~#</prompt> birdc6 show route ::/0
+BIRD 1.6.4 ready.
+::/0               via fe80::dc02:44ff:fe64:4834 on eth0 [kernel1 2018-10-27] * (10)</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment créer les filtres qui serviront à exporter les routes
+	par défaut dans la configuration de chaque démon pour les protocoles
+	<acronym>OSPFv2</acronym> et
+	<acronym>OSPFv3</acronym>&nbsp;?</phrase></para>
+
+	<para>Il faut consulter la documentation &url.bird-users-guide; aux
+	sections <wordasword>Filters</wordasword> et <wordasword>OSPF</wordasword>
+	pour trouver des exemples de syntaxe.</para>
+	</question>
+	<answer>
+	<para>Voici une copie d'écran pour chaque démon.</para>
+
+<screen><prompt>R1:~#</prompt> sed -n '/^filter export_OSPF/,/^}/p' /etc/bird/bird.conf
+filter export_OSPF {
+        if ( net = 0.0.0.0/0 ) then {
+                ospf_metric2 = 100;
+                accept;
+        }
+        reject;
+}</screen>
+
+<screen><prompt>R1:~#</prompt> sed -n '/^filter export_OSPF/,/^}/p' /etc/bird/bird6.conf
+filter export_OSPF {
+        if ( net = ::/0 ) then {
+                ospf_metric2 = 100;
+                accept;
+        }
+        reject;
+}</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment appliquer les filtres de la question précédente pour
+	que les routes par défaut soient exportées via <acronym>OSPF</acronym> à
+	destination des autres routeurs&nbsp;?</phrase></para>
+
+	<para>Il faut consulter la documentation &url.bird-users-guide; à la
+	section <wordasword>OSPF</wordasword> et rechercher un exemple de la
+	directive suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>export</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Voici une copie d'écran pour chaque démon avec l'exportation dans le
+	processus <acronym>OSPF</acronym> en fonction du filtre défini
+	préalablement.</para>
+
+<screen><prompt>R1:~#</prompt> sed -n '/^protocol ospf/,/^}/p' /etc/bird/bird.conf
+protocol ospf OSPFv2R1 {
+        rfc1583compat yes;
+        ecmp yes;
+        <emphasis>export filter export_OSPF;</emphasis>
+        area 0 {
+                interface "eth0.12", "eth0.13" {
+                        authentication none;
+                };
+        };
+}</screen>
+
+<screen><prompt>R1:~#</prompt> sed -n '/^protocol ospf/,/^}/p' /etc/bird/bird6.conf
+protocol ospf OSPFv3R1 {
+        ecmp yes;
+        <emphasis>export filter export_OSPF;</emphasis>
+        area 0 {
+                interface "eth0.12", "eth0.13" {
+                        authentication none;
+                };
+        };
+}</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les nouvelles annonces <acronym>LSA</acronym>
+	apparues après exportation des routes par défaut depuis <systemitem
+	class='systemname'>R1</systemitem> vers les deux autres routeurs de la
+	topologie triangle&nbsp;?</phrase></para>
+
+	<para>À partir du <xref linkend='interco.ospf-bird.lsa' /> donné en début
+	de section, donner le nouveau rôle du routeur <systemitem
+	class='systemname'>R1</systemitem>.</para>
+	</question>
+	<answer>
+	<para>Une fois que l'exportation des routes par défaut dans
+	<acronym>OSPF</acronym> est effective sur <systemitem
+	class='systemname'>R1</systemitem>, ce routeur devient
+	<wordasword>Autonomous System Border Router</wordasword> ou
+	<acronym>ASBR</acronym>. Dès lors, il émet des annonces de type
+	<option>5</option> que l'on peut identifier dans les bases de chaun des
+	trois routeurs de l'aire <acronym>OSPF</acronym>.</para>
+
+	<para>Par exemple, on obtient les résultats suivants sur le routeur
+	<systemitem class='systemname'>R2</systemitem>.</para>
+
+<screen><prompt>R2:~#</prompt> birdc show ospf lsadb type 5
+BIRD 1.6.4 ready.
+
+Global
+
+ Type   LS ID           Router          Sequence   Age  Checksum
+ <emphasis>0005  0.0.0.0         0.0.1.4</emphasis>          80000001  1570    afb9</screen>
+
+<screen><prompt>R2:~#</prompt> birdc6 show ospf lsadb type 5
+BIRD 1.6.4 ready.
+
+Global
+
+ Type   LS ID           Router          Sequence   Age  Checksum
+ <emphasis>4005  0.0.0.0         0.0.1.6</emphasis>          80000001  1574    e4c8</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider l'exportation des routes par défaut depuis
+	les deux démons <systemitem class='daemon'>bird</systemitem> et <systemitem
+	class='daemon'>bird6</systemitem> vers le niveau système sur les routeurs
+	<systemitem class='systemname'>R2</systemitem> et <systemitem
+	class='systemname'>R3</systemitem>&nbsp;?</phrase></para>
+
+	<para>L'exportation des routes depuis les démons
+	<application>Bird</application> vers le système  a été traitée à la <xref
+	linkend='interco.ospf-bird.import-export' />. Ici, on se contente de
+	vérifier la présence des routes par défaut au niveau système sur
+	<systemitem class='systemname'>R2</systemitem> et <systemitem
+	class='systemname'>R3</systemitem>.</para>
+	</question>
+	<answer>
+	<para>Voici une copie d'écran pour le routeur <systemitem
+	class='systemname'>R2</systemitem> qui caractérise le fait que les routes
+	par défaut ont été apprises via <application>Bird</application>.</para>
+
+<screen><prompt>R2:~#</prompt> ip route ls default
+default via 10.1.12.1 dev eth0.12 <emphasis>proto bird</emphasis>
+
+<prompt>R2:~#</prompt> ip -6 route ls default
+default via fe80::70de:4fff:fe1d:68b4 dev eth0.12 <emphasis>proto bird</emphasis> metric 1024 pref medium</screen>
+
+	<para>Si la table de routage du routeur d'accès à Internet contient les
+	routes statiques vers les réseaux de l'aire <acronym>OSPF</acronym>, il est
+	possible de lancer les tests <acronym>ICMP</acronym> classiques. Voici deux
+	exemples depuis le routeur <systemitem
+	class='systemname'>R2</systemitem>.</para>
+
+<screen><prompt>R2:~#</prompt> ping -qc2 9.9.9.9
+PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+
+--- 9.9.9.9 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 2ms
+rtt min/avg/max/mdev = 13.796/13.910/14.024/0.114 ms
+
+<prompt>R2:~#</prompt> ping -qc2 2620:fe::fe
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 3ms
+rtt min/avg/max/mdev = 43.986/44.802/45.618/0.816 ms</screen>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.ospf-bird.refdocs'>
+	<title>Consulter les documents de référence</title>
+
+	<variablelist>
+	<varlistentry xml:id='interco.ospf-bird.refdocs.archi-tp'>
+		<term><citetitle>Architecture réseau des travaux pratiques</citetitle></term>
+	<listitem>
+		<para>Le support &url.infra.tp;  présente la topologie physique des
+		salles de travaux pratiques avec la &url.infra.tp.cabling; ainsi que
+		les configurations par défaut des équipements. On y trouve aussi le
+		plan d'adressage <acronym>IP</acronym> utilisé avec les autres supports
+		de travaux pratiques, le plan de numérotations des
+		<acronym>VLAN</acronym>s et les affectations des groupes de ports des
+		commutateurs.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='interco.ospf-bird.refdocs.config-interface-lan'>
+		<term><citetitle>Configuration d'une interface réseau</citetitle></term>
+	<listitem>
+		<para>Le support &url.config.interface.lan; présente les opérations de
+		configuration d'une interface réseau et propose quelques
+		manipulations sur les protocoles de la pile
+		<acronym>TCP/IP</acronym></para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='interco.ospf-bird.refdocs.inter-vlan'>
+		<term><citetitle>Introduction au routage inter-VLAN</citetitle></term>
+	<listitem>
+		<para>Le support &url.inter-vlan-routing; introduit le principe du
+		routage inter-VLAN ainsi que ses conditions d'utilisation. C'est aussi
+		un support de travaux pratiques dans lequel on n'utilise que du routage
+		statique et de la traduction d'adresses sources
+		(<acronym>S-NAT</acronym>) pour acheminer le trafic utilisateur entre
+		les différents réseaux.</para>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+</sect1>
+</article>

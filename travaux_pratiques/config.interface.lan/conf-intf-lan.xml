@@ -1,0 +1,2451 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY phl			SYSTEM "author.xml">
+<!ENTITY legal 			SYSTEM "legal.xml">
+<!--<!ENTITY base_url		"https://www.inetdoc.net/">-->
+<!ENTITY base_url		"/">
+
+<!ENTITY % rfc_urls		SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.jumbo-frame
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/Jumbo_frame">
+   <citetitle>Jumbo frame</citetitle></link>'>
+
+<!ENTITY url.ieee802.1q.standard
+	'<link xmlns="http://docbook.org/ns/docbook"
+	xlink:href="https://en.wikipedia.org/wiki/IEEE_802.1Q"><citetitle>IEEE 802.1Q</citetitle></link>'>
+
+<!ENTITY url.NetworkManager
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/NetworkManager">
+   <citetitle>NetworkManager</citetitle></link>'>
+
+<!ENTITY url.IPv6
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/IPv6">
+   <citetitle>IPv6</citetitle></link>'>
+
+<!ENTITY url.NDP
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/Neighbor_Discovery_Protocol">
+   <citetitle>Neighbor Discovery Protocol</citetitle></link>'>
+
+<!ENTITY url.securing-debian-howto
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.debian.org/doc/manuals/securing-debian-howto/ch4.fr.html#s-network-secure">
+   <citetitle>«Sécurations des accès réseau» du Manuel de sécurisation de Debian</citetitle></link>'>
+
+<!-- A copy of http://www.w3.org/2003/entities/2007/w3centities-f.ent is at:
+/usr/local/share -->
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"/usr/local/share/w3centities-f.ent">
+%w3centities-f;
+]>
+
+<article xml:lang='fr' xml:id='conf-intf-lan'>
+<info>
+<title>Configurer une interface réseau Ethernet</title>
+	&phl;
+	<abstract>
+	<para>L'objectif de ces travaux pratiques est d'analyser et configurer une
+	interface réseau Ethernet sur un système GNU/Linux. Les manipulations
+	présentées suivent la modélisation réseau en remontant du niveau physique
+	jusqu'à la couche application. Les questions illustrent les relations entre
+	les différents formats d'adressage utilisés à chaque niveau ainsi que les
+	protocoles utilisés pour les correspondances entre les différentes
+	couches.</para>
+	</abstract>
+
+<keywordset>
+	<keyword>ip</keyword>
+	<keyword>arp</keyword>
+	<keyword>ndp</keyword>
+	<keyword>iproute2</keyword>
+	<keyword>host</keyword>
+	<keyword>dig</keyword>
+	<keyword>interface</keyword>
+	<keyword>ping</keyword>
+	<keyword>sysctl</keyword>
+</keywordset>
+</info>
+
+<sect1 xml:id='conf-intf-lan.legal.meta'>
+  &legal;
+  <bridgehead xml:id='conf-intf-lan.meta' renderas='sect2'>Méta-information</bridgehead>
+
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="https://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+  format PDF : <link
+  xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+  <para>Toutes les commandes utilisées dans ce document ne sont pas spécifiques
+  à une version particulière des systèmes UNIX ou GNU/Linux. C'est la
+  distribution <citetitle>Debian GNU/Linux</citetitle> qui est utilisée
+  pour les tests présentés. Voici une liste des principaux paquets contenant
+  les commandes utilisées&nbsp;:</para>
+
+  <itemizedlist>
+    <listitem>
+    <para><application>ethtool</application> - display or change Ethernet device settings</para>
+    </listitem>
+    <listitem>
+    <para><application>iproute2</application> - networking and traffic control tools</para>
+    </listitem>
+    <listitem>
+    <para><application>ifupdown</application> - High level tools to configure network interfaces</para>
+    </listitem>
+    <listitem>
+    <para><application>iputils-ping</application> - Tools to test the reachability of network hosts</para>
+    </listitem>
+    <listitem>
+    <para><application>procps</application> - /proc file system utilities</para>
+    </listitem>
+    <listitem>
+    <para><application>mtr-tiny</application> - Full screen ncurses traceroute tool</para>
+    </listitem>
+  </itemizedlist>
+
+  <bridgehead xml:id='conf-intf-lan.convtypo' renderas='sect2'>Conventions
+  typographiques</bridgehead>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super-utilisateur. Ces privilèges peuvent être délégués à
+    l'aide de <application>sudo</application>.</para>
+    </listitem>
+  </itemizedlist>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.physical-layer'>
+<title>Identifier les ressources matérielles</title>
+<subtitle>Couche physique</subtitle>
+
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='*'/>
+	<colspec colwidth='200px'/>
+	<tbody>
+	<row>
+	<entry valign='middle'>
+	<para>Avant de pouvoir configurer une interface, il faut que le pilote de
+	périphérique correspondant ait été chargé en mémoire. Comme une interface
+	réseau est un dispositif matériel, c'est au niveau du noyau Linux que
+	l'opération doit s'effectuer. Soit le pilote d'interface a été inclus dans
+	la partie monolithique du noyau soit il est chargé en mémoire sous forme de
+	module. C'est cette dernière solution qui est le plus souvent retenue. Un
+	module peut être chargé ou déchargé à volonté sans avoir à redémarrer la
+	machine. De plus, les fonctions de reconnaissance automatique des
+	composants périphériques permettent de ne charger que les modules
+	correspondant aux composants effectivement présents sur le système.</para>
+	</entry>
+	<entry align='right'>
+	<inlinemediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/model-l1.png' format='PNG' width='4cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/model-l1.png' format='PNG' width='200px' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+
+<bridgehead xml:id='conf-intf-lan.ident-periph' renderas='sect2'>Comment
+	identifier un périphérique Ethernet&nbsp;?</bridgehead>
+
+	<para>Il existe une grande variété de contrôleurs réseau Ethernet. À chaque
+	famille de composants correspond un pilote logiciel spécifique. Qu'il
+	s'agisse d'une carte additionnelle ou d'un composant intégré sur carte
+	mère, le contrôleur peut être connecté via différents bus. Les bus
+	<acronym>PCI</acronym> et <acronym>USB</acronym> sont les plus fréquemment
+	utilisés. Voici deux exemples&nbsp;:</para>
+
+<variablelist>
+	<varlistentry xml:id='ident-pci'>
+	<term>Contrôleur Ethernet sur bus PCI</term>
+	<listitem>
+	<para>Sur une architecture de type <acronym>PC</acronym>, un composant
+	Ethernet est la plupart du temps relié au bus <acronym>PCI</acronym>.  La
+	commande <command>lspci</command> du paquet
+	<application>pciutils</application> donne la liste des périphériques ainsi
+	que les modules du noyau Linux associés à ces périphériques.</para>
+
+<screen><prompt>$</prompt> lspci -v | grep -A8 Ethernet
+00:19.0 Ethernet controller: Intel Corporation Ethernet Connection (3) I218-V (rev 03)
+        Subsystem: Intel Corporation Ethernet Connection (3) I218-V
+        Flags: bus master, fast devsel, latency 0, IRQ 43
+        Memory at f7100000 (32-bit, non-prefetchable) [size=128K]
+        Memory at f713b000 (32-bit, non-prefetchable) [size=4K]
+        I/O ports at f080 [size=32]
+        Capabilities: &lt;access denied>
+		Kernel driver in use: <emphasis>e1000e</emphasis>
+		Kernel modules: e1000e</screen>
+
+	<para>Le module du noyau Linux nommé <option>e1000e</option> est chargé en
+	mémoire automatiquement lors de l'initialisation du système. Il est présent
+	dans la liste donnée par la commande <command>lsmod</command>.</para>
+
+<screen><prompt>$</prompt> lsmod | grep e1000e
+<emphasis>e1000e</emphasis>                278528  0
+ptp                    20480  1 e1000e</screen>
+	</listitem>
+	</varlistentry>
+	<varlistentry xml:id='ident-usb'>
+	<term>Contrôleur Ethernet sur bus USB</term>
+	<listitem>
+	<para>Sur une architecture <citetitle>Raspberry Pi 3</citetitle>, le
+	composant Ethernet intégré est relié au bus <acronym>USB</acronym> et c'est
+	la commande <command>lsusb</command> qui permet d'obtenir l'identification
+	du composant.</para>
+
+<screen><prompt>$</prompt>lsusb | grep Ethernet | fmt -t -w80
+Bus 001 Device 003: ID 0424:ec00 Standard Microsystems Corp. SMSC9512/9514
+   <emphasis>Fast Ethernet Adapter</emphasis></screen>
+
+	<para>Dans le cas d'un système <citetitle>Raspberry Pi 3</citetitle>, le
+	logiciel de pilotage de l'interface Ethernet est placé dans la partie
+	monolithique du noyau. Ce logiciel n'apparaît donc pas dans la liste des
+	modules. Il faut consulter les messages système du noyau pour trouver la
+	trace de l'initialisation de l'interface Ethernet. On peut utiliser la
+	commande <command>dmesg</command> dans ce but.</para>
+
+<screen><prompt>$</prompt> dmesg | grep Ethernet | fmt -t -w80
+[    2.016771] smsc95xx 1-1.1:1.0 eth0: register 'smsc95xx' at
+   usb-3f980000.usb-1.1, smsc95xx USB 2.0 <emphasis>Ethernet, b8:27:eb:d7:21:80</emphasis>
+[    9.733711] Bluetooth: BNEP (Ethernet Emulation) ver 1.3</screen>
+	</listitem>
+	</varlistentry>
+</variablelist>
+
+	<para>Pour résumer, les outils utiles pour l'identification des composants
+	réseau et des modules logiciels associés sont&nbsp;:
+	<command>lspci</command>, <command>lsusb</command>,
+	<command>dmesg</command> et <command>lsmod</command>.</para>
+
+<bridgehead xml:id='conf-intf-lan.ident-link' renderas='sect2'>Comment
+	visualiser l'état du lien réseau&nbsp;?</bridgehead>
+
+	<para>Même avec une configuration correcte de l'interface, il est possible
+	que les communications soient bloquées si le raccordement physique entre
+	l'hôte et l'équipement réseau n'est pas actif. Sur les câbles en paires
+	torsadées cuivre, on peut visualiser l'état du lien à l'aide de la commande
+	<command>ethtool</command> fournie avec le paquet du même nom. En reprenant
+	les deux exemples de systèmes ci-dessus, on obtient les informations
+	suivantes.</para>
+
+<variablelist>
+	<varlistentry xml:id='link-intel'>
+	<term>Contrôleur Ethernet sur bus PCI</term>
+	<listitem>
+	<para>Voici un exemple de résultat obtenu avec une interface nommée
+	<systemitem>eth0</systemitem>. Suivant la configuration matérielle du
+	système sur lequel on lance la commande <command>ethtool</command>, il faut
+	adapter le nom de l'interface Ethernet.</para>
+
+<screen><prompt>$</prompt> sudo ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Full <co xml:id='intel-mii.cap'/>
+        Supported pause frame use: No
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Full
+        Advertised pause frame use: No
+        Advertised auto-negotiation: Yes
+        Speed: 1000Mb/s <co xml:id='intel-mii.link'/>
+        Duplex: Full
+        Port: Twisted Pair <co xml:id='intel-mii.tp'/>
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on <co xml:id='intel-mii.neg'/>
+        MDI-X: on (auto)
+        Supports Wake-on: pumbg
+        Wake-on: g
+        Current message level: 0x00000007 (7)
+                               drv probe link
+        Link detected: yes</screen>
+
+	<calloutlist>
+	<callout arearefs='intel-mii.cap'>
+	<para>Cette liste correspond aux débits possibles sur cette
+	interface.</para>
+	</callout>
+	<callout arearefs='intel-mii.link'>
+	<para>Le lien entre l'interface <systemitem>eth0</systemitem> et
+	l'équipement réseau est actif et le débit négocié est le Gbps en mode
+	Full-Duplex.</para>
+    </callout>
+	<callout arearefs='intel-mii.tp'>
+	<para>Le câble connecté à cette interface est en paire cuivre torsadée ou
+	<wordasword>twisted pair</wordasword>.</para>
+	</callout>
+	<callout arearefs='intel-mii.neg'>
+	<para>Les résultats précédents ont été obtenus par auto négociation entre
+	le contrôleur réseau et le commutateur auquel l'interface Ethernet est
+	raccordée.</para>
+	</callout>
+	</calloutlist>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='rpi-link'>
+	<term>Contrôleur Ethernet sur bus USB</term>
+	<listitem>
+<screen><prompt>$</prompt> sudo ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP MII ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Supported pause frame use: No
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Advertised pause frame use: Symmetric Receive-only
+        Advertised auto-negotiation: Yes
+        Link partner advertised link modes:  10baseT/Half 10baseT/Full
+                                             100baseT/Half 100baseT/Full
+        Link partner advertised pause frame use: No
+        Link partner advertised auto-negotiation: Yes
+		Speed: <emphasis>100Mb/s</emphasis>
+        Duplex: Full
+        Port: MII
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: pumbag
+        Wake-on: d
+        Current message level: 0x00000007 (7)
+                               drv probe link
+        Link detected: yes</screen>
+
+	<para>Relativement au contrôleur Ethernet sur bus <acronym>PCI</acronym>,
+	le débit passe à 100Mbps.</para>
+	</listitem>
+	</varlistentry>
+</variablelist>
+
+	<para>Pour aller plus loin dans l'étude des caractéristiques techniques des
+	réseaux locaux Ethernet, il est conseillé de lire l'article
+	&url.ethernet;.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.link-layer'>
+<title>Lire et configurer l'état d'une interface</title>
+<subtitle>Couche liaison de données</subtitle>
+
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='*'/>
+	<colspec colwidth='200px'/>
+	<tbody>
+	<row>
+	<entry valign='middle'>
+	<para>Au niveau liaison de données de la modélisation, l'unité de donnée
+	manipulée est la trame. Dans le cas de la technologie Ethernet, la trame
+	contient les adresses <acronym>MAC</acronym> (<wordasword>media access
+	control address</wordasword>) des hôtes source et destination du réseau de
+	diffusion (<acronym>LAN</acronym>). À ce niveau, il est possible de
+	configurer plusieurs fonctions. Vis-à-vis de la couche physique, on peut
+	activer ou désactiver une interface. Vis-à-vis de la couche réseau, il
+	existe de nombreux paramètres que l'on peut consulter et redéfinir.</para>
+	</entry>
+	<entry align='right'>
+	<inlinemediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/model-l2.png' format='PNG' width='4cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/model-l2.png' format='PNG' width='200px' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+
+	<para>Même si l'étude des paramètres définis au niveau liaison de données
+	sort du cadre de ce document, on peut citer trois exemples
+	significatifs.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Il est possible de fixer la quantité de données provenant de la
+	couche réseau à encapsuler dans une trame. Au delà de la valeur par défaut
+	(1500 octets), on parle de &url.jumbo-frame;.</para>
+	</listitem>
+	<listitem>
+	<para>On peut ajouter un jeu d'étiquettes aux trames en utilisant le
+	standard &url.ieee802.1q.standard; de façon à définir des
+	<acronym>VLAN</acronym>s. Voir l'article &url.inter-vlan-routing;.</para>
+	</listitem>
+	<listitem>
+	<para>On peut sélectionner et configurer les fonctions relatives à la
+	classification et à la gestion de mise en file d'attente des paquets issus
+	de la couche réseau. Voir &url.lartc.fr;.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>Dans cette section, le principal outil utilisé est la commande
+	<command>ip</command> du paquet <application>iproute2</application>.</para>
+
+<bridgehead xml:id='conf-intf-lan.link-layer.status' renderas='sect2'>Comment
+	visualiser l'état d'une interface réseau&nbsp;?</bridgehead>
+
+	<para>Le simple fait de consulter l'état d'une interface fournit une grande
+	quantité d'informations.</para>
+
+<screen><prompt>$</prompt> ip link ls dev eth0 | fmt -t -w80
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP><co xml:id='eth0.status'/> mtu 1500<co xml:id='eth0.mtu'/> qdisc fq state UP
+    mode DEFAULT group default qlen 1000 link/ether b8:ae:ed:73:06:de<co xml:id='eth0.mac'/> brd
+    ff:ff:ff:ff:ff:ff<co xml:id='eth0.brd'/></screen>
+
+	<calloutlist>
+	<callout arearefs='eth0.status'>
+	<para>Les indicateurs d'état désignent les fonctions actives au niveau de
+	l'interface.</para>
+    </callout>
+
+	<callout arearefs='eth0.mtu'>
+	<para>L'acronyme <acronym>MTU</acronym> signifie <wordasword>Maximum
+	Transmission Unit</wordasword>. La valeur <option>1500</option> correspond
+	à la quantité maximum d'octets transmis de la couche réseau à la couche
+	liaison de données sans fragmentation.</para>
+    </callout>
+
+	<callout arearefs='eth0.mac'>
+	<para>L'adresse <acronym>MAC</acronym> de l'interface joue un rôle
+	essentiel. C'est cette adresse qui identifie l'hôte dans le réseau local
+	(<acronym>LAN</acronym>). Cette adresse unique respecte un format bien
+	particulier : <acronym>EUI-48</acronym>. Voir
+	&url.inter-vlan-routing-mac-types;.</para>
+	</callout>
+
+	<callout arearefs='eth0.brd'>
+	<para>L'adresse de diffusion utilisée par l'interface respecte les champs
+	du format <acronym>EUI-48</acronym> mais tous les bits des 6 octets sont à
+	1. Cette adresse est placée dans le champ adresse destination d'une trame
+	d'annonce ou de requête vers tous les hôtes du réseau local
+	(<acronym>LAN</acronym>).</para>
+	</callout>
+	</calloutlist>
+
+<table xml:id='conf-intf-lan.link-layer.status.table' pgwide="1" frame="all">
+<title>Indicateurs d'état d'une interface Ethernet</title>
+	<tgroup cols="2" align="left" colsep="1" rowsep="1">
+		<colspec colnum="1" colwidth="1*"/>
+		<colspec colnum="2" colwidth="4*"/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+	<entry>Indicateur</entry>
+	<entry>Description</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+	<entry><literal>BROADCAST</literal></entry>
+	<entry>L'interface peut émettre du trafic à destination de tous les hôtes
+	du réseau local.</entry>
+	</row>
+	<row>
+	<entry><literal>MULTICAST</literal></entry>
+	<entry>L'interface peut émettre et recevoir du trafic de type
+	multidiffusion.</entry>
+	</row>
+	<row>
+	<entry><literal>UP</literal></entry>
+	<entry>L'interface est active et correctement configurée au niveau liaison
+	de données.</entry>
+	</row>
+	<row>
+	<entry><literal>LOWER_UP</literal></entry>
+	<entry>L'interface est électriquement active au niveau physique. La
+	<acronym>LED</acronym> du port est allumée.</entry>
+	</row>
+	<row>
+	<entry><literal>PROMISC</literal></entry>
+	<entry>L'interface traite tout le trafic reçu et le transmet aux couches
+	supérieures du sous-système réseau. Ce traitement inclut les trames dont
+	l'adresse <acronym>MAC</acronym> destination est différente de celle de
+	l'interface.</entry>
+	</row>
+	<row>
+	<entry><literal>ALLMULTI</literal></entry>
+	<entry>L'interface traite tout le trafic de multidiffusion reçu et le
+	transmet aux couches supérieures. Ce mode est utile sur un système qui
+	route le trafic de multidiffusion.</entry>
+	</row>
+	</tbody>
+	</tgroup>
+</table>
+
+<bridgehead xml:id='conf-intf-lan.link-layer.statistics'
+	renderas='sect2'>Comment visualiser les statistiques d'une interface
+	réseau&nbsp;?</bridgehead>
+
+	<para>En cas de problème de transmission, il est essentiel de connaître le
+	nombre d'erreurs comptabilisé par le composant Ethernet ainsi que le nombre
+	total de paquets émis ou reçus. Voici un exemple&nbsp;:</para>
+
+<screen><prompt>$</prompt> ip -s link ls dev eth0
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq state UP
+   mode DEFAULT group default qlen 1000
+    link/ether b8:ae:ed:73:06:de brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast
+    21622131   216995   0       0       0       263
+    TX: bytes  packets  errors  dropped carrier collsns
+    422328441  358477   0       0       0       0</screen>
+
+	<para>Dans le cas d'une interface Ethernet filaire, les compteurs
+	d'erreurs, de trames abandonnées et de collisions doivent impérativement
+	rester à 0. En effet, une connexion Ethernet filaire en cuivre ou en fibre
+	optique fonctionne normalement en <wordasword>full
+	duplex</wordasword>&nbsp;; c'est à dire que l'on dispose d'un premier canal
+	de transmission réservé pour l'émission et d'un second canal réservé pour
+	la réception.</para>
+
+<bridgehead xml:id='conf-intf-lan.link-layer.set' renderas='sect2'>Comment
+	activer/désactiver une interface réseau&nbsp;?</bridgehead>
+
+	<para>Ces opérations peuvent s'effectuer à différents niveaux bien
+	distincts.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Sur un système Debian GNU/linux ou apparenté, les scripts
+	<command>ifup</command> et <command>ifdown</command> du paquet
+	<application>ifupdown</application> utilisent les paramètres de
+	configuration des interfaces donnés dans le fichier
+	<filename>/etc/network/interfaces</filename> lors de l'activation ou la
+	désactivation.</para>
+	</listitem>
+	<listitem>
+	<para>Dans un contexte de mobilité avec un ordinateur portable, la quasi
+	totalité des distributions Linux proposent d'utiliser &url.NetworkManager;.
+	Cet outil permet à un utilisateur normal de définir ses propres
+	configurations réseau en fonction du contexte sans obtenir les droits
+	d'administration système.</para>
+	</listitem>
+	<listitem>
+	<para>Les manipulations au niveau interface ne tiennent aucun compte du
+	mode de configuration antérieur. L'exécution des outils de configuration
+	dans l'espace utilisateur peut se poursuivre alors que l'interface associée
+	est inactive. Une telle situation peut conduire à des problèmes de
+	fonctionnement du système&nbsp;! Il est donc important de recenser les
+	paramètres associés à une interface avant de se lancer dans les
+	manipulations directes.</para>
+	</listitem>
+	</itemizedlist>
+
+	<warning>
+	<para>La désactivation d'une interface entraîne la perte des routes vers
+	les réseaux <acronym>IP</acronym> qui dépendent de ce lien.</para>
+	</warning>
+
+	<variablelist>
+	<varlistentry>
+	<term>Désactivation au niveau système</term>
+	<listitem>
+<screen><prompt>$</prompt> sudo ifdown eth0</screen>
+	</listitem>
+	</varlistentry>
+
+    <varlistentry>
+    <term>Activation au niveau système</term>
+    <listitem>
+<screen><prompt>$</prompt> sudo ifup eth0</screen>
+    </listitem>
+    </varlistentry>
+
+	<varlistentry>
+	<term>Désactivation d'une connection avec
+	<application>NetworkManager</application></term>
+	<listitem>
+	<para>On commence par une identification de la connection filaire active avant de la désactiver.</para>
+
+<screen><prompt>$</prompt> nmcli connection show --active
+NAME              UUID                                  TYPE      DEVICE
+Wired connection  d1cbf24c-f218-492e-a0ae-d99052b9fbb2  ethernet  <emphasis>enp0s31f6</emphasis>
+
+<prompt>$</prompt> nmcli device disconnect <emphasis>enp0s31f6</emphasis></screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>Activation d'une connection avec
+	<application>NetworkManager</application></term>
+	<listitem>
+<screen><prompt>$</prompt> nmcli device connect <emphasis>enp0s31f6</emphasis></screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>Désactivation au niveau interface</term>
+	<listitem>
+<screen><prompt>$</prompt> sudo ip link set dev eth0 down
+
+<prompt>$</prompt> ip link ls dev eth0 | fmt -t -w80
+2: eth0: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop <emphasis>state DOWN</emphasis> mode DEFAULT
+	group default qlen 1000 link/ether 00:26:18:27:07:54 brd ff:ff:ff:ff:ff:ff</screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>Activation au niveau interface</term>
+	<listitem>
+<screen><prompt>$</prompt> sudo ip link set dev eth0 up
+
+<prompt>$</prompt> ip link ls dev eth0 | fmt -t -w80
+2: eth0: &lt;BROADCAST,MULTICAST,UP,<emphasis>LOWER_UP</emphasis>> mtu 1500 qdisc fq <emphasis>state UP</emphasis>
+    mode DEFAULT group default qlen 1000 link/ether 00:26:18:27:07:b9 brd
+    ff:ff:ff:ff:ff:ff</screen>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+<bridgehead xml:id='conf-intf-lan.link-layer.mac' renderas='sect2'>Comment
+	changer l'adresse MAC d'une interface réseau&nbsp;?</bridgehead>
+
+	<para>Parmi les nombreuses manipulations possibles avec la commande
+	<command>ip link</command>, il est possible de changer l'adresse
+	<acronym>MAC</acronym> d'une interface. Voici un exemple.</para>
+
+<screen><prompt>$</prompt> sudo ip link set dev eth0 down
+
+<prompt>$</prompt> sudo ip link set address de:ad:be:ef:00:01 dev eth0
+
+<prompt>$</prompt> ip link ls dev eth0 | fmt -t -w80
+2: eth0: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop <emphasis>state DOWN</emphasis> mode DEFAULT
+    group default qlen 1000 link/ether de:ad:be:ef:00:01 brd ff:ff:ff:ff:ff:ff
+
+<prompt>$</prompt> sudo ip link set dev eth0 up</screen>
+
+	<para>Pour aller plus loin dans les manipulations au niveau liaison de
+	données, la consultation des pages de manuels est un excellent point de
+	départ&nbsp;: <userinput><prompt>$</prompt> man ip-link</userinput>.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.nei'>
+<title>Reconnaître le voisinage réseau</title>
+<subtitle>Couches liaison de données et réseau</subtitle>
+
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='*'/>
+	<colspec colwidth='400px'/>
+	<tbody>
+	<row>
+	<entry valign='middle'>
+	<para>Dans un réseau <acronym>IPv4</acronym>, le protocole
+	<acronym>ARP</acronym> ou <wordasword>Address Resolution
+	Protocol</wordasword> a pour but de faire la correspondance entre une
+	adresse <acronym>MAC</acronym> inconnue (celle de l'hôte destinataire) et
+	une adresse <acronym>IPv4</acronym> connue (encore celle de l'hôte
+	destinataire). Ce protocole fait le «lien» entre les mécanismes d'adressage
+	de la couche réseau et de la couche liaison de données.</para>
+
+	<para>Dans un réseau <acronym>IPv6</acronym>, le protocole
+	<acronym>NDP</acronym> ou <wordasword>Neighbor Discovery
+	Protocol</wordasword> se substitue au protocole <acronym>ARP</acronym> pour
+	faire la correspondance entre les adresses <acronym>MAC</acronym> et les
+	adresses <acronym>IPv6</acronym> de lien local appartenant au réseau
+	<systemitem class='ipaddress'>fe80/10</systemitem>.</para>
+	</entry>
+	<entry align='right'>
+	<inlinemediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/model-neigh.png' format='PNG' width='5cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/model-neigh.png' format='PNG' width='400px' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+
+	<para>Si le routage assuré au niveau réseau permet d'acheminer le trafic
+	utilisateur d'un réseau à l'autre, il ne permet pas de joindre directement
+	un hôte dans un réseau local de diffusion comme Ethernet. Au niveau
+	liaison de données les adresses <acronym>MAC</acronym> servent à repérer un
+	hôte unique dans le réseau local de diffusion. Il faut donc établir une
+	correspondance entre des adresses dont la portée ne dépasse pas le réseau
+	local et d'autres adresses dont la portée recouvre de multiples
+	réseaux.</para>
+
+	<para>Dans cette section, le principal outil utilisé est la commande
+	<command>ip</command> du paquet <application>iproute2</application>.</para>
+
+<bridgehead xml:id='conf-intf-lan.nei.cache' renderas='sect2'>Comment
+	visualiser la table des voisins&nbsp;?</bridgehead>
+
+	<para>Le sous-système réseau du noyau Linux maintient une table «table des
+	hôtes voisins» contenant les correspondances avec les adresses
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+
+	<para>La commande <userinput>ip nei ls</userinput> fait apparaître toutes
+	les adresses de voisins connus dans un affichage commun. Ces résultats sont
+	obtenus via <acronym>ARP</acronym> pour les adresses
+	<acronym>IPv4</acronym> et <acronym>NDP</acronym> pour les adresses
+	<acronym>IPv6</acronym>.</para>
+
+<screen><prompt>$</prompt> ip nei ls dev eth0
+192.0.2.1<co xml:id='nei.neighbor4'/> dev eth0<co xml:id='nei.dev'/> lladdr ba:f1:b6:e4:a0:bd<co xml:id='nei.mac'/> STALE<co xml:id='nei.status'/>
+fe80::b8f1:b6ff:fee4:a0bd<co xml:id='nei.link-local'/> dev eth0 lladdr ba:f1:b6:e4:a0:bd router REACHABLE
+2001:db8:8083:c41e::1<co xml:id='nei.neighbor6'/> dev eth0 lladdr ba:f1:b6:e4:a0:bd router STALE</screen>
+
+    <calloutlist>
+    <callout arearefs='nei.neighbor4'>
+	<para>L'hôte avec l'adresse <acronym>IPv4</acronym> <systemitem
+	class='ipaddress'>192.0.2.1</systemitem> est un voisin appartenant au même
+	domaine de diffusion.</para>
+    </callout>
+    <callout arearefs='nei.dev'>
+	<para>L'interface Ethernet <systemitem>eth0</systemitem> désigne le domaine
+	de diffusion. Les voisins joignables via cette interface appartiennent tous
+	au même domaine de diffusion.</para>
+    </callout>
+    <callout arearefs='nei.mac'>
+	<para>Cette adresse <acronym>MAC</acronym> a été obtenue grâce au protocole
+	<acronym>ARP</acronym>. Dès qu'un paquet est émis à destination de l'hôte
+	<systemitem class='ipaddress'>192.0.2.1</systemitem> ou à destination d'un
+	autre réseau si ce même hôte est un routeur, la trame sera composée avec
+	l'adresse <acronym>MAC</acronym> destination
+	<systemitem>ba:f1:b6:e4:a0:bd</systemitem>.</para>
+    </callout>
+    <callout arearefs='nei.status'>
+	<para>Les indicateurs d'état informent sur la validité de la correspondance
+	entre les adresses de couche liaison de données et les adresses de couche
+	réseau.</para>
+    </callout>
+    <callout arearefs='nei.link-local'>
+	<para>La correspondance avec l'adresse <acronym>IPv6</acronym> de lien
+	local <systemitem class='ipaddress'>fe80::b8f1:b6ff:fee4:a0bd</systemitem>
+	a été établie grâce au protocole <acronym>NDP</acronym>. Les adresses
+	<acronym>IPv6</acronym> de lien local sont composées automatiquement à
+	partir du préfixe <systemitem class='ipaddress'>fe80::/10</systemitem> et
+	de l'adresse <acronym>MAC</acronym> au format <acronym>EUI-64</acronym>.
+	Voir &url.inter-vlan-routing-mac-types;.</para>
+    </callout>
+    <callout arearefs='nei.neighbor6'>
+	<para>Cette ligne correspond au même hôte voisin et donne son adresse
+	<acronym>IPv6</acronym> publique ou globale.</para>
+    </callout>
+	</calloutlist>
+
+<table xml:id='conf-intf-lan.nei.cache.table' pgwide="1" frame="all">
+<title>Indicateurs d'état de la table des hôtes voisins</title>
+	<tgroup cols="2" align="left" colsep="1" rowsep="1">
+	<colspec colnum="1" colwidth="1*"/>
+	<colspec colnum="2" colwidth="4*"/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Indicateur</entry>
+		<entry>Description</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+	<entry><literal>INCOMPLETE</literal></entry>
+	<entry>La résolution d'adresse de l'hôte voisin est en cours</entry>
+	</row>
+	<row>
+	<entry><literal>REACHABLE</literal></entry>
+	<entry>La correspondance entre les adresses <acronym>IP</acronym> et
+	<acronym>MAC</acronym> a bien été établie et l'hôte voisin est apparemment
+	joignable</entry>
+	</row>
+	<row>
+	<entry><literal>STALE</literal></entry>
+	<entry>La correspondance entre les adresses <acronym>IP</acronym> et
+	<acronym>MAC</acronym> a bien été établie mais l'hôte voisin n'est
+	probablement plus joignable et une vérification sera lancée dès la première
+	émission.</entry>
+	</row>
+	<row>
+	<entry><literal>DELAY</literal></entry>
+	<entry>Un paquet a été émis à destination d'un voisin dans l'état
+	<literal>STALE</literal> et une confirmation de correspondance d'adresses
+	est en attente</entry>
+	</row>
+	<row>
+	<entry><literal>PROBE</literal></entry>
+	<entry>La temporisation de l'état <literal>DELAY</literal> est expirée et
+	la correspondance d'adresses n'a pas été confirmée&nbsp;; une nouvelle
+	résolution d'adresse a été initiée</entry>
+	</row>
+	<row>
+	<entry><literal>FAILED</literal></entry>
+	<entry>La résolution d'adresse a échoué</entry>
+	</row>
+	<row>
+	<entry><literal>NOARP</literal></entry>
+	<entry>Le voisin est validé ; aucune vérification ne doit être faite.</entry>
+	</row>
+	<row>
+	<entry><literal>PERMANENT</literal></entry>
+	<entry>Identique à <literal>NOARP</literal>&nbsp;; seul le super
+	utilisateur a la possibilité de supprimer l'entrée de la table</entry>
+	</row>
+	</tbody>
+	</tgroup>
+</table>
+
+	<para>Les voisins <acronym>IPv6</acronym> peuvent apparaître avec un
+	indicateur <literal>router</literal> supplémentaire&nbsp;; ce qui signifie
+	que ce voisin se présente comme un routeur <acronym>IPv6</acronym>.</para>
+
+<bridgehead xml:id='conf-intf-lan.nei.del' renderas='sect2'>Comment effacer
+	tout ou partie de la table des voisins&nbsp;?</bridgehead>
+
+	<para>Pour tester le fonctionnement du mécanisme de résolution d'adresses,
+	il peut être utile d'effacer une ou plusieurs entrées dans le but de
+	provoquer une nouvelle résolution lors des prochains échanges
+	réseau.</para>
+
+	<variablelist>
+	<varlistentry>
+	<term>Suppression d'une entrée particulière</term>
+	<listitem>
+<screen><prompt>$</prompt> sudo ip nei del 192.168.1.2 dev eth0</screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>Suppression de toutes les entrées relatives à l'interface eth0</term>
+	<listitem>
+<screen><prompt>$</prompt> sudo ip neighbor flush dev eth0</screen>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+
+	<para>Pour découvrir les autres manipulations possibles, il est conseillé
+	de consulter les pages de manuels&nbsp;: <userinput><prompt>$</prompt> man
+	ip-neighbour</userinput>.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.network-layer'>
+<title>Lire et configurer les adresses réseau d'une interface</title>
+<subtitle>Couche réseau</subtitle>
+
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='*'/>
+	<colspec colwidth='200px'/>
+	<tbody>
+	<row>
+	<entry valign='middle'>
+	<para>Au niveau réseau de la modélisation, l'unité de donnée manipulée est
+	le paquet. Comme <acronym>IPv4</acronym> et <acronym>IPv6</acronym> sont
+	des réseaux à commutation de paquets, chaque en-tête de paquet comprend les
+	adresses source et destination. C'est sur la base de l'adresse
+	<acronym>IP</acronym> destination et du masque réseau qu'un routeur prend
+	ses décisions d'acheminement du trafic utilisateur.</para>
+	</entry>
+	<entry align='right'>
+	<inlinemediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/model-l3.png' format='PNG' width='4cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/model-l3.png' format='PNG' width='200px' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+
+	<para>Par définition, une adresse <acronym>IP</acronym> désigne à la fois
+	un hôte et le réseau auquel il appartient. La distinction entre la partie
+	réseau et la partie hôte d'une adresse se fait grâce au masque réseau. Il
+	est donc logique que l'adresse et le masque soient les deux paramètres les
+	plus importants dans la configuration <acronym>IP</acronym> d'une
+	interface. Voir le document &url.adressage.ipv4;.</para>
+
+	<para>Dans cette section, le principal outil utilisé est la commande
+	<command>ip</command> du paquet <application>iproute2</application>.</para>
+
+<bridgehead xml:id='conf-intf-lan.network-layer.list' renderas='sect2'>Comment
+	visualiser la liste des adresses IP d'une interface&nbsp;?</bridgehead>
+
+	<para>L'exemple d'exécution de la commande <userinput><prompt>$</prompt> ip
+	addr ls dev eth0</userinput> donné ci-dessous caractérise bien le fait que
+	l'on peut affecter plusieurs adresses réseau à une même interface. Chacune
+	de ces adresses a une portée propre.</para>
+
+	<para>À la différence d'une adresse <acronym>MAC</acronym> qui n'est
+	visible que dans son réseau local (<acronym>LAN</acronym>), une adresse
+	<acronym>IPv4</acronym> ou <acronym>IPv6</acronym> peut être visible à
+	plusieurs niveaux d'interconnexion de réseaux.</para>
+
+<screen><prompt>$</prompt> ip addr ls dev eth0
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+    link/ether<co xml:id='net.link'/> ba:ad:ca:fe:00:1e brd ff:ff:ff:ff:ff:ff
+    inet<co xml:id='net.inet'/> 192.0.2.30/26<co xml:id='net.addr4'/> brd 192.0.2.31<co xml:id='net.brd'/> scope<co xml:id='net.scope'/> global eth0
+       valid_lft forever preferred_lft forever
+    inet6 2001:db8:8083:c41e:b8ad:caff:fefe:1e/64<co xml:id='net.addr6'/> scope global dynamic mngtmpaddr
+       valid_lft 86119sec preferred_lft 14119sec
+    inet6 fe80::b8ad:caff:fefe:1e/64<co xml:id='net.link-local'/> scope link
+       valid_lft forever preferred_lft forever</screen>
+
+    <calloutlist>
+    <callout arearefs='net.link'>
+	<para>L'affichage de la liste des adresses englobe les couches liaison de
+	données et réseau.</para>
+	</callout>
+	<callout arearefs='net.inet'>
+	<para>Le premier élément désigne la famille d'adresse. Les deux valeurs
+	présentées ici son <option>inet</option> pour les adresses
+	<acronym>IPv4</acronym> et <option>inet6</option> pour les adresses
+	<acronym>IPv6</acronym>.</para>
+	</callout>
+	<callout arearefs='net.addr4'>
+	<para>L'adresse <acronym>IPv4</acronym> est donnée en notation
+	<acronym>CIDR</acronym>. La valeur à droite du caractère
+	<literal>'/'</literal> donne le nombre de bits à <literal>1</literal> du
+	masque réseau. Voir le document &url.adressage.ipv4;.</para>
+	</callout>
+	<callout arearefs='net.brd'>
+	<para>L'adresse de diffusion de niveau réseau est donnée après l'indicateur
+	<option>brd</option>. Voir le document &url.adressage.ipv4;.</para>
+    </callout>
+	<callout arearefs='net.scope'>
+	<para>Pour chaque adresse affichée, l'indicateur <option>scope</option>
+	précise la portée de l'information. Ici les valeurs sont
+	<option>global</option> lorsqu'une adresse est joignable depuis d'autres
+	réseaux et <option>link</option> lorsque la portée se limite au seul
+	domaine de diffusion.</para>
+    </callout>
+	<callout arearefs='net.addr6'>
+	<para>L'adresse <acronym>IPv6</acronym> publique présentée ici est obtenue
+	par configuration automatique sans état ou <acronym>SLAAC</acronym>. On
+	reconnaît l'adresse <acronym>MAC</acronym> de l'interface dans les 4
+	hextets de droite avant le <literal>'/'</literal>. La partie hôte de cette
+	adresse correspond aux 64 bits de poids faible. Voir &url.IPv6;.</para>
+	</callout>
+	<callout arearefs='net.link-local'>
+	<para>L'adresse <acronym>IPv6</acronym> de lien local est composée
+	automatiquement à partir du préfixe <systemitem
+	class='ipaddress'>fe80::/10</systemitem> et de l'adresse
+	<acronym>MAC</acronym> au format <acronym>EUI-64</acronym>. Cette adresse
+	apparaît dès que l'interface est active sans aucune opération de
+	configuration. Une adresse <acronym>IPv6</acronym> de lien local est
+	nécessaire au fonctionnement du protocole <acronym>NDP</acronym>. Voir
+	&url.NDP;.</para>
+    </callout>
+	</calloutlist>
+
+	<para>Pour découvrir la signification des autres champs possibles, il est
+	vivement conseillé de consulter les pages de manuels :
+	<userinput><prompt>$</prompt> man ip-address</userinput>.</para>
+
+<bridgehead xml:id='conf-intf-lan.network-layer.add' renderas='sect2'>Comment
+	ajouter ou supprimer une adresse à une interface&nbsp;?</bridgehead>
+
+	<warning>
+	<para>La suppression de l'adresse <acronym>IP</acronym> d'une interface
+	entraîne la perte des routes vers les réseaux qui dépendent de ce
+	lien.</para>
+	</warning>
+
+	<para>La syntaxe de suppression puis d'ajout d'une adresse à une interface
+	Ethernet est donnée ci-dessous.</para>
+
+<screen><prompt>$</prompt> sudo ip addr del 192.168.1.1/24 dev eth0
+
+<prompt>$</prompt> sudo ip addr add 192.168.1.1/24 brd + dev eth0</screen>
+
+<bridgehead xml:id='conf-intf-lan.network-layer.debian'
+	renderas='sect2'>Comment rendre la configuration permanente sur un système
+	Debian GNU/Linux&nbsp;?</bridgehead>
+
+	<para>Avec la distribution <citetitle>Debian GNU/Linux</citetitle>, ainsi
+	que pour les distributions dérivées, les paramètres de configuration des
+	interfaces réseau sont stockés dans le répertoire <filename
+	class='directory'>/etc/network</filename>. Le fichier
+	<filename>interfaces</filename> de ce répertoire rassemble la configuration
+	des interfaces réseau.</para>
+
+	<para>Voici l'exemple d'une interface Ethernet configurée à l'aide du
+	protocole <acronym>DHCP</acronym> ou <wordasword>Dynamic Host Configuration
+	Protocol</wordasword>.</para>
+
+<screen># /etc/network/interfaces -- configuration file for ifup(8), ifdown(8)
+
+# The loopback interface
+auto lo
+iface lo inet loopback
+
+# The first network card - this entry was created during the Debian installation
+# (network, broadcast and gateway are optional)
+auto eth0
+iface eth0 inet dhcp</screen>
+
+	<para>Voici un autre exemple avec une configuration statique de l'interface
+	Ethernet. On affecte l'adresse <acronym>IPv4</acronym>, le masque réseau,
+	la passerelle par défaut ainsi que le serveur <acronym>DNS</acronym> à
+	contacter pour résoudre les noms de domaines.</para>
+
+<screen>&lt;snip/&gt;
+auto eth0
+iface eth0 inet static
+	address 192.168.1.10/24
+	gateway 192.168.1.1
+	dns-nameserver 8.8.8.8</screen>
+
+	<para>La syntaxe de l'ensemble des options de configuration d'une interface
+	réseau est décrite dans les pages de manuels :
+	<userinput><prompt>$</prompt> man interfaces</userinput>.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.routing'>
+<title>Lire une table de routage simple et changer la passerelle par défaut</title>
+<subtitle>Couche réseau</subtitle>
+
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='*'/>
+	<colspec colwidth='200px'/>
+	<tbody>
+	<row>
+	<entry valign='middle'>
+	<para>Le routage est une fonction essentielle de la couche réseau. Les
+	données du trafic utilisateur sont encapsulées en allant de la couche
+	application jusqu'à la couche réseau dans des paquets
+	<acronym>IP</acronym>. Ces paquets sont <emphasis>routés</emphasis> jusqu'à
+	l'hôte correspondant à l'adresse <acronym>IP</acronym> destination. En
+	fonctionnement normal, un routeur prend ses décisions d'acheminement en
+	analysant l'adresse <acronym>IP</acronym> destination de chaque paquet. Ces
+	prises de décisions se font à partir des informations présentes dans la
+	<emphasis>table de routage</emphasis>.</para>
+	</entry>
+	<entry align='right'>
+	<inlinemediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/model-l3.png' format='PNG' width='4cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/model-l3.png' format='PNG' width='200px' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+
+	<para>Cela peut paraître surprenant, mais tout hôte disposant d'un
+	sous-système réseau dans le noyau ou dans un composant équivalent, utilise
+	une table de routage. Bien sûr, pour un système avec une interface Ethernet
+	unique, le nombre d'entrées dans la table de routage est limité.</para>
+
+	<para>Dans cette section, le principal outil utilisé est la commande
+	<command>ip</command> du paquet <application>iproute2</application>.</para>
+
+<bridgehead xml:id='conf-intf-lan.routing.list' renderas='sect2'>Comment
+	visualiser la table de routage&nbsp;?</bridgehead>
+
+	<para>Dans l'exemple ci-dessous, on visualise les tables de routage
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> d'un hôte dont
+	l'interface Ethernet est nommée <literal>eth0</literal>.</para>
+
+<screen><prompt>$</prompt> ip route ls
+default<co xml:id='route.def4'/> via 192.0.2.1 dev eth0
+192.0.2.0/26<co xml:id='route.local-net4'/> dev eth0 proto<co xml:id='route.local-proto4'/> kernel scope link src 192.0.2.30
+
+<prompt>$</prompt> ip -6 route ls | fmt -t -w80
+2001:db8:8083:c41e::/64<co xml:id='route.local-net6'/> dev eth0 proto<co xml:id='route.local-proto6'/> kernel metric 256 expires 86049sec
+   	pref medium
+fe80::/64<co xml:id='route.link-local'/> dev eth0 proto kernel metric 256 pref medium
+default<co xml:id='route.def6'/> via fe80::b8f1:b6ff:fee4:a0bd dev eth0 proto ra<co xml:id='route.ra'/> metric 1024 expires
+	1449sec hoplimit 64 pref medium</screen>
+
+	<calloutlist>
+	<callout arearefs='route.def4 route.def6'>
+	<formalpara>
+		<title>Route par défaut</title>
+	<para>L'entrée de table de routage qui débute par le mot clé
+	<option>default</option> désigne la <emphasis>passerelle par
+	défaut</emphasis>. Cette passerelle est un routeur voisin qui permet de
+	joindre tous les réseaux inconnus de l'hôte qui émet le paquet. La plupart
+	du temps il s'agit du routeur qui permet de joindre le reste de
+	l'Internet.</para>
+	</formalpara>
+
+	<para>Le mot clé <option>via</option> pointe vers l'adresse
+	<acronym>IPv4</acronym> ou <acronym>IPv6</acronym> de ce routeur
+	voisin.</para>
+
+	<para>Dans la table de routage <acronym>IPv4</acronym>, on trouve en fin de
+	ligne le nom de l'interface à partir de laquelle les paquets sont émis vers
+	la passerelle par défaut.</para>
+	</callout>
+	<callout arearefs='route.local-net4 route.local-net6'>
+	<formalpara>
+		<title>Réseau local</title>
+	<para>Le réseau local auquel est raccordé l'hôte est défini automatiquement
+	lors de la configuration de l'interface Ethernet. Ces entrées de table de
+	routage apparaissent automatiquement dès qu'une interface est configurée
+	<emphasis>et</emphasis> active.</para>
+	</formalpara>
+
+	<para>Dans le cas de la table de routage <acronym>IPv4</acronym>
+	uniquement, la portée de l'information est précisée avec le mot clé
+	<option>scope</option>. Ici, le réseau <systemitem
+	class='ipaddress'>192.0.2.0/26</systemitem> correspond au réseau local sur
+	lequel l'interface <option>eth0</option> est raccordé. En fin de ligne on
+	retrouve l'adresse <acronym>IPv4</acronym> source utilisée lors de
+	l'émission des paquets.</para>
+	</callout>
+	<callout arearefs='route.local-proto4 route.local-proto6 route.ra'>
+	<formalpara>
+		<title>Apprentissage des routes</title>
+	<para>Le mot clé <option>proto</option> informe sur le mécanisme
+	d'apprentissage de l'entrée de table de routage. Dans les deux exemples,
+	toutes les informations proviennent du sous-système réseau du noyau Linux
+	de l'hôte. C'est pourquoi on voit apparaître la réponse clé
+	<option>kernel</option>.</para>
+	</formalpara>
+
+	<para>Dans le cas de la table de routage <acronym>IPv6</acronym>,
+	l'indicateur <option>ra</option> signifie <wordasword>Router
+	Advertisement</wordasword>. Cette entrée de la table de routage a été
+	obtenue via la configuration automatique sans état ou
+	<acronym>SLAAC</acronym>. Voir &url.IPv6;.</para>
+	</callout>
+	<callout arearefs='route.link-local'>
+	<formalpara>
+		<title>Route de lien local</title>
+	<para>Avec le protocole <acronym>IPv6</acronym>, la notion de trafic de
+	diffusion (<wordasword>broadcast</wordasword>) disparaît. C'est le trafic
+	<wordasword>anycast</wordasword> associé au <wordasword>Neighbor Discovery
+	Protocol</wordasword> qui permet de contacter les hôtes du voisinage
+	réseau. Pour que les messages <acronym>ICMPv6</acronym> du protocole
+	<acronym>NDP</acronym> puissent être échangés, il est nécessaire de
+	disposer d'une route vers le réseau auquel une interface active est
+	raccordé. Cette route utilise toujours le préfixe <systemitem
+	class='ipaddress'>fe80::/64</systemitem>.</para>
+	</formalpara>
+	</callout>
+	</calloutlist>
+
+	<para>La syntaxe de l'ensemble des options de configuration d'une interface
+	réseau est décrite dans les pages de manuels :
+	<userinput><prompt>$</prompt> man ip-route</userinput>.</para>
+
+<bridgehead xml:id='conf-intf-lan.routing.default' renderas='sect2'>Comment
+	changer de passerelle par défaut&nbsp;?</bridgehead>
+
+	<para>En reprenant la table de routage affichée ci-dessus, imaginons que la
+	passerelle par défaut <acronym>IPv4</acronym> ne soit plus à l'adresse
+	<systemitem class='ipaddress'>192.0.2.1</systemitem> mais à l'adresse
+	<systemitem class='ipaddress'>192.0.2.20</systemitem>. Voici la syntaxe à
+	utiliser pour réaliser ce changement.</para>
+
+	<para>Pour <acronym>IPv6</acronym>, la nouvelle passerelle par défaut est à
+	l'adresse <systemitem class='ipaddress'>fe80::20</systemitem>.</para>
+
+<screen><prompt>$</prompt> sudo ip route del default
+
+<prompt>$</prompt> sudo ip route add default via 192.0.2.20
+
+<prompt>$</prompt> sudo ip -6 route del default
+
+<prompt>$</prompt> sudo ip -6 route add default via fe80::20 dev eth0</screen>
+
+<bridgehead xml:id='conf-intf-lan.routing.static' renderas='sect2'>Comment
+	ajouter ou supprimer une route statique&nbsp;?</bridgehead>
+
+	<para>Imaginons que l'on veuille ajouter une entrée dans la table de
+	routage présentée ci-dessus vers un nouveau réseau dont on connaît
+	l'adresse. Voici la syntaxe à utiliser pour ajouter puis supprimer une
+	entrée de table de routage avec les protocoles <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym>.</para>
+
+<screen><prompt>$</prompt> sudo ip route add 10.1.2.0/26 via 192.0.2.1
+
+<prompt>$</prompt> sudo ip route del 10.1.2.0/26
+
+<prompt>$</prompt> sudo ip -6 route add 2001:db8:2::/64 via fe80::b8f1:b6ff:fee4:a0bd dev eth0
+
+<prompt>$</prompt> sudo ip -6 route del 2001:db8:2::/64</screen>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.icmp'>
+<title>Joindre un hôte réseau avec ICMP</title>
+<subtitle>Couches réseau &amp; application</subtitle>
+
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='*'/>
+	<colspec colwidth='200px'/>
+	<tbody>
+	<row>
+	<entry valign='middle'>
+	<para>Le protocole <citetitle>Internet Control Message Protocol</citetitle>
+	ou <acronym>ICMP</acronym> est décrit dans le document &url.rfc792;.  C'est
+	un protocole de la couche réseau. Comme le protocole
+	<acronym>IPv4</acronym> ne fournit aucun service de contrôle lors de la
+	transmission des paquets sur le réseau, le rôle du protocole
+	<acronym>ICMP</acronym> est d'informer l'émetteur sur les conditions de
+	cette transmission.</para>
+
+	<para>Avec l'arrivée du protocole <acronym>IPv6</acronym>, 5 messages
+	supplémentaires ont été ajoutés pour constituer le protocole
+	<acronym>ICMPv6</acronym>. Ces 5 messages sont nécessaires à la
+	reconnaissance du voisinage réseau <acronym>IPv6</acronym> à l'aide du
+	&url.NDP;.</para>
+	</entry>
+	<entry align='right'>
+	<inlinemediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/model-l3.png' format='PNG' width='4cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/model-l3.png' format='PNG' width='200px' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+
+	<para>La commande <command>ping</command> utilise principalement deux types
+	de messages du protocole <acronym>ICMP</acronym> et fournit les
+	informations suivantes.</para>
+
+    <itemizedlist>
+	<listitem>
+		<para>Le nombre de routeurs traversés pour joindre la
+		destination</para>
+	</listitem>
+	<listitem>
+		<para>Le temps de propagation aller retour (<wordasword>round-trip
+		delay</wordasword>) lors de la communication avec l'hôte distant</para>
+	</listitem>
+	<listitem>
+		<para>Le taux de pertes de paquets pendant la communication</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>Il existe 18 types de messages <acronym>ICMP</acronym> pour
+	<acronym>IPv4</acronym>. Les deux types de messages employés par la
+	commande <command>ping</command> sont les suivants.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Le type 8 (<literal>echo request</literal>) est émis vers l'hôte
+		distant.</para>
+	</listitem>
+	<listitem>
+		<para>Le type 0 (<literal>echo reply</literal>) est émis par l'hôte
+		distant en réponse.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>Quelques autres types sont abordés dans la <xref
+	linkend='conf-intf-lan.procfs'/>.</para>
+
+	<para>Pour valider le bon fonctionnement des communications entre les
+	adresses <acronym>IP</acronym> source et destination, on suit une séquence
+	classique de tests&nbsp;:</para>
+
+	<orderedlist numeration='arabic'>
+	<listitem>
+		<para>adresse <acronym>IP</acronym> de l'interface de boucle locale :
+		<literal>lo</literal></para>
+	</listitem>
+	<listitem>
+		<para>adresse <acronym>IP</acronym> de la passerelle par défaut</para>
+	</listitem>
+	<listitem>
+		<para>adresse <acronym>IP</acronym> d'un hôte extérieur au réseau
+		local</para>
+	</listitem>
+	</orderedlist>
+
+<bridgehead xml:id='conf-intf-lan.icmp.test' renderas='sect2'>Comment savoir si
+	un hôte distant est joignable&nbsp;?</bridgehead>
+
+	<variablelist>
+	<varlistentry>
+		<term>État de la pile TCP/IP</term>
+	<listitem>
+	<para>Le test suivant permet de valider les communications réseau
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> pour les processus
+	appartenant au même système.</para>
+
+<screen><prompt>$</prompt> ping -c2 127.0.0.1
+PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
+64 bytes from 127.0.0.1: icmp_req=1 ttl=64 time=0.320 ms
+64 bytes from 127.0.0.1: icmp_req=2 ttl=64 time=0.320 ms
+
+--- 127.0.0.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.320/0.320/0.320/0.000 ms
+
+<prompt>$</prompt> ping -c2 ::1
+PING ::1(::1) 56 data bytes
+64 bytes from ::1: icmp_seq=1 ttl=64 time=0.028 ms
+64 bytes from ::1: icmp_seq=2 ttl=64 time=0.034 ms
+
+--- ::1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1013ms
+rtt min/avg/max/mdev = 0.028/0.031/0.034/0.003 ms</screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+		<term>Test de la passerelle par défaut</term>
+	<listitem>
+	<para>On reprend le même test avec les adresses <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> de la passerelle par défaut.</para>
+
+<screen><prompt>$</prompt> ping -c2 192.0.2.1
+PING 192.0.2.1 (192.0.2.1) 56(84) bytes of data.
+64 bytes from 192.0.2.1: icmp_seq=1 ttl=64 time=0.759 ms
+64 bytes from 192.0.2.1: icmp_seq=2 ttl=64 time=0.218 ms
+
+--- 192.0.2.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1030ms
+rtt min/avg/max/mdev = 0.218/0.488/0.759/0.271 ms
+
+<prompt>$</prompt> ping -c2 fe80::b8f1:b6ff:fee4:a0bd%eth0
+PING fe80::b8f1:b6ff:fee4:a0bd%eth0(fe80::b8f1:b6ff:fee4:a0bd%eth0) 56 data bytes
+64 bytes from fe80::b8f1:b6ff:fee4:a0bd%eth0: icmp_seq=1 ttl=64 time=0.171 ms
+64 bytes from fe80::b8f1:b6ff:fee4:a0bd%eth0: icmp_seq=2 ttl=64 time=0.239 ms
+
+--- fe80::b8f1:b6ff:fee4:a0bd%eth0 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1029ms
+rtt min/avg/max/mdev = 0.171/0.205/0.239/0.034 ms</screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>Tests vers des adresses extérieures au réseau local</term>
+	<listitem>
+<screen><prompt>$</prompt> ping -c2 8.8.8.8
+PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.
+64 bytes from 8.8.8.8:<co xml:id='icmpfrom4'/> icmp_seq=1<co xml:id='icmpseq4'/> ttl=39<co xml:id='icmpttl4'/> time=23.0 ms
+64 bytes from 8.8.8.8: icmp_seq=2 ttl=39 time=22.8 ms
+
+--- 8.8.8.8 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 22.801/22.921/23.041/0.120 ms
+
+<prompt>$</prompt> ping -c2 2001:4860:4860::8888
+PING 2001:4860:4860::8888(2001:4860:4860::8888) 56 data bytes
+64 bytes from 2001:4860:4860::8888:<co xml:id='icmpfrom6'/> icmp_seq=1<co xml:id='icmpseq6'/> ttl=60<co xml:id='icmpttl6'/> time=40.0 ms
+64 bytes from 2001:4860:4860::8888: icmp_seq=2 ttl=60 time=39.7 ms
+
+--- 2001:4860:4860::8888 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 39.756/39.909/40.062/0.153 ms</screen>
+
+	<calloutlist>
+	<callout arearefs='icmpfrom4 icmpfrom6'>
+	<para>Adresse de réponse du message ICMP : destinataire du test</para>
+	</callout>
+	<callout arearefs='icmpseq4 icmpseq6'>
+	<para>Numéro de séquence du message</para>
+	</callout>
+	<callout arearefs='icmpttl4 icmpttl6'>
+	<para>La valeur du champ <acronym>TTL</acronym> d'un paquet
+	<acronym>IP</acronym> correspond au nombre de routeurs traversés pour
+	arriver à destination</para>
+	</callout>
+	</calloutlist>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+
+<bridgehead xml:id='conf-intf-lan.icmp.arp' renderas='sect2'>Comment savoir si
+un hôte du réseau local est joignable avec
+<acronym>IPv4</acronym>&nbsp;?</bridgehead>
+
+	<para>La commande <command>ping</command> permet de qualifier les
+	correspondances entre les adresses de la couche liaison de données
+	(<acronym>MAC</acronym>) et les adresses de la couche réseau
+	(<acronym>IPv4</acronym> ou <acronym>IPv6</acronym>).</para>
+
+	<para>Prenons l'exemple d'une table du voisinage réseau avant et après
+	l'émission de messages <acronym>ICMP</acronym> vers deux adresses
+	<acronym>IPv4</acronym>.</para>
+
+	<orderedlist>
+	<listitem>
+	<para>Voisinage réseau avant émission des messages <acronym>ICMP</acronym></para>
+
+<screen><prompt>$</prompt> ip neigh ls
+192.0.2.1 dev eth0 lladdr ba:f1:b6:e4:a0:bd STALE
+fe80::b8f1:b6ff:fee4:a0bd dev eth0 lladdr ba:f1:b6:e4:a0:bd router DELAY</screen>
+	</listitem>
+	<listitem>
+	<para>Lancement des questions <acronym>ICMP</acronym></para>
+
+<screen><prompt>$</prompt> ping -c2 192.0.2.30
+PING 192.0.2.30 (192.0.2.30) 56(84) bytes of data.
+64 bytes from 192.0.2.30: icmp_seq=1 ttl=64 time=0.868 ms
+64 bytes from 192.0.2.30: icmp_seq=2 ttl=64 time=0.296 ms
+
+--- 192.0.2.30 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.296/0.582/0.868/0.286 ms
+
+<prompt>$</prompt> ping -c2 192.0.2.20
+PING 192.0.2.20 (192.0.2.20) 56(84) bytes of data.
+From 192.0.2.29 icmp_seq=1 Destination Host Unreachable
+From 192.0.2.29 icmp_seq=2 Destination Host Unreachable
+
+--- 192.0.2.20 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 1012ms</screen>
+	</listitem>
+	<listitem>
+	<para>Voisinage réseau après émission des messages <acronym>ICMP</acronym></para>
+
+<screen><prompt>$</prompt> ip neigh ls
+192.0.2.1 dev eth0 lladdr ba:f1:b6:e4:a0:bd STALE
+192.0.2.30 dev eth0 lladdr ba:ad:ca:fe:00:1e STALE
+192.0.2.20 dev eth0  FAILED
+fe80::b8f1:b6ff:fee4:a0bd dev eth0 lladdr ba:f1:b6:e4:a0:bd router DELAY</screen>
+	</listitem>
+	</orderedlist>
+
+	<para>L'expérience caractérise indirectement l'utilisation du protocole
+	<acronym>ARP</acronym>. Dans le cas de l'adresse destination <systemitem
+	class='ipaddress'>192.0.2.30</systemitem>, la première réponse à la requête
+	<acronym>ICMP</acronym> prend un temps beaucoup plus important que la
+	seconde : <literal>0.868 ms</literal> contre <literal>0.296 ms</literal>.
+	La différence de temps s'explique par le recours au protocole
+	<acronym>ARP</acronym> pour établir la correspondance entre l'adresse
+	<acronym>IPv4</acronym> <systemitem
+	class='ipaddress'>192.0.2.30</systemitem> et son adresse
+	<acronym>MAC</acronym> <systemitem>ba:ad:ca:fe:00:1e</systemitem>.</para>
+
+	<para>Avec l'adresse destination <systemitem
+	class='ipaddress'>192.0.2.20</systemitem>, le protocole
+	<acronym>ARP</acronym> n'est pas parvenu à établir une correspondance entre
+	adresse <acronym>IPv4</acronym> et adresse <acronym>MAC</acronym>. Les
+	requêtes <acronym>ICMP</acronym> n'ont donc pas pu aboutir.</para>
+
+<bridgehead xml:id='conf-intf-lan.icmp.ndp' renderas='sect2'>Comment obtenir la
+liste des voisins dans un réseau local
+<acronym>IPv6</acronym>&nbsp;?</bridgehead>
+
+	<para>On sait que dans un réseau <acronym>IPv6</acronym>, la notion de
+	trafic de diffusion n'existe pas et que c'est le protocole &url.NDP; qui se
+	charge des correspondances d'adresses. Il est possible d'émettre des
+	messages <acronym>ICMPv6</acronym> de multidiffusion pour solliciter les
+	hôtes voisins dans un réseau local. Reprenons l'exemple de la table des
+	voisins de la section précédente avant et après les messages de
+	sollicitation <acronym>ICMPv6</acronym>.</para>
+
+	<orderedlist>
+	<listitem>
+	<para>Voisinage réseau avant émission des messages <acronym>ICMPv6</acronym></para>
+
+<screen><prompt>$</prompt> ip neigh ls
+192.0.2.1 dev eth0 lladdr ba:f1:b6:e4:a0:bd STALE
+192.0.2.30 dev eth0 lladdr ba:ad:ca:fe:00:1e STALE
+192.0.2.20 dev eth0  FAILED
+fe80::b8f1:b6ff:fee4:a0bd dev eth0 lladdr ba:f1:b6:e4:a0:bd router DELAY</screen>
+	</listitem>
+	<listitem>
+	<para>Lancement des sollicitations de noeuds <acronym>ICMPv6</acronym></para>
+
+<screen><prompt>$</prompt> ping -c2 ff02::1%eth0
+PING ff02::1%eth0(ff02::1%eth0) 56 data bytes
+64 bytes from fe80::21e:c9ff:fef6:a2cd%eth0: icmp_seq=1 ttl=64 time=0.049 ms
+64 bytes from fe80::b8f1:b6ff:fee4:a0bd%eth0: icmp_seq=1 ttl=64 time=0.394 ms (DUP!)
+64 bytes from fe80::b8ad:caff:fefe:1e%eth0: icmp_seq=1 ttl=64 time=0.521 ms (DUP!)
+64 bytes from fe80::21e:c9ff:fef6:a2cd%eth0: icmp_seq=2 ttl=64 time=0.031 ms
+
+--- ff02::1%eth0 ping statistics ---
+2 packets transmitted, 2 received, +2 duplicates, 0% packet loss, time 1027ms
+rtt min/avg/max/mdev = 0.031/0.248/0.521/0.214 ms</screen>
+	</listitem>
+	<listitem>
+	<para>Voisinage après réception des réponses <acronym>ICMPv6</acronym></para>
+
+<screen><prompt>$</prompt> ip neigh ls
+192.0.2.1 dev eth0 lladdr ba:f1:b6:e4:a0:bd STALE
+192.0.2.30 dev eth0 lladdr ba:ad:ca:fe:00:1e STALE
+192.0.2.20 dev eth0  FAILED
+fe80::b8ad:caff:fefe:1e dev eth0 lladdr ba:ad:ca:fe:00:1e STALE
+fe80::b8f1:b6ff:fee4:a0bd dev eth0 lladdr ba:f1:b6:e4:a0:bd router REACHABLE</screen>
+	</listitem>
+	</orderedlist>
+
+	<para>La commande <userinput><prompt>$</prompt> ping -c2
+	ff02::1%eth0</userinput> lance un recensement de tous les hôtes actifs dans
+	le réseau local et illustre le fonctionnement du protocole
+	<acronym>NDP</acronym>.</para>
+
+<bridgehead xml:id='conf-intf-lan.icmp.dns' renderas='sect2'>Comment savoir si
+	un hôte est joignable en utilisant la résolution des noms de
+	domaines&nbsp;?</bridgehead>
+
+	<para>La commande <command>ping</command> est aussi utile pour savoir si la
+	résolution des noms d'hôtes fonctionne correctement. Dans ce cas, on fait
+	appel à un service Internet appelé <wordasword>Domain Name
+	Service</wordasword> (<acronym>DNS</acronym>). Cet appel au service
+	<acronym>DNS</acronym> suppose que la fonction
+	<wordasword>resolver</wordasword> soit correctement configurée.</para>
+
+<screen><prompt>$</prompt> ping -c2 www.nic.fr<co xml:id='icmp6name'/>
+PING www.nic.fr(lb01-1.nic.fr (2001:67c:2218:30::24))<co xml:id='icmp6res'/> 56 data bytes
+64 bytes from lb01-1.nic.fr (2001:67c:2218:30::24): icmp_seq=1 ttl=59 time=12.7 ms
+64 bytes from lb01-1.nic.fr (2001:67c:2218:30::24): icmp_seq=2 ttl=59 time=12.6 ms
+
+--- www.nic.fr ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 12.632/12.675/12.719/0.120 ms</screen>
+
+<screen><prompt>$</prompt> ping -4 -c2 www.nic.fr<co xml:id='icmp4name'/>
+PING lb01-1.nic.fr (192.134.5.24)<co xml:id='icmp4res'/> 56(84) bytes of data.
+64 bytes from lb01-1.nic.fr (192.134.5.24): icmp_seq=1 ttl=58 time=32.8 ms
+64 bytes from lb01-1.nic.fr (192.134.5.24): icmp_seq=2 ttl=58 time=31.1 ms
+
+--- lb01-1.nic.fr ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1000ms
+rtt min/avg/max/mdev = 31.188/32.036/32.884/0.848 ms</screen>
+
+	<calloutlist>
+	<callout arearefs="icmp6name icmp4name">
+	<para>Utilisation de la commande <command>ping</command> avec un nom d'hôte
+	au lieu d'une adresse <acronym>IPv4</acronym> ou <acronym>IPv6</acronym>.
+	Par défaut, dès qu'une solution <acronym>IPv6</acronym> est disponible,
+	c'est ce protocole qui est utilisé.</para>
+	</callout>
+	<callout arearefs="icmp6res icmp4res">
+	<para>Affichage de la correspondance entre le nom de l'hôte et l'adresse
+	<acronym>IPv6</acronym> ou <acronym>IPv4</acronym> suivant le contexte.
+	L'utilisation de l'option <option>-4</option> avec la commande
+	<command>ping</command> force la correspondance avec l'adresse
+	<acronym>IPv4</acronym>.</para>
+	</callout>
+	</calloutlist>
+
+	<para>En cas d'échec sur la résolution des noms, il faut contrôler la
+	configuration de la partie cliente du service des noms de domaines.  Cette
+	partie est abordée dans la section suivante.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.dns'>
+<title>Lire et analyser une requête DNS</title>
+<subtitle>Couche application</subtitle>
+
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='*'/>
+	<colspec colwidth='200px'/>
+	<tbody>
+	<row>
+	<entry valign='middle'>
+	<para>Pour simplifier, on peut dire que le service Internet
+	<wordasword>Domain Name System</wordasword> ou <acronym>DNS</acronym>
+	fonctionne sur le même mode qu'un annuaire téléphonique dans lequel le
+	numéro de téléphone est remplacé par l'adresse <acronym>IP</acronym> et le
+	nom d'abonné est remplacé par le nom d'hôte.</para>
+
+	<para><acronym>DNS</acronym> est un service de type client/serveur dont la
+	fonction clé est la <emphasis>résolution</emphasis> entre des
+	enregistrements et des adresses <acronym>IP</acronym>. Les enregistrements
+	sont distribués entre les serveurs qui ont chacun autorité sur une partie
+	de l'arborescence des noms de domaines.</para>
+	</entry>
+	<entry align='right'>
+	<inlinemediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/model-l5.png' format='PNG' width='4cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/model-l5.png' format='PNG' width='200px' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+
+	<para>Dans le contexte de ce document, on ne s'intéresse qu'à la partie
+	cliente du service appelée <wordasword>resolver</wordasword>.</para>
+
+<bridgehead xml:id='conf-intf-lan.dns.resolv.conf' renderas='sect2'>Comment
+	visualiser la configuration du <wordasword>resolver</wordasword>
+	<acronym>DNS</acronym>&nbsp;?</bridgehead>
+
+	<para>Généralement, la configuration du <wordasword>resolver</wordasword>
+	d'un poste client est mise en place automatiquement grâce à des services
+	tels que <acronym>DHCP</acronym> (<wordasword>Dynamic Host Configuration
+	Protocol</wordasword>) ou <acronym>RDNSS</acronym> (<wordasword>Recursive
+	DNS Server</wordasword>) et <acronym>DNSSL</acronym> (<wordasword>DNS
+	Search List</wordasword>).</para>
+
+	<para>Sur les systèmes GNU/Linux, il existe des paquets tels que
+	<application>resolvconf</application> qui gèrent dynamiquement la
+	configuration du <wordasword>resolver</wordasword> en choisissant les
+	paramètres en fonction des services d'autoconfiguration disponibles.</para>
+
+	<para>Voici une description des fichiers de configuration système qui
+	jouent un rôle dans la résolution des noms de domaines. La liste des
+	sources d'information puis l'ordre dans lequel on consulte ces sources sont
+	les facteurs les plus importants.</para>
+
+  <variablelist>
+    <varlistentry>
+    <term><filename>/etc/resolv.conf</filename></term>
+    <listitem>
+    <para>Le rôle de ce fichier est de désigner le serveur
+    <acronym>DNS</acronym> qui doit prendre en charge les requêtes du système.
+    Tout programme qui fait référence à un nom d'hôte sollicite cette
+    ressource.</para>
+
+<screen><prompt>$</prompt> cat /etc/resolv.conf
+# Dynamic resolv.conf(5) file for glibc resolver(3) generated by resolvconf(8)
+#     DO NOT EDIT THIS FILE BY HAND -- YOUR CHANGES WILL BE OVERWRITTEN
+nameserver 192.0.2.1</screen>
+
+    <para>Ici l'adresse <acronym>IP</acronym> du serveur <acronym>DNS</acronym>
+    est 192.0.2.1. Dans un contexte domestique, on retrouve les mêmes
+    informations via l'interface Web de la «box» de de l'opérateur.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry>
+    <term><filename>/etc/nsswitch.conf</filename></term>
+    <listitem>
+	<para>Le rôle du <wordasword>Name Service Switch</wordasword> dépasse le
+	cadre de la simple résolution des noms d'hôtes. Tous les programmes font
+	appel à la bibliothèque standard <wordasword>glibc</wordasword>.  Lors des
+	appels à cette bibliothèque, ce fichier est consulté pour connaître la
+	liste des sources à utiliser.</para>
+
+<screen><prompt>$</prompt> grep ^hosts /etc/nsswitch.conf
+hosts:          files mdns_minimal [NOTFOUND=return] dns mdns</screen>
+
+    <para>Dans l'exemple ci-dessus, la scrutation des sources débute avec les
+    fichiers locaux, la version minimale du service <wordasword>multicast
+    DNS</wordasword>, le service <acronym>DNS</acronym> tel que configuré dans
+    le fichier ci-dessus et enfin le service <wordasword>multicast
+    DNS</wordasword>.</para>
+
+    <para>La syntaxe '<literal>[NOTFOUND=return]</literal>', implique que si
+    l'un des deux services qui suivent dans la liste déclare que l'hôte est
+    introuvable, la recherche s'arrête là.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry>
+    <term><filename>/etc/host.conf</filename></term>
+    <listitem>
+    <para>Ce dernier fichier est présent pour des raisons de compatibilité avec
+    les anciennes versions de la bibliothèque standard.</para>
+
+<screen><prompt>$</prompt> cat /etc/host.conf
+multi on</screen>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+<bridgehead xml:id='conf-intf-lan.dns.dig' renderas='sect2'>Comment
+	analyser les résultats d'une requête DNS&nbsp;?</bridgehead>
+
+	<para>Sur un système GNU/Linux, les deux commandes de référence sont
+	<command>dig</command> et <command>host</command>. Elles servent à
+	qualifier le bon fonctionnement du <wordasword>resolver</wordasword> sur le
+	système en isolant le service <acronym>DNS</acronym> des autres
+	traitements. Voici quelques exemples de requêtes.</para>
+
+	<variablelist>
+	<varlistentry>
+		<term>Résolution complète d'un nom d'hôte</term>
+	<listitem>
+	<para>La question posée est : quelle sont les enregistrements
+	<acronym>DNS</acronym> relatifs au nom de serveur Web
+	<citetitle>www.nic.fr</citetitle> ?</para>
+
+<screen><prompt>$</prompt> host www.nic.fr
+www.nic.fr is an alias for lb01-1.nic.fr.
+lb01-1.nic.fr has address 192.134.5.24
+lb01-1.nic.fr has IPv6 address 2001:67c:2218:30::24</screen>
+
+	<para>Cet exemple illustre le fait que plusieurs questions ont été posées
+	via la commande <command>host</command> puisque les adresses
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> ont été obtenues en
+	retour.</para>
+	</listitem>
+	</varlistentry>
+	<varlistentry>
+		<term>Résolution simple d'un nom d'hôte</term>
+	<listitem>
+	<para>La question posée est&nbsp;: quelle est l'adresse
+	<acronym>IPv4</acronym> correspondant au nom de serveur Web
+	<citetitle>www.nic.fr</citetitle>&nbsp;?</para>
+
+<screen><prompt>$</prompt> dig +short www.nic.fr
+lb01-1.nic.fr.
+<emphasis>192.134.5.24</emphasis></screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+		<term>Résolution inverse d'une adresse <acronym>IP</acronym></term>
+	<listitem>
+	<para>La question posée est : quel est le nom d'hôte correspondant à
+	l'adresse <acronym>IPv4</acronym> <systemitem
+	class='ipaddress'>192.134.5.24</systemitem> ?</para>
+
+<screen><prompt>$</prompt> dig +short -x 192.134.5.24
+<emphasis>lb01-1.nic.fr.</emphasis></screen>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry>
+    <term>Requête <acronym>DNS</acronym> complète sur un nom d'hôte</term>
+    <listitem>
+
+<screen><prompt>$</prompt> dig www.iana.org
+
+; &lt;&lt;>> DiG 9.8.4-rpz2+rl005.12-P1 &lt;&lt;>> www.iana.org
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 60063
+;; flags: qr rd ra; QUERY: 1, ANSWER: 2, AUTHORITY: 2, ADDITIONAL: 4
+
+;; QUESTION SECTION:<co xml:id='dig_a.question'/>
+;www.iana.org.                  IN      A
+
+;; ANSWER SECTION:<co xml:id='dig_a.answer'/>
+www.iana.org.           600     IN      CNAME   ianawww.vip.icann.org.
+ianawww.vip.icann.org.  30      IN      A       192.0.32.8
+
+;; AUTHORITY SECTION:<co xml:id='dig_a.authority'/>
+vip.icann.org.          3600    IN      NS      gtm1.dc.icann.org.
+vip.icann.org.          3600    IN      NS      gtm1.lax.icann.org.
+
+;; ADDITIONAL SECTION:<co xml:id='dig_a.additional'/>
+gtm1.dc.icann.org.      21600   IN      A       192.0.47.252
+gtm1.dc.icann.org.      21600   IN      AAAA    2620:0:2830:296::252
+gtm1.lax.icann.org.     21600   IN      A       192.0.32.252
+gtm1.lax.icann.org.     21600   IN      AAAA    2620:0:2d0:296::252
+
+;; Query time: 562 msec<co xml:id='dig_a.time'/>
+;; SERVER: 192.0.2.1#53(192.0.2.1)<co xml:id='dig_a.server'/>
+;; WHEN: Thu Jan 30 10:37:46 2014
+;; MSG SIZE  rcvd: 211</screen>
+
+    <calloutlist>
+      <callout arearefs='dig_a.question'>
+	<para>Le champ <acronym>QUESTION</acronym> reprend les termes de la
+	requête <acronym>DNS</acronym> soumise au serveur.</para>
+      </callout>
+      <callout arearefs='dig_a.answer'>
+		<para>Le champ <acronym>ANSWER</acronym> liste les éléments de réponse
+		à la requête. Ici, le nom d'hôte <systemitem>www.iana.org</systemitem>
+		est en fait un alias de <systemitem>ianawww.vip.icann.org</systemitem>.
+		Cet alias a pour adresse <acronym>IP</acronym> : <systemitem
+		class='ipaddress'>192.0.32.8</systemitem>.</para>
+      </callout>
+      <callout arearefs='dig_a.authority'>
+		<para>Le champ <acronym>AUTHORITY</acronym> donne la liste des serveurs
+		de noms qui ont autorité sur les enregistrements
+		<acronym>DNS</acronym>. Ce sont les seuls serveurs aptes à fournir une
+		réponse aux requêtes sur le domaine concerné.</para>
+      </callout>
+      <callout arearefs='dig_a.additional'>
+		<para>Le champ <acronym>ADDITIONAL</acronym> donne les adresses
+		<acronym>IP</acronym> des serveurs <acronym>DNS</acronym> de référence
+		du domaine.</para>
+      </callout>
+      <callout arearefs='dig_a.time'>
+		<para>Le champ <acronym>Query time</acronym> donne le temps de
+		traitement de la requête. La valeur obtenue permet de déduire si le
+		serveur interrogé a déjà la réponse en mémoire cache ou non.</para>
+      </callout>
+      <callout arearefs='dig_a.server'>
+		<para>Le champ <acronym>SERVER</acronym> identifie le serveur qui a
+		pris la requête <acronym>DNS</acronym> en charge.</para>
+      </callout>
+    </calloutlist>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+	<para>Pour aller plus loin dans l'étude du fonctionnement du service de
+	noms de domaines, il est conseillé de lire le support
+	&url.sysadm-net.dns;.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.traceroute'>
+<title>Tracer le chemin suivi par le trafic réseau</title>
+<subtitle>Couches réseau &amp; application</subtitle>
+
+	<para>Si la commande <command>ping</command> du protocole
+	<acronym>ICMP</acronym> permet d'obtenir des informations l'état de l'hôte
+	destination, elle ne permet pas de tracer le chemin suivi par les paquets
+	<acronym>IP</acronym>. C'est justement l'objectif du service
+	<application>traceroute</application> dont le principe est le
+	suivant&nbsp;:</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>La source émet un premier message avec la valeur 1 dans le champ
+    <acronym>TTL</acronym> de l'en-tête <acronym>IP</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Le routeur qui reçoit ce message décrémente la valeur du champ
+    <acronym>TTL</acronym> de l'en-tête <acronym>IP</acronym> et obtient 0. Il
+    jette donc le message et émet un message <acronym>ICMP</acronym> à
+    destination de l'émetteur indiquant qu'il est impossible d'atteindre la
+    destination.</para>
+    </listitem>
+    <listitem>
+    <para>La source émet un deuxième message avec la valeur 2 dans le champ
+    <acronym>TTL</acronym> de l'en-tête <acronym>IP</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Cette fois-ci, c'est le deuxième routeur qui décrémente la valeur du
+    champ <acronym>TTL</acronym> et obtient 0. C'est donc à lui d'émettre un
+    message <acronym>ICMP</acronym> indiquant qu'il est impossible d'atteindre
+    la destination.</para>
+    </listitem>
+    <listitem>
+    <para>Ainsi de suite avec les valeurs du champ <acronym>TTL</acronym> de
+    l'en-tête <acronym>IP</acronym> 3, 4, 5, etc.</para>
+    </listitem>
+  </itemizedlist>
+
+  <warning>
+    <para>Pour des raisons de sécurité, il peut être nécessaire de cacher le
+    chemin suivi par le trafic utilisateur. C'est la raison pour laquelle les
+    résultats obtenus varient énormément suivant les contextes d'interconnexion
+    réseau. Il devient de plus en plus difficile d'obtenir une information
+    correcte.</para>
+  </warning>
+
+  <para>Pour illustrer le fonctionnement du service, on peut utiliser la
+  commande <command>mtr</command> fournie par la paquet
+  <application>mtr-tiny</application>. Cette commande possède de nombreuses
+  options et fournit une présentation dynamique des résultats. Voici deux
+  exemples qui illustrent la «dispersion» des résultats :</para>
+
+  <variablelist>
+    <varlistentry>
+    <term>Exemple de rapport basé sur <acronym>ICMP echo</acronym></term>
+    <listitem>
+<screen><prompt>$</prompt> mtr -4 -c 10 --report www.nic.fr
+Start: 2018-01-08T14:55:31+0100
+HOST: inetdoc-ttn                 Loss%   Snt   Last   Avg  Best  Wrst StDev
+  1.|-- h7.tetaneutral.net         0.0%    10    0.3   0.3   0.3   0.3   0.0
+  2.|-- te0-0-2-3.rcr11.tls01.atl  0.0%    10    1.1   1.4   1.0   3.6   0.8
+  3.|-- te0-2-1-2.rcr21.bod01.atl  0.0%    10    4.1   4.2   4.1   4.4   0.1
+  4.|-- be2840.rcr21.eas02.atlas.  0.0%    10    7.8   7.8   7.7   7.9   0.1
+  5.|-- be2839.ccr52.bio02.atlas.  0.0%    10    8.8   8.8   8.7   8.8   0.1
+  6.|-- be3358.ccr32.mad05.atlas.  0.0%    10   13.6  13.5  13.3  13.7   0.2
+  7.|-- ae-20.r01.mdrdsp03.es.bb.  0.0%    10   13.6  13.6  13.4  14.3   0.2
+  8.|-- ae-7.r24.londen12.uk.bb.g  0.0%    10   30.4  30.5  30.3  31.3   0.4
+  9.|-- ae-1.r25.londen12.uk.bb.g  0.0%    10   30.4  30.4  30.3  30.9   0.2
+ 10.|-- ae-2.r04.parsfr01.fr.bb.g  0.0%    10   30.6  30.6  30.5  30.8   0.1
+ 11.|-- ae-5.r03.parsfr02.fr.bb.g  0.0%    10   30.7  30.7  30.6  30.9   0.1
+ 12.|-- ae-8.r02.parsfr02.fr.bb.g  0.0%    10   30.6  30.8  30.6  31.0   0.2
+ 13.|-- 82.112.96.178              0.0%    10   31.1  31.0  30.9  31.1   0.1
+ 14.|-- ???                       100.0    10    0.0   0.0   0.0   0.0   0.0
+ 15.|-- isg-th3.interco.nic.fr     0.0%    10   30.3  30.3  30.3  30.4   0.1
+ 16.|-- lb01-1.nic.fr              0.0%    10   30.5  30.4  30.4  30.6   0.1</screen>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry>
+    <term>Exemple de rapport basé sur <acronym>UDP</acronym></term>
+    <listitem>
+<screen><prompt>$</prompt> mtr -4 -u -c 10 --report www.nic.fr
+Start: 2018-01-08T14:57:32+0100
+HOST: inetdoc-ttn                 Loss%   Snt   Last   Avg  Best  Wrst StDev
+  1.|-- h7.tetaneutral.net         0.0%    10    0.3   0.3   0.3   0.3   0.0
+  2.|-- te0-0-2-3.rcr11.tls01.atl  0.0%    10    1.1   1.1   1.0   1.2   0.1
+  3.|-- te0-2-1-2.rcr21.bod01.atl  0.0%    10    4.2   4.3   4.2   4.4   0.1
+  4.|-- be2840.rcr21.eas02.atlas.  0.0%    10    7.8   7.8   7.7   8.0   0.1
+  5.|-- be2838.ccr51.bio02.atlas.  0.0%    10    8.8   8.8   8.6   9.2   0.2
+  6.|-- be3357.ccr31.mad05.atlas.  0.0%    10   13.6  13.5  13.2  13.7   0.1
+  7.|-- ae-4.r01.mdrdsp03.es.bb.g  0.0%    10   14.3  13.6  13.4  14.3   0.3
+  8.|-- ae-7.r24.londen12.uk.bb.g  0.0%    10   30.3  28.2  27.3  30.3   1.1
+  9.|-- ae-1.r25.londen12.uk.bb.g  0.0%    10   27.3  28.8  27.3  31.5   1.4
+ 10.|-- ae-2.r04.parsfr01.fr.bb.g  0.0%    10   27.7  28.6  27.7  29.9   0.8
+ 11.|-- ae-5.r03.parsfr02.fr.bb.g  0.0%    10   28.5  28.5  27.1  31.2   1.5
+ 12.|-- ae-8.r02.parsfr02.fr.bb.g  0.0%    10   27.8  28.4  27.0  30.7   1.0
+ 13.|-- 82.112.96.178              0.0%    10   31.1  29.1  27.6  31.1   1.1
+ 14.|-- ???                       100.0    10    0.0   0.0   0.0   0.0   0.0</screen>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+	<para>La comparaison entre les deux rapports montre que le protocole
+	<acronym>ICMP</acronym> subit un filtrage important relativement aux
+	requêtes <acronym>UDP</acronym>. Les très nombreuses attaques de type «déni
+	de service distribué» basées sur <acronym>ICMP</acronym> ont nécessité la
+	mise en place de protections qui entraînent quelques désagréments dans les
+	tests de fonctionnement des réseaux.</para>
+
+	<para>Pour aller plus loin dans les manipulations sur le tracé de route, il
+	existe d'autres outils intéressants tels que <command>tracepath</command>
+	fourni par le paquet <application>iputils-tracepath</application>.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.procfs'>
+<title>Lire et configurer les fonctions réseau du noyau Linux</title>
+
+	<para>Un grand nombre de paramètres sont actifs par défaut sur les
+	interfaces réseau. Sur un système GNU/Linux, ces paramètres sont placés
+	dans les systèmes de fichiers virtuels <filename
+	class='directory'>/proc</filename> et <filename
+	class='directory'>/sys</filename>.</para>
+
+<bridgehead xml:id='conf-intf-lan.dns.procfs.search' renderas='sect2'>Comment
+visualiser les paramètres du noyau Linux pour une interface
+Ethernet&nbsp;?</bridgehead>
+
+	<para>Tous les réglages possibles pour une interface pilotée par le
+	sous-système réseau du noyau Linux sont accessibles depuis l'espace
+	utilisateur via deux systèmes de fichiers virtuels appelés
+	<systemitem>procfs</systemitem> et <systemitem>sysfs</systemitem>. L'outil
+	qui permet de lire et configurer ces réglages s'appelle
+	<command>sysctl</command>.</para>
+
+	<para>La description de tous les paramètres relatifs à l'interface Ethernet
+	sort du cadre de ce document. Le but ici est de montrer que ces paramètres
+	existent, qu'ils sont accessibles et que l'on sait où les trouver dans
+	l'arborescence système.</para>
+
+	<para>Dans notre contexte, nous savons que le nom de l'interface Ethernet
+	est <option>eth0</option>. On peut faire une recherche des paramètres
+	relatifs à ce nom d'interface pour les protocoles <acronym>IPv4</acronym>
+	et <acronym>IPv6</acronym>.</para>
+
+<screen><prompt>$</prompt> sudo sysctl -a --pattern 'net.ipv(4|6).conf.eth0'</screen>
+
+<bridgehead xml:id='conf-intf-lan.dns.procfs.change' renderas='sect2'>Comment
+	changer la valeur d'un paramètre&nbsp;?</bridgehead>
+
+	<para>Pour changer les valeurs attribuées par défaut lors de
+	l'initialisation du système, on utilise à nouveau la commande
+	<command>sysctl</command>. Le répertoire <filename
+	class='directory'>/etc/sysctl.d</filename> contient les fichiers de
+	modification ou d'application de nouveaux paramètres. Historiquement, c'est
+	le fichier <filename>/etc/sysctl.conf</filename> qui contenait la liste de
+	ces modifications. Aujourd'hui, ce fichier est fourni par la distribution
+	et il est préférable d'ajouter un fichier dédié dans le répertoire
+	<filename class='directory'>/etc/sysctl.d</filename>.</para>
+
+	<para>Pour ce qui est de la liste des paramètres d'une interface réseau, on
+	peut prendre l'exemple du routage par l'adresse source comme axe de
+	modification des valeurs par défaut. Le <wordasword>source
+	routing</wordasword> est un mécanisme qui permet à un paquet
+	<acronym>IP</acronym> d'indiquer au routeur le chemin que doit suivre le
+	paquet retour. Il existe également une option pour enregistrer les sauts
+	tout au long du chemin. La liste des sauts effectués ou l'enregistrement de
+	route fournit à la destination un chemin de retour vers la source. Cela
+	permet à la source (l'hôte émetteur) de spécifier la route, de manière
+	lâche ou stricte, en ignorant les tables de routage de tout ou partie des
+	routeurs. Il peut permettre à un utilisateur de rediriger le trafic réseau
+	à des fins malveillantes. Par conséquent, le routage basé sur la source
+	doit être désactivé.</para>
+
+	<para>Avant modification des paramètres, la situation est la
+	suivante.</para>
+
+<screen><prompt>$</prompt> sudo sysctl -a --pattern 'net.ipv(4|6).conf.eth0.*source'
+net.ipv4.conf.eth0.accept_source_route = 1
+net.ipv6.conf.eth0.accept_source_route = 0</screen>
+
+
+	<orderedlist>
+	<listitem>
+	<para>Dans un premier temps, il est possible de modifier le paramètre voulu
+	individuellement.</para>
+
+<screen><prompt>$</prompt> sudo sysctl -w net.ipv4.conf.eth0.accept_source_route=0
+net.ipv4.conf.eth0.accept_source_route = 0</screen>
+	</listitem>
+	<listitem>
+	<para>Dans un second temps, il est possible de rendre cette modification
+	permanente au niveau système en éditant le fichier historique
+	<filename>/etc/sysctl.conf</filename>. Il faut décommenter la ligne
+	relative au paramètre sur le routage basé sur la source pour
+	<acronym>IPv4</acronym>.</para>
+
+<screen><prompt>$</prompt> sudo sed -ie '/#net.ipv4.conf.all.accept_source_route = 0/ s/^#//' /etc/sysctl.conf
+<prompt>$</prompt> sudo sysctl --system
+* Applying /etc/sysctl.d/99-sysctl.conf ...
+net.ipv4.conf.all.accept_source_route = 0
+* Applying /etc/sysctl.d/protect-links.conf ...
+fs.protected_hardlinks = 1
+fs.protected_symlinks = 1
+* Applying /etc/sysctl.conf ...
+<emphasis>net.ipv4.conf.all.accept_source_route = 0</emphasis></screen>
+	</listitem>
+	</orderedlist>
+
+	<para>Comme le fichier <filename>/etc/sysctl.conf</filename> est conservé,
+	les paramètres seront à nouveau appliqués lors de l'initialisation du
+	système.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='conf-intf-lan.tp'>
+<title>Travaux pratiques</title>
+
+	<para>Pour traiter les questions de cette section, on suppose que le poste
+	client dispose d'une interface Ethernet déjà configurée avec un accès à un
+	réseau local puis à l'Internet via une passerelle par défaut. La topologie
+	type est la suivante&nbsp;:</para>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/conf-intf-lan-topology.png' format='PNG' width='9cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/conf-intf-lan-topology.png' format='PNG' width='480px' scalefit='1'/>
+	</imageobject>
+	</mediaobject>
+
+	<para>
+	<informaltable frame='none' pgwide='0'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='5*'/>
+	<colspec colwidth='1*'/>
+	<tbody align='left'>
+	<row>
+	<entry valign='middle' align='left'>
+	<para>Capture vidéo : <link
+	xlink:href="&base_url;video/config.interface.lan-p0.webm">Approche par
+	l'exemple</link> - 05:40</para>
+    </entry>
+    <entry>
+	<link xlink:href="&base_url;video/config.interface.lan-p0.webm">
+	<inlinemediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/config.interface.lan-p0.jpg' format='JPEG' width='3cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/config.interface.lan-p0.jpg' format='JPEG' width='200px' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</link>
+	</entry>
+    </row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+ 
+<qandaset defaultlabel='number'>
+<qandadiv>
+<bridgehead renderas='sect3'>Questions sur l'identification de l'interface
+	Ethernet</bridgehead>
+
+	<qandaentry>
+	<question>
+	<para>Quelles sont les informations disponibles sur le composant contrôleur
+	Ethernet et son pilote logiciel sur votre système&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Utiliser les outils présentés dans la <xref
+	linkend='conf-intf-lan.physical-layer'/> pour obtenir la référence et
+	l'adresse du composant contrôleur Ethernet ainsi que le nom du module
+	utilisé pour son pilotage.</para>
+
+	<warning>
+	<para>Le logiciel de pilotage du contrôleur Ethernet peut avoir été intégré
+	à la partie monolithique du noyau Linux. Dans ce cas, aucun module ne
+	correspond au pilotage de l'interface réseau et il faut consulter les
+	messages système pour retrouver la trace de cette interface.</para>
+	</warning>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Quelles sont les informations sur le média de raccordement physique
+	au réseau local Ethernet&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Utiliser les outils présentés dans la <xref
+	linkend='conf-intf-lan.physical-layer'/> pour obtenir les informations sur
+	le type de média utilisé et le débit binaire entre l'hôte et le
+	commutateur. Préciser le mode de transmission
+	<wordasword>full-duplex</wordasword> ou
+	<wordasword>half-duplex</wordasword>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Quelles sont les informations sur l'état de l'interface
+	Ethernet&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Utiliser les informations sur les indicateurs d'état présentés dans
+	la <xref linkend='conf-intf-lan.link-layer'/>.</para>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+
+	<para>
+	<informaltable frame='none' pgwide='0'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='5*'/>
+	<colspec colwidth='1*'/>
+	<tbody align='left'>
+	<row>
+	<entry valign='middle' align='left'>
+	<para>Capture vidéo : <link
+	xlink:href="&base_url;video/config.interface.lan-p1.webm">Identifier les
+	ressources matérielles et les indicateurs d'état d'une interface</link> -
+	09:56</para>
+    </entry>
+    <entry>
+	<link xlink:href="&base_url;video/config.interface.lan-p1.webm">
+	<inlinemediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/config.interface.lan-p1.jpg' format='JPEG' width='3cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/config.interface.lan-p1.jpg' format='JPEG' width='200px' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</link>
+	</entry>
+    </row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+<bridgehead renderas='sect3'>Questions sur l'adressage de l'interface
+	Ethernet</bridgehead>
+	<qandaentry>
+	<question>
+	<para>Quelles sont les différentes adresses affectées à l'interface
+	Ethernet de votre système&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Utiliser les commandes de visualisation présentées dans la <xref
+	linkend='conf-intf-lan.link-layer'/> et la <xref
+	linkend='conf-intf-lan.network-layer'/>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Quel est le rôle de chacune de ces adresses&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Le rôle d'une adresse est essentiellement lié à sa portée vis à vis
+	des autres réseaux.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Quelles sont les adresses des réseaux <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> associées à cette interface&nbsp;?</para>
+	</question>
+	<answer>
+	<para>À l'aide des commandes présentées dans la <xref
+	linkend='conf-intf-lan.network-layer'/>, retrouver les limites de l'espace
+	d'adressage de chaque réseau.</para>
+
+	<para>On peut utiliser le document &url.adressage.ipv4; pour déterminer
+	l'adresse du réseau <acronym>IPv4</acronym>.</para>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+
+	<para>
+	<informaltable frame='none' pgwide='0'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='5*'/>
+	<colspec colwidth='1*'/>
+	<tbody align='left'>
+	<row>
+	<entry valign='middle' align='left'>
+	<para>Capture vidéo : <link
+	xlink:href="&base_url;video/config.interface.lan-p2.webm">Repérer les
+	différentes adresses et leur portée</link> - 11:40</para>
+    </entry>
+    <entry>
+	<link xlink:href="&base_url;video/config.interface.lan-p2.webm">
+	<inlinemediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/config.interface.lan-p2.jpg' format='JPEG' width='3cm' scalefit='1'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/config.interface.lan-p2.jpg' format='JPEG' width='200px' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</link>
+	</entry>
+    </row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+<bridgehead renderas='sect3'>Questions sur le voisinage réseau de l'interface
+	Ethernet</bridgehead>
+	<qandaentry>
+	<question>
+	<para>Quelles sont les correspondances d'adresses données par la table du
+	voisinage pour les réseaux <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> ? Quels sont les deux protocoles utilisés pour
+	obtenir ces correspondances entre adresses <acronym>MAC</acronym> et
+	adresses réseau&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Reprendre les informations proposées à la <xref
+		linkend='conf-intf-lan.nei'/>.</para>
+
+	<warning>
+	<para>Suivant l'activité entre les hôtes du réseau local ou la passerelle
+	par défaut, le nombre d'entrée de la table du voisinage réseau peut
+	beaucoup varier.</para>
+	</warning>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment provoquer l'ajout d'une ou plusieurs entrées
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> dans la table des
+	voisins&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Utiliser les instructions proposées dans la <xref
+	linkend='conf-intf-lan.icmp'/> pour tester l'accessibilité de différentes
+	adresses <acronym>IP</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Est-ce que l'adresse <acronym>IPv4</acronym> ou
+	<acronym>IPv6</acronym> d'un voisin peut appartenir à un réseau extérieur
+	au réseau local&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Reprendre les informations proposées à la <xref
+	linkend='conf-intf-lan.nei'/>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Pourquoi des entrées apparaissent dans la table des voisins sans
+	trafic initié depuis votre interface Ethernet&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Repérer les différences entre les hôtes contactés depuis votre
+	système et les hôtes qui ont contacté votre système.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Est-il possible de déduire l'adresse d'une passerelle par défaut à
+	partir des informations fournies par la table des voisins&nbsp;?</para>
+	</question>
+    <answer>
+	<para>Dans le cas du protocole <acronym>IPv6</acronym> la réponse se lit
+	directement si une passerelle est présente dans la table des voisins. Pour
+	<acronym>IPv4</acronym>, il est possible de déduire l'adresse d'une
+	passerelle à partir de la fréquence de sollicitation d'une entrée par
+	rapport aux autres.</para>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+ 
+<qandaset defaultlabel='number'>
+<qandadiv>
+<bridgehead renderas='sect3'>Questions sur la lecture d'une table de routage
+	simple</bridgehead>
+	<qandaentry>
+	<question>
+	<para>Combien y a-t-il d'entrées dans la table de routage&nbsp;? Quel est
+	le rôle de chacune de ces entrées&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Faire la correspondance entre la table de routage de votre système et
+	l'exemple donné à la <xref linkend='conf-intf-lan.routing'/>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Quel est le rôle de la passerelle par défaut dans l'acheminement du
+	trafic de votre système&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Identifier les destinations desservies par cette passerelle par
+	défaut relativement aux autres entrées des tables de routage
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>La passerelle par défaut peut-elle appartenir à un réseau extérieur
+	au réseau local&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Et si c'était le cas&nbsp;? Comment acheminer les paquets émis par
+	votre système&nbsp;?</para>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+<bridgehead renderas='sect3'>Questions sur la résolution des noms de
+	domaine</bridgehead>
+	<qandaentry>
+	<question>
+	<para>Quelles sont les adresses <acronym>IPv4</acronym> ou
+	<acronym>IPv6</acronym> des serveurs <acronym>DNS</acronym> données dans le
+	fichier de configuration de votre système&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Retrouver le fichier de configuration du client
+	<acronym>DNS</acronym> dans la <xref linkend='conf-intf-lan.dns'/> et
+	consulter son contenu.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment poser une requête <acronym>DNS</acronym> individuelle&nbsp;?
+	Donner un exemple&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Utiliser les exemples donnés dans la <xref
+	linkend='conf-intf-lan.dns'/>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment interpréter le temps de réponse d'une requête
+	<acronym>DNS</acronym> émise avec la commande
+	<command>dig</command>&nbsp;?</para>
+	</question>
+	<answer>
+	<para>Rechercher les informations dans l'exemple d'exécution de la commande
+	à la <xref linkend='conf-intf-lan.dns'/>.</para>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+
+<qandaset defaultlabel='number'>
+<qandadiv>
+<bridgehead renderas='sect3'>Questions sur le chemin suivi par le trafic
+	réseau</bridgehead>
+	<qandaentry>
+	<question>
+	<para>Quel est le rôle du service <application>traceroute</application>
+	relativement au protocole <acronym>ICMP</acronym>&nbsp;?</para>
+	</question>
+	<answer>
+	<para>(Re)Lire le début de la <xref
+	linkend='conf-intf-lan.traceroute'/>.</para>
+	</answer>
+    </qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>À partir d'un exemple, dessiner pour chaque routeur traversé les
+	valeurs du champ <acronym>TTL</acronym> de l'en-tête
+	<acronym>IP</acronym>.</para>
+	</question>
+	<answer>
+	<para>Reprendre l'exemple donné dans la <xref
+	linkend='conf-intf-lan.traceroute'/> et faire la correspondance avec les
+	informations relevées.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Dans quelles conditions les informations renvoyées par les routeurs
+	sont incomplètes&nbsp;?</para>
+	</question>
+	<answer>
+	<para>(Re)Lire l'avertissement donné dans la <xref
+	linkend='conf-intf-lan.traceroute'/>.</para>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect1>
+</article>

@@ -1,0 +1,1164 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!ENTITY LDAP-root		"https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap.qa">
+<!ENTITY NFS-root		"https://www.inetdoc.net/travaux_pratiques/sysadm-net.nfs.qa">
+
+<!ENTITY url.openldap
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.openldap.org/">
+  <citetitle>OpenLDAP main page</citetitle></link>'>
+
+<!ENTITY url.openldap.admin-guide
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.openldap.org/doc/admin24/">
+  <citetitle>OpenLDAP Software 2.4 Administrator&#39;s Guide</citetitle></link>'>
+
+<!ENTITY url.nfs.howto
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://nfs.sourceforge.net/nfs-howto/">
+   <citetitle>Linux NFS-HOWTO</citetitle></link>'>
+
+<!ENTITY url.ti-rpc
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://nfsv4.bullopensource.org/doc/tirpc_rpcbind.php">
+   <citetitle>TI-RPC / rpcbind support</citetitle></link>'>
+
+<!ENTITY url.nfsv4.config
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://wiki.linux-nfs.org/wiki/index.php/Nfsv4_configuration_fr">
+   <citetitle>Nfsv4 configuration</citetitle></link>'>
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!-- A copy of http://www.w3.org/2003/entities/2007/w3centities-f.ent is at:
+/usr/local/share -->
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"/usr/local/share/w3centities-f.ent">
+%w3centities-f;
+]>
+
+<article xml:id='sysadm-net.autofs-ldap-nfs' xml:lang='fr'>
+
+<info>
+  <title>Association LDAP, NFSv4 et autofs</title>
+
+  &author;
+  <abstract>
+  <para>
+  <informaltable frame='none' pgwide='1'>
+  <tgroup cols='2' align='left' colsep='0' rowsep='0'>
+  <colspec colwidth='5*'/>
+  <colspec colwidth='220px'/>
+  <tbody>
+    <row>
+    <entry valign='top'>
+    <para>Ce support reprend les deux précédents sur <acronym>NFSv4</acronym>
+    et <acronym>LDAP</acronym> en associant les services. Le système de
+    fichiers réseau <acronym>NFSv4</acronym> sert au partage des répertoires
+    utilisateur tandis que l'annuaire <acronym>LDAP</acronym> sert au partage
+    des attributs des comptes utilisateur et de la configuration du service
+    d'automontage. Une fois que les deux services associés sont en place, les
+    comptes utilisateurs peuvent être utilisés de façon transparente depuis
+    n'importe quel poste client faisant appel à ces services.</para>
+    </entry>
+    <entry>
+    <inlinemediaobject>
+    <imageobject role='html'>
+      <imagedata fileref='images/thumb012.png' format='PNG' width='220px' scalefit='1'/>
+    </imageobject>
+    <imageobject role='fo'>
+      <imagedata fileref='images/ldap-automount.png' format='PNG' width='4.5cm' scalefit='1'/>
+    </imageobject>
+    </inlinemediaobject>
+    </entry>
+    </row>
+  </tbody>
+  </tgroup>
+  </informaltable>
+  </para>
+  </abstract>
+  <keywordset>
+    <keyword>NFSv4</keyword>
+    <keyword>LDAP</keyword>
+    <keyword>LDIF</keyword>
+    <keyword>schema</keyword>
+    <keyword>slaptest</keyword>
+    <keyword>autofs</keyword>
+    <keyword>automount</keyword>
+    <keyword>auto.master</keyword>
+    <keyword>auto.home</keyword>
+    <keyword>nsswitch</keyword>
+    <keyword>PAM</keyword>
+  </keywordset>
+</info>
+
+<?custom-pagebreak?>
+<sect1 xml:id='sysadm-net.autofs-ldap-nfs.legal.meta'>
+	&legal;
+	<bridgehead xml:id='sysadm-net.autofs-ldap-nfs.meta'
+	renderas='sect2'>Méta-information</bridgehead>
+
+	<para>Ce document est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+	XML sur un système <link
+	xlink:href="http://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable
+	au format PDF : <link
+	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+</sect1>
+
+<sect1 xml:id='sysadm-net.autofs-ldap-nfs.ldap'>
+  <title>Mise en œuvre de l'annuaire LDAP</title>
+
+  <para>Cette partie reprend les étapes décrites dans le support
+  &url.sysadm-net.ldap;. Il s'agit d'installer les paquets
+  correspondants au logiciel <citetitle>OpenLDAP</citetitle>, d'initialiser une
+  base avec le bon contexte de nommage puis d'implanter les deux unités
+  organisationnelles et les entrées des comptes utilisateurs.</para>
+
+  <qandaset defaultlabel='number'>
+  <qandadiv xml:id='sysadm-net.autofs-ldap-nfs.service.q1'>
+
+    <qandaentry xml:id='sysadm-net.autofs-ldap-nfs.service.install'>
+      <question>
+	  <para><phrase>Comment installer le service d'annuaire
+	  <acronym>LDAP</acronym> sur le poste serveur&nbsp;?</phrase></para>
+
+	  <para>Choisir les paquets à installer et valider le bon fonctionnement du
+	  service en contrôlant la liste des processus et des numéros de ports
+	  ouverts.</para>
+      </question>
+      <answer>
+      <para>Reprendre les questions des parties
+      <link xmlns="http://docbook.org/ns/docbook"
+      xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.install">Installation du serveur LDAP</link>
+      et
+      <link xmlns="http://docbook.org/ns/docbook"
+      xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.config">Analyse de la configuration du service LDAP</link>
+      </para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry xml:id='sysadm-net.autofs-ldap-nfs.service.init'>
+      <question>
+      <para><phrase>Comment initialiser une nouvelle base et un nouveau
+      contexte de nommage pour ce service d'annuaire ?</phrase></para>
+
+	<para>Réinitialiser la configuration du démon <systemitem
+      class='daemon'>slapd</systemitem> avec le contexte de nommage demandé.</para>
+      </question>
+      <answer>
+	  <para>Reprendre les questions de la partie <link
+	  xmlns="http://docbook.org/ns/docbook"
+	  xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.init">Réinitialisation
+	  de la base de l'annuaire LDAP</link>
+      </para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry xml:id='sysadm-net.autofs-ldap-nfs.service.log'>
+      <question>
+      <para><phrase>Comment activer la journalisation des transactions sur le
+      service d'annuaire&nbsp;?</phrase></para>
+
+      <para>Créer un fichier <acronym>LDIF</acronym> qui remplace la valeur par
+      défaut de l'attribut <systemitem>olcLogLevel</systemitem> par
+      <option>stats</option>.</para>
+      </question>
+      <answer>
+      <para>Reprendre la question
+      <link xmlns="http://docbook.org/ns/docbook"
+      xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.q4-LogLevel">Comment
+      activer la journalisation des manipulations sur les entrées de l'annuaire
+      LDAP&nbsp;?</link>
+      </para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry xml:id='sysadm-net.autofs-ldap-nfs.service.ou'>
+      <question>
+      <para><phrase>Comment implanter les deux unités organisationnelles
+      <systemitem>people</systemitem> et <systemitem>groups</systemitem> dans
+      le nouvel annuaire&nbsp;?</phrase></para>
+
+      <para>Créer un fichier <acronym>LDIF</acronym> qui décrit la création des
+      deux unités organisationnelles dans le bon contexte. Ajouter ces deux
+      unités organisationnelles dans l'annuaire.</para>
+      </question>
+      <answer>
+      <para>Reprendre les questions
+      <link xmlns="http://docbook.org/ns/docbook"
+      xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.q4-ou">Quelle
+      est la syntaxe du fichier LDIF  qui permet d'ajouter les deux unités
+      organisationnelles (<wordasword>organisational unit</wordasword>) ?</link>
+      et
+      <link xmlns="http://docbook.org/ns/docbook"
+      xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.q4-ldapadd">Quelle
+      est la commande à utiliser pour ajouter une ou plusieurs entrées dans
+      l'annuaire&nbsp;?</link>
+      </para>
+      </answer>
+    </qandaentry>
+
+    <qandaentry xml:id='sysadm-net.autofs-ldap-nfs.service.posixAccount'>
+      <question>
+      <para><phrase>Comment implanter les quatre comptes utilisateurs dans cet
+      annuaire&nbsp;?</phrase></para>
+
+      <para>Créer un fichier <acronym>LDIF</acronym> qui décrit la création des
+      des quatre comptes utilisateurs dans le bon contexte avec un jeu
+      d'attributs complet pour l'authentification et le système de fichiers.
+      Ajouter ces comptes dans l'annuaire.</para>
+      </question>
+      <answer>
+      <para>Reprendre la question
+      <link xmlns="http://docbook.org/ns/docbook"
+      xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.q4-posixAccount">Quelle
+      est la syntaxe du fichier <acronym>LDIF</acronym> qui permet d'ajouter les quatre
+      utilisateurs avec leurs attributs système&nbsp;?</link></para>
+      </answer>
+    </qandaentry>
+  </qandadiv>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='sysadm-net.autofs-ldap-nfs.nfs'>
+	<title>Mise en œuvre de l'exportation NFS</title>
+
+	<para>Cette partie reprend les étapes décrites dans le support
+	&url.sysadm-net.nfs;. Après avoir traité la partie commune de la
+	configuration <acronym>NFS</acronym>, il s'agit d'installer le paquet
+	correspondant au serveur <acronym>NFS</acronym> et de créer l'arborescence
+	des comptes utilisateurs à exporter avec le bon contexte de nommage.</para>
+
+<sect2 xml:id='sysadm-net.autofs-ldap-nfs.nfs.service'>
+	<title>Service NFS</title>
+
+<qandaset>
+	<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment installer et valider les services commun au client et
+	au serveur <acronym>NFS</acronym>&nbsp;?</phrase></para>
+
+	<para>Rechercher et installer le paquet puis contrôler la liste des
+	processus et des numéros de port ouverts.</para>
+	</question>
+	<answer>
+	<para>On reprend ici les questions de la partie <link
+	xmlns="http://docbook.org/ns/docbook"
+	xlink:href="&NFS-root;/sysadm-net.nfs.common.html#sysadm-net.nfs.synthese.nfs-common-package">Gestion
+	des paquets NFS</link></para>
+
+<itemizedlist>
+	<listitem>
+	<para>Identification du paquet à installer.</para>
+
+<screen>apt search --names-only ^nfs- | egrep -v '(ganesh|^$)'
+
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+En train de trier…
+Recherche en texte intégral…
+nfs-common/testing 1:2.6.3-3 amd64
+  fichiers de prise en charge NFS communs au client et au serveur
+  NFS server in User Space
+nfs-kernel-server/testing 1:2.6.3-3 amd64
+  gestion du serveur NFS du noyau</screen>
+	</listitem>
+	<listitem>
+	<para>Identification des processus actifs après installation du
+		paquet.</para>
+
+<screen>ps aux | grep [r]pc
+root      4876  0.0  0.0   6872  3180 ?        Ss   20:18   0:00 /sbin/rpcbind -f -w</screen>
+	</listitem>
+</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment installer et configurer le paquet relatif à
+	l'exportation d'une arborescence avec le protocole
+	<acronym>NFS</acronym>&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>On reprend ici les questions de la partie <link
+	xmlns="http://docbook.org/ns/docbook"
+	xlink:href="&NFS-root;/sysadm-net.nfs.server.html">Configuration du serveur
+	NFS</link></para>
+
+<itemizedlist>
+	<listitem>
+	<para>Identification du paquet à installer.</para>
+
+<screen>aptitude search '?and(nfs, server)'
+p   <emphasis>nfs-kernel-server</emphasis> - gestion du serveur NFS du noyau
+v   nfs-server</screen>
+	</listitem>
+	<listitem>
+	<para>Création de l'arborescence
+	d'exportation<acronym>NFS</acronym>.</para>
+
+<screen>sudo mkdir -p /home/exports/home</screen>
+	</listitem>
+	<listitem>
+	<para>Ajout des instructions d'exportation dans le fichier de configuration
+	du serveur <acronym>NFS</acronym>&nbsp;:
+	<filename>/etc/exports</filename>.</para>
+
+<screen>cat &lt;&lt; EOF | sudo tee -a /etc/exports
+/home/exports           192.0.2.0/27(rw,sync,fsid=0,crossmnt,no_subtree_check)
+/home/exports/home      192.0.2.0/27(rw,sync,no_subtree_check)
+EOF</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider la configuration de l'exportation réalisée
+	par le serveur <acronym>NFS</acronym>&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>On reprend la question sur la <link
+	xmlns="http://docbook.org/ns/docbook"
+	xlink:href="&NFS-root;/sysadm-net.nfs.client.html#sysadm-net.nfs.client.manual.exports">la
+	commande qui permet d'identifier l'arborescence disponible à
+	l'exportation</link>.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Côté client, on utilise la commande
+	<command>showmount</command>suivie de l'option <option>-e</option> et de
+	l'adresse <acronym>IP</acronym> du serveur à interroger.</para>
+	</listitem>
+	<listitem>
+	<para>Côté serveur, on utilise la commande
+	<command>exportfs</command>.</para>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+</qandaset>
+</sect2>
+
+<sect2 xml:id='sysadm-net.autofs-ldap-nfs.local-mount'>
+	<title>Montage local sur le serveur</title>
+
+	<para>Du point de vue métier, l'opérateur du réseau de stockage doit
+	respecter le schéma de nommage qui veut que l'arborescence soit identique
+	entre serveur et client. Dans ce but, réaliser un montage local permet de
+	faire pointer l'arborescence partagée sur un volume de stockage donné. Ce
+	volume de stockage pourra changer au cours du temps tout en respectant le
+	schéma de nommage.</para>
+
+<qandaset>
+	<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le montage local à mettre en place pour garantir la
+	cohérence du schéma de nommage entre les postes serveur et
+	client&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>On reprend ici la question sur la <link
+	xmlns="http://docbook.org/ns/docbook"
+	xlink:href="&NFS-root;/sysadm-net.nfs.server.html#sysadm-net.nfs.server.local-mount">distinction
+	entre les versions 3 et 4 du protocole NFS</link> et sur le contexte de
+	nommage.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Création de la racine commune entre client et serveur.</para>
+
+<screen>sudo mkdir /ahome</screen>
+	</listitem>
+	<listitem>
+	<para>Montage local entre racine commune et arborescence exportée.</para>
+
+<screen>sudo mount --bind /home/exports/home /ahome</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+</qandaset>
+</sect2>
+
+<sect2 xml:id='sysadm-net.autofs-ldap-nfs.mkhomedir'>
+	<title>Création automatique du répertoire utilisateur</title>
+
+	<para>Cette étape correspond aux traitements réalisés lors de la toute
+	première utilisation du service par un nouvel utilisateur.</para>
+
+	<para>Cette opération se déroule en plusieurs étapes dans la mesure où il
+	est impossible de créer un répertoire utilisateur sur le serveur
+	directement depuis le client.</para>
+
+	<orderedlist>
+	<listitem>
+	<para>Activer sur le serveur <acronym>NFSv4</acronym> l'appel au module	de
+	création de répertoire utilisateur.</para>
+	</listitem>
+	<listitem>
+	<para>Toute les connexions suivantes depuis un client
+	<acronym>NFSv4</acronym> utiliseront l'arborescence utilisateur créée lors
+	de la première connexion.</para>
+	</listitem>
+	</orderedlist>
+
+<warning>
+	<para>Cette opération suppose que l'on puisse utiliser le service
+	<acronym>LDAP</acronym> sur le serveur lui-même. Il faut donc installer et
+	configurer les paquets <systemitem>libnss-ldapd</systemitem>,
+	<systemitem>libpam-ldapd</systemitem> sur le serveur de façon à accéder
+	automatiquement aux ressources de l'annuaire.</para>
+</warning>
+
+<qandaset>
+	<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment créer automatiquement l'arborescence d'un utilisateur
+	qui n'existe que dans l'annuaire
+	<acronym>LDAP</acronym>&nbsp;?</phrase></para>
+
+	<para>Rechercher les fonctions de création automatique de répertoire
+	utilisateur dans la liste des paquets de la distribution.</para>
+	</question>
+	<answer>
+	<orderedlist>
+	<listitem>
+	<para>Sur le serveur, on ajoute le paquet
+	<application>oddjob-mkhomedir</application> puis on complète le fichier
+	commun de gestion de session :
+	<filename>/etc/pam.d/common-session</filename>.</para>
+
+<screen><prompt>$</prompt> aptitude search mkhomedir
+v   libpam-mkhomedir   -
+p   oddjob-mkhomedir   - Oddjob helper which creates and populates home directories
+
+&lt;snip>
+<prompt>$</prompt> sudo aptitude install oddjob-mkhomedir
+&lt;snip>
+
+<prompt>$</prompt> systemctl status oddjobd
+&lt;snip></screen>
+
+<screen><prompt>$</prompt>sudo tail -15 /etc/pam.d/common-session
+# pam-auth-update(8) for details.
+
+# here are the per-package modules (the "Primary" block)
+session [default=1]                     pam_permit.so
+# here's the fallback if no module succeeds
+session requisite                       pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+session required                        pam_permit.so
+# and here are more per-package modules (the "Additional" block)
+session required        pam_unix.so
+session optional        pam_systemd.so
+# end of pam-auth-update config
+<emphasis>session optional        pam_oddjob_mkhomedir.so skel=/etc/skel/ umask=0022</emphasis></screen>
+	</listitem>
+	<listitem>
+	<para>Depuis un poste client différent du serveur, on provoque la création
+		du répertoire utilisateur sur le serveur. Dans l'exemple ci-dessous, on
+		utilise le service <acronym>SSH</acronym> pour déclencher la création
+		du répertoire utilisateur ainsi que la copie des fichiers de
+		paramétrage du <wordasword>Shell</wordasword>.</para>
+
+<screen><prompt>$</prompt> ssh padme@fe80::b8ad:caff:fefe:64%eth0
+padme@fe80::b8ad:caff:fefe:64%eth0's password:
+<emphasis>Creating home directory for padme.</emphasis>
+Linux LDAP-Server 4.12.0-1-686-pae #1 SMP Debian 4.12.6-1 (2017-08-12) i686
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+padme@LDAP-Server:~$ pwd
+<emphasis>/ahome/padme</emphasis></screen>
+
+	<para>Enfin, on lance une nouvelle connexion sur un client
+		<acronym>NFS</acronym> de façon à tester l'automontage du répertoire
+		utilisateur.</para>
+
+<warning>
+	<para>La connexion présentée ci-dessous n'est valide que si le service
+		d'automontage fonctionne correctement. Il faut donc avoir traité la
+		section suivante avant de faire ce test : <xref
+		linkend='sysadm-net.autofs-ldap-nfs.autofs-ldap'/>.</para>
+</warning>
+
+	<para>Sur un client avant connexion la liste des montage fait apparaître
+		l'information suivante :</para>
+
+<screen><prompt>$</prompt> mount | grep ^ldap
+ldap:ou=auto.home,ou=automount,dc=lab,dc=stri on /ahome type autofs \
+(rw,relatime,fd=7,pgrp=12568,timeout=300,minproto=5,maxproto=5,indirect,pipe_ino=2875248)</screen>
+
+<screen><prompt>etu@LDAP-Client:~$</prompt> su - padme
+Mot de passe :
+<prompt>padme@LDAP-Client:/home/etu$</prompt> cd
+<prompt>padme@LDAP-Client:~$</prompt> pwd
+/ahome/padme
+<prompt>padme@LDAP-Client:~$</prompt> mount | egrep '(ldap|nfs)'
+<emphasis>ldap</emphasis>:ou=auto.home,ou=automount,dc=lab,dc=stri on /ahome type autofs \
+		(rw,relatime,fd=7,pgrp=13510,timeout=300,minproto=5,maxproto=5,
+		indirect,pipe_ino=2891149)
+192.0.2.12:/home/padme on /ahome/padme type <emphasis>nfs4</emphasis> \
+		(rw,relatime,vers=4.2,rsize=131072,wsize=131072,
+		namlen=255,hard,proto=tcp,timeo=600,
+		retrans=2,sec=sys,clientaddr=192.0.2.25,local_lock=none,
+		addr=192.0.2.12)</screen>
+	</listitem>
+	</orderedlist>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+	</qandaset>
+</sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.autofs-ldap-nfs.autofs-ldap'>
+	<title>Configuration de l'automontage avec le service LDAP</title>
+
+  <para>Le principe de l'automontage veut que le montage d'une arborescence de
+  système de fichiers réseau se fasse automatiquement et uniquement à
+  l'utilisation. En effet, il n'est pas nécessaire de mobiliser les ressources
+  du protocole <acronym>NFS</acronym> tant qu'une arborescence n'est pas
+  effectivement parcourue. Dans le contexte de ce support, il n'est pas
+  nécessaire de monter l'arborescence d'un répertoire utilisateur si celui-ci
+  n'est pas connecté sur le poste client. On optimise ainsi les ressources du
+  système et du réseau.</para>
+
+  <para>Du point de vue administration système, il est essentiel que la
+  configuration des postes clients ne soit pas remise en question à chaque
+  évolution du serveur ou à chaque ajout de nouveau compte utilisateur. C'est
+  ici que le service <acronym>LDAP</acronym> intervient. Ce service sert à
+  publier la configuration de l'automontage en direction des clients.</para>
+
+  <para>Pour appliquer ces principes, cette section doit couvrir les étapes
+  suivantes.</para>
+  
+  <itemizedlist>
+    <listitem>
+    <para>Pour compléter les informations publiées par le service
+    <acronym>LDAP</acronym>, il faut ajouter un schéma spécifique à la fonction
+    d'automontage et ensuite importer le contenu d'un fichier de description
+    <acronym>LDIF</acronym> contenant les paramètres de configuration à
+    diffuser vers les clients.</para>
+    </listitem>
+    <listitem>
+    <para>Pour que le montage des arborescences soit automatique, il faut
+    ajouter un paquet spécifique sur les systèmes clients et désigner le
+    service <acronym>LDAP</acronym> comme fournisseur de la configuration.
+    Cette désignation se fait à l'aide du <wordasword>Name Service
+    Switch</wordasword>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>La principale difficulté dans le traitement des questions suivantes
+  vient du fait qu'il est nécessaire d'échanger des informations entre le
+  client et le serveur.</para>
+
+  <para>Dans le contexte de ce support, le service <acronym>LDAP</acronym> et
+  le serveur <acronym>NFS</acronym> sont implantés sur le même système.</para>
+
+  <qandaset>
+    <qandadiv>
+    <qandaentry>
+    <question>
+    <para><phrase>Quel est le paquet de la distribution Debian GNU/Linux qui
+    fournit le service d'automontage via <acronym>LDAP</acronym>
+    ?</phrase></para>
+
+    <para>Rechercher le mot clé <wordasword>automount</wordasword> dans le
+    champ description du catalogue des paquets disponibles.</para>
+    </question>
+    <answer>
+
+<screen><prompt>$</prompt> aptitude search "?description(automount)"
+p   autodir                 - crée automatiquement les répertoires home et
+		group pour les comptes LDAP/NIS/SQL et locaux
+p   autofs                  - montage automatique pour Linux basé sur le noyau
+p   autofs-hesiod           - gestion de la carte Hesiod pour autofs
+p   <emphasis>autofs-ldap</emphasis>             - gestion des schémas LDAP pour autofs
+p   libnss-cache            - NSS module for using nsscache-generated files
+p   libunix-configfile-perl - Perl interface to various Unix configuration files
+p   ltspfsd                 - Fuse based remote filesystem hooks for LTSP thin
+		clients
+p   nsscache                - asynchronously synchronise local NSS databases
+		with remote directory services
+p   vfu                     - Versatile text-based filemanager</screen>
+
+	<para>Le paquet <systemitem>autofs-ldap</systemitem> correspond au besoin.
+		On peut obtenir des informations supplémentaires en consultant sa
+		description complète à l'aide de la commande
+		<userinput><prompt>$</prompt> aptitude show
+		autofs-ldap</userinput>.</para>
+	</answer>
+	</qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Sur quel type de poste ce paquet doit il être installé
+    ?</phrase></para>
+
+    <para>Le service d'automontage est a exécuter sur le poste qui ne détient
+    pas le système de fichiers dans lequel se trouvent les répertoires
+    utilisateur.</para>
+    </question>
+    <answer>
+    <para>Ce paquet doit être installé sur le poste client puisque le processus
+    <systemitem>automount</systemitem> doit être exécuté sur ce même client.
+    Son installation se fait simplement avec la commande usuelle
+    <userinput><prompt>$</prompt> sudo aptitude install
+    autofs-ldap</userinput>.</para>
+    </answer>
+    </qandaentry>
+    
+    <qandaentry>
+    <question>
+    <para><phrase>Quelles sont les informations relatives au service
+    <acronym>LDAP</acronym> à transférer entre client et serveur
+    ?</phrase></para>
+
+    <para>Pour publier la configuration de l'automontage via le service
+    <acronym>LDAP</acronym>, il est nécessaire de disposer du schéma de
+    définition des attributs dans l'annuaire. Ce schéma est fourni avec le
+    paquet <systemitem>autofs-ldap</systemitem> et doit être transféré vers le
+    serveur <acronym>LDAP</acronym> pour compléter le catalogue des objets
+    qu'il peut contenir.</para>
+    </question>
+    <answer>
+<screen><prompt>$</prompt> sudo dpkg -L autofs-ldap | grep schema
+/etc/ldap/schema
+/etc/ldap/schema/autofs.schema
+
+<prompt>$</prompt> cp /etc/ldap/schema/autofs.schema .
+<prompt>$</prompt> sed -i 's/caseExactMatch/caseExactIA5Match/g' autofs.schema
+
+<prompt>$</prompt> scp /etc/ldap/schema/autofs.schema etu@192.0.2.12:~</screen>
+
+	<para>Au moment de la rédaction de ces lignes, le fichier de schéma livré
+	avec le paquet <systemitem>autofs-ldap</systemitem> contient une erreur que
+	l'on corrige à l'aide de la commande <systemitem>sed</systemitem>.</para>
+
+    <para>L'adresse <acronym>IP</acronym> utilisée dans la copie d'écran
+    ci-dessus correspond au serveur <acronym>LDAP</acronym> et
+    <acronym>NFS</acronym>.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Dans quel répertoire les informations transférées doivent
+    elles être placées ?</phrase></para>
+
+    <para>Rechercher le répertoire de stockage des fichiers de schémas dans
+    l'arborescence du serveur <acronym>LDAP</acronym>.</para>
+    </question>
+    <answer>
+    <para>Une fois le fichier de schéma de transféré du client vers le serveur,
+    celui-ci doit être placé dans l'arborescence du service
+    <acronym>LDAP</acronym> avec les autres fichiers du même type.</para>
+
+<screen><prompt>$</prompt> ls -lAh /etc/ldap/schema/autofs.schema
+-rw-r--r-- 1 etu etu 830 sept. 27 10:29 /etc/ldap/schema/autofs.schema</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment intégrer ces nouvelles informations d'automontage
+    dans la configuration du service LDAP ?</phrase></para>
+
+    <para>L'intégration du nouveau schéma dans la configuration du serveur se
+    fait en plusieurs étapes. Le fichier délivré avec le paquet
+    <systemitem>autofs-ldap</systemitem> doit être converti en fichier
+    <acronym>LDIF</acronym> avant d'être ajouté au <acronym>DIT</acronym> de
+    configuration du démon <systemitem
+    class='daemon'>slapd</systemitem>.</para>
+    </question>
+    <answer>
+    <para>La conversion en fichier <acronym>LDIF</acronym> se fait à l'aide de
+    la commande <command>slaptest</command> fournie avec le paquet
+    <systemitem>slapd</systemitem>.</para>
+
+    <orderedlist>
+      <listitem>
+      <para>Création du répertoire de stockage du résultat de la
+      conversion.</para>
+
+<screen><prompt>$</prompt> mkdir schema-convert</screen>
+      </listitem>
+      <listitem>
+      <para>Création du fichier de traitement des schémas. Comme de schéma
+      <systemitem>autofs</systemitem> utilise des définitions issues des
+      schémas de rang supérieur, il est nécessaire d'inclure les autres
+      fichiers de schémas fournis avec le paquet.</para>
+
+<screen><prompt>$</prompt> cat schema-convert.conf
+include /etc/ldap/schema/core.schema
+include /etc/ldap/schema/cosine.schema
+include /etc/ldap/schema/inetorgperson.schema
+include /etc/ldap/schema/autofs.schema</screen>
+      </listitem>
+      <listitem>
+      <para>Conversion des fichiers de schémas au format
+      <acronym>LDIF</acronym>.</para>
+
+<screen><prompt>$</prompt> slaptest -f schema-convert.conf -F schema-convert
+config file testing succeeded</screen>
+      </listitem>
+      <listitem>
+      <para>Extraction des définitions utiles et formatage du résultat de la
+      conversion. La commande ci-dessous élimine toutes les informations
+      relatives à l'horodatage et à l'identification de l'utilisateur.</para>
+
+<screen><prompt>$</prompt> cat schema-convert/cn\=config/cn\=schema/cn\=\{3\}autofs.ldif | \
+egrep -v structuralObjectClass\|entryUUID\|creatorsName | \
+egrep -v createTimestamp\|entryCSN\|modifiersName\|modifyTimestamp | \
+sed 's/dn: cn={.}autofs/dn: cn=autofs,cn=schema,cn=config/g' | \
+sed 's/{.}autofs/autofs/' > autofs.ldif</screen>
+      </listitem>
+      <listitem>
+      <para>Ajout du schéma <systemitem>autofs</systemitem> dans la
+      configuration du service.</para>
+
+<screen><prompt>$</prompt> sudo ldapadd -Y EXTERNAL -H ldapi:/// -f autofs.ldif 
+SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+adding new entry "cn=autofs,cn=schema,cn=config"</screen>
+      </listitem>
+    </orderedlist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est la syntaxe du fichier de description
+    <acronym>LDIF</acronym> contenant la configuration de l'automontage
+    ?</phrase></para>
+
+    <para>Le fichier de description ci-dessus correspond à l'arborescence
+    suivante.</para>
+
+  <mediaobject>
+    <imageobject role="html">
+    <imagedata fileref='images/ldap-automount.png' format='PNG' width='480px'/>
+    </imageobject>
+    <imageobject role="fo-fop">
+    <imagedata fileref='images/ldap-automount.png' format='PNG' width='12cm'/>
+    </imageobject>
+    <textobject>
+    <phrase>Arborescence LDAP de l'automontage</phrase>
+    </textobject>
+    <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook" xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.autofs-ldap-nfs/images/ldap-automount.png'>
+    Arborescence LDAP de l'automontage - vue complète</link></para>
+    </caption>
+  </mediaobject>
+    </question>
+    <answer>
+<screen><prompt>$</prompt> cat ou-autofs.ldif 
+dn: ou=automount,dc=lab,dc=stri
+ou: automount
+objectClass: top
+objectClass: organizationalUnit
+
+dn: ou=auto.master,ou=automount,dc=lab,dc=stri
+ou: auto.master
+objectClass: top
+objectClass: automountMap
+
+dn: cn=/ahome,ou=auto.master,ou=automount,dc=lab,dc=stri
+cn: /ahome
+objectClass: top
+objectClass: automount
+automountInformation: ldap:ou=auto.home,ou=automount,dc=lab,dc=stri
+
+dn: ou=auto.home,ou=automount,dc=lab,dc=stri
+ou: auto.home
+objectClass: top
+objectClass: automountMap
+
+dn: cn=*,ou=auto.home,ou=automount,dc=lab,dc=stri
+cn: *
+objectClass: top
+objectClass: automount
+automountInformation: -fstype=nfs4 192.0.2.12:/home/&amp;</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment intégrer ces définitions dans l'annuaire
+    <acronym>LDAP</acronym> ?</phrase></para>
+
+    <para>Retrouver la syntaxe de la commande <command>ldapadd</command> qui
+    permet d'insérer de nouvelles entrées dans l'annuaire.</para>
+    </question>
+    <answer>
+    <para>On suit la même démarche que pour les comptes utilisateurs.</para>
+
+<screen><prompt>$</prompt> sudo ldapadd -cxWD cn=admin,dc=lab,dc=stri -f ou-autofs.ldif
+Enter LDAP Password:
+adding new entry "ou=automount,dc=lab,dc=stri"
+
+adding new entry "ou=auto.master,ou=automount,dc=lab,dc=stri"
+
+adding new entry "cn=/ahome,ou=auto.master,ou=automount,dc=lab,dc=stri"
+
+adding new entry "ou=auto.home,ou=automount,dc=lab,dc=stri"
+
+adding new entry "cn=*,ou=auto.home,ou=automount,dc=lab,dc=stri"</screen>
+    </answer>
+    </qandaentry>
+    </qandadiv>
+  </qandaset>
+</sect1>
+
+<sect1 xml:id='sysadm-net.autofs-ldap-nfs.clnt'>
+	<title>Accès aux ressources LDAP &amp; NFS depuis le client</title>
+  
+	<para>Dans cette section, on suppose que l'annuaire <acronym>LDAP</acronym>
+	du poste serveur est complet et accessible. Dans un premier temps, on
+	configure le poste client pour qu'il obtienne de façon transparente les
+	informations sur les comptes utilisateurs desservis par l'annuaire. Dans un
+	second temps, on complète sa configuration pour qu'il obtienne, toujours de
+	façon transparente les informations sur le système de fichiers
+	réseau.</para>
+
+	<para>Cette partie reprend les étapes décrites dans la section <link
+	xmlns="http://docbook.org/ns/docbook"
+	xlink:href="&LDAP-root;/sysadm-net.ldap.clnt.html#sysadm-net.ldap.clnt.nss">Configuration
+	<wordasword>Name Service Switch</wordasword></link> du support
+	&url.sysadm-net.ldap;.</para>
+
+<sect2 xml:id='sysadm-net.autofs-ldap-nfs.clnt.ldap'>
+	<title>Configuration LDAP</title>
+
+<qandaset>
+	<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les paquets de bibliothèques
+		<acronym>LDAP</acronym> relatifs au mécanisme <wordasword>Name
+		Service Switch</wordasword> et au gestionnaire
+		d'authentification <acronym>PAM</acronym> ?</phrase></para>
+
+	<para>Rechercher la liste des paquets dont le nom débute par
+		<literal>libnss</literal> et <literal>libpam</literal>.</para>
+	</question>
+	<answer>
+	<para>Les deux paquets utiles sont :
+		<systemitem>libnss-ldapd</systemitem> et
+		<systemitem>libpam-ldapd</systemitem>. Le paquet
+		<systemitem>nslcd</systemitem> est une dépendance importante de
+		<systemitem>libnss-ldapd</systemitem>. Il assure le volet connexion
+		et authentification à l'annuaire.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les étapes de la configuration des paquets de
+		bibliothèques <acronym>NSS</acronym> et <acronym>PAM</acronym>
+		?</phrase></para>
+
+	<para>Lors de l'installation des deux paquets, on passe par une série de
+		menus debconf.</para>
+	</question>
+	<answer>
+	<para>Voici un récapitulatif des réponses.</para>
+
+	<para>Pour le paquet <systemitem>libnss-ldapd</systemitem>, on donne la
+		liste des services de nom à configurer :</para>
+
+	<itemizedlist>
+	<listitem>
+	<para><literal>passwd</literal></para>
+	</listitem>
+	<listitem>
+	<para><literal>group</literal></para>
+	</listitem>
+	<listitem>
+	<para><literal>shadow</literal></para>
+	</listitem>
+	</itemizedlist>
+
+	<para>Pour le paquet <systemitem>nslcd</systemitem>, on donne les
+		paramètres pour contacter le serveur <acronym>LDAP</acronym>.</para>
+    
+	<itemizedlist>
+	<listitem>
+	<para>URI du serveur LDAP : ldap://192.0.2.12</para>
+	</listitem>
+	<listitem>
+	<para>Base de recherche du serveur LDAP : dc=lab,dc=stri</para>
+	</listitem>
+	<listitem>
+	<para>Authentification LDAP : aucune</para>
+	</listitem>
+	<listitem>
+	<para>La base LDAP demande-t-elle une identification ? non</para>
+	</listitem>
+	<listitem>
+	<para>Faut-il utiliser StartTLS ? non</para>
+	</listitem>
+	</itemizedlist>
+	</answer>
+    </qandaentry>
+
+    <qandaentry>
+	<question>
+	<para><phrase>Comment valider la configuration de l'accès à l'annuaire
+			<acronym>LDAP</acronym> ?</phrase></para>
+
+	<para>Rechercher une commande permettant d'effectuer un appel système aux
+		bibliothèques standard <systemitem>libc</systemitem>.</para>
+	</question>
+	<answer>
+	<para>On qualifie le mécanisme <wordasword>Name Service Switch</wordasword>
+		à l'aide de la commande <command>getent</command>.</para>
+
+<screen><prompt>$</prompt> getent passwd
+root:x:0:0:root:/root:/bin/bash
+&lt;snip>
+nslcd:x:111:117:nslcd name service LDAP connection daemon,,,:/var/run/nslcd/:/bin/false
+padme:x:10000:10000:Padme Amidala Skywalker:/ahome/padme:/bin/bash
+anakin:x:10001:10001:Anakin Skywalker:/ahome/anakin:/bin/bash
+leia:x:10002:10002:Leia Organa:/ahome/leia:/bin/bash
+luke:x:10003:10003:Luke Skywalker:/ahome/luke:/bin/bash</screen>
+
+	<para>On qualifie l'authentication <acronym>PAM</acronym> à l'aide de la
+		commande <command>su</command>.</para>
+
+<screen><prompt>$</prompt> su - luke
+Mot de passe : 
+:/home/etu$</screen>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+</qandaset>
+</sect2>
+
+  <sect2 xml:id='sysadm-net.autofs-ldap-nfs.clnt.autofs-nfs'>
+    <title>Configuration NFS avec automontage</title>
+
+  <para>On considère que le paquet <systemitem>autofs-ldap</systemitem> a déjà
+  été installé pour fournir le schéma de la partie automontage au serveur
+  <acronym>LDAP</acronym>. Voir <xref
+  linkend='sysadm-net.autofs-ldap-nfs.autofs-ldap'/>.</para>
+
+  <qandaset>
+    <qandadiv>
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est la modification à apporter au fichier de
+    configuration /etc/nsswitch.conf pour que le démon automount accède aux
+    ressources de l'annuaire LDAP ?</phrase></para>
+
+    <para>Il faut ajouter une directive supplémentaire qui spécifie l'ordre de
+    recherche des informations pour le démon <systemitem
+    class='daemon'>automount</systemitem>.</para>
+    </question>
+    <answer>
+    <para>La syntaxe est la suivante.</para>
+
+<screen><prompt>$</prompt> echo -e "\nautomount:      ldap" | sudo tee -a /etc/nsswitch.conf</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quel est le fichier de configuration du service d'automontage
+    dans lequel sont définis ses paramètres globaux ?</phrase></para>
+
+    <para>Rechercher le répertoire dans lequel sont placés les fichiers de
+    paramétrage de tous les services.</para>
+    </question>
+    <answer>
+    <para>Il s'agit du fichier <filename>/etc/default/autofs</filename>.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quelles sont les modifications à apporter à ce fichier pour
+    que le démon accède à l'annuaire <acronym>LDAP</acronym> et que la
+    journalisation soit active ?</phrase></para>
+
+    <para>Il faut éditer le fichier avec les éléments suivants.</para>
+
+    <itemizedlist>
+    <listitem>
+      <para>Désigner l'unité organisationnelle qui contient les entrées de
+      configuration de l'automontage</para>
+    </listitem>
+    <listitem>
+      <para>Faire apparaître les évènements du service d'automontage dans les
+      journaux système</para>
+    </listitem>
+    <listitem>
+      <para>Désigner le serveur <acronym>LDAP</acronym> à contacter</para>
+    </listitem>
+    <listitem>
+      <para>Spécifier le point d'entrée pour les recherches dans
+      l'annuaire</para>
+    </listitem>
+    </itemizedlist>
+    </question>
+    <answer>
+
+<screen><prompt>$</prompt> sudo grep -v ^# /etc/default/autofs 
+MASTER_MAP_NAME="ou=auto.master,ou=automount,dc=lab,dc=stri"
+TIMEOUT=300
+BROWSE_MODE="no"
+LOGGING="verbose"
+LDAP_URI="ldap://192.0.2.12"
+SEARCH_BASE="ou=automount,dc=lab,dc=stri"</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+	<para><phrase>Comment vérifier que le service
+		<systemitem>autofs</systemitem> a bien pris la nouvelle
+		configuration en charge et fait appel aux ressources de l'annuaire
+		<acronym>LDAP</acronym> ?</phrase></para>
+
+	<para>Rechercher dans les informations relatives au statut du service
+		<systemitem>autofs</systemitem> les paramètres de configuration
+		<acronym>LDAP</acronym>.</para>
+    </question>
+    <answer>
+	<para>On affiche l'état du service à l'aide de la commande
+		ci-dessous.</para>
+
+<screen><prompt>$</prompt> sudo systemctl status autofs
+● autofs.service - Automounts filesystems on demand
+   Loaded: loaded (/lib/systemd/system/autofs.service; enabled; vendor preset: enabled)
+   Active: active (running) since Fri 2017-09-15 13:58:18 CEST; 15s ago
+  Process: 19416 ExecStart=/usr/sbin/automount $OPTIONS 
+			--pid-file /var/run/autofs.pid (code=exited, status=0/SUCCESS)
+ Main PID: 19417 (automount)
+    Tasks: 4 (limit: 4915)
+   CGroup: /system.slice/autofs.service
+           └─19417 /usr/sbin/automount --pid-file /var/run/autofs.pid
+
+systemd[1]: Starting Automounts filesystems on demand...
+automount[19417]: Starting automounter version 5.1.2, 
+			master map ou=auto.master,ou=automount,dc=lab,dc=stri
+automount[19417]: using kernel protocol version 5.02
+automount[19417]: <emphasis>connected to uri ldap://192.0.2.12</emphasis>
+automount[19417]: <emphasis>mounted indirect on /ahome with timeout 300</emphasis>, 
+			freq 75 seconds
+systemd[1]: Started Automounts filesystems on demand.</screen>
+	</answer>
+	</qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quelles sont les méthodes qui permettent de valider le
+    fonctionnement du service d'automontage ?</phrase></para>
+
+    <para>Donner deux moyens d'acquérir l'identité d'un utilisateur ou d'une
+    utilisatrice défini(e) dans l'annuaire <acronym>LDAP</acronym>
+    uniquement.</para>
+
+    <para>ne pas oublier le consulter les journaux système pour observer les
+    étapes de ces connexions utilisateur.</para>
+    </question>
+    <answer>
+    <itemizedlist>
+    <listitem>
+      <para>Connexion <acronym>SSH</acronym> depuis un autre hôte</para>
+    </listitem>
+    <listitem>
+      <para>Changement d'identité sur le même hôte avec la commande
+      <command>su</command></para>
+    </listitem>
+    <listitem>
+      <para>Utilisation du gestionnaire de connexion graphique</para>
+    </listitem>
+    </itemizedlist>
+
+	<para>Enfin, une fois la session d'un(e) utilisat(eur|rice) défini dans
+		l'annuaire <acronym>LDAP</acronym> ouverte, il est important de
+		vérifier que l'automontage du répertoire personnel à fonctionné. Il
+		suffit d'utiliser la commande <command>mount</command> pour afficher la
+		liste des montages actifs.</para>
+
+	<para>On retrouve la copie d'écran donnée en fin de section
+		précédente.</para>
+
+<screen><prompt>$</prompt> mount | egrep '(ldap|nfs)'
+ldap:ou=auto.home,ou=automount,dc=lab,dc=stri on /ahome type autofs \
+		(rw,relatime,fd=7,pgrp=875,timeout=300,minproto=5,maxproto=5,
+		indirect,pipe_ino=16519)
+192.0.2.12:/home/padme on /ahome/padme type nfs4 \
+		(rw,relatime,vers=4.2,rsize=131072,wsize=131072,namlen=255,
+		hard,proto=tcp,timeo=600,
+		retrans=2,sec=sys,clientaddr=192.0.2.25,local_lock=none,
+		addr=192.0.2.12)</screen>
+    </answer>
+    </qandaentry>
+    </qandadiv>
+  </qandaset>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='sysadm-net.autofs-ldap-nfs.refdocs'>
+  <title>Documents de référence</title>
+
+  <variablelist>
+    <varlistentry xml:id='sysadm-net.autofs-ldap-nfs.admin-guide'>
+    <term><citetitle>OpenLDAP Software 2.4 Administrator's Guide</citetitle></term>
+    <listitem>
+    <para>Le guide &url.openldap.admin-guide; est la référence essentielle sur
+    le service <acronym>LDAP</acronym>.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.autofs-ldap-nfs.fs'>
+    <term><citetitle>Systèmes de fichiers réseau : NFS &amp;
+    CIFS</citetitle></term>
+    <listitem>
+    <para>&url.net-fs; : présentation des modes de fonctionnement
+    des systèmes de fichiers réseau <acronym>NFS</acronym> &amp;
+    <acronym>CIFS</acronym>.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.autofs-ldap-nfs.nfs.howto'>
+    <term><citetitle>Linux NFS-HOWTO</citetitle></term>
+    <listitem>
+    <para>&url.nfs.howto; : documentation historique complète sur la
+    configuration  d'un serveur et d'un client <acronym>NFS</acronym> jusqu'à
+    la version 3 inclue.</para>
+    </listitem>
+    </varlistentry>
+
+    <varlistentry xml:id='sysadm-net.autofs-ldap-nfs.nfsv4.config'>
+    <term><citetitle>Nfsv4 configuration</citetitle></term>
+    <listitem>
+    <para>&url.nfsv4.config; : traduction française extraite des pages du
+    projet <acronym>CITI</acronym> de l'université du Michigan.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+</article>

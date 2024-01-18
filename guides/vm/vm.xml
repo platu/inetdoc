@@ -1,0 +1,1903 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+	"/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY phl 			SYSTEM "author.xml">
+<!ENTITY legal 			SYSTEM "legal.xml">
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.kvm
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.linux-kvm.org/">
+   <citetitle>Kernel Based Virtual Machine</citetitle></link>'>
+
+<!ENTITY url.qemu
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.qemu.org/">
+   <citetitle>QEMU open source machine emulator</citetitle></link>'>
+
+<!ENTITY url.spice
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.spice-space.org/">
+   <citetitle>SPICE</citetitle></link>'>
+
+<!ENTITY url.qemu.doc.emulator
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.qemu.org/qemu-doc.html#SEC7">
+   <citetitle>QEMU PC System emulator</citetitle></link>'>
+
+<!ENTITY url.qemu.doc.net.user-mode
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://www.qemu.org/qemu-doc.html#SEC32">
+   <citetitle>Using the user mode network stack</citetitle></link>'>
+
+<!ENTITY url.ovs
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://openvswitch.org/">
+   <citetitle>Open vSwitch</citetitle></link>'>
+
+<!ENTITY url.fib
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.wikipedia.org/wiki/Forwarding_plane">
+   <citetitle>Forwarding plane</citetitle></link>'>
+
+<!ENTITY url.sdn
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.wikipedia.org/wiki/Software-defined_networking">
+   <citetitle>Software-defined networking</citetitle></link>'>
+
+<!ENTITY url.CAM
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://en.wikipedia.org/wiki/CAM_Table">
+   <citetitle>Table CAM</citetitle></link>'>
+
+<!ENTITY url.paravirtualisation
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://fr.wikipedia.org/wiki/Paravirtualisation">
+   <emphasis>paravirtualisation</emphasis></link>'>
+
+<!ENTITY url.virtio
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://fr.wikipedia.org/wiki/Virtio">
+   <emphasis>virtio</emphasis></link>'>
+
+<!ENTITY url.virtualisation
+   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://fr.wikipedia.org/wiki/Virtualisation_(informatique)">
+   <emphasis>virtualisation</emphasis></link>'>
+]>
+
+<article xmlns="http://docbook.org/ns/docbook" xml:id='vm' xml:lang='fr'>
+<info>
+	<title>Virtualisation système et enseignement</title>
+
+	&phl;
+	<abstract>
+	<para>Ce guide est à la fois un retour d'expérience et une présentation de
+	la virtualisation de systèmes d'interconnexion réseau dans les
+	enseignements pratiques. L'objectif est de mettre l'accent sur
+	l'identification des fonctions réseau usuelles dans la virtualisation. Dans
+	ce but, on présente la configuration des outils directement depuis
+	l'interface en ligne de commande sans faire appel à une solution de
+	virtualisation intégrée.</para>
+	</abstract>
+	<keywordset>
+	<keyword>Debian</keyword>
+	<keyword>enseignement</keyword>
+	<keyword>KVM</keyword>
+	<keyword>Qemu</keyword>
+	<keyword>switch</keyword>
+	<keyword>Travaux pratiques</keyword>
+	<keyword>tap</keyword>
+	<keyword>openvswitch</keyword>
+	</keywordset>
+</info>
+
+<sect1 xml:id='vm.legal.meta'>
+	&legal;
+	<bridgehead xml:id='vm.meta' renderas='sect2'>Méta-information</bridgehead>
+
+  <para>Cet article est écrit avec <link
+  xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+  sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+  GNU/Linux</citetitle></link>. Il est disponible en version imprimable aux
+  format PDF : <link
+  xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+  <para>Toutes les commandes utilisées dans ce document ne sont pas spécifiques
+  à une version particulière des systèmes UNIX ou GNU/Linux. C'est la
+  distribution <citetitle>Debian GNU/Linux</citetitle> qui est utilisée
+  pour les tests présentés.</para>
+
+  <bridgehead xml:id='vm.convtypo' renderas='sect2'>Conventions
+  typographiques</bridgehead>
+
+  <para>Tous les exemples d'exécution des commandes sont précédés d'une invite
+  utilisateur ou <wordasword>prompt</wordasword> spécifique au niveau des
+  droits utilisateurs nécessaires sur le système.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>$</prompt> ne nécessite
+    aucun privilège particulier et peut être utilisée au niveau utilisateur
+    simple.</para>
+    </listitem>
+    <listitem>
+    <para>Toute commande précédée de l'invite <prompt>#</prompt> nécessite les
+    privilèges du super utilisateur.</para>
+    </listitem>
+  </itemizedlist>
+</sect1>
+
+<sect1 xml:id="vm.intro">
+  <title>Introduction</title>
+
+  <para>Depuis quelques années, j'ai pris l'habitude d'utiliser une instance
+  virtuelle de système d'exploitation pour suivre la même démarche que les
+  étudiants lors des séances de travaux pratiques. La première motivation était
+  d'éviter de massacrer la configuration de mon portable à chaque nouvelle
+  séance. Puis, il est apparu que les synthèses intermédiaires faites en
+  reprenant la démarche «qui aurait dû être suivie» par les étudiants
+  permettait de resynchroniser le groupe et d'obtenir des résultats plus
+  homogènes en fin de séance.</para>
+
+  <para>Sans démarche de ce genre, une séance de travaux pratiques sur les
+  systèmes informatiques et|ou les réseaux glisse très rapidement vers un bazar
+  incommensurable. En effet, après avoir lu la première question «en
+  diagonale», l'étudiant(e) lambda se jette sur <trademark>Google</trademark>
+  et se perd dans les méandres de forums rédigés en mode <acronym>SMS</acronym>
+  et aux contenus pour le moins contradictoires et douteux. Bref, on en revient
+  toujours à la problématique classique de l'enseignant moyen : comment
+  faire pour que les étudiants adoptent et suivent des méthodes et démarches
+  réfléchies ? Cette lutte contre l'obscurantisme ambiant est
+  particulièrement ardue. Dans l'esprit de beaucoup d'étudiants, l'informatique
+  est une compilation de «recettes de cuisine» sans relations ni cohérence. Dès
+  lors qu'il s'agit d'approfondir ses connaissances et la maîtrise d'un
+  système, les limites de l'apprentissage par «compilation incohérente»
+  apparaissent très vite et les étudiants les moins motivés décrochent très
+  rapidement.</para>
+
+  <para>Bien sûr, ce guide sur l'utilisation de la virtualisation ne peut
+  absolument pas prétendre apporter une solution à un problème aussi complexe
+  et difficile. L'objectif, très modeste, est d'apporter un moyen
+  supplémentaire d'illustration de la marche à suivre pour traiter un problème
+  en replaçant bien le contexte.</para>
+
+  <para>Il est aujourd'hui très difficile de «détacher» l'esprit de l'auditoire
+  des commandes utilisées à la console pour faire ressortir le processus traité
+  par ces mêmes commandes. Qu'il s'agisse d'enseignements réseau utilisant des
+  systèmes tels qu'<acronym>IOS</acronym> ou <acronym>JunOS</acronym> ou
+  d'enseignements systèmes utilisant le <wordasword>Shell</wordasword>, les
+  difficultés sont identiques.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>À quel niveau se situe le problème à traiter ? Niveau de la
+    modélisation réseau, couche du système d'exploitation, espace mémoire,
+    etc.</para>
+    </listitem>
+    <listitem>
+    <para>Quels sont les outils systèmes utilisables à ce niveau ?
+    Configuration d'un protocole, gestionnaire de paquets, analyse de
+    l'occupation mémoire, etc.</para>
+    </listitem>
+    <listitem>
+    <para>Quelle est la démarche usuelle de diagnostic ? Table de routage,
+    compteurs de liste de contrôle d'accès, liste des processus actifs,
+    journalisation système, etc.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Pour aller un peu plus loin dans l'illustration des méthodes, je
+  souhaite dépasser le stade de la démonstration sur le portable de
+  l'enseignant et fournir aux étudiants des images d'instances de systèmes en
+  fin de séance. Il ne s'agit pas de fournir une solution corrigée ou un
+  produit fini mais plutôt une photo d'un état intermédiaire dans la séance de
+  travaux pratiques. Il devient ainsi possible de proposer aux étudiants de
+  reprendre, non pas la totalité des questions de la séance, mais la partie qui
+  a posé le plus de difficultés.</para>
+
+  <para>Voici donc, dans l'état actuel de la réflexion, les choix techniques
+  que j'ai fait pour répondre aux objectifs.</para>
+</sect1>
+
+<sect1 xml:id='vm.choix'>
+  <title>Choix d'une solution de virtualisation</title>
+
+  <bridgehead xml:id='vm.choix.techno' renderas='sect2'>Virtualisation et noyau
+  Linux</bridgehead>
+
+    <para>À l'heure actuelle, il existe deux grandes approches de la
+    virtualisation.</para>
+
+    <para>Une première méthode, appelée &url.paravirtualisation;, suppose que
+    le noyau du système d'exploitation invité soit modifié pour être exécuté
+    sous forme virtualisée. L'objectif de cette technique est d'offrir un accès
+    quasi identique aux ressources matérielles (mémoire et entrées/sorties)
+    entre système hôte et système invité. Si cet objectif est atteint, les
+    performances du système virtualisé sont vraiment très proches de celles du
+    matériel sur lequel il est exécuté. Le principal obstacle au développement
+    ce cette technique réside justement dans la modification du noyau du
+    système invité. Si le système à virtualiser ne dispose pas de fonctions
+    dédiées à la paravirtualisation dans son noyau, cette technique est
+    inutilisable et la seule solution de virtualisation consiste à utiliser une
+    émulation complète du matériel.</para>
+
+    <para>La seconde méthode, appelée &url.virtualisation; complète, permet
+    d'exécuter le système d'exploitation invité de manière native sans
+    modification. Avec cette technique, la virtualisation n'a aucun
+    impact sur l'exécution du noyau du système virtualisé. En revanche,
+    la virtualisation complète sacrifie les performances au prix de la
+    compatibilité. En effet, il est plus difficile d'obtenir de bonnes
+    performances lorsque le système invité ne participe pas au
+    processus de virtualisation et doit traverser une ou plusieurs
+    couches d'émulation avant d'accéder aux ressources
+    matérielles.</para>
+
+    <para>Côté matériel, les évolutions des fonctions de virtualisation
+    directement intégrées dans les processeurs ont tendance à diminuer les
+    écarts de performances entre les systèmes utilisant la paravirtualisation
+    et les systèmes hôtes. Qu'il s'agisse d'<trademark>Intel</trademark>
+    (<acronym>VT</acronym>) ou d'<trademark>AMD</trademark>
+    (<acronym>AMD-V</acronym>) les processeurs récents disposent
+    de ces fonctions dédiées à la virtualisation.</para>
+
+    <para>Avec le noyau Linux, l'objectif de la solution &url.kvm; ou
+    <acronym>KVM</acronym> est d'ajouter des capacités de virtualisation à un
+    noyau standard.</para>
+
+    <para>Avec le modèle <application>KVM</application>, chaque machine
+    virtuelle est un processus standard du noyau Linux géré par
+    l'ordonnanceur (<wordasword>scheduler</wordasword>). Un processus
+    normal de système GNU/Linux peut être exécuté selon deux
+    modes : noyau (<wordasword>kernelspace</wordasword>) ou
+    utilisateur (<wordasword>userspace</wordasword>). Le modèle
+    <application>KVM</application> ajoute un troisième mode : le
+    mode invité qui possède ses propres modes noyau et
+    utilisateur.</para>
+
+<mediaobject xml:id='vm.kvm-kernel.img'>
+  <imageobject>
+    <imagedata fileref="images/kvm-kernel.png" format="PNG" contentwidth='12cm' width='12.5cm'/>
+  </imageobject>
+  <textobject>
+    <phrase>KVM dans le noyau Linux</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook"
+    xlink:href="http://www.linux-france.org/prj/inetdoc/articles/vm/images/kvm-kernel.png">KVM
+    dans le noyau Linux - vue complète</link></para>
+  </caption>
+</mediaobject>
+
+  <para>Le modèle de virtualisation <application>KVM</application> comprend
+  deux composants.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Un pilote de périphérique pour gérer le matériel virtualisé. Les
+    fonctions de ce pilote sont disponibles via le fichier spécial d'interface
+    de type caractère <systemitem>/dev/kvm</systemitem>.</para>
+    </listitem>
+    <listitem>
+    <para>Un logiciel utilisateur pour émuler le matériel d'un PC. Cette partie
+	utilisateur (<wordasword>userspace</wordasword>) est fournie par les
+	paquets de la famille <application>QEMU</application> qui sont présentés à
+	la <xref linkend='vm.instance.tools'/>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Côté <emphasis>paravirtualisation</emphasis>, ce sont les fonctions
+  &url.virtio; du noyau Linux qui permettent d'utiliser des canaux de
+  communication dédiés entre instances de machines virtuelles et système hôte.
+  Depuis la sortie de la version stable baptisée <citetitle>Lenny</citetitle>
+  de la distribution Debian GNU/Linux, ces fonctions sont disponibles dans les
+  paquets de noyau. Aucune manipulation n'est donc nécessaire pour bénéficier
+  de la <emphasis>paravirtualisation</emphasis> avec une instance de système
+  Debian GNU/Linux.</para>
+
+  <bridgehead xml:id='vm.choix.contexte' renderas='sect2'>Contexte
+  pratique</bridgehead>
+
+  <variablelist>
+    <varlistentry xml:id='vm.choix.kvm'>
+    <term><citetitle>KVM</citetitle></term>
+    <term><citetitle>Kernel-based Virtual Machine</citetitle></term>
+    <listitem>
+      <para>&url.kvm; est devenue rapidement la solution de virtualisation de
+      référence pour Linux. Elle est basée sur les architectures
+      <trademark>Intel</trademark> baptisées <citetitle><trademark>Intel
+      VT</trademark></citetitle> ou les architectures
+      <trademark>AMD</trademark> baptisées
+      <citetitle><trademark>AMD-V</trademark></citetitle>. Ces deux familles de
+      processeurs possèdent les extensions matérielles de virtualisation. Un
+      module du noyau Linux fournit le cœur de virtualisation et un module
+      spécifique dépendant du processeur (kvm-intel.ko ou kvm-amd.ko) active
+      les fonctions matérielles.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry xml:id='vm.choix.qemu'>
+    <term><citetitle>QEMU</citetitle></term>
+    <listitem>
+      <para>&url.qemu; est un émulateur machine générique. Il peut exécuter des
+      instances de systèmes d'exploitation et des programmes faits pour une
+      architecture processeur particulière (carte mère ARM par exemple) sur une
+      machine hôte d'architecture différente (votre propre PC par exemple). En
+      utilisant la <emphasis>traduction dynamique</emphasis>, QEMU donne de
+      bonnes performances.</para>
+
+      <para><citetitle>QEMU</citetitle> est la solution de virtualisation à
+      utiliser si le processeur de système hôte ne possède pas d'extension
+      matérielle spécifique à la virtualisation.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Les développements de ces deux outils distincts progressent en
+  parallèle et ils utilisent le même jeu d'options de configuration.</para>
+
+  <para>La présentation de ces 2 outils complémentaires introduit la
+  distinction entre les processeurs possédant les extensions de virtualisation
+  ou non. Pour identifier les caractéristiques des processeurs avec un système
+  hôte GNU/Linux, on utilise les informations fournies dans l'arborescence
+  <filename class='directory'>/proc</filename>. Si le seul système
+  d'exploitation installé sur la machine hôte est de type Windows, il est
+  toujours possible de lancer la machine en utilisant un <wordasword>live
+  CD</wordasword> de type <application>KNOPPIX</application> pour effectuer la
+  même opération.</para>
+
+  <para>Suivant le résultat de la commande suivante, on sait si le processeur
+  peut utiliser la solution <application>KVM</application> ou non.</para>
+
+<screen>$ egrep '(vmx|svm)' /proc/cpuinfo</screen>
+
+  <para>Si la commande ne donne aucun résultat, le processeur ne possède pas
+  d'extension de virtualisation et seule la solution
+  <application>QEMU</application> est utilisable.</para>
+  <para>Si le résultat donne une ou plusieurs lignes (suivant le nombre de
+  cœurs du processeur) débutant par
+  <computeroutput>flags</computeroutput>, la solution
+  <application>KVM</application> est utilisable avec les outils
+  <application>QEMU</application>.</para>
+</sect1>
+
+<sect1 xml:id="vm.virtio">
+  <title>KVM et VIRTIO</title>
+
+  <para>Comme on l'a vu dans la <xref linkend='vm.choix'/>, ces bibliothèques
+  permettent à une instance de machine virtualisée d'utiliser des canaux de
+  communications particuliers vers le matériel du système hôte. Parmi ces
+  canaux, on trouve les accès : mémoire, disque, horloge temps réel et
+  réseau.</para>
+
+  <bridgehead xml:id='vm.virtio.identification' renderas='sect2'>Identification
+  des modules disponibles</bridgehead>
+
+  <para>Les modules autorisant l'utilisation de ces bibliothèques dans l'espace
+  utilisateur sont disponibles dans les paquets de noyau Linux. Voici quelques
+  exemples d'identification des fonctions &url.virtio; sur un système
+  virtualisé.</para>
+
+  <para>On recherche la version du noyau en cours d'exécution.</para>
+
+<screen><prompt>$</prompt> uname -a
+Linux vm0 4.14.0-3-amd64 #1 SMP Debian 4.14.13-1 (2018-01-14) x86_64 GNU/Linux
+
+<prompt>$</prompt> aptitude search ~ilinux-image
+i A linux-image-4.14.0-3-amd64  - Linux 4.14 pour les ordinateurs 64 bits
+i   linux-image-amd64           - Linux pour les ordinateurs 64 bits (métapaquet)</screen>
+
+  <para>On liste les modules relatifs aux fonctions <option>Virtio</option>
+  à partir de la version du noyau identifiée.</para>
+
+<screen><prompt>$</prompt> find /lib/modules/$(uname -r)/ -type f -name '*virtio*'
+/lib/modules/4.14.0-3-amd64/kernel/net/9p/9pnet_virtio.ko
+/lib/modules/4.14.0-3-amd64/kernel/net/vmw_vsock/vmw_vsock_virtio_transport.ko
+/lib/modules/4.14.0-3-amd64/kernel/net/vmw_vsock/vmw_vsock_virtio_transport_common.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/net/virtio_net.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/virtio/virtio_pci.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/virtio/virtio_balloon.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/virtio/virtio_input.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/virtio/virtio_ring.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/virtio/virtio.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/gpu/drm/virtio/virtio-gpu.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/crypto/virtio/virtio_crypto.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/block/virtio_blk.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/char/hw_random/virtio-rng.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/char/virtio_console.ko
+/lib/modules/4.14.0-3-amd64/kernel/drivers/scsi/virtio_scsi.ko</screen>
+
+  <bridgehead xml:id='vm.virtio.usage' renderas='sect2'>Utilisation des
+  bibliothèques VIRTIO</bridgehead>
+
+  <para>Comme on l'a dit précédemment, ces bibliothèques constituent des canaux
+  de communication avec le matériel du système hôte. Elles ont donc un effet
+  sur la représentation du matériel.</para>
+
+  <para>À titre d'exemple, voici la liste des périphériques «visibles» sur le
+  bus <acronym>PCI</acronym> d'une instance de système virtuel.</para>
+
+<screen><prompt>$</prompt> lspci
+00:00.0 Host bridge: Intel Corporation 82G33/G31/P35/P31 Express DRAM Controller
+00:01.0 VGA compatible controller: Red Hat, Inc. QXL paravirtual graphic card (rev 04)
+00:02.0 Audio device: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) High Definition Audio Controller (rev 01)
+<emphasis>00:03.0 Unclassified device [00ff]: Red Hat, Inc Virtio memory balloon
+00:04.0 SCSI storage controller: Red Hat, Inc Virtio block device
+00:05.0 Communication controller: Red Hat, Inc Virtio console
+00:06.0 Ethernet controller: Red Hat, Inc Virtio network device</emphasis>
+00:07.0 System peripheral: Intel Corporation 6300ESB Watchdog Timer
+00:1d.0 USB controller: Intel Corporation 82801I (ICH9 Family) USB UHCI Controller #1 (rev 03)
+00:1d.1 USB controller: Intel Corporation 82801I (ICH9 Family) USB UHCI Controller #2 (rev 03)
+00:1d.2 USB controller: Intel Corporation 82801I (ICH9 Family) USB UHCI Controller #3 (rev 03)
+00:1d.7 USB controller: Intel Corporation 82801I (ICH9 Family) USB2 EHCI Controller #1 (rev 03)
+00:1f.0 ISA bridge: Intel Corporation 82801IB (ICH9) LPC Interface Controller (rev 02)
+00:1f.2 SATA controller: Intel Corporation 82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller [AHCI mode] (rev 02)
+00:1f.3 SMBus: Intel Corporation 82801I (ICH9 Family) SMBus Controller (rev 02)</screen>
+
+  <para>Dans la liste ci-dessus, on reconnaît 4 périphériques référencés
+  <option>Virtio</option> dont le gestionnaire mémoire et le contrôleur
+  réseau.</para>
+
+  <para>Sur le même système, on peut lister les modules chargés en mémoire
+  relatifs aux bibliothèques.</para>
+
+<screen><prompt>$</prompt> lsmod | grep virtio
+virtio_console         32768  0
+virtio_balloon         20480  0
+virtio_net             49152  0
+virtio_blk             20480  3
+virtio_pci             28672  0
+virtio_ring            28672  5 virtio_blk,virtio_net,virtio_balloon,virtio_console,virtio_pci
+virtio                 16384  5 virtio_blk,virtio_net,virtio_balloon,virtio_console,virtio_pci</screen>
+
+  <para>Cette liste correspond aux fonctionnalités utilisées par le système
+  virtuel relativement au catalogue donné dans la section précédente.</para>
+</sect1>
+
+<sect1 xml:id="vm.instance">
+	<title>Création d'une machine virtuelle</title>
+
+<note xml:id='vm.instance.directory'>
+	<para>Toutes les opérations présentées dans cette section utilisent le
+	répertoire utilisateur <filename class='directory'>~/vm/</filename> dans
+	lequel sont stockées les images de systèmes virtuels.</para>
+</note>
+
+	<bridgehead xml:id='vm.instance.tools' renderas='sect2'>Outils nécessaires</bridgehead>
+
+	<para>Sachant que les modules de virtualisation appartenant au noyau Linux
+	sont chargés en mémoire, il faut maintenant connaître la liste des outils
+	nécessaires à la création et au lancement des instances de machines
+	virtuelles. Les paquets associés à la gestion des images de machines
+	virtuelles sont les suivants :</para>
+
+<screen><prompt>$</prompt> aptitude search ~iqemu
+i   ipxe-qemu                 - PXE boot firmware - ROM images for qemu
+i   qemu-system-common        - QEMU full system emulation binaries (common files)
+i   <emphasis>qemu-system-x86</emphasis>           - QEMU full system emulation binaries (x86)
+i   qemu-utils                - QEMU utilities</screen>
+
+	<para>Le paquet <package>qemu-system-x86</package> correspond au processus
+	d'émulation d'architecture x86 avec le support des extensions matérielles :
+	<citetitle><trademark>Intel VT</trademark></citetitle> et
+	<citetitle><trademark>AMD SVM</trademark></citetitle>. Il fournit aussi les
+	éléments de description des périphériques de carte mère pour cette
+	architecture : contrôleur PCI, carte vidéo, carte réseau, carte son,
+	etc.</para>
+
+	<bridgehead xml:id='vm.instance.install' renderas='sect2'>Installation
+	d'une machine virtuelle</bridgehead>
+
+	<para>On commence par créer un fichier image de disque virtuel qui servira
+	de support au système de fichiers de la nouvelle instance de système
+	d'exploitation.</para>
+
+<screen><prompt>:~/vm$</prompt> qemu-img create -f raw vm0-debian-stable-amd64.raw 80G
+Formatting 'vm0-debian-stable-amd64.raw', fmt=raw size=85899345920
+
+<prompt>:~/vm$</prompt> du -hs vm0-debian-stable-amd64.raw
+0       vm0-debian-stable-amd64.raw</screen>
+
+	<para>Le format d'image créé à l'aide de l'instruction ci-dessus est
+	baptisé <option>raw</option>. Il s'agit d'un format brut, utilisé par
+	défaut, sur lequel seuls les secteurs écrits entraînent une réservation
+	d'espace. Ce choix de format peut être modifié par la suite puisqu'il est
+	toujours possible de convertir une image d'un format à un autre après
+	coup.</para>
+
+	<para>On utilise cette image disque pour lancer le processus d'installation
+	de la machine virtuelle.</para>
+
+<screen><prompt>:~/vm$</prompt> ./scripts/iso-install-startup.sh \
+vm0-debian-stable-amd64.raw \
+~/iso.images/debian-8.3.0-amd64-netinst.iso \
+512 \
+0
+
+~> Machine virtuelle : vm0-debian-stable-amd64.raw
+~> Port SPICE        : 5900
+~> Mémoire RAM       : 512
+~> Adresse MAC       : ba:ad:ca:fe:00:00</screen>
+
+	<para>Pour l'installation du système d'exploitation de la machine
+	virtuelle, on utilise le script <command>iso-install-startup.sh</command>
+	donné en annexe <xref linkend='vm.appendix-iso-install-startup'/>. Ce
+	script impose au moins quatre paramètres.</para>
+
+	<orderedlist>
+	<listitem>
+		<para>Le fichier image de la machine virtuelle :
+		<filename>vm0-debian-stable-amd64.raw</filename> dans l'exemple
+		ci-dessus.</para>
+	</listitem>
+	<listitem>
+		<para>Le fichier au format <option>iso</option> correspondant au média
+		d'installation. Dans l'exemple, il s'agit de l'image
+		<option>netinst</option> de la version <citetitle>Jessie</citetitle> du
+		système Debian GNU/Linux.</para>
+	</listitem>
+	<listitem>
+		<para>La quantité de <acronym>RAM</acronym> allouée à la machine
+		virtuelle : 512Mo dans l'exemple.</para>
+	</listitem>
+	<listitem>
+		<para>Le numéro du port d'accès à l'écran de la machine virtuelle via
+		le protocole <application>SPICE</application>. Ici la valeur
+		<option>0</option> conduit à l'utilisation du port numéro
+		<option>5900</option>.</para>
+	</listitem>
+	</orderedlist>
+
+	<para>Après l'initialisation de la machine virtuelle, le processus
+	d'installation classique démarre.</para>
+
+	<mediaobject xml:id='vm.instance.debian0'>
+	<imageobject role='html'>
+		<imagedata fileref="images/spicec-debian-install.jpg" format="JPG" width='480px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+		<imagedata fileref="images/spicec-debian-install.jpg" format="JPG" width='9cm' scalefit='1'/>
+	</imageobject>
+	<textobject>
+		<phrase>Écran d'installation Debian GNU/Linux</phrase>
+	</textobject>
+	<caption>
+		<para><link xmlns="http://docbook.org/ns/docbook"
+		xlink:href="https://www.inetdoc.net/guides/vm/images/spicec-debian-install.jpg">Écran
+		d'installation Debian GNU/Linux - vue complète</link></para>
+	</caption>
+	</mediaobject>
+
+	<bridgehead xml:id='vm.instance.spice' renderas='sect2'>Utilisation du
+	protocole SPICE</bridgehead>
+
+	<para>Le protocole &url.spice; a pour but de fournir un accès distant
+	interactif à l'écran d'un système virtualisé. Il s'agit d'un protocole
+	client/serveur dont la partie serveur est située sur la machine
+	virtuelle.</para>
+
+	<para>Dans le contexte de ce guide, les paramètres nécessaires à
+	l'utilisation de ce protocole sont présents dans les scripts proposés en
+	<xref linkend='vm.appendix' />. Un choix de paramétrage particulier a été
+	fait. L'accès est ouvert sur l'adresse <emphasis>localhost</emphasis> du
+	système hôte dans le but de faciliter l'utilisation de l'écran distant avec
+	<acronym>IPv4</acronym> ou <acronym>IPv6</acronym>. Cet accès ne devient
+	«vraiment distant» que si un tunnel <acronym>SSH</acronym> est ouvert entre
+	le système hôte et le système sur lequel on souhaite afficher l'écran de la
+	machine virtuelle.</para>
+
+	<para>Ainsi, le script <command>iso-install-startup.sh</command> utilisé
+	plus haut ouvre un accès sur le port <option>tcp/5900</option> en écoute
+	sur l'interface de boucle locale du système hôte. On peut établir un tunnel
+	<acronym>SSH</acronym> puis exécuter le client
+	<application>SPICE</application> à l'aide des commandes suivantes.</para>
+
+<screen><prompt>:~$</prompt> ssh -f -N -L 5900:localhost:5900 &lt;user>@&lt;hostname>
+
+<prompt>:~$</prompt> spicec -h localhost -p 5900</screen>
+
+	<para>Le programme <command>spicec</command> appartient au paquet
+	<package>spice-client</package>.</para>
+
+	<para>C'est à l'aide de ces paramètres que le protocole
+	<application>SPICE</application> a été utilisé pour réaliser la <link
+	linkend='vm.instance.debian0'>copie d'écran ci-dessus</link>.</para>
+</sect1>
+
+<sect1 xml:id="vm.optimisation">
+	<title>Optimisation système</title>
+
+	<para>Cette section est une liste de quelques trucs et astuces permettant
+	d'optimiser l'usage d'une instance virtuelle de système
+	d'exploitation.</para>
+
+	<bridgehead xml:id='vm.optimisation.apt' renderas='sect2'>Gestion de
+	paquets</bridgehead>
+
+	<para>Pour optimiser la gestion de paquets avec <acronym>APT</acronym> sur
+	une machine virtuelle Debian GNU/Linux on essaie de limiter au maximum
+	l'occupation disque de façon à donner un maximum d'espace dans
+	l'arborescence <filename class='directory'>/var</filename>.</para>
+
+	<variablelist>
+	<varlistentry xml:id='vm.optimisation.apt.clean'>
+		<term><userinput><prompt>#</prompt> aptitude clean</userinput></term>
+	<listitem>
+	<para>Il est inutile de conserver les fichiers <filename>.deb</filename>
+	correspondant aux paquets installés sur le système virtuel. Cette commande
+	sert justement à nettoyer l'arborescence <filename
+	class='directory'>/var/cache/apt</filename>.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='vm.optimisation.apt.deborphan'>
+		<term><userinput><prompt>#</prompt> aptitude purge $(deborphan)</userinput></term>
+	<listitem>
+	<para>La commande <command>deborphan</command> appartenant au paquet du
+	même nom recherche les paquets orphelins installé sur le système. Les
+	paquets trouvés cette commande ne sont pas nécessaires au fonctionnement
+	des services installés ; on peut donc les supprimer sans problème pour
+	gagner de la place disque.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='vm.optimisation.apt.localepurge'>
+		<term><userinput><prompt>#</prompt> localepurge</userinput></term>
+	<listitem>
+	<para>La commande <command>localepurge</command> appartenant au paquet du
+	même nom. Elle sert à effacer tous les fichiers de «localisation» (langues
+	étrangères) inutiles sur le disque. Elle est appelée automatiquement à
+	chaque opération de gestion de paquets avec
+	<systemitem>apt-get</systemitem> ou
+	<systemitem>aptitude</systemitem>.</para>
+
+	<para>La fin du fichier de configuration
+	<filename>/etc/locale.nopurge</filename> répertorie les paramètres des
+	fichiers de localisation à conserver.</para>
+
+<screen><prompt>#</prompt> tail /etc/locale.nopurge
+
+#VERBOSE
+
+#####################################################
+# Following locales won't be deleted from this system
+# after package installations done with apt-get(8):
+
+en
+fr
+fr_FR.UTF-8</screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='vm.optimisation.apt.proxy'>
+		<term><wordasword>Transparent proxy</wordasword></term>
+		<term>Service Mandataire</term>
+	<listitem>
+	<para>L'utilisation du gestionnaire de paquets peut poser problème lorsque
+	le système hôte se trouve derrière un service mandataire ou
+	<wordasword>proxy</wordasword> transparent.</para>
+
+	<para>Dans ce cas, il faut compléter la configuration du gestionnaire de
+	paquets sur chaque instance de système virtuel en ajoutant un fichier dans
+	le répertoire <filename
+	class='directory'>/etc/apt/apt.conf.d/</filename>.</para>
+
+<screen><prompt>#</prompt> cat /etc/apt/apt.conf.d/10proxy
+Acquire::http::No-Cache "true";
+Acquire::http::Max-Age "0";</screen>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='vm.optimisation.apt.duplicate'>
+		<term>Duplication du jeu de paquets entre systèmes</term>
+		<term><command>aptitude-create-state-bundle</command></term>
+		<term><command>aptitude-run-state-bundle</command></term>
+	<listitem>
+	<para>Pour dupliquer le jeu de paquets installés entre instances système,
+	il est possible de créer un fichier image de l'état d'une installation.
+	Cette technique permet de transférer la liste des paquets installés entre
+	architectures différentes.</para>
+
+	<para>Côté système source, celui qui détient le jeu de référence, on
+	utilise la commande <command>aptitude-create-state-bundle</command> et
+	copie le fichier contenant la liste des paquets installés sur le système
+	hôte.</para>
+
+<screen><prompt>#</prompt> <emphasis>aptitude-create-state-bundle selections.bz2</emphasis>
+<prompt>#</prompt> chown etu.etu selections.bz2
+<prompt>#</prompt> exit
+etu@vm:~$ logout
+Connection to fe80::b8ad:caff:fefe:5%vlan5 closed
+:~/vm$ $ scp etu@[fe80::b8ad:caff:fefe:5%vlan5]:~/selections.bz2 .
+Warning: Permanently added 'fe80::b8ad:caff:fefe:5%vlan5' (ECDSA) to the list of known hosts.
+etu@fe80::b8ad:caff:fefe:5%vlan5's password: 
+selections.bz2                  100%   30MB  30.4MB/s   00:01</screen>
+
+	<para>Côté système cible, celui sur lequel on doit appliquer le jeu de
+	référence pour compléter sa liste de paquets installés, on utilise la
+	commande <command>aptitude-run-state-bundle</command>.</para>
+
+<screen><prompt>:~/vm$</prompt> scp selections.bz2 etu@[fe80::b8ad:caff:fefe:0%vlan214]:~
+Warning: Permanently added 'fe80::b8ad:caff:fefe:0%vlan214' (ECDSA) to the list of known hosts.
+etu@fe80::b8ad:caff:fefe:0%vlan214's password: 
+selections.bz2                  100%   30MB  30.4MB/s   00:00
+<prompt>:~/vm$</prompt> ssh etu@fe80::b8ad:caff:fefe:0%vlan214
+Warning: Permanently added 'fe80::b8ad:caff:fefe:0%vlan214' (ECDSA) to the list of known hosts.
+etu@fe80::b8ad:caff:fefe:0%vlan214's password:
+
+<prompt>etu@vm:~$</prompt> su
+Mot de passe :
+<prompt>vm:/home/etu#</prompt> <emphasis>aptitude-run-state-bundle selections.bz2</emphasis></screen>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+
+	<bridgehead xml:id='vm.optimisation.console' renderas='sect2'>Paramétrage
+	de la console</bridgehead>
+
+	<para>Que l'on accède à une instance de système virtualisé via une
+	connexion <acronym>SSH</acronym> ou via un écran distant avec le protocole
+	&url.spice;, il est important de disposer d'un jeu de caractères et d'un
+	affichage cohérent.</para> 
+
+	<variablelist>
+	<varlistentry xml:id='vm.optimisation.console.gpm'>
+		<term>Terminal d'exécution</term>
+		<term><application>gpm</application></term>
+	<listitem>
+	<para>Le paquet <package>gpm</package> permet d'utiliser la souris en mode
+	console pour effectuer les opérations du type copier/coller.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='vm.optimisation.keyboard-configuration'>
+		<term><systemitem>keyboard-configuration</systemitem></term>
+		<term><systemitem>console-setup</systemitem></term>
+	<listitem>
+	<para>Le paquet <package>keyboard-configuration</package> permet de gérer
+	les codes de touches clavier et les jeux de caractères. La reconfiguration
+	du paquet avec la commande <userinput><prompt>#</prompt> dpkg-reconfigure
+	keyboard-configuration</userinput> permet de passer en revue et de modifier
+	les options relatives aux dispositions de claviers.</para>
+
+	<para>Le paquet <package>console-setup</package> permet de paramétrer la
+	configuration du clavier et de la police pour la console du système.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='vm.optimisation.console.spice-vdagent'>
+		<term><systemitem>spice-vdagent</systemitem></term>
+	<listitem>
+	<para>Dans le cas où l'on accède à un écran graphique de système virtualisé
+	via le protocole &url.spice;, il est possible de «partager» les actions à
+	la souris entre l'interface graphique du système local et du système
+	virtuel. Cet outil permet aussi le redimensionnement dynamique de l'écran
+	du système virtuel en fonction de la résolution de l'écran du système
+	local.</para>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+
+	<bridgehead xml:id='vm.optimisation.xorg' renderas='sect2'>Configuration
+	graphique</bridgehead>
+
+	<para>La gestion de l'interface graphique d'une instance de système
+	virtualisé est en constante sur les hyperviseurs disponibles avec le noyau
+	Linux. Dans ce document, on se réfère au protocole
+	<application>SPICE</application> et au contrôleur graphique virtuel
+	<option>QXL</option>.</para>
+
+	<para>Sur un système non virtualisé le graphisme utilise les ressources
+	d'un composant spécifique baptisé <wordasword>Graphics Processing
+	Unit</wordasword> ou <acronym>GPU</acronym>. La virtualisation implique
+	l'émulation d'un composant <acronym>GPU</acronym>. Cette émulation doit
+	être en mesure de traiter tous les appels aux bibliothèques graphiques
+	effectués par les différents gestionnaire d'interface utilisateur. La tâche
+	est donc particulièrement ardue.</para>
+
+	<para>Les scripts utilisés pour la rédaction de ce guide désignent le
+	contrôleur <application>QXL</application> comme <acronym>GPU</acronym>.
+	Voici quelques éléments d'identification.</para>
+
+<screen><prompt>$</prompt> lspci | grep VGA
+00:01.0 VGA compatible controller: Red Hat, Inc. Device 0100 (rev 04)
+</screen>
+
+  <para>Malheureusement, la version stable <citetitle>Wheezy</citetitle> ne
+  dispose pas du paquet de pilotage de <acronym>GPU</acronym> émulé. Le suuport
+  des fonctions graphiques est donc moins performant. En revanche, la version
+  <wordasword>testing</wordasword> contient bien le paquet
+  <package>xserver-xorg-video-qxl</package>.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Extrait du journal d'initialisation du serveur graphique sur la
+    distribution stable <citetitle>Wheezy</citetitle>.</para>
+
+<screen><prompt>#</prompt> grep -i qxl /var/log/Xorg.0.log
+[    10.785] (==) Matched qxl as autoconfigured driver 0
+[    10.785] (II) LoadModule: "qxl"
+[    10.848] (WW) Warning, couldn't open module qxl
+[    10.848] (II) UnloadModule: "qxl"
+[    10.848] (II) Unloading qxl
+[    10.848] (EE) Failed to load module "qxl" (module does not exist, 0)</screen>
+    </listitem>
+    <listitem>
+    <para>Extrait du journal d'initialisation du serveur graphique sur la
+    distribution testing <citetitle>Jessie</citetitle>.</para>
+
+<screen><prompt>#</prompt> grep -i qxl /var/log/Xorg.0.log
+[    13.206] (==) Matched qxl as autoconfigured driver 0
+[    13.206] (II) LoadModule: "qxl"
+[    13.230] (II) Loading /usr/lib/xorg/modules/drivers/qxl_drv.so
+[    13.240] (II) Module qxl: vendor="X.Org Foundation"
+[    13.252] (II) qxl: Driver for QXL virtual graphics: QXL 1
+[    13.302] (II) qxl(0): Creating default Display subsection in Screen section
+[    13.302] (==) qxl(0): Depth 24, (--) framebuffer bpp 32
+[    13.302] (==) qxl(0): RGB weight 888
+[    13.302] (==) qxl(0): Default visual is TrueColor
+[    13.302] (==) qxl(0): Using gamma correction (1.0, 1.0, 1.0)
+[    13.302] (II) qxl(0): Offscreen Surfaces: Enabled
+[    13.302] (II) qxl(0): Image Cache: Enabled
+[    13.302] (II) qxl(0): Fallback Cache: Enabled
+[    13.303] (II) qxl(0): framebuffer at 0x7f1d30471000 (16384 KB)
+[    13.303] (II) qxl(0): command ram at 0x7f1d31471000 (32760 KB)
+[    13.303] (II) qxl(0): vram at 0x7f1d2c471000 (65536 KB)
+[    13.303] (II) qxl(0): rom at 0x7f1d3852a000
+[    13.303] (II) qxl(0): Device version 0.0
+[    13.303] (II) qxl(0): Compression level 0, log level 0
+[    13.303] (II) qxl(0): 12286 io pages at 0x7f1d30471000
+[    13.303] (II) qxl(0): RAM header offset: 0x3ffe000
+[    13.303] (II) qxl(0): Correct RAM signature 41525851
+[    13.303] (II) qxl(0): 49144 KB of video RAM
+[    13.303] (II) qxl(0): 1024 surfaces</screen>
+    </listitem>
+  </itemizedlist>
+
+    <para>Copie d'écran de l'interface graphique sur une instance de machine
+    virtuelle Debian/testing.</para>
+
+<mediaobject xml:id='vm.optimisation.xorg.screenshot0'>
+  <imageobject role='html'>
+    <imagedata fileref="images/debian-qxl.png" format="PNG" width='640px' scalefit='1' />
+  </imageobject>
+  <imageobject role='fo'>
+    <imagedata fileref="images/debian-qxl.png" format="PNG" width='12cm' scalefit='1' />
+  </imageobject>
+  <textobject>
+    <phrase>Pilote Graphique QXL</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook"
+    xlink:href="http://www.intedoc.net/guides/vm/images/debian-qxl.png">Pilote
+    graphique QXL - copie d'écran</link></para>
+  </caption>
+</mediaobject>
+
+  <bridgehead xml:id='vm.optimisation.ext4' renderas='sect2'>Système de fichiers ext4</bridgehead>
+
+    <para>Il est possible d'optimiser les accès au système de fichiers
+    <citetitle>ext4</citetitle> sur un système virtualisé. Dans la mesure où
+    l'on n'accède pas à un véritable dispositif de stockage, certaines options
+    de montage peuvent être modifiées. Voici un extrait de fichier
+    <filename>/etc/fstab</filename> qui donne la liste des options de montage
+    de la racine du système de fichiers.</para>
+
+<screen><prompt>etu@vm0:~$</prompt> grep ext4 /etc/fstab
+/dev/mapper/vm0-root <emphasis>/  ext4   relatime,data=writeback,commit=6000,barrier=0,errors=remount-ro</emphasis> 0 1</screen>
+
+    <variablelist>
+      <varlistentry>
+      <term><option>relatime</option></term>
+      <listitem>
+      <para>Cette option assure le maintien des méta-données du système de
+      fichiers relatives aux accès. L'enregistrement <option>atime</option>
+      d'un fichier est écrit seulement si le le fichier a été modifié depuis la
+      dernière mise à jour de cet enregistrement (<option>mtime</option>) ou si
+      aucun accès au fichier n'a eu lieu pendant un certain temps.</para>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
+      <term><option>data=writeback</option></term>
+      <listitem>
+      <para>Le séquencement des données n'est pas préservé. Les données peuvent
+      être écrites dans le système de fichiers principal après que les
+      méta-données aient été enregistrées dans le journal.</para>
+
+      <para>Pour activer cette option pour un système de fichiers particulier,
+      la syntaxe est :</para>
+
+<screen><prompt>#</prompt> tune2fs -o journal_data_writeback /dev/mapper/vm0-root 
+tune2fs 1.42.9 (4-Feb-2014)
+
+<prompt>#</prompt> tune2fs -l /dev/mapper/vm0-root | grep '^Default mount options:'
+Default mount options:    <emphasis>journal_data_writeback</emphasis></screen>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
+      <term><option>commit=6000</option></term>
+      <listitem>
+      <para>Cette option contrôle de la synchronisation des méta-données du
+      système de fichiers toutes les 6000 secondes.</para>
+      </listitem>
+      </varlistentry>
+
+      <varlistentry>
+      <term><option>barrier=0</option></term>
+      <listitem>
+      <para>Cette option contrôle l'ordonnancement dans le cache du système de
+      fichiers. Sur une machine virtuelle, il n'est pas nécessaire d'exercer un
+      contrôle à ce niveau.</para> 
+      </listitem>
+      </varlistentry>
+    </variablelist>
+
+  <bridgehead xml:id='vm.optimisation.ssh' renderas='sect2'>Accès SSH</bridgehead>
+
+    <para>Pour administrer des systèmes à distance, le protocole
+    <acronym>SSH</acronym> est le mode de connexion universel. Dans le contexte
+    particulier de l'administration des instances de systèmes virtuels, une
+    même image système avec une même clé d'hôte <acronym>RSA</acronym> est
+    dupliquée autant de fois que nécessaire. On se trouve rapidement confronté
+    aux traditionnels messages d'alerte sur l'usurpation de cette clé d'hôte
+    lorsque l'on accès aux instances virtuelles depuis le système hôte.</para>
+
+    <para>On peut configurer le client <acronym>SSH</acronym> du système hôte
+    de façon à ne pas vérifier «l'identité», c'est à dire la clé d'hôte
+    <acronym>RSA</acronym>, des instances de systèmes virtualisées. La
+    documentation complète sur la configuration du client
+    <acronym>SSH</acronym> est fournie dans les pages de manuels :
+    <userinput><prompt>$</prompt> man ssh_config</userinput>.</para>
+
+    <para>Voici un extrait de fichier <filename>~/.ssh/config</filename> qui
+    désactive les contrôles pour tous les hôtes dont les adresses
+    <acronym>IP</acronym> correspondent au masque <systemitem
+    class='ipaddress'>192.0.2.*</systemitem>.</para>
+
+<screen>Host 192.0.2.*
+  CheckHostIP no
+  StrictHostKeyChecking no
+  UserKnownHostsFile=/dev/null</screen>
+</sect1>
+
+<sect1 xml:id="vm.storage">
+  <title>Extension de la capacité de stockage avec LVM</title>
+
+  <para>L'énorme avantage de l'utilisation du gestionnaire de volume logique
+  (<wordasword>Logical Volume Manager</wordasword> ou  <acronym>LVM</acronym>)
+  avec les images disques de machine virtuelle, c'est que l'on peut manipuler
+  la capacité de stockage après installation.</para>
+
+  <para>Du point de vue pédagogique, c'est aussi l'occasion de se familiariser
+  avec les fonctionnalités offertes par les outils <acronym>LVM</acronym>. Ces
+  outils sont devenus indispensables dans la gestion de la capacité de
+  stockage.</para>
+
+  <para>Voici un exemple d'extension de la capacité de stockage d'une image de
+  machine virtuelle.</para>
+
+  <bridgehead xml:id='vm.storage.extension' renderas='sect2'>Extension du
+  fichier image</bridgehead>
+
+  <para>On commence par identifier les caractéristiques du fichier image vu du
+  système hôte. Le fichier au format <option>raw</option> est un
+  <wordasword>sparse file</wordasword>. Si on a réservé un volume total, seule
+  l'occupation effective est prise en compte pour le calcul de l'occupation disque.</para>
+
+  <para>La commande <command>ls</command> fait apparaître l'occupation
+  effective ainsi que l'espace total réservé lors de la création du fichier
+  image.</para>
+
+<screen><prompt>$</prompt> ls -gGh
+total <emphasis>3,4G</emphasis>
+-rw-r--r-- 1 <emphasis>32G</emphasis> janv. 13 18:58 vm0-debian-testing-amd64-base.raw</screen>
+
+  <para>Une fois l'instance de système virtuel lancée, on obtient l'occupation
+  disque suivante.</para>
+
+<screen><prompt>etu@vm0:~$</prompt> df -h
+Sys. de fichiers     Taille Utilisé Dispo Uti% Monté sur
+<emphasis>/dev/mapper/vm0-root    30G    937M   28G   4% /</emphasis>
+udev                    10M       0   10M   0% /dev
+tmpfs                  202M    204K  201M   1% /run
+tmpfs                  5,0M       0  5,0M   0% /run/lock
+tmpfs                  403M       0  403M   0% /run/shm
+/dev/vda1              228M     23M  190M  11% /boot</screen>
+
+  <para>Toujours à partir de la même instance la table des partitions est la
+  suivante.</para>
+
+<screen><prompt>#</prompt> parted /dev/vda print
+Model: Virtio Block Device (virtblk)
+<emphasis>Disk /dev/vda: 34,4GB</emphasis>
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
+
+Number  Start   End     Size    Type      File system  Flags
+ 1      1049kB  256MB   255MB   primary   ext2         boot
+ 2      257MB   34,4GB  34,1GB  extended
+ 5      257MB   34,4GB  34,1GB  logical                lvm</screen>
+
+  <para>L'opération d'extension, s'effectue directement sur le fichier image au
+  format «brut» non compressé <option>raw</option>.</para>
+
+<screen><prompt>$</prompt> qemu-img resize vm0-debian-testing-amd64-base.raw +20G
+Image resized.</screen>
+
+  <bridgehead xml:id='vm.storage.lvm' renderas='sect2'>Extension de l'espace de
+  stockage du système virtuel</bridgehead>
+
+  <para>En utilisant l'image système étendue générée ci-avant, on fait
+  apparaître l'espace disponible en affichant l'état des partitions.</para>
+
+<screen><prompt>#</prompt> parted /dev/vda print
+Model: Virtio Block Device (virtblk)
+<emphasis>Disk /dev/vda: 55,8GB</emphasis>
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
+
+Number  Start   End     Size    Type      File system  Flags
+ 1      1049kB  256MB   255MB   primary   ext2         boot
+ 2      257MB   34,4GB  34,1GB  extended
+ 5      257MB   34,4GB  34,1GB  logical                lvm</screen>
+
+  <para>On remarque que l'espace total a bien été augmenté et qu'aucune
+  partition n'est disponible. Il faut donc créer une nouvelle partition
+  correspondant à l'espace libre.</para>
+
+<screen><prompt>#</prompt> <emphasis>parted /dev/vda unit % print free</emphasis>
+Model: Virtio Block Device (virtblk)
+Disk /dev/vda: 100%
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
+
+Number  Start  End    Size   Type      File system  Flags
+        0,00%  0,00%  0,00%            Free Space
+ 1      0,00%  0,46%  0,46%  primary   ext2         boot
+        0,46%  0,46%  0,00%            Free Space
+ 2      0,46%  61,5%  61,1%  extended
+ 5      0,46%  61,5%  61,1%  logical                lvm
+<emphasis>        61,5%  100%   38,5%            Free Space</emphasis>
+
+<prompt>#</prompt> <emphasis>parted /dev/vda mkpart primary 62% 100%</emphasis>
+Information: You may need to update /etc/fstab.
+
+<prompt>#</prompt> <emphasis>parted /dev/vda set 3 lvm on</emphasis>
+
+<prompt>#</prompt> parted /dev/vda print
+Model: Virtio Block Device (virtblk)
+Disk /dev/vda: 55,8GB
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
+
+Number  Start   End     Size    Type      File system  Flags
+ 1      1049kB  256MB   255MB   primary   ext2         boot
+ 2      257MB   34,4GB  34,1GB  extended
+ 5      257MB   34,4GB  34,1GB  logical                lvm
+<emphasis> 3      34,4GB  55,8GB  21,5GB  primary                lvm</emphasis></screen>
+
+  <para>C'est la nouvelle partition <systemitem>/dev/vda3</systemitem> que nous
+  utilisons pour créer un nouveau volume physique <acronym>LVM</acronym>. On
+  visualise ensuite les propriétés des deux volumes physiques du système
+  virtuel.</para>
+
+<screen><prompt>#</prompt> <emphasis>pvcreate /dev/vda3</emphasis>
+  Physical volume "/dev/vda3" successfully created
+
+<prompt>#</prompt> <emphasis>pvdisplay</emphasis>
+  --- Physical volume ---
+  PV Name               /dev/vda5
+  VG Name               vm0
+  PV Size               31,76 GiB / not usable 2,00 MiB
+  Allocatable           yes (but full)
+  PE Size               4,00 MiB
+  Total PE              8130
+  Free PE               0
+  Allocated PE          8130
+  PV UUID               CpaZ5D-vbVS-32w3-QLnk-GVAd-06pB-y2Iw8Y
+
+<emphasis>  "/dev/vda3" is a new physical volume of "20,00 GiB"</emphasis>
+  --- NEW Physical volume ---
+  PV Name               /dev/vda3
+  VG Name
+  PV Size               20,00 GiB
+  Allocatable           NO
+  PE Size               0
+  Total PE              0
+  Free PE               0
+  Allocated PE          0
+  PV UUID               jZJ5xq-bZlt-m0ZL-RkUG-Phe2-bbDY-r6cAPI</screen>
+
+  <para>On remarque les différences entre les deux volumes physiques
+  <acronym>LVM</acronym>. Le volume physique <systemitem>/dev/vda3</systemitem>
+  n'est associé à aucun groupe de volumes et ne dispose pas d'une taille de
+  bloc ou <wordasword>Physical Extent</wordasword> (<acronym>PE</acronym>)
+  définie. L'étape suivante consiste à étendre le groupe de volumes logiques
+  avec le nouveau volume physique disponible ; c'est le rôle de la commande
+  <command>vgextend</command>. On visualise ensuite le résultat sur les
+  propriétés du nouveau volume physique.</para>
+
+<screen><prompt>#</prompt> vgextend vm0 /dev/vda3
+  Volume group "vm0" successfully extended
+
+<prompt>#</prompt> pvdisplay /dev/vda3
+  --- Physical volume ---
+  PV Name               /dev/vda3
+  VG Name               vm0
+  PV Size               20,00 GiB / not usable 0
+  Allocatable           yes
+  PE Size               4,00 MiB
+  Total PE              5120
+  Free PE               5120
+  Allocated PE          0
+  PV UUID               jZJ5xq-bZlt-m0ZL-RkUG-Phe2-bbDY-r6cAPI</screen>
+
+  <para>Pour achever l'opération, on affecte l'espace offert par le nouveau
+  volume physique à un volume logique du système. Dans l'exemple ci-dessous, on
+  se propose de déplacer le contenu de l'arborescence <filename
+  class='directory'>/var</filename> dans le nouveau volume logique.</para>
+
+<screen><prompt>#</prompt> <emphasis>lvcreate --name var vm0 /dev/vda3 -l 100%FREE</emphasis>
+  Logical volume "var" created
+
+<prompt>#</prompt> <emphasis>lvdisplay /dev/vm0/var</emphasis>
+  --- Logical volume ---
+  LV Path                /dev/vm0/var
+  LV Name                var
+  VG Name                vm0
+  LV UUID                mQTwlc-4zNt-0V7P-SfWM-qh3G-Zulh-y4zYN4
+  LV Write Access        read/write
+  LV Creation host, time vm0, 2014-01-15 00:20:40 +0100
+  LV Status              available
+  # open                 0
+  LV Size                20,00 GiB
+  Current LE             5120
+  Segments               1
+  Allocation             inherit
+  Read ahead sectors     auto
+  - currently set to     256
+  Block device           253:2</screen>
+
+  <para>Une fois le nouveau volume logique prêt à l'emploi, on passe aux
+  manipulations sur le système de fichiers avec le formatage, la
+  synchronisation de l'arborescence et la définition du point de
+  montage.</para>
+
+<screen><prompt>#</prompt> <emphasis>mkfs.ext4 /dev/mapper/vm0-var</emphasis>
+mke2fs 1.42.9 (28-Dec-2013)
+Étiquette de système de fichiers=
+Type de système d'exploitation : Linux
+Taille de bloc=4096 (log=2)
+Taille de fragment=4096 (log=2)
+« Stride » = 0 blocs, « Stripe width » = 0 blocs
+1310720 i-noeuds, 5242880 blocs
+262144 blocs (5.00%) réservés pour le super utilisateur
+Premier bloc de données=0
+Nombre maximum de blocs du système de fichiers=4294967296
+160 groupes de blocs
+32768 blocs par groupe, 32768 fragments par groupe
+8192 i-noeuds par groupe
+Superblocs de secours stockés sur les blocs :
+        32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208,
+        4096000
+
+Allocation des tables de groupe : complété
+Écriture des tables d'i-noeuds : complété
+Création du journal (32768 blocs) : complété
+Écriture des superblocs et de l'information de comptabilité du système de
+fichiers : complété
+
+<prompt>#</prompt> <emphasis>mount /dev/mapper/vm0-var /mnt</emphasis>
+
+<prompt>#</prompt> <emphasis>rsync -ah --numeric-ids /var/ /mnt/</emphasis>
+
+<prompt>#</prompt> <emphasis>umount /mnt</emphasis></screen>
+
+  <para>Enfin, on créé l'entrée pour le nouveau point de montage dans le
+  fichier <filename>/etc/fstab</filename>.</para>
+
+<screen><prompt>#</prompt> grep var /etc/fstab
+/dev/mapper/vm0-var /var        ext4    noatime,commit=600,defaults        0       2</screen>
+
+  <para>En conclusion, on visualise l'espace occupé et disponible sur
+  l'ensemble des volumes logiques du système virtuel après redémarrage.</para>
+
+<screen><prompt>#</prompt> df -h
+Sys. de fichiers     Taille Utilisé Dispo Uti% Monté sur
+/dev/mapper/vm0-root    30G    742M   28G   3% /
+udev                    10M       0   10M   0% /dev
+tmpfs                  202M    212K  201M   1% /run
+tmpfs                  5,0M       0  5,0M   0% /run/lock
+tmpfs                  403M       0  403M   0% /run/shm
+/dev/vda1              228M     23M  190M  11% /boot
+/dev/mapper/vm0-var     20G    242M   19G   2% /var</screen>
+
+  <para>Bien sûr, les manipulations réalisées dans cette section ne sont
+  que des exemples. Il est possible de faire beaucoup d'autres manipulations
+  avec le gestionnaire de volume logique <acronym>LVM</acronym>. L'extension de
+  capacité n'est qu'une facette des fonctionnalités offertes.</para>
+</sect1>
+
+<sect1 xml:id="vm.user-network">
+  <title>Communications réseau en mode utilisateur</title>
+
+  <para>Le mode utilisateur correspond à l'utilisation d'une pile de protocoles
+  dans l'espace mémoire utilisateur. L'avantage de cette solution, c'est que la
+  configuration intégrée ne nécessite aucun paramétrage réseau sur le système
+  virtualisé dès lors que l'on opte pour l'autoconfiguration IPv6 ou pour le
+  service <acronym>DHCP</acronym> avec IPv4 lors de l'installation.
+  L'inconvénient, c'est qu'aucune communication réseau vers la machine
+  virtuelle n'est possible. Il est cependant possible d'accéder à la «console»
+  d'une machine virtuelle en mode utilisateur depuis le système hôte à l'aide
+  d'une interface réseau factice qui utilise l'option
+  <option>hostfwd</option>.</para>
+
+  <para>La documentation officielle se trouve à la page
+  &url.qemu.doc.net.user-mode;</para>
+
+  <para>Selon les termes de cette documentation, la machine virtuelle se
+  comporte comme un hôte réseau situé derrière un pare-feu qui bloque les
+  connexions entrantes. La topologie de la connexion et des services se
+  présente sous la forme suivante :</para>
+
+<screen>QEMU VLAN      &lt;------>  Firewall/DHCP server &lt;-----> Internet
+                           |          (10.0.2.2)
+                           |
+                           ---->  DNS server (10.0.2.3)
+                           |
+                           ---->  SMB server (10.0.2.4)
+</screen>
+
+  <para>Ce mode de fonctionnement intégré à la solution de virtualisation
+  reproduit les services traditionnellement offerts par un routeur domestique
+  <acronym>ADSL</acronym> : traduction d'adresses IP
+  (<acronym>NAT</acronym>), configuration réseau cliente dynamique
+  (<acronym>DHCP</acronym>) et résolution des noms de domaines
+  (<acronym>DNS</acronym>).</para>
+
+  <para>Le serveur virtuel attribue dynamiquement les adresses IP à partir de
+  <systemitem class='ipaddress'>10.0.2.15</systemitem> aux interfaces réseau de
+  la machine virtuelle.</para>
+
+  <bridgehead xml:id='vm.network.user.example' renderas='sect2'>Exemple
+  d'utilisation des communications réseau en mode utilisateur</bridgehead>
+
+  <para>On lance l'instance de machine virtuelle à l'aide du script
+  <command>standalone-startup.sh</command> donné en annexe <xref
+  linkend='vm.appendix-user-network'/>.</para>
+
+<screen><prompt>:~/vm$</prompt>./scripts/standalone-startup.sh vm0-debian-stable-amd64-base.raw 512 10
+
+~> Machine virtuelle : vm0-debian-stable-amd64-base.raw
+~> Port SPICE        : 5910
+~> Mémoire RAM       : 512
+~> Adresse MAC       : ba:ad:ca:fe:00:0a</screen>
+
+	<para>Les options réseau intéressantes de ce script sont les
+		suivantes.</para>
+
+<screen>-device virtio-net,netdev=net0,mac="$macaddress" \
+-netdev user<co xml:id='vm.network.user.example.user'/>,id=net0,hostfwd=tcp::$((5900 + $tapnum))-:22  <co xml:id='vm.network.user.example.ssh'/></screen>
+
+  <calloutlist>
+    <callout arearefs='vm.network.user.example.user'>
+    <para>Le paramètre <option>user</option> applique la configuration réseau
+    intégrée à l'interface nommée <option>net0</option>.</para>
+    </callout>
+    <callout arearefs='vm.network.user.example.ssh'>
+    <para>L'option <option>hostfwd</option> assure la redirection des connexions
+    <acronym>TCP</acronym> vers le port 22 (<acronym>SSH</acronym>) de la
+    machine virtuelle. Le calcul du numéro de port se fait en additionnant 2000
+    avec le numéro de port <link
+    linkend='vm.instance.spice'><citetitle>SPICE</citetitle></link> donné lors
+    du lancement du script.</para>
+    </callout>
+  </calloutlist>
+
+  <para>Une fois l'instance de système virtuel lancé, on ouvre une connexion
+  <acronym>SSH</acronym> depuis le système hôte en utilisant le port 2010 si on
+  a indiqué 10 lors de l'appel du script.</para>
+
+<screen><prompt>$</prompt> ssh -p 2010 etu@localhost
+etu@localhost's password:
+Linux vm0 3.2.0-4-amd64 #1 SMP Debian 3.2.51-1 x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+No mail.
+Last login: Sat Jan  4 16:28:59 2014 from 10.0.2.2
+etu@vm0:~$ w
+ 18:44:18 up  2:13,  1 user,  load average: 0,00, 0,01, 0,05
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+etu      pts/0    <emphasis>10.0.2.2</emphasis>         18:43    2.00s  0.08s  0.00s w</screen>
+
+  <para>Du point de vue configuration réseau, l'interface Ethernet de la
+  machine virtuelle a été configurée via le service <acronym>DHCP</acronym>
+  intégré à l'émulateur. La configuration réseau obtenue est la
+  suivante.</para>
+
+<screen><prompt>etu@vm0:~$</prompt> ip addr ls
+1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether ba:ad:00:ca:fe:01 brd ff:ff:ff:ff:ff:ff
+    <emphasis>inet 10.0.2.15/24 brd 10.0.2.255 scope global eth0</emphasis>
+    inet6 fe80::b8ad:ff:feca:fe01/64 scope link
+       valid_lft forever preferred_lft forever
+
+<prompt>etu@vm0:~$</prompt> ip route ls
+default via <emphasis>10.0.2.2</emphasis> dev eth0
+10.0.2.0/24 dev eth0  proto kernel  scope link  src 10.0.2.15</screen>
+
+  <para>Les informations relevées dans les copies d'écran ci-dessus montrent
+  que ce sont les fonctions intégrées de l'émulateur qui ont servi à la
+  configuration de l'interface réseau Ethernet de l'hôte virtuel.</para>
+</sect1>
+
+<sect1 xml:id='vm.network.tun-tap'>
+  <title>Fonction TUN/TAP du noyau Linux</title>
+
+  <para>La solution retenue pour les communications réseau entre système hôte
+  et machine virtuelle utilise la fonction TUN/TAP du noyau Linux. Cette
+  solution est utilisée dans toutes les sections suivantes de ce
+  document.</para>
+
+  <para>Indépendamment du contexte de la virtualisation,
+  <systemitem>TUN/TAP</systemitem> est une fonction de réception et de
+  transmission de paquets entre le noyau et les programmes de l'espace
+  utilisateur. Cette fonction peut être vue comme une simple interface point à
+  point ou Ethernet qui, au lieu de recevoir les paquets d'un média physique,
+  les reçoit du programme de l'espace utilisateur. De même, cette interface au
+  lieu d'envoyer les paquets vers un média physique, les transmet au programme
+  de l'espace utilisateur.</para>
+
+  <para>Dans le contexte de ce document, le programme de l'espace mémoire
+  utilisateur est l'instance virtuelle de système d'exploitation. L'interface
+  réseau <systemitem>TUN/TAP</systemitem> devient un canal de communication
+  réseau entre le système hôte et un système virtualisé. Par analogie, on peut
+  assimiler ce canal de communication à un cordon de brassage qui relie le
+  système de commutation de circuit fourni par le système hôte à l'interface
+  Ethernet du système virtualisé.</para>
+
+  <para>La création d'une interface <acronym>TAP</acronym> doit se faire par
+  l'intermédiaire d'un programme de l'espace utilisateur. En fonction des
+  usages, plusieurs outils différents permettent de manipuler ces interfaces.
+  On peut citer <application>tunctl</application> qui fait partie du paquet
+  <package>uml-utilities</package>. L'acronyme <acronym>UML</acronym>
+  correspond à <wordasword>User Mode Linux</wordasword> une solution qui permet
+  «d'imbriquer» l'exécution de plusieurs systèmes Linux. On peut aussi citer
+  <application>openvpn</application> qui appartient au paquet éponyme. Il
+  s'agit là de manipuler le tunnel correspondant au réseau virtuel.</para>
+
+  <para>Cette section se décompose en deux parties consacrées à la mise en
+  œuvre d'une interface <acronym>TAP</acronym>. La première propose une
+  configuration d'interface à partir de la session utilisateur alors que la
+  deuxième propose une configuration permanente au niveau système sur la
+  distribution Debian GNU/Linux.</para>
+
+  <bridgehead xml:id='vm.network.tun-tap.manual' renderas='sect2'>Configuration
+  manuelle d'une interface TAP</bridgehead>
+
+  <para>Aujourd'hui, la commande <command>ip</command> du paquet
+  <package>iproute2</package> est devenue le «couteau suisse» des
+  manipulations réseau. C'est elle que l'on utilise le plus souvent.</para>
+
+  <para>La création d'une interface utilise la syntaxe suivante :</para>
+
+<screen><prompt>$</prompt> sudo<co xml:id='vm.network.tap.sudo'/> <emphasis>ip tuntap add mode tap dev tap1 group kvm multi_queue</emphasis><co xml:id='vm.network.tap.kvm'/>
+
+<prompt>$</prompt> <emphasis>ip addr ls tap1</emphasis>
+14: tap1: &lt;BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
+    link/ether f6:98:ad:8f:8e:c1 brd ff:ff:ff:ff:ff:ff
+
+<prompt>$</prompt> sudo <emphasis>ip link set dev tap1 up</emphasis><co xml:id='vm.network.tap.up'/>
+
+<prompt>$</prompt> ip addr ls tap1
+14: tap1: &lt;NO-CARRIER,BROADCAST,MULTICAST,<emphasis>UP</emphasis>> mtu 1500 qdisc mq state DOWN group default qlen 1000
+link/ether f6:98:ad:8f:8e:c1 brd ff:ff:ff:ff:ff:ff</screen>
+
+<calloutlist>
+	<callout arearefs='vm.network.tap.sudo'>
+	<para>L'utilisation de <command>sudo</command> suppose que les droits aient
+		été délégués au préalable. Soit l'utilisateur a été intégré au groupe
+		système <systemitem>sudo</systemitem>, soit il dispose d'une délégation
+		plus précise relative aux outils réseau. À titre d'exemple, le fichier
+		<filename>/etc/sudoers</filename> peut contenir une ligne du type
+		suivant qui autorise tous les membres du groupe
+		<systemitem>kvm</systemitem> à utiliser trois commandes utiles :</para>
+
+<screen>%kvm ALL=(ALL) NOPASSWD: /usr/bin/ovs-vsctl, /sbin/ip, /usr/sbin/iotop</screen>
+	</callout>
+
+	<callout arearefs='vm.network.tap.kvm'>
+	<para>L'attribution de l'interface <acronym>tap1</acronym> au groupe
+		système <systemitem>kvm</systemitem> est importante. En effet, c'est
+		l'appartenance à ce groupe qui donne accès aux ressources liées à la
+		virtualisation. Dans l'exemple, l'interface créée pourra être utilisée
+		lors de l'initialisation du processus utilisateur correspondant au
+		système virtuel.</para>
+
+	<para>L'option <option>multi_queue</option> autorise l'utilisation de
+		plusieurs descripteurs de fichiers pour une même interface. Il est
+		ainsi possible de paralléliser l'émission ou la réception de
+		paquets.</para>
+    </callout>
+
+	<callout arearefs='vm.network.tap.up'>
+	<para>Pour être utilisable, l'interface <acronym>tap1</acronym> doit être
+		activée. Pour reprendre l'analogie entre canal de communication mémoire
+		et cordon de brassage, on peut considérer que la prise réseau dispose
+		d'un «interrupteur». La commande d'ouverture de cet interrupteur est
+		symétrique à celle présentée dans la copie d'écran ci-dessus :
+		<userinput><prompt>$</prompt> sudo ip link set dev tap1
+		down</userinput>.</para>
+	</callout>
+</calloutlist>
+
+<bridgehead xml:id='vm.network.tun-tap.system' renderas='sect2'>Configuration
+	système d'une interface TAP</bridgehead>
+
+	<para>Pour généraliser l'utilisation d'une interface
+		<systemitem>TAP</systemitem>, il est possible de la paramétrer
+		directement au niveau système dans le fichier de configuration des
+		interfaces réseau. Voici un extrait de fichier
+		<filename>/etc/network/interfaces</filename>.</para>
+
+<screen>auto tap1
+iface tap1 inet manual
+        up ip tuntap add mode tap dev $IFACE group kvm multi_queue
+        up ip link set dev $IFACE up
+        down ip link set dev $IFACE down
+        down ip tuntap del mode tap dev $IFACE</screen>
+
+	<para>À partir de cet exemple, il est possible de créer autant de «cordons
+		de brassage» que nécessaire sur le système hôte.</para>
+
+	<para>Pour conclure cette section, on dispose maintenant d'interfaces qui
+		sont utilisées dans la suite du document pour connecter les instances
+		de systèmes virtuels aux ports du commutateur réseau du système
+		hôte.</para>
+</sect1>
+
+<sect1 xml:id='vm.ovs-network'>
+  <title>Communications réseau avec un commutateur virtuel</title>
+
+  <para>Sur les systèmes GNU/Linux, il existe une grande variété de solutions
+  d'interconnexion réseau entre système hôte et systèmes virtuels. Il se trouve
+  justement que l'interconnexion réseau est la préoccupation principale du site
+  &url.inetdoc;. Il est donc essentiel de choisir les outils qui offrent le
+  maximum de fonctionnalités. Le commutateur virtuel occupe une place
+  essentielle dans une solution de virtualisation moderne.</para>
+
+  <para>Cette section présente la configuration du commutateur virtuel
+  &url.ovs;. Ce commutateur comprend une partie noyau ainsi que des processus
+  dans l'espace utilisateur. La partie noyau exploite la partie
+  <emphasis>commutation de circuit</emphasis> de celui-ci. Dans le jargon,
+  cette partie est connue sous le nom de &url.fib; ou encore
+  <wordasword>Forwarding Information Base</wordasword>
+  (<acronym>FIB</acronym>). Côté espace utilisateur, on trouve les outils de
+  configuration tels que <command>ovs-vsctl</command> et plusieurs démons de
+  gestion des ports et des <acronym>VLANs</acronym>. Il faut ajouter que cet
+  outil exploite les fonctions de routage (<emphasis>commutation de
+  paquets</emphasis>) déjà présentes dans le noyau Linux.</para>
+
+<mediaobject xml:id='vm.ovs-network-vm'>
+  <imageobject role='fo'>
+    <imagedata fileref="images/ovs-vm.png" format="PNG" width='12cm' scalefit='1'/>
+  </imageobject>
+  <imageobject role='html'>
+    <imagedata fileref="images/ovs-vm.png" format="PNG" width='480px' scalefit='1'/>
+  </imageobject>
+  <textobject>
+    <phrase>Système hôte &amp; commutation virtuelle</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook"
+    xlink:href="https://www.inetdoc.net/guides/vm/images/ovs-vm.png">Système
+    hôte &amp; commutation virtuelle - vue complète</link></para>
+  </caption>
+</mediaobject>
+
+  <para>&url.ovs; est une pièce maîtresse des architectures d'interconnexion de
+  systèmes virtualisés. Il est présent dans la plupart des solutions intégrées
+  de la famille du &url.sdn;. L'intégration sort du champ couvert par ce guide.
+  On se contente ici de présenter le fonctionnement du commutateur virtuel à
+  l'échelle unitaire. La topologie minimaliste présentée dans la suite
+  correspond à la vue ci-dessous.</para>
+
+<mediaobject xml:id='vm.ovs-network-min'>
+  <imageobject role='fo'>
+    <imagedata fileref="images/ovs-min.png" format="PNG" width='12cm' scalefit='1'/>
+  </imageobject>
+  <imageobject role='html'>
+    <imagedata fileref="images/ovs-min.png" format="PNG" width='480px' scalefit='1'/>
+  </imageobject>
+  <textobject>
+    <phrase>Topologie minimum</phrase>
+  </textobject>
+  <caption>
+    <para><link xmlns="http://docbook.org/ns/docbook"
+    xlink:href="https://www.inetdoc.net/guides/vm/images/ovs-min.png">Topologie
+    minimum - vue complète</link></para>
+  </caption>
+</mediaobject>
+
+  <table frame='all' pgwide='1'>
+    <title>Plan d'adressage de la topologie étudiée</title>
+    <tgroup cols='4' align='left' colsep='1' rowsep='1'>
+    <thead>
+      <row>
+      <entry>Système</entry>
+      <entry>Interface</entry>
+      <entry>Adresse IPv4</entry>
+      <entry>Rôle</entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+      <entry>Machine virtuelle</entry>
+      <entry>eth0</entry>
+      <entry><systemitem class='ipaddress'>203.0.113.130/26</systemitem></entry>
+      <entry>Interface réseau de la machine virtuelle</entry>
+      </row>
+      <row>
+      <entry>Système hôte</entry>
+      <entry>sw0-vlan2</entry>
+      <entry><systemitem class='ipaddress'>203.0.113.129/26</systemitem></entry>
+      <entry>Passerelle par défaut de la machine virtuelle</entry>
+      </row>
+      <row>
+      <entry>Système hôte</entry>
+      <entry>eth0</entry>
+      <entry><systemitem class='ipaddress'>203.0.113.2/26</systemitem></entry>
+      <entry>Interface réseau du système hôte</entry>
+      </row>
+      <row>
+      <entry>Routeur</entry>
+      <entry>indéfinie</entry>
+      <entry><systemitem class='ipaddress'>203.0.113.1/26</systemitem></entry>
+      <entry>Passerelle par défaut du système hôte</entry>
+      </row>
+    </tbody>
+    </tgroup>
+  </table>
+
+  <bridgehead xml:id='vm.ovs-network.install' renderas='sect2'>Installation du
+  commutateur</bridgehead>
+
+  <para>L'installation du paquet <package>openvswitch-switch</package>
+  comprend la configuration système des outils et des démons de gestion de la
+  configuration du commutateur. Voici quelques éléments relevés après
+  l'installation du paquet.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Paquets installés</para>
+
+<screen><prompt>$</prompt> aptitude search ~iopenvswitch
+i A openvswitch-common      - Open vSwitch common components
+i   openvswitch-switch      - Open vSwitch switch implementations</screen>
+    </listitem>
+    <listitem>
+    <para>Partie noyau</para>
+
+<screen><prompt>$</prompt> lsmod | grep openvswitch
+openvswitch            63837  0
+vxlan                  30915  1 openvswitch
+gre                    12957  1 openvswitch
+libcrc32c              12426  1 openvswitch</screen>
+    </listitem>
+    <listitem>
+    <para>Démons de l'espace utilisateur</para>
+
+<screen><prompt>$</prompt> pstree
+init─┬─acpid
+     ├─atd
+     ├─cron
+     ├─dbus-daemon
+     ├─exim4
+     ├─6*[getty]
+     <emphasis>├─ovs-vswitchd───ovs-vswitchd───ovs-vswitchd</emphasis>
+     <emphasis>├─ovsdb-server───ovsdb-server</emphasis>
+     ├─rsyslogd───3*[{rsyslogd}]
+     └─udevd</screen>
+    </listitem>
+    <listitem>
+    <para>État de la configuration</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl show
+cd95ab0d-643d-4a23-bae3-2e6c900a367f
+    ovs_version: "1.9.3"</screen>
+    </listitem>
+  </itemizedlist>
+
+  <bridgehead xml:id='vm.ovs-network.config' renderas='sect2'>Configuration du
+  commutateur</bridgehead>
+
+  <para>Pour configurer l'interconnexion présentée <link
+  linkend='vm.ovs-network-min'>en début de section</link>, on doit passer par
+  les étapes suivantes.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Création du commutateur <systemitem>sw0</systemitem></para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-br sw0</screen>
+    </listitem>
+    <listitem>
+    <para>Création de l'interface réseau pour le <acronym>VLAN</acronym> numéro
+    <option>2</option></para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-port sw0 sw0-vlan2 tag=2 -- set Interface sw0-vlan2 type=internal</screen>
+    </listitem>
+    <listitem>
+    <para>Création du «cordon de brassage» <option>tap2</option></para>
+
+<screen><prompt>$</prompt> sudo ip tuntap add mode tap dev tap2 group kvm</screen>
+    </listitem>
+    <listitem>
+    <para>Raccordement du «cordon de brassage» <option>tap2</option> au
+    commutateur et affectation du port correspondant au <acronym>VLAN</acronym>
+    numéro <option>2</option></para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl add-port sw0 tap2 tag=2</screen>
+    </listitem>
+    <listitem>
+    <para>Visualisation de la configuration</para>
+
+<screen><prompt>$</prompt> sudo ovs-vsctl show
+cd95ab0d-643d-4a23-bae3-2e6c900a367f
+    Bridge "sw0"
+        Port "sw0-vlan2"
+            tag: 2
+            Interface "sw0-vlan2"
+                type: internal
+        Port "tap2"
+            tag: 2
+            Interface "tap2"
+        Port "sw0"
+            Interface "sw0"
+                type: internal
+    ovs_version: "1.9.3"</screen>
+    </listitem>
+  </itemizedlist>
+
+<note>
+  <title>Modes accès ou trunk ?</title>
+  <para>Sur un commutateur <citetitle>Open vSwitch</citetitle> un port est par
+  défaut en mode trunk ; c'est à dire qu'il reçoit le trafic de tous les
+  <acronym>VLANs</acronym> «présents sur les autres ports». Dans l'exemple
+  présenté ici, on restreint l'utilisation des ports liés aux interfaces
+  <option>sw0-vlan2</option> et <option>tap2</option> au seul
+  <acronym>VLAN</acronym> numéro 2. On peut donc considérer que ces deux ports
+  sont en mode accès puisqu'ils ne «voient» que le trafic d'un
+  <acronym>VLAN</acronym> unique.</para>
+</note>
+  <bridgehead xml:id='vm.ovs-network.active' renderas='sect2'>Activation des
+  interfaces réseau et du routage</bridgehead>
+
+  <para>Pour que la configuration du commutateur soit effective, il faut que
+  toutes les nouvelles interfaces réseau soient actives. De plus, on doit
+  s'assurer que la fonction de routage est activée sur le système hôte.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Activation des interfaces</para>
+
+<screen><prompt>$</prompt> for intf in sw0 sw0-vlan2 tap2; do sudo ip link set dev $intf up; done</screen>
+    </listitem>
+    <listitem>
+    <para>État des interfaces sur le système hôte</para>
+
+<screen><prompt>$</prompt> ip link ls
+1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN \
+                                 mode DEFAULT group default
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP \
+                                 mode DEFAULT group default qlen 1000
+    link/ether ba:ad:00:ca:fe:00 brd ff:ff:ff:ff:ff:ff
+4: sw0: &lt;BROADCAST,MULTICAST,<emphasis>UP,LOWER_UP</emphasis>> mtu 1500 qdisc noqueue state UNKNOWN \
+                                 mode DEFAULT group default
+    link/ether 16:8f:91:2c:e0:41 brd ff:ff:ff:ff:ff:ff
+5: sw0-vlan2: &lt;BROADCAST,MULTICAST,<emphasis>UP,LOWER_UP</emphasis>> mtu 1500 qdisc noqueue state UNKNOWN \
+                                 mode DEFAULT group default
+    link/ether 8e:2a:a2:ff:d9:fb brd ff:ff:ff:ff:ff:ff
+6: tap2: &lt;BROADCAST,MULTICAST,<emphasis>UP,LOWER_UP</emphasis>> mtu 1500 qdisc pfifo_fast master sw0 state UP \
+                                 mode DEFAULT group default qlen 500
+    link/ether 46:12:48:6b:be:d4 brd ff:ff:ff:ff:ff:ff</screen>
+    </listitem>
+  </itemizedlist>
+
+  <para>La fonction de routage fournie par le noyau Linux peut être activée via
+  le fichier <filename>/etc/sysctl.conf</filename>. Il suffit de décommenter
+  les entrées correspondantes. Pour appliquer les paramètres définis dans le
+  fichier on utilise l'instruction <userinput><prompt>$</prompt> sudo sysctl
+  -p</userinput>. On peut vérifier les paramètres en n'affichant que les lignes
+  actives de ce même fichier.</para>
+
+<screen><prompt>$</prompt> egrep -e '(^$|^#)' -v /etc/sysctl.conf
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+net.ipv4.conf.all.log_martians = 1</screen>
+
+  <bridgehead xml:id='vm.ovs-network.launch' renderas='sect2'>Lancement du
+  système virtuel</bridgehead>
+
+  <para>Comme dans le cas de la <xref linkend='vm.user-network'/>, on utilise
+  une script qui rassemble toutes les options de configuration utiles :
+  <function>ovs-startup.sh</function>. Le code de ce script est donné en <xref
+  linkend='vm.appendix-ovs-network'/>. La copie d'écran ci-dessous correspond à
+  la <link linkend='vm.ovs-network-min'>topologie minimale</link> décrite plus
+  haut.</para>
+
+<screen><prompt>:~/vm$</prompt> ./scripts/ovs-startup.sh vm0-debian-testing-amd64-base.raw 1024 2
+
+~> Machine virtuelle : vm0-debian-testing-amd64-base.raw
+~> Port SPICE        : 5902
+~> Mémoire RAM       : 1024
+~> Adresse MAC       : ba:ad:00:ca:fe:02</screen>
+
+  <para>Les options de ce script relatives aux fonctions réseau sont les
+  suivantes :</para>
+
+<screen>-device virtio-net<co xml:id='vm.ovs-network.virtio'/>,netdev=net0<co xml:id='vm.ovs-network.netid'/>,mac="$macaddress"<co xml:id='vm.ovs-network.macaddress'/> \
+-netdev tap,ifname=tap$tapnum<co xml:id='vm.ovs-network.tapnum'/>,id=net0,script=no \</screen>
+
+  <calloutlist>
+    <callout arearefs='vm.ovs-network.virtio'>
+    <para>Le pilote d'interface réseau choisi utilise les fonctions présentées
+    à la <xref linkend='vm.virtio'/>.</para>
+    </callout>
+
+    <callout arearefs='vm.ovs-network.netid'>
+    <para>L'identifiant de l'interface utilisé pour le script est
+    <option>net0</option>.</para>
+    </callout>
+
+    <callout arearefs='vm.ovs-network.macaddress'>
+    <para>L'adresse <acronym>MAC</acronym> de l'interface réseau est déterminée
+    à partir du préfixe hexadécimal <wordasword>bad cafe</wordasword> et du
+    numéro de l'interface <acronym>TAP</acronym>.</para>
+
+<screen>macaddress="ba:ad:00:ca:fe:`printf "%02x" $tapnum`"</screen>
+    </callout>
+
+    <callout arearefs='vm.ovs-network.tapnum'>
+    <para>Le raccordement de l'interface réseau identifiée par l'étiquette
+    <option>net0</option> se fait via le cordon de brassage (ou l'interface
+    <acronym>TAP</acronym>) numéroté aussi avec la variable
+    <option>$tapnum</option> du script.</para>
+    </callout>
+  </calloutlist>
+
+  <bridgehead xml:id='vm.ovs-network.test' renderas='sect2'>Validation des
+  communications entre système hôte et système virtuel</bridgehead>
+
+  <para>Pour conclure cette section, on peut valider le lien direct entre les
+  système hôte et virtuel avec une connexion <acronym>SSH</acronym>. On
+  commence par identifier l'adresse <acronym>MAC</acronym> au format
+  <acronym>EUI64</acronym> du système virtuel puis on l'utilise pour la
+  connexion.</para>
+
+<screen><prompt>$</prompt> ip nei ls
+<emphasis>fe80::b8ad:ff:feca:fe02 dev sw0-vlan2 lladdr ba:ad:00:ca:fe:02 STALE</emphasis>
+fe80::503c:b3ff:febe:b94b dev eth0 lladdr 52:3c:b3:be:b9:4b router REACHABLE
+
+<prompt>$</prompt> <emphasis>ssh etu@fe80::b8ad:ff:feca:fe02%sw0-vlan2</emphasis>
+etu@fe80::b8ad:ff:feca:fe02%sw0-vlan2's password:
+Linux nested-vm0 3.12-1-amd64 #1 SMP Debian 3.12.6-2 (2013-12-29) x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+No mail.
+Last login: Thu Jan 23 20:10:50 2014 from fe80::8c2a:a2ff:feff:d9fb%eth0
+<prompt>etu@vm0:~$</prompt></screen>
+
+  <para>Vue du système virtuel avec la configuration <acronym>IP</acronym>
+  complète, on obtient les informations suivantes.</para>
+
+<screen><prompt>$</prompt> ip nei ls
+fe80::8c2a:a2ff:feff:d9fb dev eth0 lladdr 8e:2a:a2:ff:d9:fb router DELAY
+203.0.113.129 dev eth0 lladdr 8e:2a:a2:ff:d9:fb STALE
+
+<prompt>$</prompt> ip addr ls
+1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP \
+                                              group default qlen 1000
+    link/ether <emphasis>ba:ad:00:ca:fe:02</emphasis> brd ff:ff:ff:ff:ff:ff
+    inet <emphasis>203.0.113.130/26 brd 203.0.113.191 scope global eth0</emphasis>
+       valid_lft forever preferred_lft forever
+    inet6 fe80::b8ad:ff:feca:fe02/64 scope link
+       valid_lft forever preferred_lft forever
+
+<prompt>$</prompt> ip ro ls
+<emphasis>default via 203.0.113.129 dev eth0</emphasis>
+203.0.113.128/26 dev eth0  proto kernel  scope link  src 203.0.113.130</screen>
+</sect1>
+
+<sect1 xml:id="vm.conclusion">
+  <title>En guise de conclusion</title>
+
+  <para>Ce guide sur l'utilisation des machines virtuelles dans le contexte de
+  l'enseignement est très loin de couvrir tous les usages. L'objectif est de
+  démystifier la virtualisation des fonctions réseau usuelles. D'un côté, on
+  peut affirmer qu'il n'y a rien de nouveau dans la mesure où les fonctions de
+  commutation de trames, de réseaux locaux virtuels (<acronym>VLAN</acronym>)
+  et de routage de paquets sont toujours là. D'un autre côté, ces mêmes
+  fonctions se sont déplacées des équipements dédiés vers des systèmes
+  génériques ouvrant le champ à de nouveaux usages : le &url.sdn;.</para>
+
+  <para>Du point de vue pédagogique, l'intégration des fonctions réseau
+  classiques, au milieu des autres éléments d'un système, dans des solutions
+  intégrées pose un défi. Doit-on aller de l'utilisation de la solution
+  intégrée vers l'identification des briques fonctionnelles au risque de se
+  «perdre en chemin» ? Doit-on au contraire partir de la modélisation réseau et
+  donc des fonction élémentaires pour «construire» la solution intégrée ? Ce
+  guide, dans son mode de rédaction, penche résolument pour la seconde
+  solution. L'avenir nous dira si c'est pertinent.</para>
+</sect1>
+
+<appendix xml:id='vm.appendix'>
+	<title>Scripts spécifiques</title>
+
+	<para>Voici un rappel des codes des différents scripts utilisés dans ce
+	document.</para>
+
+	<section xml:id='vm.appendix-user-network'>
+		<title>Communications réseau en mode utilsateur</title>
+
+	<para>Le script <function>standalone-startup.sh</function> sert à lancer
+	une instance de système virtualisé dont la configuration réseau est
+	prédéfinie en mode utilisateur. Ce mode est présenté à la <xref
+	linkend='vm.user-network'/>.</para>
+
+	<para>Accès : &url.gitlab.user-mode-startup.sh;</para>
+	</section>
+
+	<section xml:id='vm.appendix-ovs-network'>
+		<title>Communication réseau avec commutateur virtuel Open vSwitch</title>
+
+	<para>Le script <function>ovs-startup.sh</function> sert à lancer une
+	instance de système virtualisé raccordé à un commutateur virtuel via une
+	interface <acronym>TAP</acronym> (Voir <xref
+	linkend='vm.network.tun-tap'/>). Ce mode de fonctionnement est présenté à
+	la <xref linkend='vm.ovs-network'/>.</para>
+
+	<para>Accès : &url.gitlab.ovs-startup.sh;</para>
+	</section>
+
+	<section xml:id='vm.appendix-diff-img'>
+		<title>Gestion des images différentielles</title>
+
+	<para>Le script <function>diff-img.sh</function> permet de créer une image
+	différentielle relativement à une première image dite
+	<wordasword>master</wordasword>. L'intérêt de cette opération est de
+	pouvoir lancer une instance de système virtuel «jetable». En effet, on peut
+	considérer que toutes les opérations effectuées sur l'image différentielle
+	n'ont pas à être conservées. Dans ce cas, il suffit d'effacer le fichier
+	d'image différentielle après usage.</para>
+
+	<para>Accès : &url.gitlab.diff-img.sh;</para>
+	</section>
+
+	<section xml:id='vm.appendix-iso-install-startup'>
+		<title>Installation d'un système sur machine virtuelle</title>
+
+	<para>Le script <function>iso-install-startup.sh</function> reprend le code
+	du <xref linkend='vm.appendix-user-network'/> avec la description d'un
+	lecteur de DVD pour que l'on puisse lancer une installation système sur une
+	image vierge. Ce script n'est utile que pour la création d'un nouveau
+	<wordasword>master</wordasword>.</para>
+
+	<para>Accès : &url.gitlab.iso-install-startup.sh;</para>
+	</section>
+</appendix>
+</article>

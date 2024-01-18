@@ -1,0 +1,623 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+	"/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!-- A copy of http://www.w3.org/2003/entities/2007/w3centities-f.ent is at:
+/usr/local/share -->
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"/usr/local/share/w3centities-f.ent">
+%w3centities-f;
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!-- urls -->
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+]>
+
+<article xml:id='interco.cs' xml:lang='fr'>
+
+<info>
+	<title>Étude de cas sur l'interconnexion LAN/WAN</title>
+
+	&author;
+	<abstract>
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='1*'/>
+	<colspec colwidth='1*'/>
+	<tbody>
+    <row>
+	<entry>
+	<inlinemediaobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/interco.cs.png' format='PNG' width='480px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/interco.cs.png' format='PNG' width='7cm' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+    <entry valign='top'>
+		<para>L'objectif de cette étude de cas est de faire la synthèse sur
+		l'ensemble du cycle de travaux pratiques sur le thème de l'interconnexion
+		réseau <acronym>LAN</acronym>/<acronym>WAN</acronym>. Côté réseaux
+		étendus, on retrouve les sessions <acronym>PPPoE</acronym> vers
+		chaque site distant avec son réseau d'extrémité représenté par
+		les conteneurs <acronym>LXD</acronym>. Côté réseaux locaux, les
+		routeurs <wordasword>Hub</wordasword> échangent leurs routes avec le
+		protocole de routage dynamique <acronym>OSPF</acronym>. Ces routeurs
+		constituent ainsi un réseau de “collecte“. Que l'on soit dans le
+		domaine <acronym>LAN</acronym> ou <acronym>WAN</acronym>, on fait un
+		usage massif des <acronym>VLAN</acronym>s.</para>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+	</abstract>
+
+	<keywordset>
+		<keyword>ospf</keyword>
+		<keyword>pppoe</keyword>
+		<keyword>routing</keyword>
+		<keyword>trunk</keyword>
+		<keyword>vlan</keyword>
+	</keywordset>
+</info>
+
+<sect1 xml:id='interco.cs.legal.meta'>
+	&legal;
+
+<bridgehead xml:id='infra.tp.meta' renderas='sect2'>Méta-information</bridgehead>
+
+	<para>Ce document est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link> XML
+	sur un système <link xlink:href="http://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+	format PDF : <link
+	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.cs.topologie'>
+	<title>Topologie réseau &amp; plan d'adressage</title>
+
+	<para>La topologie logique globale se présente comme une associations de
+	deux topologies triangulaires <wordasword>Hub &amp; Spoke</wordasword> dans
+	laquelle les routeurs <wordasword>Hub</wordasword> échangent leurs routes
+	via le protocole de routage dynamique <acronym>OSPF</acronym> et
+	fournissent l'accès Internet aux sites distants <acronym>WAN</acronym>.
+	Il faut noter que dans cette topologie les routeurs
+	<wordasword>Hub</wordasword> partagent la même passerelle vers
+	l'Internet.</para>
+
+	<mediaobject>
+		<imageobject role='fo'>
+		<imagedata format='PNG' fileref='images/interco.cs.png' width='17cm' scalefit='1' />
+		</imageobject>
+		<imageobject role='html'>
+		<imagedata format='PNG' fileref='images/interco.cs.png' width='720px' scalefit='1' />
+		</imageobject>
+		<textobject>
+		<phrase>Topologie logique de synthèse</phrase>
+		</textobject>
+	</mediaobject>
+
+	<variablelist>
+	<varlistentry>
+	<term>Routeur <wordasword>Hub</wordasword></term>
+	<listitem>
+	<para>Le routeur <wordasword>Hub</wordasword> assure l'interconnexion entre
+	les sites distants et le réseau de collecte. Il gère les sessions
+	<acronym>PPPoE</acronym> avec les routeurs <wordasword>Spoke</wordasword>
+	et annonce les routes vers les réseaux distants via le protocole
+	<acronym>OSPF</acronym> aux autres routeurs du réseau de collecte.</para>
+	</listitem>
+	</varlistentry>
+	<varlistentry>
+	<term>Routeur <wordasword>Spoke</wordasword></term>
+	<listitem>
+	<para>Le routeur <wordasword>Spoke</wordasword> assure l'interconnexion
+	entre son réseau d'extrémité représenté par les conteneurs et le routeur
+	<wordasword>Hub</wordasword> auprès duquel il s'authentifie pour ouvrir une
+	session <acronym>PPPoE</acronym> qui lui permet de joindre tous les autres
+	réseaux dont l'Internet.</para>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+
+	<para>Voici un exemple de plan d'adressage associé à la topologie
+	ci-dessus. Il est utilisé pour la maquette de démonstration du
+	fonctionnement de l'interconnexion réseau.</para>
+
+<table xml:id='interco.cs.mockup.addressing' frame='all' pgwide='1'>
+	<title>Plan d'adressage de la maquette</title>
+	<tgroup cols='5' align='left' colsep='1' rowsep='1'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='1*'/>
+	<colspec colnum='3' colwidth='1.5*'/>
+	<colspec colnum='4' colwidth='1*'/>
+	<colspec colnum='5' colwidth='2*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Rôle</entry>
+		<entry>VLAN</entry>
+		<entry>Type</entry>
+		<entry>Liaison</entry>
+		<entry>Adresse/Authentification</entry>
+	</row>
+	</thead>
+	<tbody>
+		<row>
+			<entry morerows='5' valign='middle'>Hub1</entry>
+			<entry>300</entry>
+			<entry>hosting</entry>
+			<entry>-&gt; Internet</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.141.0.162/27</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>2001:678:3fc:12c::2/64</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry>469</entry>
+			<entry>collecte</entry>
+			<entry>
+				<systemitem class='ipaddress'>OSPFv2 id 0.0.4.1</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>OSPFv3 id 0.0.6.1</systemitem>
+			</entry>
+			<entry><systemitem class='ipaddress'>172.16.69.1/29</systemitem></entry>
+		</row>
+		<row>
+			<entry>470</entry>
+			<entry>mgmt lien local</entry>
+			<entry>-&gt; Spoke1</entry>
+			<entry><systemitem class='ipaddress'>fe80:1d6::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>471</entry>
+			<entry>data point à point</entry>
+			<entry>-&gt; Spoke1</entry>
+			<entry><systemitem class='ipaddress'>10.47.1.1:10.47.1.2</systemitem></entry>
+		</row>
+		<row>
+			<entry>472</entry>
+			<entry>mgmt lien local</entry>
+			<entry>-&gt; Spoke2</entry>
+			<entry><systemitem class='ipaddress'>fe80:1d8::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>473</entry>
+			<entry>data point à point</entry>
+			<entry>-&gt; Spoke2</entry>
+			<entry><systemitem class='ipaddress'>10.47.3.1:10.47.3.2</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='2' valign='middle'>Spoke1</entry>
+			<entry>470</entry>
+			<entry>mgmt lien local</entry>
+			<entry>-&gt; Hub1</entry>
+			<entry><systemitem class='ipaddress'>fe80:1d6::2/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>471</entry>
+			<entry>authentification</entry>
+			<entry>-&gt; Hub1</entry>
+			<entry align='center'><systemitem>5p0k3_1 / 0r4ng3_1</systemitem></entry>
+		</row>
+		<row>
+			<entry>1</entry>
+			<entry>conteneurs</entry>
+			<entry>-</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.1.1/24</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:1::1/64</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry morerows='2' valign='middle'>Spoke2</entry>
+			<entry>472</entry>
+			<entry>mgmt lien local</entry>
+			<entry>-&gt; Hub1</entry>
+			<entry><systemitem class='ipaddress'>fe80:1d8::2/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>473</entry>
+			<entry>authentification</entry>
+			<entry>-&gt; Hub1</entry>
+			<entry align='center'><systemitem>5p0k3_2 / 0r4ng3_2</systemitem></entry>
+		</row>
+		<row>
+			<entry>2</entry>
+			<entry>conteneurs</entry>
+			<entry>-</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.2.1/24</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:2::1/64</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry morerows='5' valign='middle'>Hub2</entry>
+			<entry>300</entry>
+			<entry>hosting</entry>
+			<entry>-&gt; Internet</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.141.0.163/27</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>2001:678:3fc:12c::3/64</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry>469</entry>
+			<entry>collection</entry>
+			<entry>
+				<systemitem class='ipaddress'>OSPFv2 id 0.0.4.2</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>OSPFv3 id 0.0.6.2</systemitem>
+			</entry>
+			<entry><systemitem class='ipaddress'>172.16.69.2/29</systemitem></entry>
+		</row>
+		<row>
+			<entry>474</entry>
+			<entry>mgmt lien local</entry>
+			<entry>-&gt; Spoke3</entry>
+			<entry><systemitem class='ipaddress'>fe80:1da::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>475</entry>
+			<entry>data point à point</entry>
+			<entry>-&gt; Spoke3</entry>
+			<entry><systemitem class='ipaddress'>10.47.5.1:10.47.5.2</systemitem></entry>
+		</row>
+		<row>
+			<entry>476</entry>
+			<entry>mgmt lien local</entry>
+			<entry>-&gt; Spoke4</entry>
+			<entry><systemitem class='ipaddress'>fe80:1dc::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>477</entry>
+			<entry>data point à point</entry>
+			<entry>-&gt; Spoke4</entry>
+			<entry><systemitem class='ipaddress'>10.47.7.1:10.47.7.2</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='2' valign='middle'>Spoke3</entry>
+			<entry>474</entry>
+			<entry>mgmt lien local</entry>
+			<entry>-&gt; Hub2</entry>
+			<entry><systemitem class='ipaddress'>fe80:1da::2/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>475</entry>
+			<entry>authentification</entry>
+			<entry>-&gt; Hub2</entry>
+			<entry align='center'><systemitem>5p0k3_3 / 0r4ng3_3</systemitem></entry>
+		</row>
+		<row>
+			<entry>3</entry>
+			<entry>conteneurs</entry>
+			<entry>-</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.3.1/24</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:3::1/64</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry morerows='2' valign='middle'>Spoke4</entry>
+			<entry>476</entry>
+			<entry>mgmt lien local</entry>
+			<entry>-&gt; Hub2</entry>
+			<entry><systemitem class='ipaddress'>fe80:1dc::2/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>477</entry>
+			<entry>authentification</entry>
+			<entry>-&gt; Hub2</entry>
+			<entry align='center'><systemitem>5p0k3_4 / 0r4ng3_4</systemitem></entry>
+		</row>
+		<row>
+			<entry>4</entry>
+			<entry>conteneurs</entry>
+			<entry>-</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.4.1/24</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:4::1/64</systemitem>
+			</entry>
+		</row>
+	</tbody>
+	</tgroup>
+</table>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.cs.hubs'>
+	<title>Routeurs	Hub</title>
+
+<sect2 xml:id='interco.cs.hubs.roles'>
+	<title>Rôles et analyse de la table de routage</title>
+
+	<para>Les deux routeurs <wordasword>Hub</wordasword> de la topologie jouent
+	deux rôles&nbsp;:</para>
+	
+	<orderedlist>
+	<listitem>
+	<para>Interconnexion des branches directement raccordées via les sessions
+	<acronym>PPPoE</acronym></para>
+
+	<para>Pour les manipulations de configuration de ce rôle, on s'appuie sur
+	le support de travaux pratiques&nbsp;:
+	&url.interco.pppoe-cloud.hub.pppoe;.</para>
+	</listitem>
+	<listitem>
+	<para>Collecte des routes des branches et publication de ces routes via le
+	protocole de routage dynamique <acronym>OSPF</acronym></para>
+
+	<para>Pour les manipulations de configuration du réseau de collecte, on
+	s'appuie sur le support de travaux pratiques&nbsp;:
+	&url.interco.ospf-frr;.</para>
+	</listitem>
+	</orderedlist>
+
+	<para>Voici une copie des tables de routage attendues sur le routeur
+	<wordasword>Hub</wordasword> de la maquette.</para>
+
+<screen><prompt>Hub2#</prompt> sh ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* 0.0.0.0/0 [0/0] via 10.141.0.161, enp0s2.300 onlink, 03:18:37 <co xml:id='ipv4.default'/>
+O>* 10.0.1.0/24 [110/20] via 172.16.69.1, enp0s2.469, weight 1, 03:17:39 <co xml:id='ipv4.ospf-spoke1'/>
+O>* 10.0.2.0/24 [110/20] via 172.16.69.1, enp0s2.469, weight 1, 03:17:39 <co xml:id='ipv4.ospf-spoke2'/>
+K>* 10.0.3.0/24 [0/0] via 10.47.5.2, ppp0, 03:18:26 <co xml:id='ipv4.static-spoke3'/>
+K>* 10.0.4.0/24 [0/0] via 10.47.7.2, ppp1, 03:18:26 <co xml:id='ipv4.static-spoke4'/>
+C>* 10.47.5.2/32 is directly connected, ppp0, 03:18:26 <co xml:id='ipv4.transit-spoke3'/>
+C>* 10.47.7.2/32 is directly connected, ppp1, 03:18:26 <co xml:id='ipv4.transit-spoke4'/>
+C>* 10.141.0.160/27 is directly connected, enp0s2.300, 03:18:37 <co xml:id='ipv4.internet'/>
+O   172.16.69.0/29 [110/1] is directly connected, enp0s2.469, weight 1, 03:18:22
+C>* 172.16.69.0/29 is directly connected, enp0s2.469, 03:18:35 <co xml:id='ipv4.collecte'/></screen>
+
+<screen><prompt>Hub2#</prompt> sh ipv6 route
+Codes: K - kernel route, C - connected, S - static, R - RIPng,
+       O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
+       v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* ::/0 [0/1024] via 2001:678:3fc:12c::1, enp0s2.300 onlink, 03:25:45 <co xml:id='ipv6.default'/>
+C>* 2001:678:3fc:12c::/64 is directly connected, enp0s2.300, 03:25:43 <co xml:id='ipv6.internet'/>
+O>* fda0:7a62:1::/64 [110/20] via fe80::baad:caff:fefe:64, enp0s2.469, weight 1, 03:24:56 <co xml:id='ipv6.ospf-spoke1'/>
+O>* fda0:7a62:2::/64 [110/20] via fe80::baad:caff:fefe:64, enp0s2.469, weight 1, 03:24:56 <co xml:id='ipv6.ospf-spoke2'/>
+K>* fda0:7a62:3::/64 [0/1024] is directly connected, ppp0, 03:25:34 <co xml:id='ipv6.static-spoke3'/>
+K>* fda0:7a62:4::/64 [0/1024] is directly connected, ppp1, 03:25:34 <co xml:id='ipv6.static-spoke4'/>
+C * fe80::/64 is directly connected, enp0s2.477, 03:25:39
+C * fe80::/64 is directly connected, enp0s2.476, 03:25:40
+C * fe80::/64 is directly connected, enp0s2.475, 03:25:40
+C * fe80::/64 is directly connected, enp0s2.469, 03:25:41
+C * fe80::/64 is directly connected, enp0s2.474, 03:25:41
+C * fe80::/64 is directly connected, enp0s2.300, 03:25:43
+C>* fe80::/64 is directly connected, enp0s2, 03:25:43
+C>* fe80::24cd:1a16:8641:5cd/128 is directly connected, ppp0, 03:25:34 <co xml:id='ipv6.transit-spoke3'/>
+C>* fe80::985a:f011:50e3:94c/128 is directly connected, ppp1, 03:25:34 <co xml:id='ipv6.transit-spoke4'/>
+C>* fe80:1da::/64 is directly connected, enp0s2.474, 03:25:42 <co xml:id='ipv6.mgmt-spoke3'/>
+C>* fe80:1dc::/64 is directly connected, enp0s2.476, 03:25:40 <co xml:id='ipv6.mgmt-spoke4'/></screen>
+
+	<calloutlist>
+	<callout arearefs='ipv4.default ipv6.default'>
+	<para>Les routes par défaut sont des entrées marquées <option>K>*</option>.
+	Elles sont issues du fichier de configuration des interfaces&nbsp;:
+	<filename>/etc/network/interfaces</filename>.</para>
+
+	<para>Chaque routeur <wordasword>Hub</wordasword> possède sa propre route
+	par défaut de façon à rendre indépendants les deux triangles
+	<wordasword>Hub &amp; Spoke</wordasword>.</para>
+	</callout>
+	<callout arearefs='ipv4.ospf-spoke1 ipv6.ospf-spoke1'>
+	<para>Les entrées marquées <option>O>*</option> avec les adresses
+	<systemitem class='ipaddress'>10.0.1.0/24</systemitem> et <systemitem
+	class='ipaddress'>fda0:7a62:1::/64</systemitem> sont les routes du réseau
+	de conteneurs du <wordasword>Spoke1</wordasword> apprises via le protocole
+	de routage dynamique <acronym>OSPF</acronym>. Elles sont issues des
+	échanges entre les routeurs <wordasword>Hub</wordasword> sur le réseau de
+	collecte.</para>
+	</callout>
+	<callout arearefs='ipv4.ospf-spoke2 ipv6.ospf-spoke2'>
+	<para>Les entrées marquées <option>O>*</option> avec les adresses
+	<systemitem class='ipaddress'>10.0.2.0/24</systemitem> et <systemitem
+	class='ipaddress'>fda0:7a62:2::/64</systemitem> sont les routes du réseau
+	de conteneurs du <wordasword>Spoke2</wordasword> apprises via le protocole
+	de routage dynamique <acronym>OSPF</acronym>. Elles sont issues des
+	échanges entre les routeurs <wordasword>Hub</wordasword> sur le réseau de
+	collecte.</para>
+	</callout>
+	<callout arearefs='ipv4.static-spoke3 ipv6.static-spoke3'>
+	<para>Les entrées marquées <option>K>*</option> avec les adresses
+	<systemitem class='ipaddress'>10.0.3.0/24</systemitem> et <systemitem
+	class='ipaddress'>fda0:7a62:3::/64</systemitem> sont les routes du réseau
+	de conteneurs du <wordasword>Spoke3</wordasword>. Ce sont les routes
+	statiques ajoutées lors de l'ouverture de session <acronym>PPP</acronym>.
+	Elles sont publiées via le protocole <acronym>OSPF</acronym> vers l'autre
+	routeur <wordasword>Hub</wordasword> sur le réseau de collecte.</para>
+	</callout>
+	<callout arearefs='ipv4.static-spoke4 ipv6.static-spoke4'>
+	<para>Les entrées marquées <option>K>*</option> avec les adresses
+	<systemitem class='ipaddress'>10.0.4.0/24</systemitem> et <systemitem
+	class='ipaddress'>fda0:7a62:4::/64</systemitem> sont les routes du réseau
+	de conteneurs du <wordasword>Spoke3</wordasword>. Ce sont les routes
+	statiques ajoutées lors de l'ouverture de session <acronym>PPP</acronym>.
+	Elles sont publiées via le protocole <acronym>OSPF</acronym> vers l'autre
+	routeur <wordasword>Hub</wordasword> sur le réseau de collecte.</para>
+	</callout>
+	<callout arearefs='ipv4.transit-spoke3 ipv6.transit-spoke3'>
+	<para>Les entrées marquées <option>C>*</option> avec les adresses
+	<systemitem class='ipaddress'>10.47.5.2/32</systemitem> et <systemitem
+	class='ipaddress'>fe80::24cd:1a16:8641:5cd/128</systemitem> sont les routes
+	du réseau de transit entre <wordasword>Hub2</wordasword> et
+	<wordasword>Spoke3</wordasword>. Ce sont les routes statiques ajoutées lors
+	de l'ouverture de session <acronym>PPP</acronym>.</para>
+	</callout>
+	<callout arearefs='ipv4.transit-spoke4 ipv6.transit-spoke4'>
+	<para>Les entrées marquées <option>C>*</option> avec les adresses
+	<systemitem class='ipaddress'>10.47.7.2/32</systemitem> et <systemitem
+	class='ipaddress'>fe80::985a:f011:50e3:94c/128</systemitem> sont les routes
+	du réseau de transit entre <wordasword>Hub2</wordasword> et
+	<wordasword>Spoke4</wordasword>. Ce sont les routes statiques ajoutées lors
+	de l'ouverture de session <acronym>PPP</acronym>.</para>
+	</callout>
+	<callout arearefs='ipv4.internet ipv6.internet'>
+	<para>Les entrées marquées <option>C>*</option> avec les adresses
+	<systemitem class='ipaddress'>10.141.0.160/27</systemitem> et <systemitem
+	class='ipaddress'>2001:678:3fc:12c::/64</systemitem> sont les routes
+	d'accès au réseau d'hébergement qui ouvre les accès à Internet.</para>
+	</callout>
+	<callout arearefs='ipv4.collecte'>
+	<para>L'entrée marquée <option>C>*</option> avec l'adresse <systemitem
+	class='ipaddress'>172.16.69.0/29</systemitem> correspond au réseau de
+	collecte sur lequel l'adjacence est formée entre les deux
+	<wordasword>Hubs</wordasword>. Pour <acronym>IPv6</acronym> les adresses de
+	lien local sont utilisées pour former l'adjacence.</para>
+	</callout>
+	</calloutlist>
+</sect2>
+
+<sect2 xml:id='interco.cs.hubs.redist'>
+	<title>Redistribution des routes du noyau</title>
+
+	<para>Relativement à la méthode de redistribution de la route par défaut
+	proposée dans le support &url.interco.ospf-frr;, on doit changer de syntaxe
+	pour redistribuer toutes les routes connues du sous-système réseau du noyau
+	dans <acronym>OSPF</acronym>.</para>
+
+	<para>On doit utiliser l'instruction&nbsp;:
+	<option>resdistribute&nbsp;kernel</option>.</para>
+
+	<para>Voici un extrait de la configuration d'un routeur
+	<wordasword>Hub</wordasword>.</para>
+
+<screen><prompt>Hub1#</prompt> sh run ospfd
+Building configuration...
+
+Current configuration:
+!
+frr version 8.0.1
+frr defaults traditional
+hostname Hub1Bleu
+log syslog informational
+service integrated-vtysh-config
+!
+interface enp0s2.469
+ ip ospf area 0
+!
+router ospf
+ ospf router-id 0.0.4.1
+ log-adjacency-changes detail
+ redistribute kernel
+ exit
+!
+line vty
+!
+end</screen>
+
+<screen><prompt>Hub1#</prompt> sh run ospf6d
+Building configuration...
+
+Current configuration:
+!
+frr version 8.0.1
+frr defaults traditional
+hostname Hub1Bleu
+log syslog informational
+service integrated-vtysh-config
+!
+interface enp0s2.469
+ ipv6 ospf6 area 0
+!
+router ospf6
+ ospf6 router-id 0.0.6.1
+ log-adjacency-changes detail
+ redistribute kernel
+!
+line vty
+!
+end</screen>
+</sect2>
+</sect1>
+
+<sect1 xml:id='interco.cs.spokes'>
+	<title>Routeurs	Spoke</title>
+
+	<para>Les quatre routeurs <wordasword>Spoke</wordasword> de la topologie
+	jouent toujours le rôle de routeur d'extrémité.</para>
+
+	<para>Pour les manipulations de configuration de ce rôle, on s'appuie sur
+	le support de travaux pratiques&nbsp;:
+	&url.interco.pppoe-cloud.spoke.pppoe;.</para>
+
+	<para>De façon à rendre les tests de validation des communications plus
+	“réalistes“, on ajoute une instance de service Web dans chaque conteneur et
+	on effectue des tests de bout en bout entre les différents réseaux de
+	conteneurs.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Installation des services Web</para>
+
+<screen><prompt>$</prompt> for i in {0..2}; do lxc exec container$i -- apt install lighttpd; done</screen>
+	</listitem>
+	<listitem>
+	<para>Liste des services Web</para>
+
+<screen><prompt>$</prompt> for i in {0..2}; do lxc exec container$i -- ss -tan; done
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+State         Recv-Q        Send-Q               Local Address:Port           Peer Address:Port        Process
+LISTEN        0             1024                       0.0.0.0:80                  0.0.0.0:*
+LISTEN        0             1024                          [::]:80                     [::]:*
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+State         Recv-Q        Send-Q               Local Address:Port           Peer Address:Port        Process
+LISTEN        0             1024                       0.0.0.0:80                  0.0.0.0:*
+LISTEN        0             1024                          [::]:80                     [::]:*
+WARNING: cgroup v2 is not fully supported yet, proceeding with partial confinement
+State         Recv-Q        Send-Q               Local Address:Port           Peer Address:Port        Process
+LISTEN        0             1024                       0.0.0.0:80                  0.0.0.0:*
+LISTEN        0             1024                          [::]:80                     [::]:*</screen>
+	</listitem>
+	<listitem>
+	<para>Accès aux services</para>
+
+<screen><prompt>$</prompt> for addr in \
+fda0:7a62:1:0:216:3eff:feda:e1a \
+fda0:7a62:1:0:216:3eff:fec4:d325 \
+fda0:7a62:1:0:216:3eff:fe66:86fb
+do
+sh -c "wget -O /dev/null http://[$addr] 2>&amp;1 | grep \"HTTP\" "
+done
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis></screen>
+	</listitem>
+	<listitem>
+	<para>Accès aux services d'un <wordasword>Spoke</wordasword> distant&nbsp;:
+	le numéro 4</para>
+
+<screen><prompt>$</prompt> for addr in \
+fda0:7a62:4:0:216:3eff:feda:e1a \
+fda0:7a62:4:0:216:3eff:fec4:d325 \
+fda0:7a62:4:0:216:3eff:fe66:86fb
+do
+sh -c "wget -O /dev/null http://[$addr] 2>&amp;1 | grep \"HTTP\" "
+done
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis>
+requête HTTP transmise, en attente de la réponse… <emphasis>200 OK</emphasis></screen>
+	</listitem>
+	</itemizedlist>
+</sect1>
+</article>

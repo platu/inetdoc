@@ -1,0 +1,991 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+	"/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY phl	SYSTEM "author.xml">
+<!ENTITY legal	SYSTEM "legal.xml">
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.stp.wikipedia
+	'<link xmlns="http://docbook.org/ns/docbook"
+	xlink:href="http://en.wikipedia.org/wiki/Spanning_Tree_Protocol"><citetitle>Spanning
+	Tree Protocol</citetitle></link>'>
+
+<!ENTITY url.isl.dot1q
+	'<link xmlns="http://docbook.org/ns/docbook"
+	xlink:href="http://www.cisco.com/en/US/tech/tk389/tk689/technologies_tech_note09186a0080094665.shtml"><citetitle>InterSwitch
+	Link and IEEE 802.1Q Frame Format</citetitle></link>'>
+
+<!ENTITY url.ieee802.1q.standard
+	'<link xmlns="http://docbook.org/ns/docbook"
+	xlink:href="http://standards.ieee.org/getieee802/download/802.1Q-1998.pdf"><citetitle>IEEE
+	802.1Q Standard</citetitle></link>'>
+]>
+
+<article xml:lang='fr' xml:id='inter-vlan-routing'>
+<info>
+	<title>Introduction au routage inter-VLAN</title>
+	&phl;
+<abstract>
+<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='5*'/>
+	<colspec colwidth='200px'/>
+	<tbody>
+	<row>
+		<entry valign='top'>
+		<para>L'usage des réseaux locaux virtuels (<acronym>VLANs</acronym>) et
+		du routage entre ces même réseaux locaux est devenu systématique dans
+		les infrastructures d'interconnexion contemporaines. Ce routage
+		inter-VLAN présente de nombreux intérêts tant du point de vue
+		conception que du point de vue exploitation. La même question revient
+		sans fin : quelle est la meilleure solution entre une interconnexion de
+		niveau 2 (couche liaison de données) et une interconnexion de niveau 3
+		(couche réseau) ? Loin de prétendre répondre à une telle interrogation,
+		cet article présente les concepts élémentaires sur les réseaux locaux
+		virtuels et le routage associé.</para>
+		</entry>
+		<entry>
+		<link xlink:href="/articles/inter-vlan-routing/">
+		<inlinemediaobject>
+		<imageobject role='html'>
+			<imagedata fileref='images/ieee8021q-frame.png' format='PNG' width='280px' scalefit='1'/>
+		</imageobject>
+		<imageobject role='fo'>
+			<imagedata fileref='images/ieee8021q-frame.png' format='PNG' width='5cm' scalefit='1'/>
+	    </imageobject>
+		</inlinemediaobject>
+		</link>
+		</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+</para>
+</abstract>
+<keywordset>
+	<keyword>8021q</keyword>
+	<keyword>dot1q</keyword>
+	<keyword>encapsulation</keyword>
+	<keyword>frame</keyword>
+	<keyword>route</keyword>
+	<keyword>routing</keyword>
+	<keyword>tag</keyword>
+	<keyword>trunk</keyword>
+	<keyword>vlan</keyword>
+</keywordset>
+</info>
+
+<sect1 xml:id='inter-vlan-routing.meta'>
+	&legal;
+	<sect2 xml:id='inter-vlan-routing.meta.file'>
+		<title>Méta-information</title>
+    
+	<para>Cet article est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+	XML sur un système <link
+	xlink:href="https://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+	format PDF : <link
+	xlink:href="/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+	</sect2>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='inter-vlan-routing.lan'>
+	<title>Quelques notions sur les réseaux locaux Ethernet</title>
+
+	<para>Aujourd'hui, un réseau local repose systématiquement sur la
+	technologie Ethernet. Il hérite donc des caractéristiques de cette
+	technologie et les notions de <emphasis>collision</emphasis> et de
+	<emphasis>diffusion</emphasis> sont les deux points clés.</para>
+  
+	<para>Une collision intervient lorsque deux hôtes d'un réseau émettent
+	simultanément sur un média partagé. On appelle <emphasis>domaine de
+	collision</emphasis> un sous-ensemble du réseau à l'intérieur duquel les
+	hôtes sont en compétition pour accéder à un même média ou canal de
+	communication. Plus le nombre d'hôtes présents dans un même domaine de
+	collision est important, plus la fréquence des collisions augmente et plus
+	les performances se dégradent. Pour garantir les meilleures conditions de
+	communication, on cherche donc à réduire au maximum l'étendue du domaine de
+	collision. Sur les réseaux filaires actuels, les domaines de collision ne
+	posent plus aucun problème depuis que l'on utilise des commutateurs. La
+	vocation d'un commutateur est de constituer un circuit de communication
+	unique entre deux hôtes. Une fois le circuit constitué, toute collision est
+	impossible.</para>
+
+	<para>La diffusion est un mécanisme d'annonce générale qui assure que tous
+	les hôtes d'un réseau local reçoivent les trames de diffusion émises par
+	n'importe quel autre hôte de ce même réseau. On appelle <emphasis>domaine
+	de diffusion</emphasis> un réseau à l'intérieur duquel tous les hôtes
+	peuvent émettre et doivent recevoir des trames de diffusion. Comme dans le
+	cas précédent, plus le nombre d'hôtes présents dans le domaine de diffusion
+	est important, plus les performances se dégradent. Là encore, pour garantir
+	les meilleures conditions de communication, on cherche à réduire
+	«raisonnablement» l'étendue du domaine de diffusion. C'est précisément sur
+	le dimensionnement des domaines de diffusion que le débat sur le choix du
+	niveau d'interconnexion entre réseaux locaux intervient. Le document
+	&url.lan-segmentation; apporte un premier niveau d'éclairage.</para>
+
+	<para>Voyons comment on délimite les domaines de collision et de diffusion
+	en faisant la correspondance entre les définitions données par la
+	modélisation <acronym>OSI</acronym> et le standard Ethernet. Une fois cette
+	correspondance faite, les unités de données manipulées par les équipements
+	d'interconnexion permettent de définir l'étendue des domaines de collision
+	et de diffusion.</para>
+
+	<sect2 xml:id='inter-vlan-routing.lan.osi-ethernet'>
+		<title>Correspondance entre modélisation OSI et standard
+		Ethernet</title>
+
+	<para>Depuis fort longtemps, la modélisation <acronym>OSI</acronym> sert de
+	référence à la description des couches orientées transmission de
+	l'information. Cette modélisation est présentée de façon plus détaillée
+	dans le support &url.modelisations;.</para>
+
+	<para>Les spécifications des réseaux Ethernet ont été publiées à la même
+	époque et ont été développées par l'<wordasword>Institute of Electrical and
+	Electronics Engineers</wordasword>. Elles sont accessibles à la page
+	&url.802.3;.</para>
+  
+	<para>Si on fait correspondre le modèle <acronym>OSI</acronym> et le
+	standard Ethernet, ce sont les couches physique et une moitié de la couche
+	liaison qui nous intéressent.</para>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata format='PNG' fileref='images/osi-ethernet.png' width='8cm'
+		scalefit='1' align='center'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata format='PNG' fileref='images/osi-ethernet.png' width='320px'
+		scalefit='1' align='center'/>
+	</imageobject>
+	</mediaobject>
+
+	<para>La représentation graphique fait apparaître un grand nombre
+	d'acronymes. Même si le propos de ce document n'est pas de traduire le
+	standard <acronym>IEEE 802.3</acronym>, voici quelques éléments
+	d'explication pour chaque sous-couche du standard Ethernet
+	représentée.</para>
+
+	<variablelist>
+	<varlistentry xml:id='LLC'>
+		<term><wordasword>Logical Link Control</wordasword></term>
+		<term><acronym>LLC</acronym></term>
+	<listitem>
+		<para>Cette sous-couche ne fait pas partie du standard Ethernet
+		proprement dit. Il s'agit d'une sous couche de services qui occupe la
+		moitié supérieure de la couche liaison de données du modèle
+		<acronym>OSI</acronym>. Elle est définie par le standard <acronym>IEEE
+		802.2</acronym> pour les réseaux locaux. Les services offerts sont
+		relatifs au traitement d'erreurs et au contrôle de flux.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='MAC'>
+		<term><wordasword>Media Access Control</wordasword></term>
+		<term><acronym>MAC</acronym></term>
+	<listitem>
+		<para>Cette sous-couche joue un rôle très important dans les réseaux
+		Ethernet. Elle est responsable des mécanismes de contrôle d'accès au
+		canal de transmission sur le réseau de diffusion multi-accès. Ce rôle
+		d'arbitrage des accès entre les différents hôtes présents dans le
+		réseau de diffusion suppose que ces hôtes soient identifiés par une
+		adresse. Les formats de ces adresses sont présentés en détail dans la
+		<xref linkend='inter-vlan-routing.lan.mac-address' />.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='RECONCILIATION'>
+		<term><wordasword>Reconciliation Sublayer</wordasword></term>
+		<term><acronym>RECONCILIATION</acronym></term>
+	<listitem>
+		<para>Cette sous-couche est chargée de faire la correspondance entre
+		les signaux fournis au niveau <acronym>xMII</acronym> et les
+		instructions de contrôle de la couche physique
+		(<acronym>PLS</acronym>).</para>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+
+	<itemizedlist>
+      <listitem>
+      <para><acronym>MII</acronym> : <wordasword>Media Independent
+      Interface</wordasword>. Cette interface isole la sous-couche
+      <acronym>MAC</acronym> de la couche physique de façon à ce que plusieurs
+      implémentations différentes soient utilisables au niveau de la couche
+      physique.</para>
+      </listitem>
+      <listitem>
+      <para><acronym>PCS</acronym> : <wordasword>Physical Coding
+      Sublayer</wordasword>. Encodage/décodage des flux de données depuis et
+      vers la sous-couche <acronym>MAC</acronym>. Les techniques de codage
+      varient suivant les générations des variantes d'Ethernet et les
+      débits.</para> 
+      </listitem>
+      <listitem>
+      <para><acronym>PMA</acronym> : <wordasword>Physical Medium
+      Attachment</wordasword>. Transformation et synchronisation des groupes de
+      code en flux de bits adaptés à des composants de transmission série et
+      vice versa.</para> 
+      </listitem>
+      <listitem>
+      <para><acronym>PMD</acronym> : <wordasword>Physical Medium
+      Dependent</wordasword>. Transmission du signal à l'aide des fonctions
+      d'amplification, de modulation et de changement de forme d'onde. Ces
+      fonctions varient suivant les variantes d'Ethernet et les débits.</para>
+      </listitem>
+      <listitem>
+      <para><acronym>MDI</acronym> : <wordasword>Medium Dependent
+      Interface</wordasword>. Définitions des différents types de connecteurs
+      suivant les médias utilisés : paires torsadées cuivre ou fibres
+      optiques.</para>
+	</listitem>
+	</itemizedlist>
+	</sect2>
+
+  <sect2 xml:id='inter-vlan-routing.lan.pdu-devices'>
+    <title>Correspondance entre unités de données et équipements réseau</title>
+
+  <para>Le modèle <acronym>OSI</acronym> a introduit un acronyme particulier
+  pour caractériser les unités de données manipulées au niveau de chaque couche
+  : <acronym>PDU</acronym> pour <wordasword>Protocol Data Unit</wordasword>.
+  L'&url.modelisations.encapsulation; est la notion clé pour isoler les
+  traitements effectués sur les unités de données. Le principe de
+  l'encapsulation veut que les unités de données utilisées à chaque niveau
+  soient indépendantes. Par conséquent, les champs de la trame sont traités au
+  niveau liaison et ne devraient avoir aucune relation avec les champs du
+  paquet au niveau réseau et ainsi de suite.</para>
+
+  <para>Si les unités de données sont spécifiques à chaque couche du modèle, il
+  est plus aisé de concevoir des équipements spécialisés dans le traitement de
+  ces unités des données. On aboutit ainsi à la représentation suivante.</para>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata format='PNG' fileref='images/osi-devices.png' depth='8cm'
+			scalefit='1' align='center' />
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata format='PNG' fileref='images/osi-devices.png' width='480px'
+			scalefit='1' align='center' />
+	</imageobject>
+	</mediaobject>
+
+  <variablelist>
+    <varlistentry>
+    <term><citetitle>Concentrateur</citetitle></term>
+    <term><wordasword>Hub</wordasword></term>
+    <listitem>
+    <para>La capacité de traitement d'un concentrateur se limite à la couche
+    physique et l'unité de données manipulée est le bit. Comme cet équipement
+    est incapable de distinguer le début ou la fin d'un flot de bits, il n'a
+    aucun impact sur la délimitation des domaines de collision ou de
+    diffusion.</para>
+
+    <para>On peut considérer que les <wordasword>Hubs</wordasword> sont des
+    équipements obsolètes qui n'ont plus leur place dans les réseaux locaux
+    contemporains.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry>
+    <term><citetitle>Pont</citetitle></term>
+    <term><wordasword>Bridge</wordasword></term>
+    <listitem>
+    <para>La capacité de traitement d'un pont couvre les couches liaison et
+    physique. L'unité de données manipulée est la trame. La couche liaison
+    constitue le niveau le plus bas de délimitation des bornes du flot de bits
+    reçus ou émis sur une interface réseau. C'est aussi dans la couche liaison
+    que l'on définit la méthode d'accès aux différents médias de
+    transmission.</para> 
+
+    <para>C'est la capacité à reconnaître les champs d'une trame qui est
+    déterminante dans la détection d'une collision lorsque deux hôtes ou plus
+    émettent simultanément dans un même réseau local. De plus, comme les trames
+    contiennent les adresses source et destination, il est possible de prendre
+    une première décision sur l'acheminement. Pour réaliser ce traitement sur
+    l'acheminement des trames entre ses différents ports, un pont maintient une
+    table de correspondance entre les adresses source des hôtes qui émettent du
+    trafic et le numéro du port sur lequel les trames sont reçues. En
+    conséquence, peut donc dire qu'<emphasis>une interface de pont délimite un
+    domaine de collision</emphasis>.</para>
+
+    <para>Si un réseau local comprend plusieurs segments et donc plusieurs
+    ponts, ceux-ci utilisent le <wordasword>Spanning Tree Protocol</wordasword>
+    (<acronym>STP</acronym>) dans le but de constituer une topologie réseau
+    sans boucle. Ce protocole est basé sur l'échange de trames dédiées appelées
+    <wordasword>Bridge Protocol Data Unit</wordasword>
+    (<acronym>BPDU</acronym>). La description du fonctionnement de ce protocole
+    sort du cadre de cet article. Il est possible de consulter la page
+    <citetitle>Wikipedia</citetitle> correspondante :
+    &url.stp.wikipedia;.</para>
+
+    <para>Si les ponts, en tant qu'équipement d'interconnexion réseau ont
+    quasiment disparu, toutes leurs fonctionnalités ont été intégralement
+    conservées dans les commutateurs présentés ci-après.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry>
+    <term><citetitle>Commutateur</citetitle></term>
+    <term><wordasword>Switch</wordasword></term>
+    <listitem>
+    <para>En première approximation, un commutateur est un pont avec une
+    électronique spécialisée qui garantit la bande passante par port. On
+    retrouve les fonctions essentielles.</para>
+
+    <orderedlist>
+    <listitem>
+    <para>Transmission ou non des trames en fonction des adresses
+    <acronym>MAC</acronym> destination.</para>
+    </listitem>
+    <listitem>
+    <para>Apprentissage des adresses MAC source en examinant chaque trame reçue
+    sur un port.</para>
+    </listitem>
+    <listitem>
+    <para>Construction d'une topologie réseau sans boucle entre équipements
+    d'interconnexion de niveau liaison à l'aide du protocole
+    <acronym>STP</acronym>.</para>
+    </listitem>
+    </orderedlist>
+
+    <para>Relativement aux équipements des générations précédentes, les
+    bénéfices apportés par l'utilisation des commutateurs Ethernet sont
+    nombreux. Un commutateur créé un domaine de collision distinct par port.
+    Les connexions sur chaque port utilisent le mode
+    <wordasword>full-duplex</wordasword>, ce qui offre des garanties sur les
+    temps de transmission des trames. Enfin, on peut considérer qu'un
+    commutateur multiplie la quantité totale de bande passante disponible sur
+    un réseau local.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry>
+    <term><citetitle>Routeur</citetitle></term>
+    <term><wordasword>Router</wordasword></term>
+    <listitem>
+    <para>La capacité de traitement d'un routeur couvre les trois couches
+    basses du modèle <acronym>OSI</acronym> : physique, liaison et réseau. Les
+    traitements du niveau réseau permettent de délimiter un <emphasis>domaine
+    de diffusion</emphasis> par interface sur un routeur. Comme la gestion du
+    sous-réseau inclut la couche liaison, une interface de routeur délimite
+    aussi une <emphasis>domaine de collision</emphasis>.</para>
+
+    <para>Dans la quasi totalité des réseaux, le protocole routé utilisé est
+    <acronym>IP</acronym>. Il est basé sur le principe de la commutation de
+    paquets et son format d'adressage permet de construire un découpage en
+    groupes logiques d'hôtes à la différence du format des adresses
+    Ethernet. C'est justement cette absence de capacité à découper l'espace
+    d'adressage en groupes logiques au niveau liaison qui a conduit au
+    développement des réseaux locaux virtuels présentés ci-après.</para>
+
+    <para>Il faut ajouter qu'un routeur réalise des traitements plus complexes
+    qu'un commutateur au niveau liaison. La prise de décision sur
+    l'acheminement des paquets, c'est à dire le routage, est alimentée par un
+    ou plusieurs protocoles de routage dynamique. Ces protocoles de routage
+    sont des processus qui s'exécutent dans l'espace utilisateur d'un système
+    d'exploitation complet. On voit donc que la première prise de décision sur
+    le routage d'un nouveau paquet vers une destination non connue, passe par
+    un traitement 100% logiciel. Ce n'est que dans un second temps qu'il est
+    possible de déléguer la transmission des paquets vers des destinations
+    mémorisées à une électronique spécialisée.</para>
+
+    <para>Pour distinguer les traitements, on peut dire que le routage de
+    paquets est une opération logicielle tandis que la commutation de paquets
+    peut être une opération matérielle sur un équipement disposant de
+    composants spécialisés.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry>
+    <term><citetitle>Passerelle</citetitle></term>
+    <term><wordasword>Gateway</wordasword></term>
+    <term><wordasword>Application Level Gateway</wordasword></term>
+    <term><acronym>ALG</acronym></term>
+    <listitem>
+    <para>La capacité de traitement d'une passerelle couvre toutes les couches
+    du modèle <acronym>OSI</acronym> de la couche application à la couche
+    physique. La gestion du sous-réseau est donc incluse et une interface de
+    passerelle délimite à la fois un <emphasis>domaine de diffusion</emphasis>
+    et un <emphasis>domaine de collision</emphasis>.</para>
+
+    <para>Parmi les traitements réalisés par une passerelle, on trouve les
+    fonctions de cache de filtrage et de redirection. On peut citer les
+    exemples des services mandataires avec filtrage d'<acronym>URL</acronym>s
+    ou les services de routage d'appels en téléphonie sur
+    <acronym>IP</acronym>.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+  </sect2>
+
+  <sect2 xml:id='inter-vlan-routing.lan.mac-address'>
+    <title>Types d'adresses MAC</title>
+
+  <para>Les adresses utilisées dans les trames Ethernet sont appelées adresses
+  <acronym>MAC</acronym> ; acronyme issu du nom de la sous-couche consacrée à
+  la méthode d'accès. Ces adresses sont représentées sur 48 bits ou 64 bits
+  soit 6 ou 8 octets. Le terme d'<emphasis>adressage matériel</emphasis> est
+  généralement utilisé dans la mesure où les adresses MAC sont directement
+  gravées dans les composants d'interface réseau.</para>
+
+  <para>Même si ce format d'adressage est non hiérarchisé et ne prévoit aucune
+  possibilité de découpage en groupes logiques, on distingue différents types
+  d'adresses <acronym>MAC</acronym>.</para>
+
+  <variablelist>
+    <varlistentry>
+    <term><acronym>EUI-48</acronym></term>
+    <term><wordasword>48-bit Extended Unique Identifier</wordasword></term>
+    <listitem>
+    <para>À l'origine, la représentation sur 48 bits a été retenue par le
+    comité <citetitle>IEEE 802</citetitle> et est utilisée dans plusieurs
+    technologies réseau dont Ethernet.</para>
+
+    <para>Dans les spécifications de l'<citetitle>IEEE</citetitle>, l'espace
+    d'adressage est découpé en deux parties. Les trois octets ou les 24 bits de
+    poids fort sont réservés à l'identification du constructeur de l'interface
+    réseau. C'est la partie <wordasword>Organizationally Unique
+    Identifier</wordasword> (<acronym>OUI</acronym>) de l'adresse ; attribuée
+    et enregistrée directement par l'<citetitle>IEEE</citetitle> ou
+    l'<citetitle>IANA</citetitle>. Les trois octets ou les 24 bits de poids
+    faible sont attribués par le constructeur comme numéro de série.</para>
+
+    <mediaobject>
+      <imageobject role='fo'>
+        <imagedata format='PNG' fileref='images/eui-48.png' width='8cm' scalefit='1' />
+      </imageobject>
+      <imageobject role='html'>
+        <imagedata format='PNG' fileref='images/eui-48.png' width='320px' scalefit='1' />
+      </imageobject>
+    </mediaobject>
+
+    <para>Les deux bits de poids faible l'octet de poids le plus fort servent à
+    identifier les usages d'une adresse <acronym>MAC</acronym>.</para>
+
+    <itemizedlist>
+      <listitem>
+      <para>Le bit de rang 0 (de poids le plus faible) sert à distinguer une
+      adresse individuelle (<literal>I</literal>) ou
+      <wordasword>unicast</wordasword> (bit = 0) d'une adresse de groupe
+      (<literal>G</literal>) ou <wordasword>multicast</wordasword>
+      (<literal>M</literal>) (bit = 1).</para>
+
+      <para>Une trame avec une adresse <acronym>MAC</acronym> source
+      <wordasword>unicast</wordasword> est émise à destination des hôtes du
+      domaine de collision. Dans notre cas, le domaine de collision se limite
+      au port du commutateur sur lequel l'hôte émetteur est connecté. Une trame
+      avec une adresse <acronym>MAC</acronym> destination
+      <wordasword>unicast</wordasword> est traitée après réception uniquement
+      par l'hôte pour lequel il y a correspondance exacte entre cette adresse
+      destination et l'adresse de son interface.</para>
+
+      <para>Une trame <wordasword>multicast</wordasword> est émise à partir
+      d'une source unique à destination de tous les hôtes abonnés à un flux
+      particulier. La notion d'abonnement est gérée par les couches
+      supérieures. Suivant l'électronique d'un commutateur, il est possible de
+      filtrer (<wordasword>IGMP snooping</wordasword>) la transmission des
+      trames vers les seuls hôtes abonnés au flux. Si cette fonction n'est pas
+      présente sur le commutateur, les trames sont recopiées sur tous les ports
+      indistinctement.</para>
+      </listitem>
+      <listitem>
+      <para>Le bit de rang 1 ou <wordasword>Universal/Local</wordasword> sert à
+      distinguer une adresse universelle pour laquelle la partie
+      <wordasword>Organizationally Unique Identifier</wordasword> a été
+      attribuée par l'<citetitle>IEEE</citetitle> (bit = 0) d'une adresse pour
+      laquelle la même partie est administrée localement (bit = 1).</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>Pour plus de détails, voir le document &url.ieee.macaddr;.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry>
+    <term><acronym>EUI-64</acronym></term>
+    <term><wordasword>64-bit Extended Unique Identifier</wordasword></term>
+    <listitem>
+    <para>La représentation sur 64 bits des adresses <acronym>MAC</acronym> est
+    apparue plus récemment dans les réseaux Ethernet. C'est encore
+    l'<citetitle>IEEE</citetitle> qui publie les spécifications liées à
+    l'utilisation de ces adresses sur 8 octets.</para>
+
+    <mediaobject>
+      <imageobject role='fo'>
+        <imagedata format='PNG' fileref='images/eui-64.png' width='8cm' scalefit='1' />
+      </imageobject>
+      <imageobject role='html'>
+        <imagedata format='PNG' fileref='images/eui-64.png' width='480px' scalefit='1' />
+      </imageobject>
+    </mediaobject>
+
+    <para>Les adresses au format <acronym>EUI-64</acronym> sont de plus en plus
+    répandues avec le déploiement du protocole <acronym>IPv6</acronym> qui
+    compose automatiquement les adresses de lien local avec l'adresse
+    <acronym>MAC</acronym> sur 48 bits de l'interface dans laquelle deux octets
+    supplémentaires insérés entre la partie <acronym>OUI</acronym> et la partie
+    numéro de série.</para>
+
+    <para>Par exemple, une interface ayant l'adresse <acronym>MAC</acronym>
+    <acronym>EUI-48</acronym> <systemitem>00:3f:1c:54:5e:65</systemitem> aura
+    pour adresse de lien local <acronym>IPv6</acronym> :
+    <systemitem>fe80::23f:1cff:fe54:5e65/64</systemitem>. On reconnaît ici
+    l'insertion des deux octets <systemitem>ff:fe</systemitem>.</para>
+
+    <para>Pour plus de détails, voir le document &url.ieee.eui64;.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Après cette présentation succincte des différents formats et usages des
+  adresses véhiculées dans les trames Ethernet, il est facile d'admettre que la
+  constitution de groupes d'adresses sur une base logique ou hiérarchisée n'est
+  pas possible. Il faut donc recourir à une modification des champs de la trame
+  pour introduire cette notion de groupe logique. C'est justement l'objet des
+  réseaux locaux virtuels ou <acronym>VLAN</acronym>s.</para> 
+  </sect2>
+</sect1>
+
+<sect1 xml:id='inter-vlan-routing.vlan'>
+  <title>Réseaux locaux virtuels : VLANs</title>
+
+  <sect2 xml:id='inter-vlan-routing.vlan.definitions'>
+    <title>Définitions</title>
+  <para>On a vu qu'un réseau local (<acronym>LAN</acronym>) est défini par un
+  domaine de diffusion dans lequel tous les hôtes reçoivent les messages de
+  diffusion émis par n'importe quel autre hôte du réseau. Par définition, un
+  réseau local est délimité par une interface d'équipement de niveau 3 du
+  modèle <acronym>OSI</acronym> (couche réseau).</para>
+
+  <para>Un réseau local virtuel (<acronym>VLAN</acronym>) est un réseau local
+  (<acronym>LAN</acronym>) distribué sur des équipements de niveau 2 du modèle
+  <acronym>OSI</acronym> (couche liaison). Le domaine de diffusion se retrouve
+  ainsi réparti sur ces mêmes équipements de niveau 2. Ainsi, tous les hôtes
+  appartenant au même réseau local (domaine de diffusion) constituent un groupe
+  logique indépendant de la topologie physique du réseau.</para>
+  
+  <para>La définition de base étant posée, deux problèmes restent à
+  résoudre.</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Comment communiquer entre plusieurs réseaux locaux virtuels ?</para>
+    </listitem>
+    <listitem>
+    <para>Comment assurer la répartition de plusieurs réseaux locaux virtuels
+    sur plusieurs équipements de niveau liaison ?</para>
+    </listitem>
+  </itemizedlist>
+
+  <para>Pour traiter le premier problème, il faut rappeler qu'il est absolument
+  nécessaire de passer par un routeur (niveau réseau du modèle
+  <acronym>OSI</acronym>) pour interconnecter plusieurs réseaux locaux. On
+  aboutit ainsi au second problème à une différence près. Le routeur doit avoir
+  connaissance des mêmes informations que les commutateurs au niveau
+  liaison.</para> 
+
+  <para>Pour traiter le premier et le second problème, il est donc nécessaire
+  d'élaborer une technique de partage des réseaux locaux entre équipements.
+  Cette technique consiste à étiqueter les trames pour identifier le trafic des
+  différents réseaux locaux sur un même canal physique.</para>
+
+  <para>Ainsi, les réseaux locaux sont distribués sur les différents
+  équipements via des liaisons logiques dédiées appelées
+  <wordasword>trunks</wordasword>. Le <wordasword>trunk</wordasword> est une
+  connexion physique unique sur laquelle on transmet le trafic de plusieurs
+  réseaux virtuels. Les trames qui traversent le <wordasword>trunk</wordasword>
+  sont complétées avec un identificateur de réseau local virtuel (<acronym>VLAN
+  id</acronym>). Grâce à cette identification, les trames sont conservées dans
+  un même <acronym>VLAN</acronym> (ou domaine de diffusion).</para>
+
+  <para>Les <wordasword>trunks</wordasword> peuvent être utilisés :</para>
+
+  <variablelist>
+    <varlistentry xml:id='trunk.sw2sw'>
+      <term>Entre deux commutateurs</term>
+      <listitem>
+      <para>C'est le mode de distribution des réseaux locaux le plus
+      courant. C'est la solution du second problème énoncé ci-dessus.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='trunk.sw2host'>
+      <term>Entre un commutateur et un hôte</term>
+      <listitem>
+      <para>C'est le mode de fonctionnement à surveiller étroitement. Un hôte
+      qui supporte le <wordasword>trunking</wordasword>  a la possibilité
+      d'analyser le trafic de tous les réseaux locaux virtuels.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry xml:id='trunk.sw2router'>
+      <term>Entre un commutateur et un routeur</term>
+      <listitem>
+      <para>C'est le mode fonctionnement qui permet d'accéder aux fonctions de
+      routage ; donc à l'interconnexion des réseaux virtuels par routage
+      inter-VLAN. C'est la solution du premier problème énoncé
+      ci-dessus.</para>
+    </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <para>Enfin, il ne faut pas oublier que tous les <acronym>VLANs</acronym>
+  véhiculés dans le même <wordasword>trunk</wordasword> partagent la bande
+  passante du média utilisé. Le <wordasword>trunk</wordasword> peut donc
+  constituer un goulot d'étranglement si sa capacité est insuffisante.</para>
+  </sect2>
+
+  <sect2 xml:id='inter-vlan-routing.vlan.standards'>
+    <title>Réseaux locaux virtuels standards</title>
+
+  <para>Il existe plusieurs mécanismes de gestion des <acronym>VLANs</acronym>.
+  Certains sont propriétaires et ne fonctionnent que sur les équipements d'une
+  seule marque.</para>
+
+  <variablelist>
+    <varlistentry xml:id='port.vlan'>
+      <term><acronym>VLANs</acronym> par ports</term>
+      <listitem>
+      <para>Cette technique fournit une méthode de division d'un équipement de
+      niveau 2 (commutateur) en plusieurs domaines de diffusion. La
+      configuration de cette division est spécifique à chaque plateforme.</para>
+      
+      <para>Bien que le coût d'administration de ce genre de configuration soit
+      important puisqu'il faut gérer manuellement sur chaque équipement la
+      distribution des réseaux locaux, cette technique est indépendante des
+      plateformes et de leurs systèmes d'exploitation. C'est la raison
+      principale pour laquelle elle est très répandue. Le commutateur assure
+      une isolation complète entre l'hôte et le <acronym>VLAN</acronym> auquel
+      il appartient.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='isl.vlan'>
+      <term><acronym>VLANs</acronym> du type Cisco Inter-Switch Link</term>
+      <term><acronym>ISL</acronym> <acronym>VLANs</acronym></term>
+      <listitem>
+      <para>Cette technique propriétaire a été développée spécifiquement pour
+      les équipements <trademark>Cisco</trademark>. Elle complète les en-têtes
+      de trames avec 30 octets répartis en 13 champs. Ce type d'encapsulation
+      n'est plus beaucoup utilisé du fait de son incompatibilité avec le
+      standard <acronym>IEEE 802.1Q</acronym>. La documentation
+      <trademark>Cisco</trademark> est à l'adresse &url.isl.dot1q;</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id='dot1q.vlan'>
+      <term><acronym>VLANs</acronym> IEEE 802.1Q</term>
+      <listitem>
+      <para>Le standard <acronym>IEEE 802.1Q</acronym> fournit un mécanisme
+      d'encapsulation très répandu et implanté dans de nombreux équipements de
+      marques différentes. C'est sur ce standard que s'appuie ce document.
+      L'en-tête de trame est complété par une balise de quatre octets. Les
+      champs contenus dans ces quatre octets sont présentés dans la section
+      suivante. Les spécifications sont accessibles à l'adresse
+      &url.ieee802.1q.standard;</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  </sect2>
+
+  <sect2 xml:id='inter-vlan-routing.vlan.dot1q'>
+    <title>Balise IEEE 802.1Q</title>
+
+  <para>Le standard <acronym>IEEE 802.1Q</acronym> définit le contenu de la
+  balise de VLAN (<wordasword>VLAN tag</wordasword>) avec laquelle on complète
+  l'en-tête de trame Ethernet. Le format de la trame Ethernet modifiée avec les
+  4 octets supplémentaires est présenté ci-dessous :</para>
+
+  <mediaobject>
+    <imageobject role='fo'>
+      <imagedata format='PNG' fileref='images/ieee8021q-frame.png' width='12cm' scalefit='1'/>
+    </imageobject>
+    <imageobject role='html'>
+      <imagedata format='PNG' fileref='images/ieee8021q-frame.png' width='600px' scalefit='1'/>
+    </imageobject>
+  </mediaobject>
+
+  <para>Il faut noter que le champ <literal>FCS</literal> est recalculé après
+  l'insertion de la balise de <acronym>VLAN</acronym>.</para>
+
+  <para>Voici un extrait de capture, réalisée avec
+  <application>Wireshark</application>, qui illustre les champs de la balise
+  <acronym>IEEE 802.1Q</acronym>.</para>
+
+<screen width='80'>Frame 103 (1518 bytes on wire, 1518 bytes captured)
+Ethernet II, Src: 00:14:f2:75:ed:72, Dst: 00:10:5a:de:9d:d7
+    Destination: 3com_de:9d:d7 (00:10:5a:de:9d:d7)
+    Source: Cisco_75:ed:72 (00:14:f2:75:ed:72)
+    Type: 802.1Q Virtual LAN (0x8100) <co xml:id='ieee8021q.tpid'/>
+802.1Q Virtual LAN
+    000. .... .... .... = Priority: 0 <co xml:id='ieee8021q.prio'/>
+    ...0 .... .... .... = CFI: 0      <co xml:id='ieee8021q.cfi'/>
+    .... 0000 0110 0100 = ID: 100     <co xml:id='ieee8021q.vid'/>
+    Type: IP (0x0800)
+Internet Protocol, Src: 172.17.0.2 (172.17.0.2), Dst: 172.16.80.19 (172.16.80.19)
+Transmission Control Protocol, Src Port: www (80), Dst Port: 1548 (1548)
+</screen>
+
+  <calloutlist>
+    <callout arearefs='ieee8021q.tpid'>
+    <variablelist>
+      <varlistentry>
+        <term><citetitle>Tag protocol identifier</citetitle></term>
+        <term>TPID</term>
+        <term>EtherType</term>
+        <listitem>
+	<para>Ce champ de 16 bits identifie le protocole véhiculé dans la
+	trame. La valeur <literal>0x8100</literal> désigne une balise
+	<acronym>IEEE 802.1Q / 802.1P</acronym>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    </callout>
+    <callout arearefs='ieee8021q.prio'>
+    <variablelist>
+      <varlistentry>
+        <term><citetitle>Priority</citetitle></term>
+        <listitem>
+	<para>Ce champ de 3 bits fait référence au standard
+	<acronym>IEEE 802.1P</acronym>. Sur 3 bits on peut coder 8 niveaux
+	de priorités de 0 à 7. La notion de priorité dans les
+	<acronym>VLANs</acronym> est sans rapport avec les mécanismes de
+	priorité <acronym>IP</acronym> au niveau réseau. Ces 8 niveaux sont
+	utilisés pour fixer une priorité aux trames d'un
+	<acronym>VLAN</acronym> relativement aux autres
+	<acronym>VLANs</acronym>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    </callout>
+    <callout arearefs='ieee8021q.cfi'>
+    <variablelist>
+      <varlistentry>
+        <term><citetitle>Canonical Format Identifier</citetitle></term>
+        <listitem>
+	<para>Ce champ codé sur 1 bit assure la compatibilité entre les
+	adresses MAC Ethernet et Token Ring. Un commutateur Ethernet fixera
+	toujours cette valeur à 0. Si un port Ethernet reçoit une valeur 1 pour
+	ce champ, alors la trame ne sera pas propagée puisqu'elle est destinée
+	à un port «sans balise» (<wordasword>untagged
+	port</wordasword>).</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    </callout>
+    <callout arearefs='ieee8021q.vid'>
+    <variablelist>
+      <varlistentry>
+        <term><citetitle>VLAN Identifier</citetitle></term>
+        <term>vlan id</term>
+        <term>VID</term>
+        <listitem>
+	<para>Ce champ de 12 bits sert à identifier le réseau local virtuel
+	auquel appartient la trame. Il est possible de coder 4094
+	(<literal>2^12-2</literal>) réseaux virtuels (<acronym>VLAN</acronym>s)
+	avec ce champ.</para>
+        </listitem>
+    </varlistentry>
+    </variablelist>
+    </callout>
+  </calloutlist>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='inter-vlan-routing.routing'>
+  <title>Routage inter-VLAN</title>
+
+  <para>A partir de l'argumentation développée précédemment et dans l'article
+  &url.lan-segmentation;, on dispose de deux règles de base. Sans aucune
+  programmation particulière des équipements :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Une interface de <emphasis>commutateur</emphasis> délimite un domaine
+    de <emphasis>collision</emphasis>.</para>
+    </listitem>
+    <listitem>
+    <para>Une interface de <emphasis>routeur</emphasis> délimite à la fois un
+    domaine de <emphasis>collision</emphasis> et un domaine de
+    <emphasis>diffusion</emphasis>.</para>
+    </listitem>
+  </itemizedlist>
+
+  <sect2 xml:id='inter-vlan-routing.routing.before'>
+    <title>Situation avant routage inter-VLAN</title>
+
+  <para>Du point de vue conception, le respect de ces deux règles impose que
+  l'on ajoute une interface de routeur pour chaque nouveau domaine de diffusion
+  ou périmètre de contrôle. De plus, les commutateurs appartenant à un domaine
+  de diffusion sont dédiés à ce domaine. Il n'est pas possible de distribuer
+  plusieurs réseaux locaux virtuels entre plusieurs domaines de diffusion
+  «isolés» par un routeur.</para>
+  
+  <mediaobject>
+    <imageobject role='fo'>
+      <imagedata format='PNG' fileref='images/inter-vlan0.png' depth='6cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+      <imagedata format='PNG' fileref='images/inter-vlan0.png' width='480px' scalefit='1' />
+    </imageobject>
+  </mediaobject>
+
+  <para>Remarques sur ce type de conception :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Si on programme le commutateur A avec 2 VLANs distincts pour chacun
+    des PCs <literal>A1</literal> et <literal>A2</literal>, alors toute
+    communication entre <literal>A1</literal> et <literal>A2</literal> sera
+    impossible. De plus, ces deux PCs ne pourront communiquer avec d'autres
+    réseaux que si l'interface du routeur <literal>RA</literal> appartient aux
+    deux VLANs programmés.</para>
+
+    <para>Cette situation peut présenter des avantages du point de vue
+    exploitation mais elle dépend beaucoup de la gestion des interfaces
+    physiques. Ce que ne montre pas le diagramme simplifié ci-dessus, c'est que
+    le coût d'administration devient très important dès que le nombre de
+    réseaux virtuels augmente.</para>
+    </listitem>
+    <listitem>
+    <para>Si l'utilisateur «associé» au PC <literal>A1</literal> déménage dans
+    un lieu ou seul le domaine de diffusion B est distribué, il est nécessaire
+    d'étendre le domaine de diffusion A jusqu'à ce nouveau lieu. En
+    conséquence, il faudra installer un nouveau commutateur et câbler de
+    nouvelles prises entre le point de brassage principal du domaine A et ce
+    lieu.</para>
+    
+    <para>Sur une même infrastructure, on se retrouve rapidement avec des
+    commutateurs saturés pour lesquels tous les ports disponibles sont utilisés
+    et d'autres commutateurs pour lesquels seuls quelques ports sont
+    utilisés.</para>
+
+    <para>Ce scénario montre qu'il est excessivement difficile d'optimiser le
+    parc des ports de commutateurs avec ce type d'architecture. Le coût de
+    l'infrastructure augmente donc fortement puisqu'il faut passer par des
+    réinvestissements lourds en câblage et en équipements à chaque modification
+    des périmètres.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='inter-vlan-routing.routing.after'>
+    <title>Situation après routage inter-VLAN</title>
+
+  <para>Les deux règles de base énoncées ci-dessus ne sont pas remises en
+  question. Il s'agit maintenant de dissocier les notions d'interface physique
+  et d'interface de routage. On n'associe plus une interface physique à chaque
+  domaine de diffusion mais une interface «virtuelle» (encore du
+  virtuel !).</para>
+  
+  <mediaobject>
+    <imageobject role='fo'>
+      <imagedata format='PNG' fileref='images/inter-vlan1.png' depth='8cm' scalefit='1' />
+    </imageobject>
+    <imageobject role='html'>
+      <imagedata format='PNG' fileref='images/inter-vlan1.png' width='320px' scalefit='1' />
+    </imageobject>
+  </mediaobject>
+
+  <para>Remarques sur ce type de conception relativement à la situation sans
+  routage inter-VLAN :</para>
+
+  <itemizedlist>
+    <listitem>
+    <para>Le contrôle d'accès est centralisé au niveau du routeur. Il n'existe
+    plus de «mélange des genres» entre la programmation des commutateurs et le
+    contrôle d'accès au niveau réseau. Les communications entre les hôtes d'un
+    même domaine de diffusion ou entre plusieurs domaines de diffusion sont
+    gérées de la même façon.</para>
+
+    <para>On obtient donc de véritables réseaux locaux distribués sur la
+    totalité de l'infrastructure (équipements de niveau 2 + équipements de
+    niveau 3).</para>
+    </listitem>
+    <listitem>
+    <para>La gestion du parc des ports de commutation est optimisée. Comme les
+    domaines de diffusion sont partagés entre tous les équipements, la gestion
+    des évolutions est beaucoup plus souple. Les déménagements n'entraînent
+    aucun recâblage tant que l'évolution du nombre des hôtes n'implique pas une
+    augmentation du nombre de ports. Il est donc possible de
+    <emphasis>concentrer</emphasis> l'administration sur un nombre
+    d'équipements plus faible que dans une architecture sans routage
+    inter-VLAN.</para>
+    </listitem>
+  </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id='inter-vlan-routing.routing.bandwidth'>
+    <title>Bande passante et trunks</title>
+
+  <para>En reprenant la remarque sur le partage des débits entre les VLANs à
+  l'intérieur des <wordasword>trunks</wordasword> (voir à la fin de la <xref
+  linkend='inter-vlan-routing.vlan.definitions'/>), il devient
+  intéressant de partager le débit disponible en fond de panier dans des
+  châssis de commutateurs. Le critère de choix d'un équipement, commutateur ou
+  routeur, s'articule de plus en plus autour du rapport entre la capacité de
+  commutation en millions de paquets par seconde (<acronym>mpps</acronym>) et
+  le prix d'achat.</para>
+
+  <para>L'augmentation régulière des débits utiles par port favorise l'adoption
+  d'architectures à base de routage inter-VLAN. Les évolutions techniques des
+  routeurs conduisent à diminuer le nombre de leurs interfaces alors que les
+  évolutions des commutateurs conduisent à augmenter considérablement le nombre
+  de leurs ports.</para>
+
+  <para>Lors de la conception de la topologie physique d'une architecture, la
+  densité de ports dans un rayon de 90m dans les réseaux filaires cuivre
+  devient un point sensible. Si cette densité est importante, il faudra
+  recourir à des équipements de type châssis qui permettent d'associer un
+  module de routage à plusieurs modules de commutation. Tous ces modules
+  disposent de composants spécialisés interconnectés en fond de panier sur
+  différents bus eux aussi spécialisés. Si au contraire, la topologie physique
+  est géographiquement plus étalée, on aura recours à l'agrégation de canaux.
+  Cette technique permet d'augmenter la capacité utile d'un
+  <wordasword>trunk</wordasword> en distribuant le trafic sur plusieurs canaux
+  physiques vus comme un seul et unique lien.</para>
+  </sect2>
+</sect1>
+
+<sect1 xml:id='inter-vlan-routing.references'>
+  <title>Applications pratiques</title>
+
+  <para>Le routage inter-VLAN est utilisé plusieurs niveaux dans les documents
+  présentés sur ce site.</para>
+
+  <variablelist>
+    <varlistentry>
+      <term><citetitle>Architecture réseau des travaux pratiques</citetitle></term>
+      <listitem>
+	<para>Le support &url.infra.tp; présente la topologie physique de
+	l'infrastructure de travaux pratiques avec la &url.infra.tp.cabling; ainsi que
+	les configurations par défaut des équipements. On y trouve aussi le
+	plan d'adressage IP utilisé avec les autres supports de travaux
+	pratiques, le plan de numérotations des VLANs et les affectations des
+	groupes de ports des commutateurs.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <term><citetitle>Introduction au routage inter-VLAN</citetitle></term>
+      <listitem>
+	<para>Le support de travaux pratiques &url.interco.inter-vlan; est
+	une introduction aux opérations de configuration. Il est basé sur une
+	séparation entre la fonction de routage au niveau réseau assurée par un
+	système GNU/Linux et la fonction de commutation des trames au niveau
+	liaison assurée par un commutateur Cisco.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+	<term><citetitle>Introduction au routage dynamique avec OSPF</citetitle></term>
+	<listitem>
+	<para>Le support de travaux pratique &url.interco.ospf-bird; est une
+		excellente occasion de caractériser l'indépendance entre topologie
+		logique et topologie physique. En effet, la topologie physique est de
+		type étoile puisque l'on utilise des connexions filaires cuivre
+		Ethernet alors que la topologie logique est de type triangle grâce à
+		l'utilisation des <acronym>VLAN</acronym>s.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</sect1>
+</article>

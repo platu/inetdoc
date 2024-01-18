@@ -1,0 +1,2665 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+	"/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!-- inetdoc -->
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.frr-documentation
+	'<link xmlns="http://docbook.org/ns/docbook"
+	xlink:href="https://docs.frrouting.org">
+	<citetitle>FRRouting User Guide</citetitle></link>'>
+
+<!-- A copy of http://www.w3.org/2003/entities/2007/w3centities-f.ent is at:
+/usr/local/share -->
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"/usr/local/share/w3centities-f.ent">
+%w3centities-f;
+]>
+
+<article xml:id='interco.ospf-frr' xml:lang='fr'>
+
+<info>
+	<title>Introduction au routage dynamique OSPF avec FRRouting</title>
+
+	&author;
+	<abstract>
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='5*'/>
+	<colspec colwidth='220px'/>
+	<tbody>
+	<row>
+	<entry valign='top'>
+	<para>L'objectif de ce support de travaux pratiques est d'étudier le
+	protocole de routage dynamique <acronym>OSPF</acronym>. Cette illustration
+	s'appuie sur une topologie minimale très classique&nbsp;: le triangle.
+	L'originalité consiste à utiliser les <acronym>VLAN</acronym>s pour marquer
+	la distinction entre une topologie physique de type étoile et une topologie
+	logique en triangle. Cette version du support utilise la suite de démons de
+	routage <application>FRRouting</application>.</para>
+	</entry>
+	<entry>
+	<inlinemediaobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/ospf-cloud-logical-topology.png' format='PNG' width='480px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/ospf-cloud-logical-topology.png' format='PNG' width='6cm' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+	</abstract>
+
+	<keywordset>
+	<keyword>ospf</keyword>
+	<keyword>frr</keyword>
+	<keyword>routage</keyword>
+	<keyword>trunk</keyword>
+	<keyword>vlan</keyword>
+	<keyword>zebra</keyword>
+	</keywordset>
+</info>
+
+<sect1 xml:id='interco.ospf-frr.legal.meta'>
+	&legal;
+	<bridgehead xml:id='interco.ospf-frr.meta'
+	renderas='sect2'>Méta-information</bridgehead>
+
+	<para>Ce document est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+	XML sur un système <link
+	xlink:href="https://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+	format PDF&nbsp;: <link
+	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+	<para>Toutes les commandes utilisées dans ce document ne sont pas
+	spécifiques à une version particulière des systèmes UNIX ou GNU/Linux.
+	C'est la distribution <citetitle>Debian GNU/Linux</citetitle> qui est
+	utilisée pour les tests présentés. Voici une liste des paquets contenant
+	les commandes&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+		<para><application>procps</application> - Utilitaires pour le système
+		de fichiers <filename class='directory'>/proc</filename></para>
+	</listitem>
+	<listitem>
+		<para><application>iproute2</application> - Outils de contrôle du
+		trafic et du réseau</para>
+	</listitem>
+	<listitem>
+		<para><application>ifupdown</application> - Outils de haut niveau pour
+		configurer les interfaces réseau</para>
+	</listitem>
+	<listitem>
+		<para><application>iputils-ping</application> - Outils pour tester
+		l'accessibilité de nœuds réseaux</para>
+	</listitem>
+	<listitem>
+		<para><application>frr</application> - BGP/OSPF/RIP routing
+		daemon</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>La suite de démons de routage <application>FRRouting</application>
+	couvre la totalité des protocoles de routage dynamiques. Le paquet
+	<application>frr</application> fournit autant de processus que de
+	protcoles. Ici, on se concentre sur le protocole <acronym>OSPF</acronym>.
+	Voici une représentation de l'organisation des démons actifs dans notre
+	contexte.</para>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata format='PNG' fileref='images/frr-daemons.png' width='10cm' scalefit='1' />
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata format='PNG' fileref='images/frr-daemons.png' width='560px' scalefit='1' />
+	</imageobject>
+	<textobject>
+		<phrase>Synoptique des démons FRRouting</phrase>
+	</textobject>
+	</mediaobject>
+</sect1>
+
+<sect1 xml:id='interco.ospf-frr.archi'>
+	<title>Topologie réseau étudiée</title>
+
+	<para>La topologie réseau étudiée peut être présentée sous deux formes
+	distinctes&nbsp;: logique et physique.</para>
+
+	<variablelist>
+	<varlistentry xml:id='interco.ospf-frr.topologie.logique'>
+		<term>Topologie logique</term>
+	<listitem>
+		<para>On retrouve un grand classique dans l'introduction aux protocoles
+		de routage dynamiques&nbsp;: le triangle dont les trois côtés (liens)
+		sont de type <acronym>LAN</acronym>.</para>
+
+		<para>Si on se place sur un sommet du triangle, le côté opposé
+		correspond à un réseau “inconnu“ que l'on peut joindre via les routeurs
+		voisins.</para>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/ospf-cloud-logical-topology.png' format='PNG'
+		width='12cm' scalefit='1' align='center'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/ospf-cloud-logical-topology.png' format='PNG'
+		width='640px' scalefit='1' align='center'/>
+	</imageobject>
+	<textobject>
+		<phrase>Topologie logique en triangle</phrase>
+	</textobject>
+	<caption>
+		<para><link
+		xlink:href='images/ospf-cloud-logical-topology.png'>Topologie logique
+		en triangle</link></para>
+	</caption>
+	</mediaobject>
+	</listitem>
+	</varlistentry>
+	<varlistentry xml:id='interco.ospf-frr.topologie.physique'>
+		<term>Topologie physique</term>
+	<listitem>
+		<para>On s'appuie sur le support &url.inter-vlan-routing; pour
+		constituer une topologie physique à base de réseaux locaux virtuels ou
+		<acronym>VLAN</acronym>s. On fait correspondre à chaque lien de la
+		topologie logique en triangle un numéro de <acronym>VLAN</acronym>
+		défini.</para>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/ospf-cloud-host-topology.png' format='PNG'
+		width='12cm' scalefit='1' align='center'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/ospf-cloud-host-topology.png' format='PNG'
+		width='640px' scalefit='1' align='center'/>
+	</imageobject>
+	<textobject>
+		<phrase>Topologie phusique en étoile</phrase>
+	</textobject>
+	<caption>
+		<para><link
+		xlink:href='images/ospf-cloud-host-topology.png'>Topologie physique
+		en étoile</link></para>
+	</caption>
+	</mediaobject>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+
+	<para>Après avoir mis en œuvre la topologie physique en s'appuyant sur le
+	support de la séance de travaux pratiques précédente&nbsp;:
+	&url.inter-vlan-routing;, on implante les démons de routage
+	<acronym>OSPF</acronym> sur les trois routeurs R1, R2 et R3.</para>
+
+	<para>Ce support se limite à l'étude du routage dynamique à l'intérieur
+	d'une aire unique. La seule «frontière» de communication inter-aires
+	visible est constituée par le lien vers l'Internet. Cette route par défaut
+	sera redistribuée via <acronym>OSPF</acronym> par le routeur R1 aux autres
+	routeurs. On verra alors un exemple de route externe dans les bases de
+	données <acronym>OSPF</acronym>.</para>
+
+	<para>Voici le plan d'adressage de la maquette qui a été utilisée pour
+	rédiger ce document.</para>
+
+<table xml:id='interco.ospf-frr.mockup.addressing' frame='all' pgwide='1'>
+	<title>Maquette</title>
+	<tgroup cols='5' align='left' colsep='1' rowsep='1'>
+		<colspec colnum='1' colwidth='1*'/>
+		<colspec colnum='2' colwidth='2*'/>
+		<colspec colnum='3' colwidth='1*'/>
+		<colspec colnum='4' colwidth='2*'/>
+		<colspec colnum='5' colwidth='2.5*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Rôle</entry>
+		<entry>OSPF router-id</entry>
+		<entry>VLAN</entry>
+		<entry>Type</entry>
+		<entry>Adresses</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+		<entry morerows='3' valign='middle'>R1</entry>
+		<entry morerows='3' valign='middle'>
+			OSPFv2&nbsp;: 0.0.4.1<?custom-linebreak?>
+			OSPFv3&nbsp;: 0.0.6.1</entry>
+		<entry>360</entry>
+		<entry>Passerelle</entry>
+		<entry>
+			<systemitem class='ipaddress'>192.168.104.129/29</systemitem><?custom-linebreak?>
+			<systemitem class='ipaddress'>fe80:168::1</systemitem>
+		</entry>
+	</row>
+	<row>
+		<entry>480</entry>
+		<entry>R1 -> R2</entry>
+		<entry>
+			<systemitem class='ipaddress'>10.48.0.1/29</systemitem>
+		</entry>
+	</row>
+	<row>
+		<entry>481</entry>
+		<entry>R1 -> R3</entry>
+		<entry>
+			<systemitem class='ipaddress'>10.48.1.1/29</systemitem>
+		</entry>
+	</row>
+	<row>
+		<entry>10</entry>
+		<entry>Vert</entry>
+		<entry>
+			<systemitem class='ipaddress'>10.10.0.1/24</systemitem><?custom-linebreak?>
+			<systemitem class='ipaddress'>fd14:ca46:3864:a::1/64</systemitem>
+		</entry>
+	</row>
+	<row>
+		<entry morerows='2' valign='middle'>R2</entry>
+		<entry morerows='2' valign='middle'>
+			OSPFv2&nbsp;: 0.0.4.2<?custom-linebreak?>
+			OSPFv3&nbsp;: 0.0.6.2</entry>
+		<entry>480</entry>
+		<entry>R2 -> R1</entry>
+		<entry>
+			<systemitem class='ipaddress'>10.48.0.2/29</systemitem>
+		</entry>
+	</row>
+	<row>
+		<entry>482</entry>
+		<entry>R2 -> R3</entry>
+		<entry>
+			<systemitem class='ipaddress'>10.48.2.2/29</systemitem>
+		</entry>
+	</row>
+	<row>
+		<entry>20</entry>
+		<entry>Vert</entry>
+		<entry>
+			<systemitem class='ipaddress'>10.20.0.1/24</systemitem><?custom-linebreak?>
+			<systemitem class='ipaddress'>fd14:ca46:3864:14::1/64</systemitem>
+		</entry>
+	</row>
+	<row>
+		<entry morerows='2' valign='middle'>R3</entry>
+		<entry morerows='2' valign='middle'>
+			OSPFv2&nbsp;: 0.0.4.3<?custom-linebreak?>
+			OSPFv3&nbsp;: 0.0.6.3</entry>
+		<entry>481</entry>
+		<entry>R3 -> R1</entry>
+		<entry>
+			<systemitem class='ipaddress'>10.48.1.3/29</systemitem>
+		</entry>
+	</row>
+	<row>
+		<entry>482</entry>
+		<entry>R3 -> R2</entry>
+		<entry>
+			<systemitem class='ipaddress'>10.48.2.3/29</systemitem>
+		</entry>
+	</row>
+	<row>
+		<entry>30</entry>
+		<entry>Vert</entry>
+		<entry>
+			<systemitem class='ipaddress'>10.30.0.1/24</systemitem><?custom-linebreak?>
+			<systemitem class='ipaddress'>fd14:ca46:3864:1e::1/64</systemitem>
+		</entry>
+	</row>
+	</tbody>
+	</tgroup>
+</table>
+</sect1>
+
+<sect1 xml:id='interco.ospf-frr.prepare-config'>
+	<title>Préparer les systèmes pour le routage IPv4 et IPv6</title>
+
+	<para>Les manipulations de ce support s'appuient sur la documentation du
+	projet&nbsp;: &url.frr-documentation;</para>
+
+	<para>La première étape consiste à installer les outils sur les trois
+	routeurs, à appliquer une configuration commune et à mettre en place la
+	topologie physique.</para>
+
+	<orderedlist>
+	<listitem>
+	<para>Si on respecte la topologie physique présentée dans la section
+	précédente, chaque routeur virtuel est raccordé sur un port de commutateur
+	en mode <wordasword>trunk</wordasword>. Il est donc nécessaire de définir
+	une sous-interface réseau appartenant à un <acronym>VLAN</acronym> avec
+	adressage automatique pour réaliser les opérations suivantes.</para>
+
+	<para>Voici un exemple de fichier
+	<filename>/etc/network/interfaces</filename> avec une définition
+	d'interface temporaire qui permet d'installer des paquets et de préparer la
+	suite de la configuration.</para>
+
+<screen># This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto enp0s1
+iface enp0s1 inet manual
+        up ip link set dev $IFACE up
+        down ip link set dev $IFACE down
+
+# ---------- TEMPORAIRE
+auto enp0s1.20
+iface enp0s1.20 inet dhcp
+
+iface enp0s1.20 inet6 auto</screen>
+
+	<warning>
+	<para>Attention ! L'interface temporaire doit être désactivée dès que la
+	partie préparation est terminée.</para>
+	</warning>
+	</listitem>
+	<listitem>
+	<para>Pour installer le paquet <application>frr</application>, on doit
+	ajouter un nouveau dépôt au système.</para>
+
+	<para>On commence par ajouter la clé de signature des paquets à la
+	configuration du gestionnaire.</para>
+
+<screen>sudo apt -y install curl
+curl -s https://deb.frrouting.org/frr/keys.asc | \
+sudo gpg -o /usr/share/keyrings/frr-keyring.gpg --dearmor</screen>
+
+	<para>On créé une nouvelle entrée dans la liste des sources de
+	paquets et on lance la mise à jour du catalogue.</para>
+
+<screen>echo "deb [signed-by=/usr/share/keyrings/frr-keyring.gpg] \
+https://deb.frrouting.org/frr bullseye frr-stable" | \
+sudo tee /etc/apt/sources.list.d/frr.list</screen>
+
+<screen>sudo apt update
+sudo apt -y install frr frr-pythontools</screen>
+
+<screen>apt search ^frr$
+En train de trier... Fait
+Recherche en texte intégral... Fait
+frr/stable,now 8.3.1-0~deb11u1 amd64  [installé]
+  FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)</screen>
+
+	<para>Sans configuration particulière, les services
+	<application>zebra</application> et <application>staticd</application> sont
+	lancés. Aucun protocole de routage dynamique n'est activé.</para>
+
+<screen>systemctl status frr
+• frr.service - FRRouting
+     Loaded: loaded (/lib/systemd/system/frr.service; enabled; preset: enabled)
+     Active: <emphasis>active (running)</emphasis> since Sun 2022-10-23 14:55:02 CEST; 1min 22s ago
+       Docs: https://frrouting.readthedocs.io/en/latest/setup.html
+    Process: 2369 ExecStart=/usr/lib/frr/frrinit.sh start (code=exited, status=0/SUCCESS)
+   Main PID: 2378 (watchfrr)
+     Status: "FRR Operational"
+      Tasks: 7 (limit: 1114)
+     Memory: 9.4M
+        CPU: 201ms
+     CGroup: /system.slice/frr.service
+             ├─2378 /usr/lib/frr/watchfrr -d -F traditional zebra staticd
+             ├─2389 /usr/lib/frr/zebra -d -F traditional -A 127.0.0.1 -s 90000000
+             └─2394 /usr/lib/frr/staticd -d -F traditional -A 127.0.0.1
+
+oct. 23 14:55:02 R1 watchfrr[2378]: [ZCJ3S-SPH5S] zebra state -> down : initial connection attempt failed
+oct. 23 14:55:02 R1 watchfrr[2378]: [ZCJ3S-SPH5S] staticd state -> down : initial connection attempt failed
+oct. 23 14:55:02 R1 watchfrr[2378]: [YFT0P-5Q5YX] Forked background command [pid 2379]: /usr/lib/frr/watchfrr.sh restart all
+oct. 23 14:55:02 R1 zebra[2389]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+oct. 23 14:55:02 R1 staticd[2394]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+oct. 23 14:55:02 R1 watchfrr[2378]: [QDG3Y-BY5TN] <emphasis>zebra state -> up : connect succeeded</emphasis>
+oct. 23 14:55:02 R1 watchfrr[2378]: [QDG3Y-BY5TN] <emphasis>staticd state -> up : connect succeeded</emphasis>
+oct. 23 14:55:02 R1 watchfrr[2378]: [KWE5Q-QNGFC] all daemons up, doing startup-complete notify
+oct. 23 14:55:02 R1 frrinit.sh[2369]: Started watchfrr.
+oct. 23 14:55:02 R1 systemd[1]: Started FRRouting.</screen>
+	</listitem>
+
+	<listitem xml:id='interco.ospf-frr.prepare-config.routing'>
+	<para>Activer le routage <acronym>IPv4</acronym> et <acronym>IPv6</acronym>
+	au niveau noyau.</para>
+
+	<para>Il faut éditer le fichier <filename>/etc/sysctl.conf</filename> pour
+	fixer les valeurs des paramètres de configuration du routage. Voir la
+	section <citetitle>Fonctions réseau d'une interface</citetitle> du support
+	&url.config.interface.lan;.</para>
+
+<screen>egrep -v '(^#|^$)' /etc/sysctl.conf
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+net.ipv4.conf.all.log_martians = 1</screen>
+
+<screen>sudo sysctl --system
+* Applying /usr/lib/sysctl.d/50-pid-max.conf ...
+kernel.pid_max = 4194304
+* Applying /etc/sysctl.d/99-sysctl.conf ...
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+<emphasis>net.ipv4.ip_forward = 1</emphasis>
+<emphasis>net.ipv6.conf.all.forwarding = 1</emphasis>
+net.ipv4.conf.all.log_martians = 1
+* Applying /usr/lib/sysctl.d/protect-links.conf ...
+fs.protected_fifos = 1
+fs.protected_hardlinks = 1
+fs.protected_regular = 2
+fs.protected_symlinks = 1
+* Applying /etc/sysctl.conf ...
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv4.conf.all.log_martians = 1</screen>
+	</listitem>
+
+	<listitem xml:id='interco.ospf-frr.prepare-config.interfaces'>
+	<para>Pour créer les interfaces associées aux <acronym>VLAN</acronym>s sur
+	chacun des routeurs <systemitem>R1</systemitem>,
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem>, on édite le
+	fichier <filename>/etc/network/interfaces</filename>.</para>
+
+	<para>Auparavant, on doit installer le paquet du commutateur virtuel qui
+	sert à raccorder des conteneurs du <acronym>VLAN</acronym> “vert“
+	d'hébergement.</para>
+
+<screen>sudo apt -y install openvswitch-switch</screen>
+
+	<para>Voici un exemple de fichier
+	<filename>/etc/network/interfaces</filename> pour le routeur
+	<systemitem>R1</systemitem> de la maquette.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R1-interfaces'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+
+	<para>On adapte la liste des interfaces pour les deux autres routeurs
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> avec les numéros
+	de <acronym>VLAN</acronym>s concernés.</para>
+	</listitem>
+
+	<listitem>
+	<para>Éditer le fichier de configuration de la console “unifiée“
+	<command>vtysh</command> de façon à ce qu'il contienne les informations
+	minimales.</para>
+
+	<para>Voici un exemple pour le routeur <systemitem>R1</systemitem> de la
+	maquette.</para>
+
+<screen>echo service integrated-vtysh-config | \
+sudo tee /etc/frr/vtysh.conf</screen>
+
+	<para>Cet outil offre une console unifiée pour les trois démons :
+	<application>zebra</application>, <application>ospfd</application> et
+	<application>ospf6d</application>.</para>
+	</listitem>
+
+	<listitem>
+	<para>Ajouter l'utilisateur <systemitem>etu</systemitem> aux groupes
+	<systemitem>frr</systemitem> et <systemitem>frrvty</systemitem> pour lui
+	donner un accès direct à la console de configuration des démons et aux
+	fichiers de configuration.</para>
+
+<screen>sudo adduser etu frrvty
+sudo adduser etu frr</screen>
+
+	<para>Il ne faut pas oublier de se déconnecter/reconnecter pour bénéficier
+	de la nouvelle attribution de groupe.</para>
+	</listitem>
+
+	<listitem>
+	<para>Activer les deux démons relatifs au protocole <acronym>OSPF</acronym>
+	dans le fichier de configuration&nbsp;:
+	<filename>/etc/frr/daemons</filename>.</para>
+
+<screen>sudo sed -i 's/ospfd=no/ospfd=yes/' /etc/frr/daemons
+sudo sed -i 's/ospf6d=no/ospf6d=yes/' /etc/frr/daemons
+sudo systemctl restart frr</screen>
+
+	<para>On peut alors relancer le service et vérifier que les nouveaux démons
+	de routage dynamique <acronym>OSPF</acronym> sont bien activés.</para>
+
+<screen>systemctl status frr
+• frr.service - FRRouting
+     Loaded: loaded (/lib/systemd/system/frr.service; enabled; preset: enabled)
+     Active: active (running) since Sun 2022-10-23 15:36:35 CEST; 8s ago
+       Docs: https://frrouting.readthedocs.io/en/latest/setup.html
+    Process: 3356 ExecStart=/usr/lib/frr/frrinit.sh start (code=exited, status=0/SUCCESS)
+   Main PID: 3365 (watchfrr)
+     Status: "FRR Operational"
+      Tasks: 11 (limit: 1114)
+     Memory: 16.0M
+        CPU: 237ms
+     CGroup: /system.slice/frr.service
+             ├─3365 /usr/lib/frr/watchfrr -d -F traditional zebra ospfd ospf6d staticd
+             ├─3381 /usr/lib/frr/zebra -d -F traditional -A 127.0.0.1 -s 90000000
+             ├─3386 <emphasis>/usr/lib/frr/ospfd -d -F traditional -A 127.0.0.1</emphasis>
+             ├─3389 <emphasis>/usr/lib/frr/ospf6d -d -F traditional -A ::1</emphasis>
+             └─3392 /usr/lib/frr/staticd -d -F traditional -A 127.0.0.1
+
+oct. 23 15:36:35 R1 ospfd[3386]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+oct. 23 15:36:35 R1 ospf6d[3389]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+oct. 23 15:36:35 R1 staticd[3392]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+oct. 23 15:36:35 R1 watchfrr[3365]: [QDG3Y-BY5TN] zebra state -> up : connect succeeded
+oct. 23 15:36:35 R1 watchfrr[3365]: [QDG3Y-BY5TN] <emphasis>ospfd state -> up : connect succeeded</emphasis>
+oct. 23 15:36:35 R1 watchfrr[3365]: [QDG3Y-BY5TN] <emphasis>ospf6d state -> up : connect succeeded</emphasis>
+oct. 23 15:36:35 R1 watchfrr[3365]: [QDG3Y-BY5TN] staticd state -> up : connect succeeded
+oct. 23 15:36:35 R1 watchfrr[3365]: [KWE5Q-QNGFC] all daemons up, doing startup-complete notify
+oct. 23 15:36:35 R1 frrinit.sh[3356]: Started watchfrr.
+oct. 23 15:36:35 R1 systemd[1]: Started FRRouting.</screen>
+
+	<para>On peut aussi lister les démons actifs à partir de la console du
+	service.</para>
+
+<screen>vtysh
+
+Hello, this is FRRouting (version 8.3.1).
+Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+<prompt>R1#</prompt> sh daemons
+ zebra <emphasis>ospfd ospf6d</emphasis> watchfrr staticd</screen>
+	</listitem>
+
+	<listitem>
+	<para>Compléter la configuration des interfaces dans la console unifiée
+	<command>vtysh</command> de façon à fixer la bande passante de chaque
+	interface active à 1Gbps.</para>
+
+	<para>Voici un exemple de séquence d'instructions pour configurer les
+	interfaces du routeur rouge de la maquette.</para>
+
+	<para>On commence par lister les interfaces actives à partir de la
+	console.</para>
+
+<screen><prompt>R1#</prompt> sh int brief
+Interface       Status  VRF             Addresses
+---------       ------  ---             ---------
+asw-host        up      default
+enp0s1          up      default
+enp0s1.360      up      default         192.168.104.130/27
+                                        + 2001:678:3fc:168::2/64
+enp0s1.480      up      default         10.48.0.1/29
+enp0s1.481      up      default         10.48.1.1/29
+lo              up      default
+ovs-system      down    default
+sw-vlan10       up      default         10.10.0.1/24
+                                        + fd14:ca46:3864:a::1/64</screen>
+
+	<para>Pour les interfaces <systemitem>enp0s1.480</systemitem> (lien R1
+	->&nbsp;R2) et <systemitem>enp0s1.481</systemitem> (lien R1 ->&nbsp;R3), on
+	ajoute le paramètre <systemitem>bandwidth</systemitem> qui permet de
+	définir arbitrairement le débit binaire d'une interface.</para>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# int enp0s1.480
+R1(config-if)# bandwidth ?
+  (1-100000)  Bandwidth in megabits
+R1(config-if)# bandwidth 100000
+R1(config-if)# ^Z
+<prompt>R1#</prompt> sh int enp0s1.480
+Interface enp0s1.480 is up, line protocol is up
+  Link ups:       1    last: 2022/10/24 09:25:42.65
+  Link downs:     0    last: (never)
+  vrf: default
+  index 4 metric 0 mtu 1500 speed 4294967295
+  flags: &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Type: Ethernet
+  HWaddr: b8:ad:ca:fe:00:c8
+  <emphasis>bandwidth 100000 Mbps</emphasis>
+  inet 10.48.0.1/29
+  inet6 fe80::baad:caff:fefe:c8/64
+  Interface Type Vlan
+  Interface Slave Type None
+  VLAN Id 480
+  protodown: off
+  Parent interface: enp0s1</screen>
+
+	<para>On répète la même opération pour l'interface
+	<systemitem>enp0s1.481</systemitem>. Ensuite, on peut sauvegarder la
+	configuration.</para>
+
+<screen><prompt>R1#</prompt> copy run start
+Note: this version of vtysh never writes vtysh.conf
+Building Configuration...
+Integrated configuration saved to /etc/frr/frr.conf
+[OK]</screen>
+
+	<para>Une fois la configuration complétée, les paramètres apparaissent dans
+	la configuration du service.</para>
+
+<screen><prompt>R1#</prompt> sh run
+Building configuration...
+
+Current configuration:
+!
+frr version 8.3.1
+frr defaults traditional
+hostname R1
+log syslog informational
+service integrated-vtysh-config
+!
+interface enp0s1.480
+ <emphasis>bandwidth 100000</emphasis>
+exit
+!
+interface enp0s1.481
+ <emphasis>bandwidth 100000</emphasis>
+exit
+!
+end</screen>
+
+	<note>
+	<para>Contrairement à un routeur «intégré» avec un système d'exploitation
+		dédié, le démon de routage statique n'a pas directement accès aux
+		interfaces matérielles. Or, sur un système GNU/Linux, le débit d'une
+		interface Ethernet filaire peut varier en fonction du débit proposé par
+		le port du commutateur. Sans information spécifique du noyau,
+		l'application «service de routage» n'a aucun moyen de connaître le
+		débit exact de l'interface. C'est la raison pour laquelle il est
+		nécessaire de paramétrer manuellement les débits de chaque interface
+		dans la	configuration.</para>
+	</note>
+
+	<warning>
+	<para>Sans configuration manuelle du coût de lien d'une interface, ce
+		paramétrage de la bande passante est essentiel dans le <link
+		linkend='interco.ospf-frr.auto-cost'>calcul des métriques</link>
+		et le fonctionnement du protocole de routage <acronym>OSPF</acronym>.
+		Si les calculs de métriques pour les liens actifs sont erronés, le
+		choix des routes à emprunter pour faire transiter le trafic utilisateur
+		entre deux routeurs peut lui aussi être erroné.</para>
+	</warning>
+	</listitem>
+	</orderedlist>
+
+	<para>Une fois l'ensemble des opérations de cette section réalisées, chaque
+	routeur dispose des outils pour mettre en œuvre la topologie physique et
+	ensuite les protocoles de routage dynamique <acronym>OSPF</acronym>.</para>
+</sect1>
+
+<sect1 xml:id='interco.ospf-frr.pointopoint'>
+	<title>Valider les communications entre routeurs</title>
+
+	<para>Avant d'aborder le déploiement du protocole de routage dynamique, il
+	est nécessaire de valider le raccordement des routeurs aux commutateurs
+	désignés, les communications entre chaque routeur et la visualisation des
+	tables de routage pour les interfaces réseau configurées.</para>
+
+	<qandaset>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les tests à effectuer pour vérifier l'état des
+	différents “côtés“ de la topologie triangle&nbsp;?</phrase></para>
+
+	<para>Les interfaces ont déjà été configurées via le fichier <link
+	linkend='interco.ospf-frr.prepare-config.interfaces'><filename>/etc/network/interfaces</filename></link>
+	de chaque routeur. Il faut afficher la table de routage de chaque routeur
+	puis la table des voisins. Ainsi, on peut contrôler les correspondances
+	entre les adresses de couche réseau et de couche liaison.</para>
+	</question>
+	<answer>
+	<para>Dans le contexte de la maquette on obtient les résultats suivants
+	pour le routeur <systemitem>R1</systemitem>. On se limite à l'affichage des
+	entrées de la table de routage apprises par le noyau avec l'option
+	<option>proto&nbsp;kernel</option>.</para>
+
+<screen>ip route ls proto kernel
+10.10.0.0/24 dev sw-vlan10 scope link src 10.10.0.1
+10.48.0.0/29 dev enp0s1.480 scope link src 10.48.0.1
+10.48.1.0/29 dev enp0s1.481 scope link src 10.48.1.1
+192.168.104.128/27 dev enp0s1.360 scope link src 192.168.104.130</screen>
+
+<screen>ip -6 route ls proto kernel
+::1 dev lo metric 256 pref medium
+2001:678:3fc:168::/64 dev enp0s1.360 metric 256 pref medium
+fd14:ca46:3864:a::/64 dev sw-vlan10 metric 256 pref medium
+fe80::/64 dev enp0s1 metric 256 pref medium
+fe80::/64 dev enp0s1.360 metric 256 pref medium
+fe80::/64 dev enp0s1.480 metric 256 pref medium
+fe80::/64 dev enp0s1.481 metric 256 pref medium
+fe80::/64 dev sw-vlan10 metric 256 pref medium
+fe80::/64 dev asw-host metric 256 pref medium</screen>
+
+	<para>Pour les entrées relatives au voisinage réseau, on se limite aussi à
+	l'affichage des voisins directs des interfaces du routeur.</para>
+
+	<para>On repère dans la copie d'écran ci-dessous les adresses des deux
+	autres routeurs&nbsp;: <systemitem>R2</systemitem> et
+	<systemitem>R3</systemitem>.</para>
+
+<screen>ip neigh ls | grep 'enp0s1\.'
+<emphasis>10.48.0.2 dev enp0s1.480 lladdr b8:ad:ca:fe:00:c9 STALE</emphasis>
+192.168.104.129 dev enp0s1.360 lladdr 80:6a:00:dc:67:53 STALE
+<emphasis>10.48.1.3 dev enp0s1.481 lladdr b8:ad:ca:fe:00:ca STALE</emphasis>
+fe80::baad:caff:fefe:c9 dev enp0s1.480 lladdr b8:ad:ca:fe:00:c9 STALE
+fe80:168::1 dev enp0s1.360 lladdr 80:6a:00:dc:67:53 router STALE
+fe80::baad:caff:fefe:ca dev enp0s1.481 lladdr b8:ad:ca:fe:00:ca STALE</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les opérations à effectuer pour valider les
+	communications <acronym>IPv4</acronym> et <acronym>IPv6</acronym> entre
+	chacun des routeurs&nbsp;?</phrase></para>
+
+	<para>Lancer les tests <acronym>ICMP</acronym> usuels entre chaque routeur
+	sur chaque lien actif.</para>
+	</question>
+	<answer>
+	<para>Exemple entre <systemitem>R1</systemitem> et
+	<systemitem>R2</systemitem>&nbsp;; toujours dans le contexte de la
+	maquette.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Requête <acronym>IPv4</acronym> de <systemitem>R1</systemitem> vers
+	<systemitem>R2</systemitem> sur le <acronym>VLAN</acronym>
+	<systemitem>480</systemitem>.</para>
+
+<screen>ping -qc2 10.48.0.2
+PING 10.48.0.2 (10.48.0.2) 56(84) bytes of data.
+
+--- 10.48.0.2 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 0.860/2.512/4.165/1.652 ms</screen>
+
+	<para>Aucun paquet n'a été perdu. Le routeur <systemitem>R2</systemitem>
+	est bien joignable depuis <systemitem>R1</systemitem>.</para>
+	</listitem>
+	<listitem>
+	<para>Requête <acronym>IPv6</acronym> <wordasword>multicast</wordasword>
+	depuis <systemitem>R1</systemitem> sur le <acronym>VLAN</acronym>
+	<systemitem>480</systemitem>.</para>
+
+<screen>ping -c2 ff02::1%enp0s1.480
+PING ff02::1%enp0s1.480(ff02::1%enp0s1.480) 56 data bytes
+64 bytes from <emphasis>fe80::baad:caff:fefe:c8%enp0s1.480: icmp_seq=1 ttl=64 time=0.138 ms</emphasis>
+64 bytes from <emphasis>fe80::baad:caff:fefe:c9%enp0s1.480: icmp_seq=1 ttl=64 time=4.28 ms</emphasis>
+64 bytes from fe80::baad:caff:fefe:c8%enp0s1.480: icmp_seq=2 ttl=64 time=0.064 ms
+
+--- ff02::1%enp0s1.480 ping statistics ---
+2 packets transmitted, 2 received, +1 duplicates, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.064/1.495/4.284/1.972 ms</screen>
+
+	<para>L'identification des adresses <acronym>IPv6</acronym> de lien local
+	montrent que <systemitem>fe80::baad:caff:fefe:c8</systemitem> correspond à
+	<systemitem>R1</systemitem> et que
+	<systemitem>fe80::baad:caff:fefe:c9</systemitem> correspond à
+	<systemitem>R2</systemitem>.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>L'opération est à répéter sur chaque lien entre deux routeurs reliés
+	sur le même <acronym>VLAN</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les opérations à effectuer pour visualiser les
+	tables de routage <acronym>IPv4</acronym> et <acronym>IPv6</acronym>
+	existantes d'un routeur au niveau de la console unifiée
+	<application>vtysh</application>&nbsp;?</phrase></para>
+
+	<para>Afficher les tables de routage à partir de la console
+	<application>vtysh</application> avec les commandes du système
+	<trademark>Cisco</trademark> <acronym>IOS</acronym> <command>show ip
+	route</command> et <command>show ipv6 route</command>.</para>
+	</question>
+	<answer>
+	<para>Dans le contexte de la maquette, on obtient les résultats suivants
+	pour le routeur <systemitem>R2</systemitem>.</para>
+
+<screen><prompt>R1#</prompt> sh ip route connected
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+C>* 10.20.0.0/24 is directly connected, sw-vlan20, 01:24:23
+C>* 10.48.0.0/29 is directly connected, enp0s1.480, 01:24:24
+C>* 10.48.2.0/29 is directly connected, enp0s1.482, 01:24:23</screen>
+
+<screen><prompt>R1#</prompt> sh ipv6 route connected
+Codes: K - kernel route, C - connected, S - static, R - RIPng,
+       O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
+       v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+C>* fd14:ca46:3864:14::/64 is directly connected, sw-vlan20, 01:25:11
+C * fe80::/64 is directly connected, asw-host, 01:25:09
+C * fe80::/64 is directly connected, sw-vlan20, 01:25:11
+C * fe80::/64 is directly connected, enp0s1, 01:25:11
+C * fe80::/64 is directly connected, enp0s1.480, 01:25:11
+C>* fe80::/64 is directly connected, enp0s1.482, 01:25:11</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
+<sect1 xml:id='interco.ospf-frr.protocol-config'>
+	<title>Configurer les démons OSPFv2 et OSPFv3</title>
+
+	<para>Dans cette section, on introduit les premières commandes de
+	configuration du protocole de routage dynamique <acronym>OSPF</acronym> qui
+	permettent d'activer le protocole puis d'ajouter des entrées de réseau dans
+	la base de données de ce protocole.</para>
+
+	<qandaset>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment peut on contrôler que le protocole
+	<acronym>OSPF</acronym> est actif ou non sur un
+	routeur&nbsp;?</phrase></para>
+
+	<para>Une fois la console <application>vtysh</application> ouverte, lancer
+	les commandes de visualisation de l'état du protocole listées ci-dessous.
+	Ces commandes peuvent être lancées sur chacun des trois routeurs.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;ip&nbsp;ospf</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;ospf6</command></member>
+		<member><command>show&nbsp;daemons</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Dans les informations données dans la copie d'écran ci-dessous, il
+	apparaît qu'aucune configuration du protocole de routage dynamique n'a été
+	activée.</para>
+
+<screen><prompt>R1#</prompt> sh ip ospf
+<prompt>R1#</prompt> sh ipv6 ospf6
+% OSPFv3 instance not found
+<prompt>R1#</prompt> sh daemons
+ zebra ospfd ospf6d watchfrr staticd</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les opérations à effectuer pour activer les
+	protocoles de routage <acronym>OSPFv2</acronym> et
+	<acronym>OSPFv3</acronym>&nbsp;? Comment affecter manuellement
+	l'identifiant du routeur&nbsp;?</phrase></para>
+
+	<warning>
+	<para>Les identifiants à utiliser lors de la séance de travaux pratiques
+	sont donnés dans les tableaux des plans d'adressage. Voir <xref
+	linkend='interco.ospf-frr.archi'/>.</para>
+	</warning>
+
+	<para>La liste des commandes utiles en mode configuration dans la console
+	<application>vtysh</application> est la suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>router&nbsp;ospf</command></member>
+		<member><command>router&nbsp;ospf6</command></member>
+		<member><command>ospf&nbsp;router-id&nbsp;X.X.X.X</command></member>
+		<member><command>ospf6&nbsp;router-id&nbsp;X.X.X.X</command></member>
+		<member><command>log&nbsp;detail</command></member>
+	</simplelist>
+    </question>
+    <answer>
+	<para>Toujours à partir de la console <application>vtysh</application>, on
+	accède au mode configuration à l'aide de la commande
+	<command>conf&nbsp;t</command>. Voici un exemple de séquence sur le
+	troisième routeur.</para>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# router ospf
+R1(config-router)# ospf router-id 0.0.4.1
+R1(config-router)# log detail
+R1(config-router)# ^Z</screen>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# router ospf6
+R1(config-ospf6)# ospf6 router-id 0.0.6.1
+R1(config-ospf6)# log detail
+R1(config-ospf6)# ^Z</screen>
+
+<screen><prompt>R1#</prompt> sh run ospfd
+Building configuration...
+
+Current configuration:
+!
+frr version 8.3.1
+frr defaults traditional
+hostname R1
+log syslog informational
+service integrated-vtysh-config
+!
+router ospf
+ ospf router-id 0.0.4.1
+ log-adjacency-changes detail
+exit
+!
+end</screen>
+
+<screen><prompt>R1#</prompt> sh run ospf6d
+Building configuration...
+
+Current configuration:
+!
+frr version 8.3.1
+frr defaults traditional
+hostname R1
+log syslog informational
+service integrated-vtysh-config
+!
+router ospf6
+ ospf6 router-id 0.0.6.1
+ log-adjacency-changes detail
+exit
+!
+end</screen>
+
+	<para>Le choix de codage des identifiants <acronym>OSPF</acronym> a pour
+	but d'éviter une confusion avec les adresses des réseaux actifs sur chaque
+	routeur.</para>
+
+	<para>Si on reprend l'instruction de la question précédente, on obtient
+	l'état de chacun des démons de protocole de routage dynamique.</para>
+
+<screen><prompt>R3#</prompt> sh ip ospf
+ OSPF Routing Process, <emphasis>Router ID: 0.0.4.3</emphasis>
+ Supports only single TOS (TOS0) routes
+ This implementation conforms to RFC2328
+ RFC1583Compatibility flag is disabled
+ OpaqueCapability flag is disabled
+ Initial SPF scheduling delay 0 millisec(s)
+ Minimum hold time between consecutive SPFs 50 millisec(s)
+ Maximum hold time between consecutive SPFs 5000 millisec(s)
+ Hold time multiplier is currently 1
+ SPF algorithm has not been run
+ SPF timer is inactive
+ LSA minimum interval 5000 msecs
+ LSA minimum arrival 1000 msecs
+ Write Multiplier set to 20
+ Refresh timer 10 secs
+ Maximum multiple paths(ECMP) supported 256
+ Administrative distance 110
+ Number of external LSA 0. Checksum Sum 0x00000000
+ Number of opaque AS LSA 0. Checksum Sum 0x00000000
+ Number of areas attached to this router: 0
+ All adjacency changes are logged</screen>
+
+ <screen><prompt>R3#</prompt> sh ipv6 ospf6
+ OSPFv3 Routing Process (0) with <emphasis>Router-ID 0.0.6.3</emphasis>
+ Running 00:01:52
+ LSA minimum arrival 1000 msecs
+ Maximum-paths 256
+ Administrative distance 110
+ Initial SPF scheduling delay 0 millisec(s)
+ Minimum hold time between consecutive SPFs 50 millsecond(s)
+ Maximum hold time between consecutive SPFs 5000 millsecond(s)
+ Hold time multiplier is currently 1
+ SPF algorithm has not been run
+ SPF timer is inactive
+ Number of AS scoped LSAs is 0
+ Number of areas in this router is 0
+ Authentication Sequence number info
+  Higher sequence no 0, Lower sequence no 0
+ All adjacency changes are logged</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les opérations à effectuer pour activer les
+	protocoles de routage <acronym>OSPFv2</acronym> et
+	<acronym>OSPFv3</acronym> pour les réseaux d'interconnexion de chaque
+	routeur&nbsp;?</phrase></para>
+
+	<para>Il faut activer le protocole de routage dynamique sur chaque
+	interface de la topologie qui participe à la construction du
+	triangle.</para>
+
+	<para>La liste des commandes utiles en mode console et en mode
+	configuration dans <application>vtysh</application> est la suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;ip&nbsp;route&nbsp;connected</command></member>
+		<member><command>show&nbsp;ip&nbsp;route&nbsp;ospf</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;route&nbsp;connected</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;route&nbsp;ospf</command></member>
+		<member><command>ip&nbsp;ospf&nbsp;area&nbsp;0</command></member>
+		<member><command>ipv6&nbsp;ospf6&nbsp;area&nbsp;0</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Voici un exemple de séquence d'instructions pour le routeur
+	<systemitem>R1-rouge</systemitem>.</para>
+
+	<para>On commence par lister les entrées marquées <emphasis>C</emphasis> ou
+	<wordasword>connected</wordasword> de la table de routage
+	<acronym>IPv4</acronym> de façon à reconnaître les deux côtés de la
+	topologie triangle connus du "sommet"
+	<systemitem>R1-rouge</systemitem>.</para>
+
+<screen><prompt>R1#</prompt> sh ip route connected
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+C>* 10.10.0.0/24 is directly connected, sw-vlan10, 02:28:24
+<emphasis>C>* 10.48.0.0/29 is directly connected, enp0s1.480</emphasis>, 02:28:24
+<emphasis>C>* 10.48.1.0/29 is directly connected, enp0s1.481</emphasis>, 02:28:24
+C>* 192.168.104.128/27 is directly connected, enp0s1.360, 02:28:26</screen>
+
+	<para>À partir de cette identification, on doit activer le protocole
+	<acronym>OSPFv2</acronym> pour les deux interfaces&nbsp;:
+	<systemitem>enp0s1.480</systemitem> et
+	<systemitem>enp0s1.481</systemitem>.</para>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# int enp0s1.480
+R1(config-if)# <emphasis>ip ospf area 0</emphasis>
+R1(config-if)# int enp0s1.481
+R1(config-if)# <emphasis>ip ospf area 0</emphasis>
+R1(config-if)# ^Z</screen>
+
+	<para>On reprend le même processus pour le protocole
+	<acronym>OSPFv3</acronym>. Voici une copie des entrées connectées de la
+	table de routage <acronym>IPv6</acronym>.</para>
+
+<screen><prompt>R1#</prompt> sh ipv6 route connected
+Codes: K - kernel route, C - connected, S - static, R - RIPng,
+       O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
+       v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+C>* 2001:678:3fc:168::/64 is directly connected, enp0s1.360, 02:31:04
+C>* fd14:ca46:3864:a::/64 is directly connected, sw-vlan10, 02:31:02
+C * fe80::/64 is directly connected, asw-host, 02:31:00
+<emphasis>C * fe80::/64 is directly connected, enp0s1.481</emphasis>, 02:31:02
+C * fe80::/64 is directly connected, sw-vlan10, 02:31:02
+<emphasis>C * fe80::/64 is directly connected, enp0s1.480</emphasis>, 02:31:03
+C * fe80::/64 is directly connected, enp0s1, 02:31:04
+C>* fe80::/64 is directly connected, enp0s1.360, 02:31:04</screen>
+
+	<para>On active le protocole <acronym>OSPFv3</acronym> sur les mêmes
+	interfaces.</para>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# int enp0s1.480
+R1(config-if)# <emphasis>ipv6 ospf6 area 0</emphasis>
+R1(config-if)# int enp0s1.481
+R1(config-if)# <emphasis>ipv6 ospf6 area 0</emphasis>
+R1(config-if)# ^Z</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser l'état	des interfaces actives pour chaque
+	processus de protocole de routage dynamique <acronym>OSPFv2</acronym> ou
+	<acronym>OSPFv3</acronym>&nbsp;?</phrase></para>
+
+	<para>Les interfaces sont dites actives pour les protocoles
+	<acronym>OSPFv2</acronym> ou <acronym>OSPFv3</acronym> dès qu'elles ont été
+	ajoutées aux processus de routage dynamique en précisant l'aire à laquelle
+	elles appartiennent.</para>
+
+	<para>La liste des commandes utiles dans la console
+	<application>vtysh</application> est la suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;ip&nbsp;ospf&nbsp;interface</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;ospf6&nbsp;interface</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>En reprenant l'exemple du routeur <systemitem>R1-rouge</systemitem>,
+	on obtient les résultats suivants.</para>
+
+<screen><prompt>R1#</prompt> sh ip ospf interface
+<emphasis>enp0s1.480 is up</emphasis>
+  ifindex 4, MTU 1500 bytes, <emphasis>BW 1000 Mbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.48.0.1/29, Broadcast 10.48.0.7, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  <emphasis>Router ID 0.0.4.1, Network Type BROADCAST, Cost: 100</emphasis>
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 0.0.4.1 Interface Address 10.48.0.1/29
+  No backup designated router on this network
+  Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 9.342s
+  <emphasis>Neighbor Count is 0, Adjacent neighbor count is 0</emphasis>
+<emphasis>enp0s1.481 is up</emphasis>
+  ifindex 5, MTU 1500 bytes, <emphasis>BW 1000 Mbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.48.1.1/29, Broadcast 10.48.1.7, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  <emphasis>Router ID 0.0.4.1, Network Type BROADCAST, Cost: 100</emphasis>
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 0.0.4.1 Interface Address 10.48.1.1/29
+  No backup designated router on this network
+  Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 5.464s
+  <emphasis>Neighbor Count is 0, Adjacent neighbor count is 0</emphasis></screen>
+
+	<para>La copie d'écran ci-dessus permet d'identifier les éléments
+	suivants&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>L'indicateur <emphasis>is up</emphasis> confirme que l'interface est
+	bien active pour le protocole de routage.</para>
+	</listitem>
+	<listitem>
+	<para>L'identifiant de routeur correspond bien à celui défini dans le
+	processus <acronym>OSPFv2</acronym> et le type de réseau du protocole
+	indique un réseau de diffusion Ethernet.</para>
+	</listitem>
+	<listitem>
+	<para>Les paquets <emphasis>Hello</emphasis> sont bien émis toutes les 10
+	secondes pour un réseau de diffusion.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>On reprend la même démarche pour le protocole
+	<acronym>OSPFv3</acronym>. On extrait de liste complète les interfaces des
+	deux côtés du triangle.</para>
+
+<screen><prompt>R1#</prompt> sh ipv6 ospf6 interface enp0s1.480
+<emphasis>enp0s1.480 is up, type BROADCAST</emphasis>
+  Interface ID: 4
+  Internet Address:
+    inet : 10.48.0.1/29
+    inet6: fe80::baad:caff:fefe:c8/64
+  Instance ID 0, Interface MTU 1500 (autodetect: 1500)
+  MTU mismatch detection: enabled
+  <emphasis>Area ID 0.0.0.0, Cost 100</emphasis>
+  State DR, Transmit Delay 1 sec, Priority 1
+  Timer intervals configured:
+   Hello 10(1.398), Dead 40, Retransmit 5
+  DR: 0.0.6.1 BDR: 0.0.0.0
+  Number of I/F scoped LSAs is 1
+    0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+    0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+  Authentication Trailer is disabled</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment vérifier que l'identifiant de routeur a correctement
+	été attribué&nbsp;?</phrase></para>
+
+	<para>À partir des résultats des questions précédentes, rechercher
+	l'information demandée.</para>
+	</question>
+	<answer>
+	<para>Quelque soit la version du protocole <acronym>OSPF</acronym>,
+	l'identifiant de routeur est toujours codé sous la forme d'une adresse
+	<acronym>IPv4</acronym>.</para>
+
+<screen><prompt>R1#</prompt> sh ip ospf database
+
+       <emphasis>OSPF Router with ID (0.0.4.1)</emphasis>
+
+                Router Link States (Area 0.0.0.0)
+
+Link ID         ADV Router      Age  Seq#       CkSum  Link count
+0.0.4.1        0.0.4.1          640 0x80000004 0xf411 2</screen>
+
+<screen><prompt>R1#</prompt> sh ipv6 ospf6 database
+
+        Area Scoped Link State Database (Area 0)
+
+Type LSId           AdvRouter       Age   SeqNum                        Payload
+
+        I/F Scoped Link State Database (I/F enp0s1.480 in Area 0)
+
+Type LSId           AdvRouter       Age   SeqNum                        Payload
+Lnk  0.0.0.4        <emphasis>0.0.6.1</emphasis>         542 80000001        fe80::baad:caff:fefe:c8
+
+        I/F Scoped Link State Database (I/F enp0s1.481 in Area 0)
+
+Type LSId           AdvRouter       Age   SeqNum                        Payload
+Lnk  0.0.0.5        <emphasis>0.0.6.1</emphasis>         538 80000001        fe80::baad:caff:fefe:c8</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment identifier le type de réseau d'une
+	interface&nbsp;?</phrase></para>
+
+	<para>À partir des résultats des questions précédentes, rechercher
+	l'information demandée.</para>
+	</question>
+	<answer>
+	<para>Comme on utilise des liens Ethernet dans ce contexte de travaux
+	pratiques, le type le plus important est le réseau de diffusion ou
+	<wordasword>BROADCAST</wordasword>.</para>
+
+<screen><prompt>R1#</prompt> sh ip ospf interface enp0s1.480
+enp0s1.480 is up
+  ifindex 4, MTU 1500 bytes, BW 1000 Mbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.48.0.1/29, Broadcast 10.48.0.7, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 0.0.4.1, <emphasis>Network Type BROADCAST</emphasis>, Cost: 100
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 0.0.4.1 Interface Address 10.48.0.1/29
+  No backup designated router on this network
+  Multicast group memberships: OSPFAllRouters OSPFDesignatedRouters
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 2.643s
+  Neighbor Count is 0, Adjacent neighbor count is 0</screen>
+
+<screen><prompt>R1#</prompt> sh ipv6 ospf6 interface enp0s1.480
+enp0s1.480 is up, <emphasis>type BROADCAST</emphasis>
+  Interface ID: 4
+  Internet Address:
+    inet : 10.48.0.1/29
+    inet6: fe80::baad:caff:fefe:c8/64
+  Instance ID 0, Interface MTU 1500 (autodetect: 1500)
+  MTU mismatch detection: enabled
+  Area ID 0.0.0.0, Cost 100
+  State DR, Transmit Delay 1 sec, Priority 1
+  Timer intervals configured:
+   Hello 10(3.490), Dead 40, Retransmit 5
+  DR: 0.0.6.1 BDR: 0.0.0.0
+  Number of I/F scoped LSAs is 1
+    0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+    0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+  Authentication Trailer is disabled</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment obtenir la liste du ou des routeurs voisins pour
+	chaque processus de protocole de routage dynamique
+	<acronym>OSPFv2</acronym> ou
+	<acronym>OSPFv3</acronym>&nbsp;?</phrase></para>
+
+	<para>Dès qu'une interface est active, il y a émission de paquets
+	<option>HELLO</option> et si un routeur avec un démon
+	<acronym>OSPF</acronym> envoie aussi des paquets <option>HELLO</option>
+	dans le même <acronym>VLAN</acronym>, les deux routeurs cherchent à former
+	une adjacence.</para>
+
+	<para>La liste des commandes utiles dans la console
+	<application>vtysh</application> est la suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;ip&nbsp;ospf&nbsp;neighbor</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;ospf6&nbsp;neighbor</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Toujours à partir du routeur <systemitem>R1</systemitem>, voici un
+	exemple de liste de routeurs <acronym>OSPF</acronym> voisins dans laquelle
+	on reconnaît les identifiants des routeurs <systemitem>R2</systemitem> et
+	<systemitem>R3</systemitem>.</para>
+
+<screen><prompt>R1#</prompt> sh ip ospf neighbor
+
+Neighbor ID  Pri State         Up Time    Dead Time Address      Interface              RXmtL RqstL DBsmL
+<emphasis>0.0.4.2</emphasis>        1 Full/Backup   1m06s        32.660s 10.48.0.2    enp0s1.480:10.48.0.1       0     0     0
+<emphasis>0.0.4.3</emphasis>        1 Full/Backup   2m10s        38.523s 10.48.1.3    enp0s1.481:10.48.1.1       0     0     0</screen>
+
+<screen><prompt>R1#</prompt> sh ipv6 ospf6 neighbor
+Neighbor ID     Pri    DeadTime    State/IfState         Duration I/F[State]
+<emphasis>0.0.6.2</emphasis>           1    00:00:37     Full/BDR             00:02:44 enp0s1.480[DR]
+<emphasis>0.0.6.3</emphasis>           1    00:00:33     Full/BDR             00:03:50 enp0s1.481[DR]</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment identifier le rôle des différentes interfaces des
+	routeurs pour chacun des liens du triangle de la topologie
+	logique&nbsp;?</phrase></para>
+
+<warning>
+	<para>La réponse à cette question suppose que les démons
+	<acronym>OSPF</acronym> des trois routeurs de la topologie logique en
+	triangle aient convergé. On doit repérer l'état <option>Full</option> pour
+	les listes de routeurs voisins.</para>
+
+	<para>De plus, la réponse varie en fonction de l'ordre d'activation des
+	démons <acronym>OSPF</acronym> des différents routeurs. En effet, un
+	routeur peut être élu routeur désigné (<acronym>DR</acronym>) en l'absence
+	de routeurs voisins. Cette élection n'est pas remise en cause tant qu'il
+	n'y pas de changement d'état de lien.</para>
+</warning>
+
+	<para>À partir des résultats des questions précédentes sur les interfaces
+	actives, il est possible de compléter le schéma de la topologie étudiée
+	avec l'état des interfaces pour chacun des trois liens.</para>
+	</question>
+	<answer>
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata format='PNG'
+		fileref='images/interco.ospf.logical-topology-link-state.png'
+		width='10cm' scalefit='1' />
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata format='PNG'
+		fileref='images/interco.ospf.logical-topology-link-state.png'
+		width='480px' scalefit='1' />
+	</imageobject>
+	<textobject>
+		<phrase>Topologie logique OSPF et rôle des interfaces de
+		routeurs</phrase>
+	</textobject>
+	</mediaobject>
+
+	<para>Sur un même réseau de diffusion, il est possible de trouver plusieurs
+	routeurs <acronym>OSPF</acronym>. Établir une relation de voisinage et
+	procéder aux échanges de bases de données topologiques entre chaque routeur
+	revient à constituer un réseau de relations complètement maillé. À chaque
+	nouveau calcul de topologie, ce réseau complètement maillé est inefficace.
+	C'est la raison pour laquelle la notion de routeur référent ou
+	<wordasword>Designated Router</wordasword> a été introduite. Lors d'un
+	recalcul de topologie, tous les routeurs s'adressent au routeur référent
+	qui correspond au cœur d'un réseau en topologie étoile.</para>
+
+	<para>Dans le contexte de la topologie triangle étudiée, il y a bien
+	élection d'un routeur référent et d'un routeur référent de secours.
+	Cependant, comme il n'y a que deux routeurs par domaine de diffusion ou
+	<acronym>VLAN</acronym>, on ne peut pas caractériser l'utilité de cette
+	élection.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les réseaux <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> présents dans la base calcul du protocole
+	<acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+	<para>On cherche a visualiser la liste des préfixes des réseaux connus des
+	deux démons <acronym>OSPF</acronym>.</para>
+
+	<para>La liste des commandes utiles dans la console
+	<application>vtysh</application> est la suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;ip&nbsp;ospf&nbsp;route</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;ospf6 route</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Une fois que les trois routeurs de la topologie ont convergé, chaque
+	démon connaît les trois préfixes qui correspondent aux trois côtés du
+	triangle. Un routeur correspond à un sommet du triangle et il doit
+	apprendre le préfixe réseau du côté opposé via ses deux routeurs
+	voisins.</para>
+
+	<para>Voici la vue depuis le routeur
+	<systemitem>R1</systemitem>.</para>
+
+<screen><prompt>R1#</prompt> sh ip ospf route
+============ OSPF network routing table ============
+N    10.48.0.0/29          <emphasis>[1]</emphasis> area: 0.0.0.0
+                           directly attached to enp0s1.480
+N    10.48.1.0/29          <emphasis>[1]</emphasis> area: 0.0.0.0
+                           directly attached to enp0s1.481
+N    10.48.2.0/29          <emphasis>[2]</emphasis> area: 0.0.0.0
+                           via 10.48.0.2, enp0s1.480
+                           via 10.48.1.3, enp0s1.481</screen>
+
+	<para>Les valeurs notées entre crochets correspondent à la métrique du lien
+	pour joindre le réseau noté à gauche. Depuis la première spécification du
+	protocole <acronym>OSPF</acronym>, le calcul de métrique se fait à partir
+	de l'expression : 10<superscript>8</superscript> /
+	Bande_Passante_du_lien.</para>
+
+	<para>La valeur du numérateur (10<superscript>8</superscript>) correspond à
+	un débit de 100Mbps. À l'époque de la rédaction du standard
+	<acronym>OSPFv2</acronym>, ce débit a servi de référence.  Aujourd'hui,
+	cette valeur est complètement dépassée. C'est la raison pour laquelle on
+	adapte le calcul de métrique en changeant le coefficient du numérateur.
+	Voir la <xref linkend='interco.ospf-frr.auto-cost' />.</para>
+
+	<para>Les deux premiers réseaux de la table sont joignable via un lien
+	Ethernet à 100Mbps ; soit une métrique de <option>1</option>. Le troisième
+	réseau est joignable via deux liens Ethernet à 100Mbps ; d'où la métrique
+	de <option>2</option>.</para>
+
+	<para>Pour les préfixes <acronym>IPv6</acronym>, aucun préfixe n'est
+	présent sachant que les relations de voisinage entre routeurs utilisent
+	obligatoirement les adresses de lien local appartenant au préfixe
+	<systemitem class='ipaddress'>fe80::/10</systemitem>.</para>
+
+<screen><prompt>R1#</prompt> sh ipv6 ospf6 route</screen>
+
+	<para>Les préfixes des réseaux de conteneurs apparaitront dès que le
+	protocole de routage aura été activé pour les interfaces
+	<acronym>SVI</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser les tables de routage depuis la console
+	<command>vtysh</command>&nbsp;?</phrase></para>
+
+	<para>L'affichage demandé illustre les mécanismes de choix entre
+	différentes solutions pour une même destination. Cet affichage est à
+	comparer avec celui demandé à la question suivante.</para>
+
+	<para>La liste des commandes utiles dans la console
+	<application>vtysh</application> est la suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;ip&nbsp;route</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;route</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>On reprend à nouveau l'exemple du routeur
+	<systemitem>R1</systemitem>.</para>
+
+<screen><prompt>R1#</prompt> sh ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* 0.0.0.0/0 [0/0] via 192.168.104.129, enp0s1.360 onlink, 04:41:28
+C>* 10.10.0.0/24 is directly connected, sw-vlan10, 04:41:26
+O   10.48.0.0/29 [110/1] is directly connected, enp0s1.480, weight 1, 00:05:51
+C>* 10.48.0.0/29 is directly connected, enp0s1.480, 04:41:26
+O   10.48.1.0/29 [110/1] is directly connected, enp0s1.481, weight 1, 00:02:01
+C>* 10.48.1.0/29 is directly connected, enp0s1.481, 04:41:26
+O>* 10.48.2.0/29 [110/2] via 10.48.0.2, enp0s1.480, weight 1, 00:00:42
+  *                      via 10.48.1.3, enp0s1.481, weight 1, 00:00:42
+C>* 192.168.104.128/27 is directly connected, enp0s1.360, 04:41:28</screen>
+
+<screen><prompt>R1#</prompt> sh ipv6 route
+Codes: K - kernel route, C - connected, S - static, R - RIPng,
+       O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
+       v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* ::/0 [0/1024] via fe80:168::1, enp0s1.360 onlink, 04:42:10
+C>* 2001:678:3fc:168::/64 is directly connected, enp0s1.360, 04:42:08
+C>* fd14:ca46:3864:a::/64 is directly connected, sw-vlan10, 04:42:06
+C * fe80::/64 is directly connected, asw-host, 04:42:04
+C * fe80::/64 is directly connected, enp0s1.481, 04:42:06
+C * fe80::/64 is directly connected, sw-vlan10, 04:42:06
+C * fe80::/64 is directly connected, enp0s1.480, 04:42:07
+C * fe80::/64 is directly connected, enp0s1, 04:42:08
+C>* fe80::/64 is directly connected, enp0s1.360, 04:42:08</screen>
+
+	<itemizedlist>
+	<listitem>
+	<para>Les entrées marquées avec le caractère <option>*</option>
+	correspondent aux routes retenues et mémorisées par le sous-système réseau
+	du noyau. Les autres entrées sont placées en réserve au cas où la solution
+	initialement retenue serait en défaut.</para>
+	</listitem>
+	<listitem>
+	<para>L'entrée notée <option>K</option> correspond à une route apprise
+	depuis le sous-système réseau du noyau.</para>
+	</listitem>
+	<listitem>
+	<para>Les entrées notées <option>C</option> correspondent à des routes pour
+	lesquelles il existe une interface sur le routeur. Les métriques de ses
+	routes ont la valeur <option>0</option>. Ce sont les routes les plus
+	prioritaires.</para>
+	</listitem>
+	<listitem>
+	<para>Les entrées notées <option>O</option> correspondent aux routes
+	apprises via le protocole <acronym>OSPF</acronym>. La métrique de ces
+	routes se décompose en deux parties. La valeur figée à <option>110</option>
+	définit le niveau de priorité du protocole <acronym>OSPF</acronym>
+	(<wordasword>Administrative Distance</wordasword>) relativement aux autres
+	protocoles de routage. Les valeurs notées après le <option>/</option> sont
+	les métriques de liens calculées comme indiqué ci-dessus.</para>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser les tables de routage au niveau
+	système&nbsp;?</phrase></para>
+
+	<para>Utiliser une commande usuelle de visualisation de la table de
+	routage.</para>
+
+	<simplelist type='horiz'>
+		<member><command>ip&nbsp;route&nbsp;ls</command></member>
+		<member><command>ip&nbsp;-6&nbsp;route&nbsp;ls</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Avec la commande <command>ip</command>, on voit apparaître les
+	«sources» d'alimentation de la table de routage finale du système.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para><option>kernel</option> pour les entrées connues du sous-système
+	réseau du noyau. Ce sont les entrées avec le caractère <option>C</option>
+	dans la console <command>vtysh</command>.</para>
+	</listitem>
+	<listitem>
+	<para><option>ospf</option> pour les entrées apprises via le protocole de
+	routage dynamique. Le réseau correspond au côté opposé au sommet du
+	triangle est appris via <acronym>OSPF</acronym> puisque le sous-système
+	réseau du noyau ne le connaît pas.</para>
+	</listitem>
+	</itemizedlist>
+
+<screen>ip route ls
+default via 192.168.104.129 dev enp0s1.360 onlink
+10.10.0.0/24 dev sw-vlan10 proto kernel scope link src 10.10.0.1
+10.48.0.0/29 dev enp0s1.480 proto kernel scope link src 10.48.0.1
+10.48.1.0/29 dev enp0s1.481 proto kernel scope link src 10.48.1.1
+10.48.2.0/29 nhid 85 <emphasis>proto ospf metric 20</emphasis>
+        nexthop via 10.48.1.3 dev enp0s1.481 weight 1
+        nexthop via 10.48.0.2 dev enp0s1.480 weight 1
+192.168.104.128/27 dev enp0s1.360 proto kernel scope link src 192.168.104.130</screen>
+
+	<para>La table de routage <acronym>IPv6</acronym> ne fait apparaître aucune
+	nouvelle entrée puisque les réseaux de conteneurs desservis par
+	<systemitem>R2</systemitem> et <systemitem>R3</systemitem> n'ont pas encore
+	été annoncés à ce stade de la configuration.</para>
+
+<screen>ip -6 route ls
+::1 dev lo proto kernel metric 256 pref medium
+2001:678:3fc:168::/64 dev enp0s1.360 proto kernel metric 256 pref medium
+fd14:ca46:3864:a::/64 dev sw-vlan10 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.360 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.480 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.481 proto kernel metric 256 pref medium
+fe80::/64 dev sw-vlan10 proto kernel metric 256 pref medium
+fe80::/64 dev asw-host proto kernel metric 256 pref medium
+default via fe80:168::1 dev enp0s1.360 metric 1024 onlink pref medium</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
+<sect1 xml:id='interco.ospf-frr.default-information'>
+	<title>Publier les routes par défaut via OSPF</title>
+
+	<para>Dans la topologie logique étudiée, le routeur <systemitem
+	class='systemname'>R1</systemitem> dispose d'un lien montant vers
+	l'Internet. On peut donc considérer que ce lien est la route par défaut
+	vers tous les réseaux non connus de l'aire <acronym>OSPF</acronym>
+	contenant les trois routeurs.</para>
+
+	<para>Il est possible de publier une route par défaut via le protocole
+	<acronym>OSPF</acronym> depuis le routeur <systemitem
+	class='systemname'>R1</systemitem> vers les routeurs <systemitem
+	class='systemname'>R2</systemitem> et <systemitem
+	class='systemname'>R3</systemitem>.</para>
+
+	<para>Voici, pour mémoire, une copie des bases de données
+	<acronym>OSPFv2</acronym> et <acronym>OSPFv3</acronym> avant la mise en
+	place de la publication de route par défaut. On reconnaît les
+	<acronym>LSA</acronym>s (<wordasword>Link State
+	Advertisement)</wordasword>) de type 1 et 2 qui correspondent
+	respectivement aux annonces de routeurs et de réseaux.</para>
+
+<screen><prompt>R1#</prompt> sh ip ospf database
+
+       OSPF Router with ID (0.0.4.1)
+
+                Router Link States (Area 0.0.0.0)
+
+Link ID         ADV Router      Age  Seq#       CkSum  Link count
+0.0.4.1        0.0.4.1          450 0x80000012 0xa296 2
+0.0.4.2        0.0.4.2          372 0x80000008 0x2912 2
+0.0.4.3        0.0.4.3          416 0x80000008 0x57dd 2
+
+                Net Link States (Area 0.0.0.0)
+
+Link ID         ADV Router      Age  Seq#       CkSum
+10.48.0.1      0.0.4.1           56 0x80000002 0xe232
+10.48.1.1      0.0.4.1           86 0x80000002 0xe52d
+10.48.2.3      0.0.4.3           35 0x80000002 0xc448</screen>
+
+<screen><prompt>R1#</prompt> sh ipv6 ospf6 database
+
+        Area Scoped Link State Database (Area 0)
+
+Type LSId           AdvRouter       Age   SeqNum                        Payload
+Rtr  0.0.0.0        0.0.6.1         497 8000000b                0.0.6.1/0.0.0.4
+Rtr  0.0.0.0        0.0.6.1         497 8000000b                0.0.6.1/0.0.0.5
+Rtr  0.0.0.0        0.0.6.2         419 80000005                0.0.6.1/0.0.0.4
+Rtr  0.0.0.0        0.0.6.2         419 80000005                0.0.6.3/0.0.0.4
+Rtr  0.0.0.0        0.0.6.3         463 80000005                0.0.6.1/0.0.0.5
+Rtr  0.0.0.0        0.0.6.3         463 80000005                0.0.6.3/0.0.0.4
+Net  0.0.0.4        0.0.6.1        1789 80000001                        0.0.6.1
+Net  0.0.0.4        0.0.6.1        1789 80000001                        0.0.6.2
+Net  0.0.0.5        0.0.6.1          54 80000002                        0.0.6.1
+Net  0.0.0.5        0.0.6.1          54 80000002                        0.0.6.3
+Net  0.0.0.4        0.0.6.3        1781 80000001                        0.0.6.3
+Net  0.0.0.4        0.0.6.3        1781 80000001                        0.0.6.2
+
+        I/F Scoped Link State Database (I/F enp0s1.480 in Area 0)
+
+Type LSId           AdvRouter       Age   SeqNum                        Payload
+Lnk  0.0.0.4        0.0.6.1         930 80000005        fe80::baad:caff:fefe:c8
+Lnk  0.0.0.3        0.0.6.2        1798 80000001        fe80::baad:caff:fefe:c9
+
+        I/F Scoped Link State Database (I/F enp0s1.481 in Area 0)
+
+Type LSId           AdvRouter       Age   SeqNum                        Payload
+Lnk  0.0.0.5        0.0.6.1         926 80000005        fe80::baad:caff:fefe:c8
+Lnk  0.0.0.3        0.0.6.3          61 80000002        fe80::baad:caff:fefe:ca</screen>
+	<qandaset>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est la condition préalable à respecter pour que le
+	routeur <systemitem class='systemname'>R1</systemitem> soit en mesure de
+	publier une route par défaut via le protocole de routage
+	<acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+	<para>À partir des tables de routage relevées dans la <xref
+	linkend='interco.ospf-frr.protocol-config' />, repérer le routeur qui
+	dispose d'un accès vers un réseau qui n'appartient pas à la topologie
+	triangle.</para>
+
+	<simplelist type='horiz'>
+		<member><command>ip&nbsp;route&nbsp;ls&nbsp;default</command></member>
+		<member><command>ip&nbsp;-6&nbsp;route&nbsp;ls&nbsp;default</command></member>
+		<member><command>sh&nbsp;ip&nbsp;route&nbsp;kernel</command></member>
+		<member><command>sh&nbsp;ipv6&nbsp;route&nbsp;kernel</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Une route par défaut doit exister avant d'être injectée dans une aire
+	<acronym>OSPF</acronym>. Dans notre cas, une route statique par défaut
+	suffit à respecter la condition préalable.</para>
+
+	<para>Sur la maquette, on valide la présence des routes par défaut à l'aide
+	la commande <command>ip</command> au niveau système.</para>
+
+<screen>ip route ls default
+<emphasis>default via 192.168.104.129</emphasis> dev enp0s1.360 onlink</screen>
+
+<screen>ip -6 route ls default
+<emphasis>default via fe80:168::1</emphasis> dev enp0s1.360 metric 1024 onlink pref medium</screen>
+
+	<para>Au niveau de la console <command>vtysh</command>, ces même routes
+	correspondent aux entrées marquées <option>K</option> pour
+	<wordasword>kernel</wordasword>.</para>
+
+<screen><prompt>R1#</prompt> sh ip route kernel
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* <emphasis>0.0.0.0/0 [0/0] via 192.168.104.129</emphasis>, enp0s1.360 onlink, 04:50:31</screen>
+
+<screen><prompt>R1#</prompt> sh ipv6 route kernel
+Codes: K - kernel route, C - connected, S - static, R - RIPng,
+       O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
+       v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* <emphasis>::/0 [0/1024] via fe80:168::1</emphasis>, enp0s1.360 onlink, 04:51:23</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction à utiliser pour publier une route
+	par défaut via le protocole de routage
+	<acronym>OSPFv2</acronym>&nbsp;?</phrase></para>
+
+	<para>Parmi toutes les méthodes de redistribution de routes disponibles
+	avec le protocole <acronym>OSPFv2</acronym>, il en existe une dédiée à
+	l'injection de route par défaut dans une aire normale. Consulter le guide
+	&url.frr-documentation;.</para>
+
+	<para>Rechercher le mot clé <option>redistribution</option> dans la section
+	<citetitle>OSPF route-map</citetitle>.</para>
+	</question>
+	<answer>
+	<para>L'instruction qui correspond à la redistribution de route par défaut
+	à destination des autres routeurs de l'aire <acronym>OSPF</acronym> est la
+	suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>default-information&nbsp;originate</command></member>
+	</simplelist>
+
+	<para>On doit l'appliquer dans la section
+	<wordasword>router&nbsp;ospf</wordasword> de la configuration du routeur
+	<systemitem class='systemname'>R1</systemitem>.</para>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# router ospf
+R1(config-router)# default-information originate
+R1(config-router)# ^Z</screen>
+
+	<para>Une fois cette instruction exécutée, le rôle du routeur <systemitem
+	class='systemname'>R1</systemitem> change. Il devient
+	<wordasword>Autonomous System Boundary Router</wordasword> ou
+	<acronym>ASBR</acronym>. Les bases de données sont complétées avec des
+	<acronym>LSAs</acronym> de type 5.</para>
+
+<screen><prompt>R1#</prompt> sh ip ospf database external
+
+       OSPF Router with ID (0.0.4.1)
+
+                AS External Link States
+
+  LS age: 38
+  Options: 0x2  : *|-|-|-|-|-|E|-
+  LS Flags: 0xb
+  LS Type: AS-external-LSA
+  Link State ID: 0.0.0.0 (External Network Number)
+  Advertising Router: 0.0.4.1
+  LS Seq Number: 80000001
+  Checksum: 0x259e
+  Length: 36
+
+  Network Mask: /0
+        Metric Type: 2 (Larger than any link state path)
+        TOS: 0
+        Metric: 10
+        <emphasis>Forward Address: 0.0.0.0</emphasis>
+        External Route Tag: 0</screen>
+
+	<para>On voit apparaître une nouvelle rubrique baptisée <wordasword>AS
+	External Link States</wordasword>. Ce nouveau rôle pour le routeur
+	<systemitem class='systemname'>R1</systemitem> apparaît aussi lorsque l'on
+	affiche l'état de l'instance de routage <acronym>OSPFv2</acronym>.</para>
+
+<screen><prompt>R1#</prompt> sh ip ospf
+ OSPF Routing Process, Router ID: 0.0.4.1
+ Supports only single TOS (TOS0) routes
+ This implementation conforms to RFC2328
+ RFC1583Compatibility flag is disabled
+ OpaqueCapability flag is disabled
+ Initial SPF scheduling delay 0 millisec(s)
+ Minimum hold time between consecutive SPFs 50 millisec(s)
+ Maximum hold time between consecutive SPFs 5000 millisec(s)
+ Hold time multiplier is currently 1
+ SPF algorithm last executed 1m50s ago
+ Last SPF duration 133 usecs
+ SPF timer is inactive
+ LSA minimum interval 5000 msecs
+ LSA minimum arrival 1000 msecs
+ Write Multiplier set to 20
+ Refresh timer 10 secs
+ Maximum multiple paths(ECMP) supported 256
+ Administrative distance 110
+ <emphasis>This router is an ASBR (injecting external routing information)</emphasis>
+ Number of external LSA 1. Checksum Sum 0x0000259e
+ Number of opaque AS LSA 0. Checksum Sum 0x00000000
+ Number of areas attached to this router: 1
+ All adjacency changes are logged
+ Area ID: 0.0.0.0 (Backbone)
+   Number of interfaces in this area: Total: 2, Active: 2
+   Number of fully adjacent neighbors in this area: 2
+   Area has no authentication
+   SPF algorithm executed 21 times
+   Number of LSA 6
+   Number of router LSA 3. Checksum Sum 0x0001277e
+   Number of network LSA 3. Checksum Sum 0x00028ba7
+   Number of summary LSA 0. Checksum Sum 0x00000000
+   Number of ASBR summary LSA 0. Checksum Sum 0x00000000
+   Number of NSSA LSA 0. Checksum Sum 0x00000000
+   Number of opaque link LSA 0. Checksum Sum 0x00000000
+   Number of opaque area LSA 0. Checksum Sum 0x00000000</screen>
+
+	<para>Le routeur <systemitem class='systemname'>R1</systemitem>, est
+	maintenant à la frontière entre deux systèmes autonomes. Il est responsable
+	de l'émission des <acronym>LSA</acronym>s de type 5 à destination des
+	autres routeurs de l'aire.</para>
+
+	<para>Ici, <systemitem class='systemname'>R1</systemitem> possède une route
+	statique définie au niveau système vers l'Internet. Cette route statique
+	est redistribuée <systemitem class='systemname'>R2</systemitem> et
+	<systemitem class='systemname'>R3</systemitem>. Cette route apparaît comme
+	une entrée de type <option>E2</option> dans les tables de routage de ces
+	routeurs.</para>
+
+	<para>L'indicateur <option>E2</option> correspond au type par défaut des
+	routes apprises par le biais de la redistribution. La métrique est un point
+	important à considérer avec les routes de type <option>E2</option>. Ces
+	routes ne présentent que le coût du chemin allant du routeur
+	<acronym>ASBR</acronym> vers le réseau de destination&nbsp;; ce qui ne
+	correspond pas au coût réel du chemin à l'intérieur de l'aire
+	<acronym>OSPF</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction à utiliser pour publier une route
+	par défaut via le protocole de routage
+	<acronym>OSPFv3</acronym>&nbsp;?</phrase></para>
+
+	<para>Reprendre la même démarche de la question précédente avec le
+	protocole <acronym>OSPFv3</acronym>. Consulter le guide
+	&url.frr-documentation;.</para>
+
+	<para>Rechercher le mot clé <option>redistribution</option> dans la section
+	<citetitle>OSPF6 route-map</citetitle>.</para>
+	</question>
+	<answer>
+	<para>L'instruction est identique pour les deux versions du protocole
+	<acronym>OSPF</acronym>.</para>
+
+	<simplelist type='horiz'>
+		<member><command>default-information&nbsp;originate</command></member>
+	</simplelist>
+
+	<para>On doit l'appliquer dans la section
+	<wordasword>router&nbsp;ospf6</wordasword> de la configuration du routeur
+	<systemitem class='systemname'>R1</systemitem>.</para>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# router ospf6
+R1(config-ospf6)# default-information originate
+R1(config-ospf6)# ^Z</screen>
+
+	<para>Une fois cette instruction exécutée, le rôle du routeur <systemitem
+	class='systemname'>R1</systemitem> change. Il devient
+	<wordasword>Autonomous System Boundary Router</wordasword> ou
+	<acronym>ASBR</acronym>. Les bases de données sont complétées avec des
+	<acronym>LSAs</acronym> de type 5.</para>
+
+<screen><prompt>R1#</prompt> sh ipv6 ospf6 database as-external
+
+        AS Scoped Link State Database
+
+Type LSId           AdvRouter       Age   SeqNum                        Payload
+ASE  0.0.0.1        0.0.6.1          58 80000001                             <emphasis>::</emphasis></screen>
+
+	<para>On voit apparaître une nouvelle rubrique baptisée <wordasword>AS
+	Scoped Link State Database</wordasword>. Ce nouveau rôle pour le routeur
+	<systemitem class='systemname'>R1</systemitem> apparaît aussi lorsque l'on
+	affiche l'état de l'instance de routage <acronym>OSPFv3</acronym>.</para>
+
+<screen><prompt>R1#</prompt> sh ipv6 ospf6
+ OSPFv3 Routing Process (0) with Router-ID 0.0.6.1
+ Running 02:40:17
+ LSA minimum arrival 1000 msecs
+ Maximum-paths 256
+ Administrative distance 110
+ Initial SPF scheduling delay 0 millisec(s)
+ Minimum hold time between consecutive SPFs 50 millsecond(s)
+ Maximum hold time between consecutive SPFs 5000 millsecond(s)
+ Hold time multiplier is currently 1
+ SPF algorithm last executed 00:01:46 ago, reason R+, R-, A
+ Last SPF duration 0 sec 118 usec
+ SPF timer is inactive
+ <emphasis>Number of AS scoped LSAs is 1</emphasis>
+ Number of areas in this router is 1
+ Authentication Sequence number info
+  Higher sequence no 0, Lower sequence no 0
+ All adjacency changes are logged
+
+ Area 0
+     Number of Area scoped LSAs is 6
+     Interface attached to this area: enp0s1.480 enp0s1.481
+     SPF last executed 106.592900s ago</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment la publication de route par défaut apparaît-elle sur
+	les autres routeurs de la topologie triangle&nbsp;?</phrase></para>
+
+	<para>Relevez, dans la console <command>vtysh</command>, la métrique de la
+	route par défaut sur les routeurs qui n'ont pas une connexion directe vers
+	l'Internet.</para>
+
+	<para>Les instructions à utiliser pour traiter cette question entrent dans
+	la liste suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show ip route A.B.C.D/MM</command></member>
+		<member><command>show ipv6 route A:B:C::D/MM</command></member>
+		<member><command>show ip ospf route</command></member>
+		<member><command>show ipv6 ospf6 route</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>En prenant l'exemple du routeur <systemitem
+	class='systemname'>R2</systemitem>, on retrouve les informations
+	suivantes.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Vue de la table de routage&nbsp;:</para>
+
+<screen><prompt>R2#</prompt> sh ip route 0.0.0.0
+Routing entry for 0.0.0.0/0
+  <emphasis>Known via "ospf"</emphasis>, distance 110, metric 10, best
+  Last update 00:07:26 ago
+  * 10.48.0.1, via enp0s1.480, weight 1</screen>
+
+<screen><prompt>R2#</prompt> sh ipv6 route ::/0
+Routing entry for ::/0
+  <emphasis>Known via "ospf6"</emphasis>, distance 110, metric 10, best
+  Last update 00:04:43 ago
+  * fe80::baad:caff:fefe:c8, via enp0s1.480, weight 1</screen>
+	</listitem>
+	<listitem>
+	<para>Vue de la base de topologie <acronym>OSPF</acronym>&nbsp;:</para>
+
+<screen><prompt>R2#</prompt> sh ip ospf route
+============ OSPF network routing table ============
+N    10.48.0.0/29          [1] area: 0.0.0.0
+                           directly attached to enp0s1.480
+N    10.48.1.0/29          [2] area: 0.0.0.0
+                           via 10.48.0.1, enp0s1.480
+                           via 10.48.2.3, enp0s1.482
+N    10.48.2.0/29          [1] area: 0.0.0.0
+                           directly attached to enp0s1.482
+
+============ OSPF router routing table =============
+R    0.0.4.1               [1] area: 0.0.0.0, ASBR
+                           via 10.48.0.1, enp0s1.480
+
+============ OSPF external routing table ===========
+<emphasis>N E2 0.0.0.0/0</emphasis>            [1/10] tag: 0
+                           via 10.48.0.1, enp0s1.480</screen>
+
+<screen><prompt>R2#</prompt> sh ipv6 ospf6 route
+<emphasis>*N E2 ::/0</emphasis>                           fe80::baad:caff:fefe:c8   enp0s1.480 00:07:05</screen>
+	</listitem>
+	</itemizedlist>
+
+	<para>Avec les copies d'écran ci-dessus, on vérifie bien que les routes par
+	défaut ont été apprises via le protocole <acronym>OSPF</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment assurer la traduction d'adresses source sur
+	l'interface de sortie du routeur <systemitem
+	class='systemname'>R1-rouge</systemitem> vers l'Internet&nbsp;?</phrase></para>
+
+	<para>Reprendre la section <citetitle>Rôle routeur</citetitle> du support
+	&url.interco.inter-vlan-cloud;.</para>
+	</question>
+	<answer>
+	<para>Dans le cas de la maquette, c'est l'interface
+	<systemitem>enp0s1.360</systemitem> qui assure l'interconnexion avec
+	l'Internet. Voici une copie de l'instruction d'ajout de la règle de
+	traduction des adresses sources et de sa sauvegarde pour
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+
+<screen>sudo iptables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
+
+<screen>sudo ip6tables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
+
+	<para>Une fois le jeu de règles en place, on peut vérifier leur utilisation
+	à partir du relevé des compteurs de paquets traités.</para>
+
+<screen>sudo iptables -vnL -t nat
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+  <emphasis>150 10288 MASQUERADE  all  --  *      enp0s1.360  0.0.0.0/0            0.0.0.0/0</emphasis></screen>
+
+ <screen>sudo ip6tables -vnL -t nat
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+   <emphasis>57  5083 MASQUERADE  all      *      enp0s1.360  ::/0                 ::/0</emphasis></screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
+<sect1 xml:id='interco.ospf-frr.containersi-network'>
+	<title>Ajouter un réseau de conteneurs à chaque routeur du triangle</title>
+
+	<para>Dans cette section, on créé un réseau de conteneur attaché à chaque
+	routeur de la topologie triangle. L'objectif est de peupler les tables de
+	routage en ajoutant un lien <acronym>OSPF</acronym> au delà des
+	routeurs.</para>
+
+	<para>Une fois ces réseaux en place, il est possible de réaliser des tests
+	de connectivité entre conteneurs et d'optimiser les métriques.</para>
+
+	<para>Cette partie reprend le contenu de la section <citetitle>Rôle serveur
+	de conteneurs</citetitle> du support de travaux pratiques
+	&url.interco.inter-vlan-cloud;.</para>
+
+<qandaset>
+<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est la suite de commande à exécuter pour mettre en
+	place de gestionnaire de conteneurs
+	<citetitle>LXD</citetitle>&nbsp;?</phrase></para>
+
+	<para>consulter la section <citetitle>rôle serveur de
+	conteneurs</citetitle>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple pour le routeur <systemitem
+	class='systemname'>R2</systemitem>.</para>
+
+<screen>sudo apt install snapd
+sudo snap install lxd
+sudo adduser etu lxd</screen>
+
+	<para>Après déconnexion - reconnexion, on peut passer à l'étape de
+	définition du profil par défaut pour la création des conteneurs.</para>
+
+<screen>lxd init
+Would you like to use LXD clustering? (yes/no) [default=no]:
+Do you want to configure a new storage pool? (yes/no) [default=yes]:
+Name of the new storage pool [default=default]:
+Name of the storage backend to use (cephobject, dir, lvm, btrfs, ceph) [default=btrfs]:
+Create a new BTRFS pool? (yes/no) [default=yes]:
+Would you like to use an existing empty block device (e.g. a disk or partition)? (yes/no) [default=no]:
+Size in GiB of the new loop device (1GiB minimum) [default=23GiB]:
+Would you like to connect to a MAAS server? (yes/no) [default=no]:
+Would you like to create a new local network bridge? (yes/no) [default=yes]: <emphasis>no</emphasis>
+Would you like to configure LXD to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
+Name of the existing bridge or host interface: <emphasis>sw-vlan20</emphasis>
+Would you like the LXD server to be available over the network? (yes/no) [default=no]:
+Would you like stale cached images to be updated automatically? (yes/no) [default=yes]:
+Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]:</screen>
+
+<screen>lxc profile device set default eth0 nictype bridged</screen>
+
+	<para>Voici une copie du profil après configuration.</para>
+
+<screen>lxc profile show default
+config: {}
+description: Default LXD profile
+devices:
+  eth0:
+    name: eth0
+    nictype: <emphasis>bridged</emphasis>
+    parent: <emphasis>sw-vlan20</emphasis>
+    type: nic
+  root:
+    path: /
+    pool: default
+    type: disk
+name: default
+used_by: []</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment créer 3 conteneurs avec un adressage
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> conforme au plan
+	défini&nbsp;?</phrase></para>
+
+	<para>consulter la section <citetitle>rôle serveur de
+	conteneurs</citetitle>.</para>
+	</question>
+	<answer>
+	<para>On commence par la création des 3 conteneurs demandés.</para>
+
+<screen>for i in {0..2}
+do
+	lxc launch images:debian/12 c$i
+done</screen>
+
+<screen>lxc ls
++------+---------+------+------+-----------+-----------+
+| NAME |  STATE  | IPV4 | IPV6 |   TYPE    | SNAPSHOTS |
++------+---------+------+------+-----------+-----------+
+| c0   | RUNNING |      |      | CONTAINER | 0         |
++------+---------+------+------+-----------+-----------+
+| c1   | RUNNING |      |      | CONTAINER | 0         |
++------+---------+------+------+-----------+-----------+
+| c2   | RUNNING |      |      | CONTAINER | 0         |
++------+---------+------+------+-----------+-----------+</screen>
+
+	<para>Les conteneurs sont bien lancés. On peut passer à l'adressage
+	automatisé. On applique les adresses avec une boucle.</para>
+
+<screen>for i in {0..2}
+do
+        echo ">>>>>>>>>>>>>>>>> c$i"
+config=$(cat &lt;&lt; EOF
+[Match]
+Name=eth0
+
+[Network]
+DHCP=false
+Address=10.20.0.$((i + 10))/24
+Gateway=10.20.0.1
+DNS=172.16.0.2
+Address=fd14:ca46:3864:14::$(printf "%x" $((i + 10)))/64
+Gateway=fd14:ca46:3864:14::1
+DNS=2620:fe::fe
+EOF
+)
+        lxc exec c$i -- bash -c "echo \"${config}\" | tee /etc/systemd/network/eth0.network"
+        lxc exec c$i -- systemctl restart systemd-networkd
+done</screen>
+
+	<para>Suivant les préfixes réseau attribués, on obtient le résultat ci-dessous.</para>
+
+<screen>lxc ls
++------+---------+-------------------+-----------------------------+-----------+-----------+
+| NAME |  STATE  |       IPV4        |            IPV6             |   TYPE    | SNAPSHOTS |
++------+---------+-------------------+-----------------------------+-----------+-----------+
+| c0   | RUNNING | 10.20.0.10 (eth0) | fd14:ca46:3864:14::a (eth0) | CONTAINER | 0         |
++------+---------+-------------------+-----------------------------+-----------+-----------+
+| c1   | RUNNING | 10.20.0.11 (eth0) | fd14:ca46:3864:14::b (eth0) | CONTAINER | 0         |
++------+---------+-------------------+-----------------------------+-----------+-----------+
+| c2   | RUNNING | 10.20.0.12 (eth0) | fd14:ca46:3864:14::c (eth0) | CONTAINER | 0         |
++------+---------+-------------------+-----------------------------+-----------+-----------+</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Le trafic issu des conteneurs est-il routé à travers la
+	topologie <acronym>OSPF</acronym>&nbsp;? Pourquoi&nbsp;?</phrase></para>
+
+	<para>Effectuer quelques tests de connectivité <acronym>ICMP</acronym>
+	depuis un conteneur.</para>
+	</question>
+	<answer>
+<screen>lxc exec c0 -- ping -qc2 9.9.9.9
+PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+
+--- 9.9.9.9 ping statistics ---
+2 packets transmitted, 0 received, <emphasis>100% packet loss</emphasis>, time 1006ms</screen>
+
+<screen>lxc exec c0 -- ping -qc2 2620:fe::fe
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 0 received, <emphasis>100% packet loss</emphasis>, time 1010ms</screen>
+
+	<para>Les préfixes réseau <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> ne sont pas annoncés via le protocole de routage
+	dynamique. Par conséquent, les routeurs voisins n'ont aucune solution pour
+	acheminer le trafic.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment publier les réseaux de conteneurs dans l'aire
+	<acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+	<para>Ajouter chaque interface <acronym>SVI</acronym> dans l'aire
+	<acronym>OSPF</acronym> et s'assurer qu'aucune annonce de protocole de
+	routage n'est émise en direction des conteneurs.</para>
+
+	<para>La liste des commandes utiles en mode console et en mode
+	configuration dans <application>vtysh</application> est la suivante.</para>
+
+	<simplelist type='horiz'>
+		<member><command>ip&nbsp;ospf&nbsp;area&nbsp;0</command></member>
+		<member><command>ipv6&nbsp;ospf6&nbsp;area&nbsp;0</command></member>
+		<member><command>ip&nbsp;ospf&nbsp;passive</command></member>
+		<member><command>ipv6&nbsp;ospf6&nbsp;passive</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Voici un exemple de configuration pour le routeur <systemitem
+	class='systemname'>R2-vert</systemitem>.</para>
+
+<screen><prompt>R2#</prompt> conf t
+R2(config)# int sw-vlan20
+R2(config-if)# ip ospf area 0
+R2(config-if)# ip ospf passive
+R2(config-if)# ipv6 ospf6 area 0
+R2(config-if)# ipv6 ospf6 passive
+R2(config-if)# ^Z</screen>
+
+	<para>On vérifie que l'interface est bien active pour chacun des deux
+	protocoles de routage dynamique.</para>
+
+<screen><prompt>R2#</prompt> sh ip ospf interface sw-vlan20
+<emphasis>sw-vlan20 is up</emphasis>
+  ifindex 7, MTU 1500 bytes, BW 0 Mbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.20.0.1/24, Broadcast 10.20.0.255, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 0.0.4.2, <emphasis>Network Type BROADCAST</emphasis>, Cost: 10
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 0.0.4.2 Interface Address 10.20.0.1/24
+  No backup designated router on this network
+  Multicast group memberships: &lt;None>
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    <emphasis>No Hellos (Passive interface)</emphasis>
+  Neighbor Count is 0, Adjacent neighbor count is 0</screen>
+
+<screen><prompt>R2#</prompt> sh ipv6 ospf6 interface sw-vlan20
+<emphasis>sw-vlan20 is up, type BROADCAST</emphasis>
+  Interface ID: 7
+  Internet Address:
+    inet : 10.20.0.1/24
+    inet6: fd14:ca46:3864:14::1/64
+    inet6: fe80::68c5:c6ff:feef:b948/64
+  Instance ID 0, Interface MTU 1500 (autodetect: 1500)
+  MTU mismatch detection: enabled
+  Area ID 0.0.0.0, Cost 10
+  State DR, Transmit Delay 1 sec, Priority 1
+  Timer intervals configured:
+   Hello 10(-), Dead 40, Retransmit 5
+  DR: 0.0.6.2 BDR: 0.0.0.0
+  Number of I/F scoped LSAs is 1
+    0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+    0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+  Authentication Trailer is disabled</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider l'accès à l'Internet depuis les
+	conteneurs&nbsp;?</phrase></para>
+
+	<para>On reprend la liste des tests <acronym>ICMP</acronym> pour valider
+	l'acheminement du trafic au niveau de la couche réseau et on lance une mise
+	à jour du catalogue des paquets pour valider la résolution des noms.</para>
+	</question>
+	<answer>
+	<para>À partir du routeur <systemitem class='systemname'>R2</systemitem>,
+	on utilise les séquences suivantes&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Tests <acronym>ICMP</acronym> au niveau réseau&nbsp;:</para>
+
+<screen>for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> c$i"
+lxc exec c$i -- ping -qc2 9.9.9.9
+done</screen>
+
+<screen>for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> c$i"
+lxc exec c$i -- ping -qc2 2620:fe::fe
+done</screen>
+	</listitem>
+	<listitem>
+	<para>Tests au niveau application avec résolution des noms&nbsp;:</para>
+
+<screen>for i in {0..2}
+do
+echo ">>>>>>>>>>>>>>>>> c$i"
+lxc exec c$i -- apt update
+lxc exec c$i -- apt -y full-upgrade
+done</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment vérifier que tous les réseaux de conteneurs sont bien
+	visiblede la topologie <acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+	<para>Afficher les tables de routage <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> de l'un des trois routeurs et vérifier la présence
+	des trois réseaux de conteneurs.</para>
+	</question>
+	<answer>
+	<para>Voici le résultat obtenu depuis la console du routeur <systemitem
+	class='systemname'>R3</systemitem>.</para>
+
+<screen><prompt>R3#</prompt> sh ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+O>* 0.0.0.0/0 [110/10] via 10.48.1.1, enp0s1.481, weight 1, 00:48:18
+<emphasis>O>* 10.20.0.0/24 [110/11] via 10.48.2.2, enp0s1.482, weight 1, 00:06:26</emphasis>
+C>* 10.30.0.0/24 is directly connected, sw-vlan30, 04:53:34
+O>* 10.48.0.0/29 [110/2] via 10.48.1.1, enp0s1.481, weight 1, 01:00:23
+  *                      via 10.48.2.2, enp0s1.482, weight 1, 01:00:23
+O   10.48.1.0/29 [110/1] is directly connected, enp0s1.481, weight 1, 01:01:06
+C>* 10.48.1.0/29 is directly connected, enp0s1.481, 04:53:34
+O   10.48.2.0/29 [110/1] is directly connected, enp0s1.482, weight 1, 01:01:03
+C>* 10.48.2.0/29 is directly connected, enp0s1.482, 04:53:34</screen>
+
+<screen><prompt>R3#</prompt> sh ipv6 route
+Codes: K - kernel route, C - connected, S - static, R - RIPng,
+       O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
+       v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+O>* ::/0 [110/10] via fe80::baad:caff:fefe:c8, enp0s1.481, weight 1, 00:45:39
+<emphasis>O>* fd14:ca46:3864:14::/64 [110/11] via fe80::baad:caff:fefe:c9, enp0s1.482, weight 1, 00:07:00</emphasis>
+C>* fd14:ca46:3864:1e::/64 is directly connected, sw-vlan30, 04:54:21
+C * fe80::/64 is directly connected, asw-host, 04:54:20
+C * fe80::/64 is directly connected, sw-vlan30, 04:54:21
+C * fe80::/64 is directly connected, enp0s1.482, 04:54:22
+C * fe80::/64 is directly connected, enp0s1, 04:54:22
+C>* fe80::/64 is directly connected, enp0s1.481, 04:54:22</screen>
+	</answer>
+	</qandaentry>
+</qandadiv>
+</qandaset>
+</sect1>
+
+<sect1 xml:id='interco.ospf-frr.auto-cost'>
+	<title>Adapter de la métrique de lien au débit</title>
+
+	<para>Par défaut, le calcul de métrique du le protocole
+	<acronym>OSPF</acronym> se fait à partir de l'expression&nbsp;:
+	10<superscript>8</superscript>&nbsp;/&nbsp;bande&nbsp;passante&nbsp;du&nbsp;lien.</para>
+
+	<para>Cette règle a été établie à une époque où l'utilisation d'un lien à
+	100Mbps était considéré comme une situation futuriste. Aujourd'hui, les
+	liens à 100Mbps sont dépassés.</para>
+
+	<para>Cette section traite de la configuration des instances de
+	protocole de routage <acronym>OSPF</acronym> utilisant des liens avec un
+	débit binaire supérieur à 100Mbps.</para>
+
+	<qandaset>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction à utiliser pour que le calcul de
+	métrique <acronym>OSPF</acronym> se fasse sur la base d'un débit de lien à
+	10Gbps&nbsp;?</phrase></para>
+
+	<para>Rechercher le mot clé <wordasword>reference</wordasword> dans
+	l'index des instructions de configuration. Consulter la documentation
+	&url.frr-documentation;.</para>
+	</question>
+	<answer>
+	<para>C'est l'instruction
+	<command>auto-cost&nbsp;reference-bandwidth</command> qui permet de fixer
+	une nouvelle référence de coût de lien en Mbps.</para>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# router ospf
+R1(config-router)# auto-cost reference-bandwidth
+  (1-4294967)  The reference bandwidth in terms of Mbits per second
+R1(config-router)# auto-cost reference-bandwidth 100000
+R1(config-router)# ^Z</screen>
+
+<screen><prompt>R1#</prompt> conf t
+R1(config)# router ospf6
+R1(config-ospf6)# auto-cost reference-bandwidth
+  (1-4294967)  The reference bandwidth in terms of Mbits per second
+R1(config-ospf6)# auto-cost reference-bandwidth 100000
+R1(config-ospf6)# ^Z</screen>
+
+	<para>Voici un extrait de la configuration du routeur <systemitem
+	class='systemname'>R2</systemitem> après application d'une nouvelle
+	référence à 100000Mbps soit 100Gbps.</para>
+
+<screen><prompt>R2#</prompt> conf t
+R2(config)# router ospf
+R2(config-router)# auto-cost reference-bandwidth 100000
+R2(config-router)# router ospf6
+R2(config-ospf6)# auto-cost reference-bandwidth 100000
+R2(config-ospf6)# ^Z</screen>
+
+	<para>Il est indispensable que tous les routeurs de l'aire
+	<acronym>OSPF</acronym> aient la même référence de calcul de métrique.  La
+	même instruction doit donc être implantée dans la configuration des trois
+	routeurs.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment modifier le débit binaire d'un lien à
+	10Gbps&nbsp;?</phrase></para>
+
+	<para>Normalement, le débit d'un lien est directement extrait des
+	paramètres du composant de l'interface connectée au lien. Dans le cas
+	d'interfaces qui n'ont aucune réalité physique, ce débit peut être attribué
+	arbitrairement par configuration. On doit rechercher dans les options de la
+	console <application>vtysh</application> le moyen d'attribuer une
+	indication de débit aux sous-interfaces de <acronym>VLAN</acronym>s.</para>
+	</question>
+	<answer>
+	<para>Comme indiqué dans la <xref
+	linkend='interco.ospf-frr.prepare-config'/>, c'est dans la configuration
+	des interfaces que l'on attribue le débit binaire d'une interface
+	réseau.</para>
+
+<screen><prompt>R3#</prompt> sh int sw-vlan30
+Interface sw-vlan30 is up, line protocol is up
+  Link ups:       1    last: 2022/10/24 10:13:11.41
+  Link downs:     2    last: 2022/10/24 10:13:11.40
+  vrf: default
+  index 7 metric 0 mtu 1500 speed 0
+  flags: &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Type: Ethernet
+  HWaddr: a6:91:26:2f:34:42
+  inet 10.30.0.1/24
+  inet6 fd14:ca46:3864:1e::1/64
+  inet6 fe80::a491:26ff:fe2f:3442/64
+  Interface Type Other
+  Interface Slave Type None
+  protodown: off</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment peut-on identifier le débit d'un lien dans la
+	configuration <acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+	<para>Visualiser les paramètres des interfaces réseau depuis la console
+	<application>vtysh</application>. Les commandes suivantes peuvent être
+	lancées sur chacun des trois routeurs.</para>
+
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;ip&nbsp;ospf interface</command></member>
+		<member><command>show&nbsp;ipv6&nbsp;ospf6 interface</command></member>
+	</simplelist>
+	</question>
+	<answer>
+	<para>Voici le résultat obtenu sur le routeur <systemitem
+	class='systemname'>R3-bleu</systemitem>.</para>
+
+<screen><prompt>R3#</prompt> conf t
+R3(config)# int sw-vlan30
+R3(config-if)# bandwidth 10000
+R3(config-if)# ^Z</screen>
+
+<screen><prompt>R3#</prompt> sh ip ospf interface sw-vlan30
+sw-vlan30 is up
+  ifindex 7, MTU 1500 bytes, <emphasis>BW 10000 Mbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.30.0.1/24, Broadcast 10.30.0.255, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 0.0.4.3, Network Type BROADCAST, Cost: 10
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 0.0.4.3 Interface Address 10.30.0.1/24
+  No backup designated router on this network
+  Multicast group memberships: &lt;None>
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    No Hellos (Passive interface)
+  Neighbor Count is 0, Adjacent neighbor count is 0</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le coût d'accès au réseau de conteneurs attaché au
+	routeur <systemitem class='systemname'>R3</systemitem> depuis le
+	routeur <systemitem class='systemname'>R2</systemitem>&nbsp;?
+	Justifier la valeur de métrique obtenue.</phrase></para>
+
+	<para>À partir des informations de routage sur <systemitem
+	class='systemname'>R2</systemitem>, faire la somme des métriques de
+	chaque lien entre les deux extrémités en communication.</para>
+	</question>
+	<answer>
+	<para>Il est possible d'obtenir les informations de calcul de métrique à
+	partir de l'affichage d'une route particulière à la console
+	<application>vtysh</application>.</para>
+
+<screen><prompt>R2#</prompt> sh ip route 10.30.0.0/24
+Routing entry for 10.30.0.0/24
+  Known via "ospf", distance 110, <emphasis>metric 11</emphasis>, best
+  Last update 00:43:47 ago
+  * 10.48.2.3, via enp0s1.482, weight 1</screen>
+
+	<para>Dans l'exemple ci-dessus, la métrique d'accès au réseau <systemitem
+	class='ipaddress'>10.30.0.0/24</systemitem> correspond à la somme des
+	métriques de deux liens. La somme donne une métrique de 11.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Le lien entre <systemitem class='systemname'>R2</systemitem> et
+	<systemitem class='systemname'>R3</systemitem> est à 100Gbps, soit une
+	métrique de 1</para>
+	</listitem>
+	<listitem>
+	<para>Le lien du réseau de conteneurs est à 10Gbps, soit une métrique de
+	10.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>On obtient un résultat identique avec la table de routage
+	<acronym>IPv6</acronym>.</para>
+
+<screen><prompt>R2#</prompt> sh ipv6 route fd14:ca46:3864:1e::/64
+Routing entry for fd14:ca46:3864:1e::/64
+  Known via "ospf6", distance 110, <emphasis>metric 11</emphasis>, best
+  Last update 00:45:59 ago
+  * fe80::baad:caff:fefe:ca, via enp0s1.482, weight 1</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
+<sect1 xml:id='interco.ospf-frr.refdocs'>
+	<title>Consulter les documents de référence</title>
+
+	<variablelist>
+	<varlistentry xml:id='interco.ospf-frr.refdocs.config-interface-lan'>
+		<term><citetitle>Configuration d'une interface réseau</citetitle></term>
+	<listitem>
+		<para>Le support &url.config.interface.lan; présente les opérations de
+		configuration d'une interface réseau et propose quelques
+		manipulations sur les protocoles de la pile
+		<acronym>TCP/IP</acronym></para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='interco.ospf-frr.refdocs.inter-vlan'>
+		<term><citetitle>Introduction au routage inter-VLAN</citetitle></term>
+	<listitem>
+		<para>Le support &url.inter-vlan-routing; introduit le principe du
+		routage inter-VLAN ainsi que ses conditions d'utilisation. C'est aussi
+		un support de travaux pratiques dans lequel on n'utilise que du routage
+		statique et de la traduction d'adresses sources
+		(<acronym>S-NAT</acronym>) pour acheminer le trafic utilisateur entre
+		les différents réseaux.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='interco.ospf-frr.refdocs.frr-documentation'>
+		<term><citetitle>Documentation FRRouting</citetitle></term>
+	<listitem>
+		<para>La page à l'adresse&nbsp;: &url.frr-documentation; fournit toutes
+		les instructions utilisables dans console unifiée
+		<command>vtysh</command>.</para>
+
+		<para>Ces commandes sont largement inspirées du système d'exploitation
+		<citetitle>IOS</citetitle> de <trademark>Cisco</trademark>.</para>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+</sect1>
+
+<sect1 xml:id='interco.ospf-frr.conf'>
+	<title>Sauvegarder les fichiers de configuration</title>
+
+	<para>Voici une copie des fichiers de configuration des trois routeurs une
+	fois toutes les manipulations réalisées.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Routeur <systemitem class='systemname'>R1</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R1-frr.conf'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	</listitem>
+	<listitem>
+	<para>Routeur <systemitem class='systemname'>R2</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R2-frr.conf'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	</listitem>
+	<listitem>
+	<para>Routeur <systemitem class='systemname'>R3</systemitem>.</para>
+
+<screen><?dbfo keep-together="auto" ?><xi:include href='files/R3-frr.conf'
+parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
+	</listitem>
+	</itemizedlist>
+</sect1>
+</article>

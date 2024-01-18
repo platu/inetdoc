@@ -1,0 +1,166 @@
+#/*--------------------------------------------------------------------------
+#* Variables globales
+#*---------------------------------------------------------------------------*/
+
+MAIN_DIR	:= $(HOME)/inetdoc
+CWD			:= $(shell pwd)
+
+FOP				:= $(HOME)/xmlgraphics-fop/fop/fop -l fr -c $(MAIN_DIR)/common/fop.xconf
+LIBREOFFICE		:= $(shell which libreoffice)
+
+XSLT_STYLESHEET	:= $(MAIN_DIR)/common/xhtml_chunk.xsl
+
+#/*--------------------------------------------------------------------------
+#* Traitement des répertoires et sous-répertoires
+#*---------------------------------------------------------------------------*/
+
+# PROCESS contient la directive 'subdirs' : parcours des sous-répertoires
+subdirs: $(SUBDIRS)
+	@for dir in $(SUBDIRS); do \
+		( cd $$dir && $(MAKE) ); \
+	done
+
+# Les directives clean et subdirs_clean effacent les fichiers intermédiares.
+# L'effacement est conditionné par le contenu du fichier .gitignore présent
+# dans chaque répertoire de travail
+.PHONY: clean
+clean: subdirs_clean
+ifneq ($(CWD),$(MAIN_DIR))
+	@for file in `grep "^!" .gitignore | tr '\n' ' ' | tr -d '!'`; do \
+		if [ -f $$file ]; then \
+			mv $$file $$file.orig ;\
+		fi ;\
+	done
+	@for file in `grep -v "^!" .gitignore | tr '\n' ' '`; do \
+		rm -rf $$file ;\
+	done
+	@for file in *.orig; do \
+		if [ -f $$file ]; then \
+			mv $$file `echo -n "$${file%.*}"` ;\
+		fi ;\
+	done
+endif
+
+.PHONY: subdirs_clean
+subdirs_clean:
+ifdef SUBDIRS
+	@for dir in $(SUBDIRS); do \
+		(cd $$dir && $(MAKE) clean); \
+	done
+endif
+
+dist_dirs: $(MAIN_DIR)/odp $(MAIN_DIR)/pdf $(MAIN_DIR)/xml
+
+$(MAIN_DIR)/odp $(MAIN_DIR)/pdf $(MAIN_DIR)/xml:
+	mkdir $@
+
+#/*--------------------------------------------------------------------------
+#* Traitement des liens symboliques
+#*---------------------------------------------------------------------------*/
+
+# PROCESS contient la directive 'symlink' : création des liens
+symlink:
+	$(MAIN_DIR)/common/symlinks.sh $(SYMLINKS)
+
+#/*--------------------------------------------------------------------------
+#* Traitement des images LibreOffice Draw ODG
+#*---------------------------------------------------------------------------*/
+
+%.svg: %.odg
+	@if [ -z $(LIBREOFFICE) ]; then echo 'libreoffice indisponible'; exit 1; fi
+	@$(LIBREOFFICE) --headless --convert-to pdf:draw_pdf_Export $<
+	@convert -density 300 $(subst odg,pdf,$<) -quality 100 $@
+	@rm -f $(basename $<).pdf
+
+%.png: %.odg
+	@if [ -z $(LIBREOFFICE) ]; then echo 'libreoffice indisponible'; exit 1; fi
+	@$(LIBREOFFICE) --headless --convert-to pdf:draw_pdf_Export $<
+	@convert -density 300 $(subst odg,pdf,$<) -quality 100 $@
+	@rm -f $(basename $<).pdf
+
+#/*--------------------------------------------------------------------------
+#* Traitement des fichiers sources DocBook XML
+#*---------------------------------------------------------------------------*/
+
+ifeq (xml, $(findstring xml,$(PROCESS)))
+
+OUTPUT	:= transform_output
+
+ifndef XML_FILES
+XML_FILES	:= $(wildcard *.xml)
+XML_FILES	:= $(filter-out $(notdir $(wildcard $(MAIN_DIR)/common/*.xml)), $(XML_FILES))
+endif
+
+BASENAME = $(basename $(firstword $(XML_FILES)))
+
+SVG_FILES := $(wildcard images/*.svg)
+PNG_FILES := $(subst svg,png,$(SVG_FILES))
+
+xml2xhtml: \
+	dist_dirs \
+	index.html 
+
+$(OUTPUT)/$(BASENAME).xml: $(XML_FILES)
+	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
+	# Validation XML de $(firstword $(XML_FILES))
+	@xmllint --encode utf-8 --noent --xinclude --postvalid $< > $@ ;\
+	if [ $$? -ne 0 ]; then rm -f $@; exit 1; fi
+
+index.html: $(OUTPUT)/$(BASENAME).xml
+	# Insertion du nom de fichier imprimable 
+	# Copie du fichier source complet dans le répertoire de distribution
+	# Transformation XHTML du résultat de la validation XML
+	@( \
+	cd $(OUTPUT) && \
+	sed -i 's/__printbasename__/$(BASENAME)\.pdf/g' $(BASENAME).xml && \
+	cp -a $(BASENAME).xml $(MAIN_DIR)/xml/ && \
+	xsltproc $(XSLT_STYLESHEET) $(BASENAME).xml \
+	)
+
+xml2pdf: \
+	dist_dirs \
+	$(MAIN_DIR)/pdf/$(BASENAME).pdf
+
+$(MAIN_DIR)/pdf/$(BASENAME).pdf: $(OUTPUT)/$(BASENAME).xml
+	# Transformations FO et PDF du résultat de la validation XML
+	@( \
+        cd $(OUTPUT) && \
+	if [ -d ../images ] && [ ! -h images ]; then ln -s ../images; fi && \
+	xsltproc --output $(BASENAME).fo --stringparam img.src.path "$(CWD)/" $(MAIN_DIR)/common/fopdf.xsl $(BASENAME).xml && \
+	sed -i 's/external-destination=\"url(\//external-destination=\"url(https\:\/\/inetdoc.net\//g' $(BASENAME).fo && \
+	$(FOP) -fo $(BASENAME).fo -pdf $@ \
+	)
+
+endif
+
+#/*--------------------------------------------------------------------------
+#* Traitement des fichiers sources Libreoffice ODP
+#*---------------------------------------------------------------------------*/
+
+ifeq (odp, $(findstring odp,$(PROCESS)))
+
+OUTPUT		:= transform_output
+
+ifndef ODP_FILES
+ODP_FILES	:= $(wildcard *.odp)
+endif
+
+BASENAME = $(basename $(firstword $(ODP_FILES)))
+
+odp2pdf: \
+	dist_dirs \
+	$(MAIN_DIR)/odp/$(BASENAME).odp \
+	$(MAIN_DIR)/pdf/$(BASENAME).pdf \
+	$(BASENAME)-00.thb.png
+
+$(MAIN_DIR)/odp/$(BASENAME).odp: $(BASENAME).odp
+	cp $< $@
+
+$(MAIN_DIR)/pdf/%.pdf: %.odp
+	@if [ -z $(LIBREOFFICE) ]; then echo 'libreoffice indisponible'; exit 1; fi
+	# Génération du fichier imprimable PDF
+	@$(LIBREOFFICE) --headless --invisible --convert-to pdf --outdir $(MAIN_DIR)/pdf $?
+
+$(BASENAME)-00.thb.png: $(MAIN_DIR)/pdf/$(BASENAME).pdf
+	convert -thumbnail x300 $< $(BASENAME)-%02d.thb.png
+endif

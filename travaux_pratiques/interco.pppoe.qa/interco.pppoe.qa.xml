@@ -1,0 +1,1573 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+"/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd" [
+
+<!ENTITY author		SYSTEM "author.xml">
+<!ENTITY legal		SYSTEM "legal.xml">
+
+<!-- urls -->
+<!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.ppp-wikipedia
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/Point-to-Point_Protocol">
+<citetitle>Point-to-Point Protocol</citetitle></link>'>
+
+<!ENTITY url.pppoe-wikipedia
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/Point-to-point_protocol_over_Ethernet">
+<citetitle>Point-to-point protocol over Ethernet</citetitle></link>'>
+
+<!ENTITY url.cheatsheet
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://www.inetdoc.net/pdf/iproute-cheatsheet.pdf">
+<citetitle>Antisèche réseau</citetitle></link>'>
+
+<!-- A copy of http://www.w3.org/2003/entities/2007/w3centities-f.ent is at:
+/usr/local/share -->
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"/usr/local/share/w3centities-f.ent">
+%w3centities-f;
+]>
+
+<article xml:id='interco.pppoe' xml:lang='fr'>
+
+<info>
+	<title>Topologie Hub &amp; Spoke avec le protocole PPPoE</title>
+
+	&author;
+	<abstract>
+	<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='1*'/>
+	<colspec colwidth='1*'/>
+	<tbody>
+    <row>
+	<entry>
+	<inlinemediaobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/pppoe-hub-and-spoke-logical-topology.png' format='PNG' width='480px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/pppoe-hub-and-spoke-logical-topology.png' format='PNG' width='7cm' scalefit='1'/>
+	</imageobject>
+	</inlinemediaobject>
+	</entry>
+    <entry valign='top'>
+	<para>Ce support de travaux pratiques est une illustration d'une topologie
+	réseau classique baptisée <wordasword>Hub &amp; Spoke</wordasword>. Le
+	<wordasword>Hub</wordasword> est un routeur qui concentre tous les flux des
+	routeurs d'extrémités appelés <wordasword>Spoke</wordasword>. Les liaisons
+	entre le <wordasword>Hub</wordasword> et les routeurs
+	<wordasword>Spoke</wordasword> sont point à point et utilisent le protocole
+	<acronym>PPP</acronym>. Avec la généralisation de la fibre optique dans les
+	réseaux étendus (<acronym>WAN</acronym>), on doit encapsuler les trames
+	<acronym>PPP</acronym> dans un <acronym>VLAN</acronym> Ethernet à l'aide de
+	la technologie <acronym>PPPoE</acronym>.</para>
+
+	<para>Les manipulations proposées reprennent en grande partie celles du
+	support &url.interco.pppoe-cloud; en les adaptant à la topologie en
+	triangle.</para>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+	</para>
+	</abstract>
+
+	<keywordset>
+		<keyword>ppp</keyword>
+		<keyword>pppoe</keyword>
+		<keyword>chap</keyword>
+		<keyword>route</keyword>
+		<keyword>forward</keyword>
+		<keyword>trunk</keyword>
+		<keyword>vlan</keyword>
+	</keywordset>
+</info>
+
+<sect1 xml:id='interco.pppoe.legal.meta'>
+	&legal;
+
+	<bridgehead xml:id='interco.pppoe.meta'
+	renderas='sect2'>Méta-information</bridgehead>
+
+	<para>Cet article est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+	XML sur un système <link
+	xlink:href="https://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+	format PDF&nbsp;: <link
+	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+	<para>Toutes les commandes utilisées dans ce document ne sont pas
+	spécifiques à une version particulière des systèmes UNIX ou GNU/Linux.
+	C'est la distribution <citetitle>Debian GNU/Linux</citetitle> qui est
+	utilisée pour les tests présentés. Voici une liste des paquets contenant
+	les commandes&nbsp;:</para>
+
+<itemizedlist>
+	<listitem>
+	<para><application>iproute2</application> - Outils de contrôle du trafic et
+		du réseau</para>
+	</listitem>
+	<listitem>
+	<para><application>ifupdown</application> - High level tools to configure
+		network interfaces</para>
+    </listitem>
+	<listitem>
+	<para><application>iputils-ping</application> - Tools to test the
+		reachability of network hosts</para>
+	</listitem>
+	<listitem>
+	<para><application>iputils-tracepath</application> - Tools to trace the
+		network path to a remote host</para>
+	</listitem>
+	<listitem>
+	<para><application>ppp</application> - Point-to-Point Protocol (PPP) -
+		daemon</para>
+	</listitem>
+	<listitem>
+	<para><application>pppoe</application> - PPP over Ethernet driver</para>
+	</listitem>
+</itemizedlist>
+
+	<bridgehead xml:id='interco.pppoe.troubleshoot' renderas='sect2'>Aide à la
+	mise au point</bridgehead>
+
+	<para>Afin de résoudre les problèmes de connexion et de configuration, la
+	journalisation système constitue le principal canal d'information.</para>
+
+	<para>L'affichage des messages système est géré par le démon <systemitem
+	class='daemon'>rsyslogd</systemitem> et/ou le service <systemitem
+	class='daemon'>systemd-journald</systemitem>.</para>
+
+	<para>Dans le premier cas, <systemitem class='daemon'>rsyslogd</systemitem>
+	stocke les messages dans les fichiers du répertoire <filename
+	class='directory'>/var/log/</filename>. Dans le cas des travaux pratiques,
+	les informations nécessaires à la mise au point des connexions réseau se
+	trouvent dans le fichier <filename>/var/log/syslog</filename>.</para>
+
+	<para>Pour visualiser les dernières lignes d'un journal système à la
+	console on peut utiliser la commande <command>tail</command>.</para>
+
+<screen>tail -n 50 -f /var/log/syslog</screen>
+
+	<para>Du point de vue droits sur le système de fichiers, la commande
+	<command>tail</command> peut être utilisée au niveau utilisateur normal dès
+	lors que celui-ci appartient au groupe <systemitem>adm</systemitem>. Les
+	commandes <command>id</command> et <command>groups</command> permettent de
+	connaître les groupes auxquels l'utilisateur courant appartient.</para>
+
+	<para>Dans le second cas, c'est la commande <command>journalctl</command>
+	qui permet de visualiser les mêmes messages. Si on reprend l'exemple
+	ci-dessus, la syntaxe est la suivante&nbsp;:</para>
+<screen>journalctl -n 50 -f</screen>
+</sect1>
+
+<sect1 xml:id='interco.pppoe.hub-and-spoke'>
+	<title>Topologie Hub &amp; Spoke - Protocole PPPoE</title>
+
+	<para>Le Protocole Point à Point (<acronym>PPP</acronym>) est utilisé pour
+	établir une communication directe entre deux hôtes. Il relie deux routeurs
+	de façon logique au dessus d'une topologie de réseau physique qui peut
+	comprendre divers composants et différentes technologies. Il permet aux
+	deux extrémités en communication de négocier des paramètres de transmission
+	tels que l'authentification, la compression et l'attribution d'adresses de
+	couche réseau. Dans ce document, on utilise le protocole
+	<acronym>PPP</acronym> au dessus d'un réseau Ethernet qui représente la
+	technologie mise en œuvre par un opérateur Internet.</para>
+
+	<para>Comme un Ethernet est par définition un réseau de diffusion, il est
+	nécessaire d'introduire un protocole intermédiaire appelé
+	<acronym>PPPoE</acronym> qui sert à identifier les deux hôtes de la liaison
+	logique point à point.</para>
+
+	<para>Ce support met en œuvre une “figure“ classique appelée topologie
+	<citetitle>Hub &amp; Spoke</citetitle>. Voici une description des rôles des
+	différents routeurs de cette topologie.</para>
+
+	<variablelist>
+	<varlistentry xml:id='interco.pppoe.hub-role'>
+		<term><citetitle>Hub</citetitle></term>
+	<listitem>
+	<para>Traduit mot à mot, le rôle <wordasword>Hub</wordasword> correspond à
+	un concentrateur.</para>
+
+	<para>Il concentre tous les flux réseau des routeurs qui ont le rôle
+	<wordasword>Spoke</wordasword>. En effet, les échanges entre deux routeurs
+	<wordasword>Spoke</wordasword> doivent passer par le routeur
+	<wordasword>Hub</wordasword>.</para>
+
+	<para>On lui attribue aussi la fonction de <wordasword>Broadband Remote
+	Access Server</wordasword> ou <acronym>BRAS</acronym>. Dans notre contexte,
+	cette fonction se caractérise par le fait que ce routeur détient le plan
+	d'adressage. C'est lui qui a la responsabilité de délivrer les adresses
+	<acronym>IP</acronym> lors de l'initiation de la session
+	<acronym>PPP</acronym>.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='interco.pppoe.spoke-role'>
+		<term><citetitle>Spoke</citetitle></term>
+	<listitem>
+	<para>Le rôle <wordasword>Spoke</wordasword> correspond à un réseau
+	d'extrémité au delà duquel on ne trouve aucune interconnexion. Le routeur
+	<wordasword>Spoke</wordasword> doit s'adresser au routeur
+	<acronym>Hub</acronym> dès qu'il veut acheminer un flux réseau. Il s'agit
+	bien d'un routeur d'extrémité qui ne dispose d'aucun chemin alternatif pour
+	joindre l'Internet.</para>
+
+	<para>Dans les réseaux domestiques, la «box» correspond bien au rôle
+	<wordasword>Spoke</wordasword> dans la mesure où elle se voit attribuer des
+	adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym> publiques par
+	le fournisseur d'accès Internet. Les seules informations qu'elle détient
+	sont les authentifiants du client de l'opérateur.</para>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+
+	<mediaobject>
+	<imageobject role='fo'>
+		<imagedata fileref='images/pppoe-hub-and-spoke-logical-topology.png' format='PNG'
+		width='12cm' scalefit='1' align='center'/>
+	</imageobject>
+	<imageobject role='html'>
+		<imagedata fileref='images/pppoe-hub-and-spoke-logical-topology.png' format='PNG'
+		width='640px' scalefit='1' align='center'/>
+	</imageobject>
+	<textobject>
+		<phrase>Topologie entre deux routeurs <wordasword>Hub</wordasword> et
+		<wordasword>Spoke</wordasword> avec <acronym>PPPoE</acronym></phrase>
+	</textobject>
+	<caption>
+		<para><link xlink:href='images/pppoe-topology.png'>Topologie entre deux
+		routeurs <wordasword>Hub</wordasword> et <wordasword>Spoke</wordasword>
+		avec <acronym>PPPoE</acronym></link></para>
+	</caption>
+	</mediaobject>
+
+	<para>Comme le montre le graphique ci-dessus, l'opérateur distingue 4
+	réseaux ou <acronym>VLANs</acronym> différents.</para>
+
+	<variablelist>
+	<varlistentry>
+	<term>Raccordement Internet&nbsp;(rouge)</term>
+	<listitem>
+		<para>Ce réseau caractérise l'accès à l'Internet. Il s'agit de la
+		dorsale de l'opérateur.</para>
+	</listitem>
+	</varlistentry>
+	<varlistentry>
+	<term>Management/Supervision&nbsp;(violet)</term>
+	<listitem>
+		<para>Ce réseau correspond à la gestion des équipements et à la
+		supervision des liens en fibre optique. Il n'utilise que des adresses
+		de lien local <acronym>IPv6</acronym>.</para>
+	</listitem>
+	</varlistentry>
+	<varlistentry>
+	<term>Données de l'entreprise cliente&nbsp;(orange)</term>
+	<listitem>
+		<para>C'est sur ce réseau que la session <acronym>PPP</acronym> est
+		établie. L'entreprise cliente s'authentifie auprès du
+		<acronym>BRAS</acronym> de l'opérateur et obtient en échange une
+		adresse <acronym>IPv4</acronym> et une adresse <acronym>IPv6</acronym>
+		qui permettent d'accéder à Internet.</para>
+	</listitem>
+	</varlistentry>
+	<varlistentry>
+	<term>Réseau de l'entreprise cliente&nbsp;(vert)</term>
+	<listitem>
+		<para>C'est le réseau des services hébergés sur son propre site par
+		l'entreprise clients de l'opérateur. Ici, on choisit de déployer
+		plusieurs conteneurs pour illustrer plusieurs hôtes ou serveurs dont le
+		trafic doit transiter par la session <acronym>PPP</acronym>.</para>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+
+	<para>Voici le plan d'adressage de la maquette utilisée pour rédiger ce
+	support de travaux pratiques.</para>
+
+	<table xml:id='interco.pppoe.hub-and-spoke.mockup.addressing' frame='all' pgwide='1'>
+		<title>Maquette</title>
+	<tgroup cols='6' align='left' colsep='1' rowsep='1'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='1*'/>
+	<colspec colnum='3' colwidth='1*'/>
+	<colspec colnum='4' colwidth='1.5*'/>
+	<colspec colnum='5' colwidth='1*'/>
+	<colspec colnum='6' colwidth='2*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Rôle</entry>
+		<entry>VLAN</entry>
+		<entry>Numéro</entry>
+		<entry>Type</entry>
+		<entry>Destination</entry>
+		<entry>Adresse/Authentification</entry>
+	</row>
+	</thead>
+	<tbody>
+		<!-- Maquette -->
+		<row>
+			<entry morerows='4' valign='middle'>Hub<?custom-linebreak?>bleu</entry>
+			<entry>Rouge</entry>
+			<entry>360</entry>
+			<entry>Passerelle</entry>
+			<entry>-</entry>
+			<entry>
+				<systemitem class='ipaddress'>192.168.104.129/29</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fe80:168::1/64</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry>Violet</entry>
+			<entry>440</entry>
+			<entry>Lien local</entry>
+			<entry>Spoke1</entry>
+			<entry><systemitem class='ipaddress'>fe80:1b8::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>Orange</entry>
+			<entry>441</entry>
+			<entry>Point à point</entry>
+			<entry>Spoke1</entry>
+			<entry><systemitem class='ipaddress'>10.44.1.1:10.44.1.2</systemitem></entry>
+		</row>
+		<row>
+			<entry>Violet</entry>
+			<entry>442</entry>
+			<entry>Lien local</entry>
+			<entry>Spoke2</entry>
+			<entry><systemitem class='ipaddress'>fe80:1ba::1/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>Orange</entry>
+			<entry>443</entry>
+			<entry>Point à point</entry>
+			<entry>Spoke2</entry>
+			<entry><systemitem class='ipaddress'>10.44.3.1:10.44.3.2</systemitem></entry>
+		</row>
+		<row>
+			<entry morerows='2' valign='middle'>Spoke1<?custom-linebreak?>Vert</entry>
+			<entry>Violet</entry>
+			<entry>440</entry>
+			<entry>Lien local</entry>
+			<entry>Hub</entry>
+			<entry><systemitem class='ipaddress'>fe80:1b8::2/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>Orange</entry>
+			<entry>441</entry>
+			<entry>Authentifiants</entry>
+			<entry>Hub</entry>
+			<entry align='center'><systemitem>5p0k3_1 / 0r4ng3_1</systemitem></entry>
+		</row>
+		<row>
+			<entry>Vert</entry>
+			<entry>10</entry>
+			<entry>Passerelle</entry>
+			<entry>-</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.10.1/24</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:a::1/64</systemitem>
+			</entry>
+		</row>
+		<row>
+			<entry morerows='2' valign='middle'>Spoke2<?custom-linebreak?>Vert</entry>
+			<entry>Violet</entry>
+			<entry>442</entry>
+			<entry>Lien local</entry>
+			<entry>Hub</entry>
+			<entry><systemitem class='ipaddress'>fe80:1ba::2/64</systemitem></entry>
+		</row>
+		<row>
+			<entry>Orange</entry>
+			<entry>443</entry>
+			<entry>Authentifiants</entry>
+			<entry>Hub</entry>
+			<entry align='center'><systemitem>5p0k3_2 / 0r4ng3_2</systemitem></entry>
+		</row>
+		<row>
+			<entry>Vert</entry>
+			<entry>20</entry>
+			<entry>Passerelle</entry>
+			<entry>-</entry>
+			<entry>
+				<systemitem class='ipaddress'>10.0.20.1/24</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:14::1/64</systemitem>
+			</entry>
+		</row>
+	</tbody>
+	</tgroup>
+</table>
+</sect1>
+
+<sect1 xml:id='interco.pppoe.hub'>
+	<title>Routeur Hub (bleu)</title>
+
+	<para>Le rôle du routeur <wordasword>Hub</wordasword> est d'interconnecter
+	un réseau de collecte opérateur (<acronym>LAN</acronym>) qui donne accès à
+	l'Internet et plusieurs réseaux étendus (<acronym>WAN</acronym>) de
+	raccordement de sites distants. Le routeur <wordasword>Hub</wordasword>
+	assure aussi la fonction <wordasword>Broadband Remote Access
+	Server</wordasword> (<acronym>BRAS</acronym>). C'est la raison pour
+	laquelle il détient les adresses <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> à attribuer aux routeurs d'extrémité appelés
+	<wordasword>Spoke</wordasword>.</para>
+
+	<para>Le routeur <wordasword>Hub</wordasword> doit aussi gérer
+	l'encapsulation des trames <acronym>PPP</acronym> sur un réseau de
+	diffusion Ethernet.</para>
+
+	<para>Cette section reprend essentiellement la partie
+	&url.interco.pppoe-cloud.hub.pppoe; du support &url.interco.pppoe-cloud;.
+	On doit cependant adapter la configuration des interfaces réseau du routeur
+	<wordasword>Hub</wordasword> en ajoutant un second jeu d'interfaces pour le
+	deuxième site distant.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer la fonction routage du sous-système réseau du
+	noyau&nbsp;?</phrase></para>
+
+	<para>Reprendre les mêmes actions que dans le support
+	&url.interco.pppoe-cloud;.</para>
+	</question>
+	<answer>
+	<para>Il faut éditer le fichier <filename>/etc/sysctl.conf</filename> et
+	appliquer les modifications.</para>
+
+<screen>sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
+sudo sed -i 's/#net.ipv6.conf.all.forwarding=1/net.ipv6.conf.all.forwarding=1/' /etc/sysctl.conf
+sudo sysctl --system</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer la traduction d'adresses sources pour tous
+	les flux réseaux sortants sur le VLAN rouge&nbsp;?</phrase></para>
+
+	<para>Reprendre les mêmes actions que dans le support
+	&url.interco.pppoe-cloud;.</para>
+	</question>
+	<answer>
+	<para>Il faut créer une règle par protocole de couche réseau et sauvegarder
+	ces deux règles dans les fichiers prévus pour la persistance au
+	redémarrage.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>On débute par l'installation des paquets nécessaires au filtrage
+		réseau et à la sauvegarde des règles.</para>
+
+<screen>sudo apt -y install iptables iptables-persistent</screen>
+	</listitem>
+	<listitem>
+		<para>On active la traduction des adresses source
+		<acronym>IPv4</acronym>.</para>
+
+<screen>sudo iptables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
+	</listitem>
+	<listitem>
+		<para>On applique le même traitement pour
+		<acronym>IPv6</acronym>.</para>
+
+<screen>sudo ip6tables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le paquet qui fournit le démon de gestion du
+	dialogue <acronym>PPPoE</acronym>&nbsp;?</phrase></para>
+
+	<para>Dans un réseau de diffusion, il est nécessaire d'identifier les deux
+	extrémités qui vont établir une session <acronym>PPP</acronym>.</para>
+	</question>
+	<answer>
+	<para>C'est le paquet <systemitem>pppoe</systemitem>. Il a pour dépendance
+	le paquet <systemitem>ppp</systemitem>.</para>
+
+<screen>sudo apt -y install pppoe</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Dans quel fichier sont stockés les paramètres passés au démon
+	<command>pppd</command> lors du lancement du serveur
+	<acronym>PPPoE</acronym>&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuels de l'outil
+	<command>pppoe-server</command>.</para>
+	</question>
+	<answer>
+	<para>C'est le fichier <filename>/etc/ppp/pppoe-server-options</filename>
+	qui contient la liste des paramètres utilisés lors du dialogue
+	<acronym>PPP</acronym>.</para>
+
+	<para>Ce fichier contient tous les paramètres communs aux deux démons
+	<systemitem>pppd</systemitem> qui sont lancés via
+	<command>pppoe-server</command>. Voici comment créer le fichier.</para>
+
+<screen>cat &lt;&lt; EOF | sudo tee /etc/ppp/pppoe-server-options
+login
+require-chap
+nodefaultroute
+ms-dns 172.16.0.2
++ipv6
+EOF</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment créer les comptes utilisateurs locaux sur le routeur
+	<wordasword>Hub</wordasword> sachant qu'ils ne sont autorisés ni à se
+	connecter ni à avoir un répertoire personnel&nbsp;?</phrase></para>
+
+	<para>Consulter les options de la commande <command>adduser</command>.</para>
+	</question>
+	<answer>
+		<para>Voici un exemple dans le contexte de la maquette.</para>
+
+<screen>sudo adduser --gecos 'Spoke 1' --disabled-login --no-create-home --force-badname 5p0k3_1</screen>
+
+<screen>sudo adduser --gecos 'Spoke 2' --disabled-login --no-create-home --force-badname 5p0k3_2</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Dans quel fichier sont stockés les paramètres d'identité et
+	d'authentification utilisés par le protocole
+	<acronym>CHAP</acronym>&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuels du démon <command>pppd</command> à la
+	section <citetitle>AUTHENTICATION</citetitle>.</para>
+	</question>
+	<answer>
+	<para>C'est le fichier <filename>/etc/ppp/chap-secrets</filename> qui
+	contient les couples <wordasword>login/password</wordasword> utilisés lors
+	de l'authentification.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment ajouter les authentifiants des deux routeurs
+	<wordasword>Spoke</wordasword> dans le fichier d'authentification
+	<acronym>CHAP</acronym>&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>Voici une copie du fichier dans le contexte de la maquette. Seuls les
+	noms d'utilisateur et les mots de passe comptent.</para>
+
+<screen># Secrets for authentication using CHAP
+# client	server	secret			IP addresses
+"5p0k3_1"	*		"0r4ng3_1"		*
+"5p0k3_2"	*		"0r4ng3_2"		*</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quel paramètre supplémentaire doit être ajouté à la
+	configuration de la commande <command>pppoe-server</command> pour
+	distinguer les échanges entre les deux routeurs
+	<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+	<para>Relativement au support &url.interco.pppoe-cloud;, il est essentiel
+	de définir correctement les routes statiques vers les réseaux d'extrémité
+	de chaque routeur <wordasword>Spoke</wordasword>.</para>
+
+	<para>Consulter les options de la commande
+	<command>pppoe-server</command>.</para>
+	</question>
+	<answer>
+	<para>L'option <option>-u</option> permet de désigner une “unité“ qui sert
+	à nommer l'interface. Par exemple, <option>-u&nbsp;0</option> correspond à
+	l'interface <systemitem>ppp0</systemitem>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment éditer le fichier
+	<filename>/etc/network/interfaces</filename> pour ouvrir le raccordement
+	des deux sites distants&nbsp;?</phrase></para>
+
+	<para>Reprendre la configuration du support &url.interco.pppoe-cloud; en la
+	complétant.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Ajouter l'option <option>-u</option> suivie du numéro de
+		l'interface <systemitem>ppp</systemitem> utilisée pour la session vers
+		un site distant donné. Ce numéro conditionne l'ajout des routes
+		statiques vers les réseaux de conteneurs.</para>
+	</listitem>
+	<listitem>
+		<para>Ajouter une condition spécifique à l'arrêt du processus
+		<systemitem class='daemon'>pppoe-server</systemitem> relatif à un site
+		distant unique. Il ne faut pas que l'arrêt d'une liaison vers un site
+		provoque l'arrêt de toutes les liaisons.</para>
+	</listitem>
+	</itemizedlist>
+	</question>
+	<answer>
+	<para>Voici une copie du fichier de configuration réseau système dans le
+	contexte de la maquette.</para>
+
+<screen># This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto enp0s1
+iface enp0s1 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+# ---------- VLAN ROUGE ----------
+auto enp0s1.360
+iface enp0s1.360 inet static
+	address 192.168.104.130/29
+	gateway 192.168.104.129
+	dns-nameserver 172.16.0.2
+
+iface enp0s1.360 inet6 static
+	address 2001:678:3fc:168::2/64
+	gateway fe80:168::1
+
+# ---------- VLAN VIOLET SPOKE 1 -
+auto enp0s1.440
+iface enp0s1.440 inet6 static
+	address fe80:1b8::1/64
+
+# ---------- VLAN ORANGE SPOKE 1 -
+auto enp0s1.441
+iface enp0s1.441 inet manual
+	up ip link set dev $IFACE up
+	up pppoe-server -I $IFACE -C BRAS -L 10.44.1.1 -R 10.44.1.2 -N 1 -u 0
+	down kill $(ps aux | egrep "[pppoe]-server.*$IFACE" | tr -s [:blank:] | cut -d ' ' -f 2)
+	down ip link set dev $IFACE down
+
+# ---------- VLAN VIOLET SPOKE 2 -
+auto enp0s1.442
+iface enp0s1.442 inet6 static
+	address fe80:1ba::1/64
+
+# ---------- VLAN ORANGE SPOKE 2 -
+auto enp0s1.443
+iface enp0s1.443 inet manual
+	up ip link set dev $IFACE up
+	up pppoe-server -I $IFACE -C BRaS -L 10.44.3.1 -R 10.44.3.2 -N 1 -u 1
+	down kill $(ps aux | egrep "[pppoe]-server.*$IFACE" | tr -s [:blank:] | cut -d ' ' -f 2)
+	down ip link set dev $IFACE down</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment ajouter les routes statiques vers les réseaux locaux
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> de chaque site distant
+	lors de l'ouverture de la session <acronym>PPP</acronym> propre à un
+	site&nbsp;?</phrase></para>
+
+	<itemizedlist>
+	<listitem>
+		<para>L'utilisation de l'option <option>-u</option> du démon
+		<systemitem class='daemon'>pppoe-server</systemitem> fixe le numéro
+		d'interface <acronym>PPP</acronym> et on peut l'utiliser pour traiter
+		cette question.</para>
+	</listitem>
+	<listitem>
+		<para>Pour <acronym>IPv6</acronym>, la liaison <acronym>PPP</acronym>
+		n'utilise que des adresses de lien local générées dynamiquement
+		puisqu'il s'agit d'un réseau de transit entre deux routeurs. Il est
+		donc nécessaire d'utiliser le numéro d'interface pour appliquer la
+		route statique vers le réseau local d'un site donné.</para>
+	</listitem>
+	</itemizedlist>
+	</question>
+	<answer>
+	<para>Voici comment créer un script exécutable
+	<filename>/etc/ppp/ip-up.d/staticroute</filename> pour
+	<acronym>IPv4</acronym> qui utilise les adresses d'extrémités de la
+	maquette.</para>
+
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/ppp/ip-up.d/staticroute
+#!/bin/bash
+
+if [ -z "${CONNECT_TIME}" ]; then
+	case "${PPP_IFACE}" in
+		"ppp0")
+			ip route add 10.0.10.0/24 dev ${PPP_IFACE}
+			;;
+		"ppp1")
+			ip route add 10.0.20.0/24 dev ${PPP_IFACE}
+			;;
+	esac
+fi
+EOF</screen>
+
+<screen>sudo chmod +x /etc/ppp/ip-up.d/staticroute</screen>
+
+	<para>Voici comment créer un script exécutable
+	<filename>/etc/ppp/ipv6-up.d/staticroute</filename> pour
+	<acronym>IPv6</acronym>. Cette fois-ci, on distingue bien la route statique
+	à appliquer en fonction de la session <acronym>PPP</acronym>.</para>
+
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/ppp/ipv6-up.d/staticroute
+#!/bin/bash
+
+if [ -z "${CONNECT_TIME}" ]; then
+	case "${PPP_IFACE}" in
+		"ppp0")
+			ip -6 route add fda0:7a62:a::/64 dev ${PPP_IFACE}
+			;;
+		"ppp1")
+			ip -6 route add fda0:7a62:14::/64 dev ${PPP_IFACE}
+			;;
+	esac
+fi
+EOF</screen>
+
+<screen>sudo chmod +x /etc/ppp/ipv6-up.d/staticroute</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='interco.pppoe.spoke'>
+	<title>Routeurs Spoke (vert)</title>
+
+	<para>Dans le scénario défini dans la <xref
+	linkend='interco.pppoe.hub-and-spoke'/>, un routeur de site d'extrémité
+	ou <wordasword>Spoke</wordasword> ne peut accéder aux autres réseaux que
+	via le routeur <wordasword>Hub</wordasword>. Son interface
+	<acronym>WAN</acronym> joue donc le rôle de route par défaut pour le réseau
+	local des hôtes hébergé sur un site distant.</para>
+
+	<para>Dans le contexte de ces manipulations, le réseau local de site est
+	représenté par des conteneurs <application>LXD</application> raccordés à un
+	commutateur virtuel.</para>
+
+	<para>Cette section, comme la précédente, reprend la partie
+	&url.interco.pppoe-cloud.spoke.pppoe; du support
+	&url.interco.pppoe-cloud;.</para>
+
+	<para>Les routeurs <wordasword>Spoke</wordasword> utilisent un démon
+	<systemitem class='daemon'>pppd</systemitem> dans le
+	<acronym>VLAN</acronym> <option>Data</option> (Orange) pour établir une
+	session <acronym>PPP</acronym> avec le routeur
+	<wordasword>Hub</wordasword>.</para>
+
+	<para>Avant d'aborder les questions ci-dessous, il faut s'assurer
+	que&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Le routage est activé.</para>
+	</listitem>
+	<listitem>
+		<para>Le paquet <systemitem>ppp</systemitem> est installé.</para>
+	</listitem>
+	<listitem>
+		<para>Le fichier <filename>/etc/ppp/chap-secrets</filename> contenant
+		les authentifiants pour l'établissement de la session
+		<acronym>PPP</acronym> est complété.</para>
+	</listitem>
+	<listitem>
+		<para>Le fichier <filename>/etc/ppp/peers/pppoe-provider</filename> de
+		définition du profil de session <acronym>PPP</acronym> est créé.</para>
+
+		<para>Attention au nom d'utilisateur qui doit correspondre à l'entrée
+		du fichier <filename>/etc/ppp/chap-secrets</filename>&nbsp;!</para>
+
+		<para>Attention au numéro de <acronym>VLAN</acronym> de la
+		sous-interface qui doit désigner la bon côté du triangle&nbsp;!</para>
+	</listitem>
+	<listitem>
+		<para>Le fichier <filename>/etc/network/interfaces</filename> doit
+		contenir une définition d'interface qui appelle le profil de session
+		<systemitem>pppoe-provider</systemitem>.</para>
+	</listitem>
+	</itemizedlist>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les messages des journaux système qui montrent que
+	la session <acronym>PPP</acronym> a bien été établie&nbsp;?</phrase></para>
+
+	<para>Après avoir consulté la page &url.ppp-wikipedia; repérer les messages
+	relatifs aux deux sous-couches <acronym>LCP</acronym> et
+	<acronym>NCP</acronym> du protocole <acronym>PPP</acronym>.</para>
+	</question>
+	<answer>
+	<para>sur le routeur <wordasword>Spoke-1</wordasword> de la maquette, on
+	relève les messages suivants à l'aide de l'une des deux commandes
+	suivantes&nbsp;:</para>
+
+<screen>grep -i ppp /var/log/syslog</screen>
+
+<screen>journalctl /usr/sbin/pppd</screen>
+
+	<itemizedlist>
+	<listitem>
+		<para>Lancement du démon <systemitem class='daemon'>pppd</systemitem>.</para>
+
+<screen>ifup[668]: Plugin rp-pppoe.so loaded.
+Spoke-1 kernel: [    6.973809] PPP generic driver version 2.4.2
+Spoke-1 pppd[670]: <emphasis>pppd 2.4.9 started by root, uid 0</emphasis>
+Spoke-1 kernel: [    7.032091] NET: Registered PF_PPPOX protocol family</screen>
+	</listitem>
+	<listitem>
+		<para>Reconnaissance des extrémités de la liaison point à point avec le
+		protocole <acronym>PPPoE</acronym></para>
+
+<screen>pppd[670]: Send PPPOE Discovery V1T1 PADI session 0x0 length 12
+pppd[670]:  dst ff:ff:ff:ff:ff:ff  src b8:ad:ca:fe:00:c9
+pppd[670]:  [service-name] [host-uniq  9e 02 00 00]
+pppd[670]: Recv PPPOE Discovery V1T1 PADO session 0x0 length 44
+pppd[670]:  dst b8:ad:ca:fe:00:c9  src b8:ad:ca:fe:00:c8
+pppd[670]:  [AC-name BRAS] [service-name] [AC-cookie  0f 2a 7b 0a 70 6e 44 fb f5 6d 81 5f 8b 21 bd 3b e2 17 00 00] [host-uniq  9e 02 00 00]
+pppd[670]: Send PPPOE Discovery V1T1 PADR session 0x0 length 36
+pppd[670]:  dst b8:ad:ca:fe:00:c8  src b8:ad:ca:fe:00:c9
+pppd[670]:  [service-name] [host-uniq  9e 02 00 00] [AC-cookie  0f 2a 7b 0a 70 6e 44 fb f5 6d 81 5f 8b 21 bd 3b e2 17 00 00]
+pppd[670]: Recv PPPOE Discovery V1T1 PADS session 0x1 length 12
+pppd[670]:  dst b8:ad:ca:fe:00:c9  src b8:ad:ca:fe:00:c8
+pppd[670]:  [service-name] [host-uniq  9e 02 00 00]
+pppd[670]: PADS: Service-Name: ''
+pppd[670]: PPP session is 1
+pppd[670]: <emphasis>Connected to b8:ad:ca:fe:00:c8 via interface enp0s1.441</emphasis></screen>
+	</listitem>
+	<listitem>
+		<para>Négociation des paramètres et authentification dans la
+		sous-couche <acronym>LCP</acronym>.</para>
+
+<screen>pppd[670]: using channel 1
+pppd[670]: Using interface ppp0
+pppd[670]: Connect: ppp0 &lt;--> enp0s1.441
+pppd[670]: sent [LCP ConfReq id=0x1 &lt;mru 1492> &lt;magic 0x4569d495>]
+pppd[670]: rcvd [LCP ConfReq id=0x1 &lt;mru 1492> &lt;auth chap MD5> &lt;magic 0x26452256>]
+pppd[670]: sent [LCP ConfAck id=0x1 &lt;mru 1492> &lt;auth chap MD5> &lt;magic 0x26452256>]
+pppd[670]: sent [LCP ConfReq id=0x1 &lt;mru 1492> &lt;magic 0x4569d495>]
+pppd[670]: rcvd [LCP ConfAck id=0x1 &lt;mru 1492> &lt;magic 0x4569d495>]
+pppd[670]: sent [LCP EchoReq id=0x0 magic=0x4569d495]
+pppd[670]: rcvd [LCP EchoReq id=0x0 magic=0x26452256]
+pppd[670]: sent [LCP EchoRep id=0x0 magic=0x4569d495]
+pppd[670]: rcvd [CHAP Challenge id=0xe9 &lt;4d86c0171d670c9a2aa94a15af489c0185>, name = "Hub"]
+pppd[670]: sent [CHAP Response id=0xe9 &lt;3eb3fe9ab25da4b1536cbfa8c24583ba>, name = "5p0k3_1"]
+pppd[670]: rcvd [LCP EchoRep id=0x0 magic=0x26452256]
+pppd[670]: rcvd [<emphasis>CHAP Success id=0xe9 "Access granted"</emphasis>]
+pppd[670]: CHAP authentication succeeded: Access granted
+pppd[670]: CHAP authentication succeeded
+pppd[670]: <emphasis>peer from calling number B8:AD:CA:FE:00:C8 authorized</emphasis></screen>
+	</listitem>
+	<listitem>
+		<para>Attribution des adresses dans la sous-couche
+		<acronym>NCP</acronym>. Ici, la lettre <option>N</option> est remplacée
+		par <acronym>IP</acronym> pour le protocole <acronym>IPv4</acronym> et
+		<acronym>IPV6</acronym> pour le protocole
+		<acronym>IPv6</acronym>.</para>
+
+		<para>En fin de copie d'écran, on relève le statut des scripts
+		d'application des routes par défaut vers la liaison
+		<acronym>PPP</acronym>.</para>
+
+<screen>pppd[670]: sent [IPCP ConfReq id=0x1 &lt;addr 0.0.0.0> &lt;ms-dns1 0.0.0.0> &lt;ms-dns2 0.0.0.0>]
+pppd[670]: sent [IPV6CP ConfReq id=0x1 &lt;addr fe80::98cd:4c17:10de:cd80>]
+pppd[670]: rcvd [CCP ConfReq id=0x1 &lt;deflate 15> &lt;deflate(old#) 15> &lt;bsd v1 15>]
+pppd[670]: sent [CCP ConfReq id=0x1]
+pppd[670]: sent [CCP ConfRej id=0x1 &lt;deflate 15> &lt;deflate(old#) 15> &lt;bsd v1 15>]
+pppd[670]: rcvd [IPCP ConfReq id=0x1 &lt;compress VJ 0f 01> &lt;addr 10.44.1.1>]
+pppd[670]: sent [IPCP ConfRej id=0x1 &lt;compress VJ 0f 01>]
+pppd[670]: rcvd [IPV6CP ConfReq id=0x1 &lt;addr fe80::6d60:51b9:d944:ff96>]
+pppd[670]: sent [<emphasis>IPV6CP ConfAck id=0x1 &lt;addr fe80::6d60:51b9:d944:ff96></emphasis>]
+pppd[670]: rcvd [IPCP ConfNak id=0x1 &lt;addr 10.44.1.2> &lt;ms-dns1 172.16.0.2> &lt;ms-dns2 172.16.0.2>]
+pppd[670]: sent [IPCP ConfReq id=0x2 &lt;addr 10.44.1.2> &lt;ms-dns1 172.16.0.2> &lt;ms-dns2 172.16.0.2>]
+pppd[670]: rcvd [<emphasis>IPV6CP ConfAck id=0x1 &lt;addr fe80::98cd:4c17:10de:cd80></emphasis>]
+pppd[670]: local  LL address fe80::98cd:4c17:10de:cd80
+pppd[670]: remote LL address fe80::6d60:51b9:d944:ff96
+pppd[670]: Script /etc/ppp/ipv6-up started (pid 698)
+pppd[670]: rcvd [CCP ConfAck id=0x1]
+pppd[670]: rcvd [CCP ConfReq id=0x2]
+pppd[670]: sent [CCP ConfAck id=0x2]
+pppd[670]: rcvd [IPCP ConfReq id=0x2 &lt;addr 10.44.1.1>]
+pppd[670]: sent [<emphasis>IPCP ConfAck id=0x2 &lt;addr 10.44.1.1></emphasis>]
+pppd[670]: rcvd [<emphasis>IPCP ConfAck id=0x2 &lt;addr 10.44.1.2> &lt;ms-dns1 172.16.0.2> &lt;ms-dns2 172.16.0.2></emphasis>]
+pppd[670]: Script /etc/ppp/ip-pre-up started (pid 700)
+pppd[670]: Script /etc/ppp/ip-pre-up finished (pid 700), status = 0x0
+pppd[670]: local  IP address 10.44.1.2
+pppd[670]: remote IP address 10.44.1.1
+pppd[670]: primary   DNS address 172.16.0.2
+pppd[670]: secondary DNS address 172.16.0.2
+pppd[670]: Script /etc/ppp/ip-up started (pid 703)
+pppd[670]: <emphasis>Script /etc/ppp/ipv6-up finished (pid 698), status = 0x0</emphasis>
+pppd[670]: <emphasis>Script /etc/ppp/ip-up finished (pid 703), status = 0x0</emphasis></screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment installer et configurer le commutateur virtuel qui
+	permet de raccorder les conteneurs dans le réseau dédié
+	(vert)&nbsp;?</phrase></para>
+
+	<para>Reprendre les traitements réalisés dans la section sur l'activation
+	du commutateur virtuel du support &url.interco.pppoe-cloud;.</para>
+	</question>
+	<answer>
+	<para>Pour traiter cette question, il faut&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Installer le paquet <application>openvswitch-switch</application>
+	pour créer les commutateurs.</para>
+	</listitem>
+	<listitem>
+	<para>Ajouter les définitions des commutateurs dans le fichier de
+	configuration <filename>/etc/network/interfaces</filename>.</para>
+	</listitem>
+	<listitem>
+	<para>Activer les nouvelles interfaces réseau <acronym>SVI</acronym>
+	(<wordasword>Switched Virtual Interface</wordasword>).</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>On obtient les résultats suivants pour le routeur
+	<wordasword>Spoke-1</wordasword> avec le <acronym>VLAN</acronym> numéro
+	10.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Configuration du commutateur virtuel
+	<systemitem>asw-host</systemitem>.</para>
+<screen>sudo ovs-vsctl show
+338deea5-c400-4250-8c2b-02d38b8138b8
+    Bridge asw-host
+        Port sw-vlan10
+            tag: 10
+            Interface sw-vlan10
+                type: internal
+        Port asw-host
+            Interface asw-host
+                type: internal
+    ovs_version: "2.17.2"</screen>
+	</listitem>
+	<listitem>
+	<para>Table de routage <acronym>IPv4</acronym>.</para>
+
+<screen>ip route ls
+default dev ppp0 scope link
+<emphasis>10.0.10.0/24 dev sw-vlan10 proto kernel scope link src 10.0.10.1</emphasis>
+10.44.1.1 dev ppp0 proto kernel scope link src 10.44.1.2</screen>
+	</listitem>
+	<listitem>
+	<para>Table de routage <acronym>IPv6</acronym>.</para>
+
+<screen>ip -6 route ls dev sw-vlan10
+<emphasis>fda0:7a62:a::/64 proto kernel metric 256 pref medium</emphasis>
+fe80::/64 proto kernel metric 256 pref medium</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment configurer le gestionnaire de conteneur
+	<acronym>LXD</acronym> pour que tous les conteneurs soient automatiquement
+	placés dans le bon <acronym>VLAN</acronym> avec un adressage
+	<acronym>IPv6</acronym> de type <acronym>SLAAC</acronym> et un adressage
+	<acronym>IPv4</acronym> automatisé à l'aide de
+	scripts&nbsp;?</phrase></para>
+
+	<para>Reprendre les traitements réalisés dans les sections sur
+	l'installation et la configuration du gestionnaire de conteneur
+	<application>LXD</application> du support &url.interco.pppoe-cloud;.</para>
+	</question>
+	<answer>
+	<para>Pour traiter cette question, il faut&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Installer le paquet <application>snapd</application>.</para>
+	</listitem>
+	<listitem>
+	<para>Installer le <wordasword>snap</wordasword>
+	<application>lxd</application>.</para>
+	</listitem>
+	<listitem>
+	<para>Initialiser la configuration du gestionnaire de conteneur avec la
+	commande <command>lxd init</command>.</para>
+	</listitem>
+	<listitem>
+	<para>Installer et configurer le service <application>radvd</application>
+	qui assure l'adressage automatique <acronym>IPv6</acronym>
+	<acronym>SLAAC</acronym>.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>Pour valider le résultat, on affiche le profil de configuration par
+	défaut des conteneurs qui montre que le raccordement au commutateur se fera
+	dans le bon <acronym>VLAN</acronym>.</para>
+
+<screen>lxc profile show default
+config: {}
+description: Default LXD profile
+devices:
+  eth0:
+    name: eth0
+    nictype: <emphasis>bridged</emphasis>
+    parent: <emphasis>sw-vlan10</emphasis>
+    type: nic
+  root:
+    path: /
+    pool: default
+    type: disk
+name: default
+used_by: []</screen>
+
+	<para>Pour l'adressage automatique <acronym>IPv6</acronym>, on doit se
+	contenter de l'état du service à ce stade.</para>
+
+<screen>systemctl status radvd
+• radvd.service - Router advertisement daemon for IPv6
+     Loaded: loaded (/lib/systemd/system/radvd.service; enabled; preset: enabled)
+     Active: active (running) since Sat 2022-10-22 15:15:00 CEST; 9s ago
+       Docs: man:radvd(8)
+    Process: 5022 ExecStartPre=/usr/sbin/radvd --logmethod stderr_clean --configtest (code=exited, status=0/SUCCESS)
+    Process: 5023 ExecStart=/usr/sbin/radvd --logmethod stderr_clean (code=exited, status=0/SUCCESS)
+   Main PID: 5024 (radvd)
+      Tasks: 2 (limit: 1114)
+     Memory: 516.0K
+        CPU: 30ms
+     CGroup: /system.slice/radvd.service
+             ├─5024 /usr/sbin/radvd --logmethod stderr_clean
+             └─5025 /usr/sbin/radvd --logmethod stderr_clean
+
+oct. 22 15:15:00 Spoke-1 systemd[1]: Starting Router advertisement daemon for IPv6...
+oct. 22 15:15:00 Spoke-1 radvd[5022]: <emphasis>config file, /etc/radvd.conf, syntax ok</emphasis>
+oct. 22 15:15:00 Spoke-1 radvd[5023]: version 2.18 started
+oct. 22 15:15:00 Spoke-1 systemd[1]: Started Router advertisement daemon for IPv6.</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment lancer la création et relever les adresses utilisées
+	par les conteneurs <application>LXD</application> après installation et
+	configuration de 3 conteneurs dans le <acronym>VLAN</acronym>
+	vert&nbsp;?</phrase></para>
+
+	<para>Là encore on reprend les traitements réalisés dans le support
+	&url.interco.pppoe-cloud;.</para>
+	</question>
+	<answer>
+	<para>Après exécution de la boucle de création des conteneurs, voici une
+	copie du premier résultat avec adressage <acronym>IPv6</acronym>
+	uniquement.</para>
+
+<screen>lxc ls
++------+---------+------+-----------------------------------------+-----------+-----------+
+| NAME |  STATE  | IPV4 |                  IPV6                   |   TYPE    | SNAPSHOTS |
++------+---------+------+-----------------------------------------+-----------+-----------+
+| c0   | RUNNING |      | fda0:7a62:a:0:216:3eff:feb6:f7fd (eth0) | CONTAINER | 0         |
++------+---------+------+-----------------------------------------+-----------+-----------+
+| c1   | RUNNING |      | fda0:7a62:a:0:216:3eff:fe91:e2e2 (eth0) | CONTAINER | 0         |
++------+---------+------+-----------------------------------------+-----------+-----------+
+| c2   | RUNNING |      | fda0:7a62:a:0:216:3eff:feb0:ba39 (eth0) | CONTAINER | 0         |
++------+---------+------+-----------------------------------------+-----------+-----------+</screen>
+
+	<para>Pour compléter l'adressage, on exécute la boucle de création des
+	fichiers <filename>/etc/systemd/network/eth0.network</filename> de chaque
+	conteneur dans le bon <acronym>VLAN</acronym>.</para>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>>>>>>>>>>>>>> c$i"
+config=$(cat &lt;&lt; EOF
+[Match]
+Name=eth0
+
+[Network]
+DHCP=false
+Address=10.0.10.$((i + 10))/24
+Address=fda0:7a62:a::$(printf "%x" $((i + 10)))/64
+Gateway=10.0.10.1
+DNS=172.16.0.2
+EOF
+)
+	lxc exec c$i -- bash -c "echo \"${config}\" | tee /etc/systemd/network/eth0.network"
+	lxc exec c$i -- systemctl restart systemd-networkd
+done</screen>
+
+	<para>L'adressage complet donne le résultat suivant&nbsp;:</para>
+
+<screen>lxc ls
++------+---------+-------------------+-----------------------------------------+-----------+-----------+
+| NAME |  STATE  |       IPV4        |                  IPV6                   |   TYPE    | SNAPSHOTS |
++------+---------+-------------------+-----------------------------------------+-----------+-----------+
+| c0   | RUNNING | 10.0.10.10 (eth0) | fda0:7a62:a::a (eth0)                   | CONTAINER | 0         |
+|      |         |                   | fda0:7a62:a:0:216:3eff:feb6:f7fd (eth0) |           |           |
++------+---------+-------------------+-----------------------------------------+-----------+-----------+
+| c1   | RUNNING | 10.0.10.11 (eth0) | fda0:7a62:a::b (eth0)                   | CONTAINER | 0         |
+|      |         |                   | fda0:7a62:a:0:216:3eff:fe91:e2e2 (eth0) |           |           |
++------+---------+-------------------+-----------------------------------------+-----------+-----------+
+| c2   | RUNNING | 10.0.10.12 (eth0) | fda0:7a62:a::c (eth0)                   | CONTAINER | 0         |
+|      |         |                   | fda0:7a62:a:0:216:3eff:feb0:ba39 (eth0) |           |           |
++------+---------+-------------------+-----------------------------------------+-----------+-----------+</screen>
+
+	<para>On peut maintenant lancer des boucles de tests
+	<acronym>ICMP</acronym> depuis les conteneurs.</para>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>>>>>>>>>>>>>> c$i"
+	ping -q -c2 9.9.9.9
+done</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les opérations à effectuer pour installer un
+	service Web dans chaque conteneur&nbsp;? Une fois l'installation du service
+	effectuée, comment vérifier que ce service est bien en
+	écoute&nbsp;?</phrase></para>
+
+	<para>Installer le paquet <application>nginx</application> dans chaque
+	conteneur et donner la liste des ports en écoute dans chaque
+	conteneur.</para>
+	</question>
+	<answer>
+	<para>On reprend l'exécution d'une boucle qui réalise les mêmes actions
+	dans chaque conteneur.</para>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>>>>>>>>>>>>>> c$i"
+	lxc exec c$i -- apt -y update
+	lxc exec c$i -- apt -y full-upgrade
+	lxc exec c$i -- apt -y install nginx
+	lxc exec c$i -- apt clean
+done</screen>
+
+	<para>Dans chaque conteneur, le port <systemitem>TCP/80</systemitem> est
+	ouvert pour les protocoles réseau <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym>. La liste des ports de la couche transport en
+	écoute est obtenue à l'aide de la commande <command>ss</command>.</para>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>>>>>>>>>>>>>> c$i"
+	lxc exec c$i -- ss -at '( dport = :http or sport = :http )';
+done</screen>
+
+	<para>Voici un exemple de résultat.</para>
+
+<screen>>>>>>>>>>>>>>>>>> c0
+State      Recv-Q    Send-Q     Local Address:Port    Peer Address:Port    Process
+LISTEN     0         511              0.0.0.0:http         0.0.0.0:*
+LISTEN     0         511                 [::]:http            [::]:*
+>>>>>>>>>>>>>>>>> c1
+State      Recv-Q    Send-Q     Local Address:Port    Peer Address:Port    Process
+LISTEN     0         511              0.0.0.0:http         0.0.0.0:*
+LISTEN     0         511                 [::]:http            [::]:*
+>>>>>>>>>>>>>>>>> c2
+State      Recv-Q    Send-Q     Local Address:Port    Peer Address:Port    Process
+LISTEN     0         511              0.0.0.0:http         0.0.0.0:*
+LISTEN     0         511                 [::]:http            [::]:*</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider l'accès à ces services Web à partir du
+	routeur <wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+	<para>Il s'agit de faire un test au niveau de la couche application. À la
+	console, les deux outils adaptés sont <command>wget</command> et
+	<command>curl</command>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple de test pour chaque protocole de la couche réseau
+	avec <command>wget</command> dans le contexte de la maquette.</para>
+
+<screen>for addr in {10..12}
+do
+	wget -O /dev/null http://10.0.10.$addr 2>&amp;1 | grep "HTTP "
+done
+requête HTTP transmise, en attente de la réponse… 200 OK
+requête HTTP transmise, en attente de la réponse… 200 OK
+requête HTTP transmise, en attente de la réponse… 200 OK</screen>
+
+<screen>for addr in {10..12}
+do
+	wget -O /dev/null http://[fda0:7a62:a::$(printf "%x" $addr)] 2>&amp;1 | grep "HTTP "
+done
+requête HTTP transmise, en attente de la réponse… 200 OK
+requête HTTP transmise, en attente de la réponse… 200 OK
+requête HTTP transmise, en attente de la réponse… 200 OK</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
+<sect1 xml:id='interco.pppoe.tests'>
+      <title>Tests sur la topologie Hub &amp; Spokes</title>
+
+	<para>Une fois la topologie décrite dans la <xref
+	linkend='interco.pppoe.hub-and-spoke' /> complète, on peut lancer une série
+	des tests de connectivité et d'accès aux services Web depuis et vers les
+	réseaux de conteneurs des deux routeurs
+	<wordasword>Spoke</wordasword>.</para>
+
+	<para>Comme l'essentiel des tests qui suivent sont lancés depuis les
+	conteneurs, il est nécessaire d'installer les outils dans ces mêmes
+	conteneurs. Voici une exemple de traitement pour les 3 conteneurs d'un
+	routeur <wordasword>Spoke</wordasword>.</para>
+
+<screen>for i in {0..2}
+do
+    echo ">>>>>>>>>>>>>>>>> c$i"
+    lxc exec c$i -- apt -y update
+    lxc exec c$i -- apt -y full-upgrade
+    lxc exec c$i -- apt -y install iputils-tracepath wget
+    lxc exec c$i -- apt clean
+done</screen>
+
+	<qandaset>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser le chemin suivi par le trafic entre les
+	réseaux <acronym>IPv4</acronym> et <acronym>IPv6</acronym> de chaque
+	branche de la topologie à partir des tables de
+	routage&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>Voici une série de copie d'écran valables dans le contexte de la
+	maquette.</para>
+
+	<para>Si on se place sur le routeur <wordasword>Hub</wordasword>, on doit
+	retrouver les deux routes statiques vers les réseaux des conteneurs de
+	chaque branche.</para>
+
+<screen>ip route ls
+default via 192.168.104.129 dev enp0s1.360 onlink
+<emphasis>10.0.10.0/24 dev ppp0 scope link</emphasis>
+<emphasis>10.0.20.0/24 dev ppp1 scope link</emphasis>
+10.44.1.2 dev ppp0 proto kernel scope link src 10.44.1.1
+10.44.3.2 dev ppp1 proto kernel scope link src 10.44.3.1
+192.168.104.128/29 dev enp0s1.360 proto kernel scope link src 192.168.104.130</screen>
+
+<screen>ip -6 route ls
+::1 dev lo proto kernel metric 256 pref medium
+2001:678:3fc:168::/64 dev enp0s1.360 proto kernel metric 256 pref medium
+<emphasis>fda0:7a62:a::/64 dev ppp0 metric 1024 pref medium</emphasis>
+<emphasis>fda0:7a62:14::/64 dev ppp1 metric 1024 pref medium</emphasis>
+fe80::81:f421:dcb9:b115 dev ppp0 proto kernel metric 256 pref medium
+fe80::7846:dae9:1c1f:4b7c dev ppp1 proto kernel metric 256 pref medium
+fe80::a1d3:fb63:2582:f6eb dev ppp0 proto kernel metric 256 pref medium
+fe80::e0b4:231f:92d4:524f dev ppp1 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.360 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.440 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.441 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.442 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.443 proto kernel metric 256 pref medium
+fe80:1b8::/64 dev enp0s1.440 proto kernel metric 256 pref medium
+fe80:1ba::/64 dev enp0s1.442 proto kernel metric 256 pref medium
+default via fe80:168::1 dev enp0s1.360 metric 1024 onlink pref medium</screen>
+
+	<para>Si on se place sur l'un des deux routeurs
+	<wordasword>Spoke</wordasword>, on doit trouver des routes par défaut
+	identiques puisqu'elles utilisent le nom de l'interface créée lors de
+	l'établissement de la session <acronym>PPP</acronym>.</para>
+
+<screen>ip route ls default
+default dev ppp0 scope link</screen>
+
+<screen>ip -6 route ls default
+default dev ppp0 metric 1024 pref medium</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les tests <acronym>ICMP</acronym> à réaliser pour
+	valider la connectivité d'un réseau de conteneurs de branche à
+	l'autre&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>Voici un exemple de tests depuis le réseau des conteneurs desservi
+	par le routeur <wordasword>Spoke-1</wordasword>.</para>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>> from Spoke-1 c$i to Spoke-2 c$i"
+	lxc exec c$i -- ping -q -c2 10.0.20.$(($i + 10))
+done</screen>
+
+<screen>>>>>> from <emphasis>Spoke-1 c0 to Spoke-2 c0</emphasis>
+PING 10.0.20.10 (10.0.20.10) 56(84) bytes of data.
+
+--- 10.0.20.10 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 3.508/4.768/6.029/1.260 ms
+>>>>> from <emphasis>Spoke-1 c1 to Spoke-2 c1</emphasis>
+PING 10.0.20.11 (10.0.20.11) 56(84) bytes of data.
+
+--- 10.0.20.11 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 3.550/4.201/4.853/0.651 ms
+>>>>> from <emphasis>Spoke-1 c2 to Spoke-2 c2</emphasis>
+PING 10.0.20.12 (10.0.20.12) 56(84) bytes of data.
+
+--- 10.0.20.12 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 3.346/4.194/5.042/0.848 ms</screen>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>> from Spoke-1 c$i to Spoke-2 c$i"
+	lxc exec c$i -- ping -q -c2 fda0:7a62:14::$(printf "%x" $(($i + 10)))
+done</screen>
+
+<screen>>>>>> from Spoke-1 c0 to Spoke-2 c0
+PING fda0:7a62:14::a(fda0:7a62:14::a) 56 data bytes
+
+--- fda0:7a62:14::a ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1002ms
+rtt min/avg/max/mdev = 3.654/4.981/6.308/1.327 ms
+>>>>> from Spoke-1 c1 to Spoke-2 c1
+PING fda0:7a62:14::b(fda0:7a62:14::b) 56 data bytes
+
+--- fda0:7a62:14::b ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 3.342/4.205/5.069/0.863 ms
+>>>>> from Spoke-1 c2 to Spoke-2 c2
+PING fda0:7a62:14::c(fda0:7a62:14::c) 56 data bytes
+
+--- fda0:7a62:14::c ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 3.428/4.118/4.809/0.690 ms</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment visualiser le chemin emprunté par le trafic d'un
+	réseau de conteneurs à l'autre&nbsp;?</phrase></para>
+
+	<para>Installer le paquet <systemitem>iputils-tracepath</systemitem> pour
+	faire appel à la commande <command>tracepath</command>.</para>
+	</question>
+	<answer>
+	<para>Voici encore un exemple de tests depuis le réseau des conteneurs
+	desservi par le routeur <wordasword>Spoke-1</wordasword>.</para>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>>>>>>>>>>>>>> c$i"
+	lxc exec c$i -- tracepath -n 10.0.20.$(($i + 10))
+done</screen>
+
+<screen>>>>>>>>>>>>>>>>>> c0
+ 1?: [LOCALHOST]                      pmtu 1492
+ 1:  10.0.10.1                                             0.931ms
+ 1:  10.0.10.1                                             0.091ms
+ 2:  10.44.1.1                                             2.042ms
+ 3:  10.44.3.2                                             3.474ms
+ 4:  10.0.20.10                                            4.306ms <emphasis>reached</emphasis>
+     Resume: pmtu 1492 hops 4 back 4
+>>>>>>>>>>>>>>>>> c1
+ 1?: [LOCALHOST]                      pmtu 1492
+ 1:  10.0.10.1                                             0.998ms
+ 1:  10.0.10.1                                             0.099ms
+ 2:  10.44.1.1                                             2.102ms
+ 3:  10.44.3.2                                             3.875ms
+ 4:  10.0.20.11                                            4.458ms <emphasis>reached</emphasis>
+     Resume: pmtu 1492 hops 4 back 4
+>>>>>>>>>>>>>>>>> c2
+ 1?: [LOCALHOST]                      pmtu 1492
+ 1:  10.0.10.1                                             0.120ms
+ 1:  10.0.10.1                                             0.034ms
+ 2:  10.44.1.1                                             1.856ms
+ 3:  10.44.3.2                                             3.658ms
+ 4:  10.0.20.12                                            4.080ms <emphasis>reached</emphasis>
+     Resume: pmtu 1492 hops 4 back 4</screen>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>>>>>>>>>>>>>> c$i"
+	lxc exec c$i -- tracepath -n fda0:7a62:14::$(printf "%x" $(($i + 10)))
+done</screen>
+
+<screen>>>>>>>>>>>>>>>>>> c0
+ 1?: [LOCALHOST]                        0.025ms pmtu 1500
+ 1:  fda0:7a62:a::1                                        0.917ms
+ 1:  fda0:7a62:a::1                                        0.150ms
+ 2:  fda0:7a62:a::1                                        0.076ms pmtu 1492
+ 2:  2001:678:3fc:168::2                                   1.838ms
+ 3:  fda0:7a62:14::1                                       3.295ms
+ 4:  fda0:7a62:14::a                                       4.349ms <emphasis>reached</emphasis>
+     Resume: pmtu 1492 hops 4 back 4
+>>>>>>>>>>>>>>>>> c1
+ 1?: [LOCALHOST]                        0.030ms pmtu 1500
+ 1:  fda0:7a62:a::1                                        2.830ms
+ 1:  fda0:7a62:a::1                                        0.129ms
+ 2:  fda0:7a62:a::1                                        0.063ms pmtu 1492
+ 2:  2001:678:3fc:168::2                                   2.190ms
+ 3:  fda0:7a62:14::1                                       3.764ms
+ 4:  fda0:7a62:14::b                                       4.759ms <emphasis>reached</emphasis>
+     Resume: pmtu 1492 hops 4 back 4
+>>>>>>>>>>>>>>>>> c2
+ 1?: [LOCALHOST]                        0.033ms pmtu 1500
+ 1:  fda0:7a62:a::1                                        2.422ms
+ 1:  fda0:7a62:a::1                                        0.056ms
+ 2:  fda0:7a62:a::1                                        0.030ms pmtu 1492
+ 2:  2001:678:3fc:168::2                                   1.970ms
+ 3:  fda0:7a62:14::1                                       3.310ms
+ 4:  fda0:7a62:14::c                                       4.532ms <emphasis>reached</emphasis>
+     Resume: pmtu 1492 hops 4 back 4</screen>
+	</answer>
+	</qandaentry>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment valider les accès Web depuis le routeur
+	<wordasword>Hub</wordasword> et depuis l'autre routeur
+	<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+
+	<para>Il suffit de reprendre la même série de tests depuis les autres
+	routeurs de la topologie.</para>
+	</question>
+	<answer>
+	<para>Voici deux exemples de tests réalisés dans le contexte de la maquette
+	à nouveau depuis les conteneurs du routeur
+	<wordasword>Spoke-1</wordasword>.</para>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>> from Spoke-1 c$i to Spoke-2 c$i"
+	lxc exec c$i -- wget -O /dev/null http://10.0.20.$(($i + 10)) 2>&amp;1 | grep "HTTP "
+done</screen>
+
+<screen>>>>>> from Spoke-1 c0 to Spoke-2 c0
+HTTP request sent, awaiting response... <emphasis>200 OK</emphasis>
+>>>>> from Spoke-1 c1 to Spoke-2 c1
+HTTP request sent, awaiting response... <emphasis>200 OK</emphasis>
+>>>>> from Spoke-1 c2 to Spoke-2 c2
+HTTP request sent, awaiting response... <emphasis>200 OK</emphasis></screen>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>> from Spoke-1 c$i to Spoke-2 c$i"
+	lxc exec c$i -- wget -O /dev/null http://[fda0:7a62:14::$(printf "%x" $(($i + 10)))] 2>&amp;1 | grep "HTTP "
+done</screen>
+
+<screen>>>>>> from Spoke-1 c0 to Spoke-2 c0
+HTTP request sent, awaiting response... <emphasis>200 OK</emphasis>
+>>>>> from Spoke-1 c1 to Spoke-2 c1
+HTTP request sent, awaiting response... <emphasis>200 OK</emphasis>
+>>>>> from Spoke-1 c2 to Spoke-2 c2
+HTTP request sent, awaiting response... <emphasis>200 OK</emphasis></screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Est-il possible d'obtenir les mêmes résultats depuis un
+	routeur extérieur au routeur
+	<wordasword>Hub</wordasword>&nbsp;?</phrase></para>
+
+	<para>Analyser la portée de la table de routage du routeur
+	<wordasword>Hub</wordasword>.</para>
+	</question>
+	<answer>
+	<para>La table de routage du routeur <wordasword>Hub</wordasword> sert
+	uniquement à joindre les routeurs <wordasword>Spoke</wordasword> et à
+	offrir une connectivité entre ces sites distants.</para>
+
+	<para>Comme les règles de traduction des adresses source
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> ont été implantées sur
+	le routeur <wordasword>Hub</wordasword>, les réseaux de conteneurs ont
+	accès à Internet mais ils ne sont pas accessibles depuis Internet.</para>
+
+	<para>Rendre ces services accessibles depuis l'Internet est un des
+	objectifs du support de travaux pratiques suivant&nbsp;:
+	&url.interco.netfilter;.</para>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
+<sect1 xml:id='interco.pppoe.refdocs'>
+	<title>Documents de référence</title>
+
+	<variablelist>
+	<varlistentry xml:id='interco.pppoe.rfc1661'>
+		<term><citetitle>The Point-to-Point Protocol (PPP)</citetitle></term>
+		<listitem>
+		<para>&url.rfc1661;&nbsp;: Le protocole point à point <acronym>PPP</acronym>
+		fournit une méthode standard de transport de datagrammes
+		multi-protocoles sur des liaisons point à point. <acronym>PPP</acronym>
+		comprend 3 composants principaux&nbsp;:</para>
+
+		<orderedlist>
+		<listitem>
+		<para>Une méthode d'encapsulation des datagrammes
+		multi-protocoles.</para>
+		</listitem>
+		<listitem>
+		<para>Un protocole de contrôle de niveau liaison ou <wordasword>Link
+		Control Protocol</wordasword> (<acronym>LCP</acronym>) pour établir,
+		configurer et tester une connexion de données à ce niveau.</para>
+		</listitem>
+		<listitem>
+		<para>Une famille de protocoles de contrôle de niveau réseau pour
+		établir et configurer différents protocoles de niveau réseau.</para>
+		</listitem>
+		</orderedlist>
+		</listitem>
+	</varlistentry>
+
+	<varlistentry xml:id='interco.pppoe.config.interface.lan'>
+		<term><citetitle>Configuration d'une interface de réseau
+		local</citetitle></term>
+		<listitem>
+		<para>&url.config.interface.lan;&nbsp;: identification du type d'interface,
+		de ses caractéristiques et manipulations des paramètres. Ce support
+		fournit une méthodologie de dépannage simple d'une connexion
+		réseau.</para>
+		</listitem>
+	</varlistentry>
+	</variablelist>
+</sect1>
+</article>
