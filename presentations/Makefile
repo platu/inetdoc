@@ -14,6 +14,7 @@ SUBDIRS = \
 	sysadm-base-5 \
 	sysadm-base-6 \
 	net-storage \
+	net-identity \
 	net-filesystems-object-storage
 
 # Type(s) de traitement
