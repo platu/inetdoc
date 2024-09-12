@@ -15,7 +15,8 @@ SUBDIRS = \
 	sysadm-base-6 \
 	net-storage \
 	net-identity \
-	net-filesystems-object-storage
+	net-filesystems-object-storage \
+    interco-c1
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf

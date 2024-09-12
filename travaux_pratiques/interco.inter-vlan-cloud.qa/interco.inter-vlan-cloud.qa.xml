@@ -2,476 +2,580 @@
 <!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
         "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
 
-<!ENTITY author				SYSTEM "author.xml">
-<!ENTITY legal				SYSTEM "legal.xml">
+<!ENTITY author             SYSTEM "author.xml">
+<!ENTITY legal              SYSTEM "legal.xml">
 
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
 %inetdoc_urls;
 
-<!ENTITY url.ieee802.1q.standard
-  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="http://standards.ieee.org/getieee802/download/802.1Q-1998.pdf">
-  <citetitle>IEEE 802.1Q Standard</citetitle></link>'>
+<!ENTITY url.startup-scripts
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://gitlab.inetdoc.net/labs/startup-scripts">
+  <citetitle>startup-scripts</citetitle></link>'>
+
+<!ENTITY url.netplan-doc
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://netplan.readthedocs.io/en/stable/">
+  <citetitle>Netplan documentation</citetitle></link>'>
 
 <!-- A copy of http://www.w3.org/2003/entities/2007/w3centities-f.ent is at:
 /usr/local/share -->
 <!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
-	"/usr/local/share/w3centities-f.ent">
+    "/usr/local/share/w3centities-f.ent">
 %w3centities-f;
+<!ENTITY nbsp "&#160;">
 ]>
 
 <article xml:lang='fr' xml:id='interco.inter-vlan-cloud.qa'>
 <info>
-	<title>Routage inter-VLAN dans un contexte cloud</title>
-	&author;
+    <title>Routage inter-VLAN dans un contexte cloud</title>
+    &author;
 <abstract>
 <para>
-	<informaltable frame='none' pgwide='1'>
-	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
-	<colspec colwidth='5*'/>
-	<colspec colwidth='220px'/>
-	<tbody>
-	<row>
-		<entry valign='top'>
-		<para>Le routage inter-VLAN est très largement utilisé dans
-		l'interconnexion entre les réseaux Ethernet. Les manipulations
-		présentées dans ces travaux pratiques illustrent l'interconnexion entre
-		un réseau d'hébergement de type Cloud IAAS (<wordasword>Infrastructure
-		As A Service</wordasword>) et un réseau de conteneurs
-		<acronym>LXD</acronym> raccordés à l'aide de la technologie
-		<acronym>MACVLAN</acronym>.</para>
+    <informaltable frame='none' pgwide='1'>
+    <tgroup cols='2' align='left' colsep='0' rowsep='0'>
+    <colspec colwidth='5*'/>
+    <colspec colwidth='220px'/>
+    <tbody>
+    <row>
+        <entry valign='top'>
+        <para>Le routage inter-VLAN est très largement utilisé dans
+        l'interconnexion entre les réseaux Ethernet. Les manipulations
+        présentées dans ces travaux pratiques illustrent l'interconnexion entre
+        un réseau d'hébergement de type Cloud IAAS (<wordasword>Infrastructure
+        As A Service</wordasword>) et un réseau de conteneurs
+        <acronym>LXD</acronym> raccordés à l'aide de la technologie
+        <acronym>MACVLAN</acronym>.</para>
 
-		<para>On introduit aussi un premier niveau de filtrage induit par le
-		recours à la traduction d'adresses entre les deux réseaux
-		interconnectés.</para>
-		</entry>
-		<entry>
-		<inlinemediaobject>
-		<imageobject role='html'>
-			<imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='220px' scalefit='1'/>
-		</imageobject>
-		<imageobject role='fo'>
-			<imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='4.5cm' scalefit='1'/>
-	    </imageobject>
-		</inlinemediaobject>
-		</entry>
-	</row>
-	</tbody>
-	</tgroup>
-	</informaltable>
+        <para>On introduit aussi un premier niveau de filtrage induit par le
+        recours à la traduction d'adresses entre les deux réseaux
+        interconnectés.</para>
+        </entry>
+        <entry>
+        <inlinemediaobject>
+        <imageobject role='html'>
+            <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='220px' scalefit='1'/>
+        </imageobject>
+        <imageobject role='fo'>
+            <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='4.5cm' scalefit='1'/>
+        </imageobject>
+        </inlinemediaobject>
+        </entry>
+    </row>
+    </tbody>
+    </tgroup>
+    </informaltable>
 </para>
 </abstract>
 <keywordset>
-	<keyword>8021q</keyword>
-	<keyword>access</keyword>
-	<keyword>arp</keyword>
-	<keyword>dot1q</keyword>
-	<keyword>iproute2</keyword>
-	<keyword>iptables</keyword>
-	<keyword>lxd</keyword>
-	<keyword>macvlan</keyword>
-	<keyword>route</keyword>
-	<keyword>routing</keyword>
-	<keyword>sysctl</keyword>
-	<keyword>trunk</keyword>
+    <keyword>8021q</keyword>
+    <keyword>access</keyword>
+    <keyword>arp</keyword>
+    <keyword>dot1q</keyword>
+    <keyword>iproute2</keyword>
+    <keyword>iptables</keyword>
+    <keyword>lxd</keyword>
+    <keyword>macvlan</keyword>
+    <keyword>route</keyword>
+    <keyword>routing</keyword>
+    <keyword>sysctl</keyword>
+    <keyword>trunk</keyword>
 </keywordset>
 </info>
 
 <sect1 xml:id='interco.inter-vlan.qa.meta'>
-	&legal;
-	<bridgehead xml:id='sysadm-net.inter-vlan.qa.meta.file'
-	renderas='sect2'>Méta-information</bridgehead>
+    &legal;
+    <bridgehead xml:id='sysadm-net.inter-vlan.qa.meta.file'
+    renderas='sect2'>Méta-information</bridgehead>
 
-	<para>Ce document est écrit avec <link
-	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
-	XML sur un système <link
-	xlink:href="https://www.debian.org"><citetitle>Debian
-	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
-	format PDF&nbsp;: <link
-	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+    <para>Ce document est écrit avec <link
+    xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+    XML sur un système <link
+    xlink:href="https://www.debian.org"><citetitle>Debian
+    GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+    format PDF&nbsp;: <link
+    xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
 
-	<bridgehead xml:id='sysadm-net.inter-vlan.qa.meta.convtypo'
-	renderas='sect2'>Conventions typographiques</bridgehead>
+    <bridgehead xml:id='sysadm-net.inter-vlan.qa.meta.convtypo'
+    renderas='sect2'>Conventions typographiques</bridgehead>
 </sect1>
 
 <sect1 xml:id='interco.inter-vlan.qa.topology'>
-	<title>Topologies logiques et virtuelles</title>
+    <title>Topologies logiques et virtuelles</title>
 
-	<para>Les définitions importantes sur les réseaux locaux virtuels et le
-	routage associé sont présentées dans l'article
-	&url.inter-vlan-routing;</para>
+    <para>Les définitions importantes sur les réseaux locaux virtuels et le
+    routage associé sont présentées dans l'article
+    &url.inter-vlan-routing;</para>
 
-	<para>On rappelle simplement que la notion de réseau local virtuel ou
-	<acronym>VLAN</acronym> permet de constituer des groupes logiques dans les
-	réseaux Ethernet au niveau liaison de la modélisation. Lors du raccordement
-	entre les équipements (commutateurs, routeurs, serveurs), certaines
-	liaisons doivent véhiculer le trafic de plusieurs réseaux locaux virtuels
-	(<acronym>VLANs</acronym>). Ces liaisons sont baptisées
-	<wordasword>trunks</wordasword> dans le jargon. Pour distinguer le trafic
-	appartenant à chaque réseau local, on ajoute à la trame une balise définie
-	par le standard <acronym>IEEE 802.1Q</acronym>. C'est cette étiquetage de
-	trame qui permet la distribution des domaines de diffusion entre plusieurs
-	équipements physiques distincts.</para>
+    <para>On rappelle simplement que la notion de réseau local virtuel ou
+    <acronym>VLAN</acronym> permet de constituer des groupes logiques dans les
+    réseaux Ethernet au niveau liaison de la modélisation. Lors du raccordement
+    entre les équipements (commutateurs, routeurs, serveurs), certaines
+    liaisons doivent véhiculer le trafic de plusieurs réseaux locaux virtuels
+    (<acronym>VLANs</acronym>). Ces liaisons sont baptisées
+    <wordasword>trunks</wordasword> dans le jargon. Pour distinguer le trafic
+    appartenant à chaque réseau local, on ajoute à la trame une balise définie
+    par le standard <acronym>IEEE 802.1Q</acronym>. C'est cette étiquetage de
+    trame qui permet la distribution des domaines de diffusion entre plusieurs
+    équipements physiques distincts.</para>
 
-	<para>On atteint ainsi un objectif très important. Il est possible de
-	concevoir une topologie logique de réseau totalement indépendante de la
-	topologie physique.</para>
+    <para>On atteint ainsi un objectif très important. Il est possible de
+    concevoir une topologie logique de réseau totalement indépendante de la
+    topologie physique.</para>
 
-	<para>Réseau virtuel ou pas, il ne faut pas oublier les éléments suivants
-	sur la segmentation des réseaux locaux.</para>
+    <para>Réseau virtuel ou pas, il ne faut pas oublier les éléments suivants
+    sur la segmentation des réseaux locaux.</para>
 
-	<itemizedlist>
-	<listitem>
-		<para>Une interface de <emphasis>commutateur</emphasis> délimite un
-		domaine de <emphasis>collision</emphasis>.</para>
-	</listitem>
-	<listitem>
-		<para>Une interface de <emphasis>routeur</emphasis> délimite à la fois
-		un domaine de <emphasis>collision</emphasis> et un domaine de
-		<emphasis>diffusion</emphasis>.</para>
-	</listitem>
-	</itemizedlist>
+    <itemizedlist>
+    <listitem>
+        <para>Une interface de <emphasis>commutateur</emphasis> délimite un
+        domaine de <emphasis>collision</emphasis>.</para>
+    </listitem>
+    <listitem>
+        <para>Une interface de <emphasis>routeur</emphasis> délimite à la fois
+        un domaine de <emphasis>collision</emphasis> et un domaine de
+        <emphasis>diffusion</emphasis>.</para>
+    </listitem>
+    </itemizedlist>
 
-	<para>La représentation de la topologie logique ci-dessous montre que le
-	routeur de couleur verte assure l'interconnexion entre un réseau
-	d'infrastructure appelé <wordasword>Hosting VLAN</wordasword> et un réseau
-	de conteneurs appelé <wordasword>Container VLAN</wordasword>. Les deux
-	rectangles en gris “matérialisent“ les machines virtuelles qui sont
-	utilisées pour les manipulations.</para>
+    <para>La représentation de la topologie logique ci-dessous montre que le
+    routeur de couleur verte assure l'interconnexion entre un réseau
+    d'infrastructure appelé <wordasword>Hosting VLAN</wordasword> et un réseau
+    de conteneurs appelé <wordasword>Container VLAN</wordasword>. Les deux
+    rectangles en gris “matérialisent“ les machines virtuelles qui sont
+    utilisées pour les manipulations.</para>
 
-	<mediaobject>
-	<imageobject role='html'>
-	<imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='700px' scalefit='1'/>
-	</imageobject>
-	<imageobject role='fo'>
-	<imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='16cm' scalefit='1'/>
-	</imageobject>
-	<textobject>
-	<phrase>Topologie type</phrase>
-	</textobject>
-	<caption>
-	<para><link xlink:href='images/inter-VLAN-logical-topology.png'>Topologie logique</link></para>
-	</caption>
-	</mediaobject>
+    <mediaobject>
+    <imageobject role='html'>
+    <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='700px' scalefit='1'/>
+    </imageobject>
+    <imageobject role='fo'>
+    <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='16cm' scalefit='1'/>
+    </imageobject>
+    <textobject>
+    <phrase>Topologie type</phrase>
+    </textobject>
+    <caption>
+    <para><link xlink:href='images/inter-VLAN-logical-topology.png'>Topologie logique</link></para>
+    </caption>
+    </mediaobject>
 
-	<para>La représentation de la topologie vue sous l'angle de l'hébergement
-	sur un système hôte hyperviseur montre que les deux
-	<acronym>VLANs</acronym> sont présents sur le commutateur virtuel de couche
-	distribution appelé <citetitle>dsw-host</citetitle>. Ce commutateur
-	appartient au système hôte. Il assure le raccordement entre les réseaux
-	physiques et virtualisés. On retrouve le routeur de couleur verte raccordé
-	avec un lien unique sur lequel le trafic des deux <acronym>VLANs</acronym>
-	doit transiter.</para>
+    <para>La représentation de la topologie vue sous l'angle de l'hébergement
+    sur un système hôte hyperviseur montre que les deux
+    <acronym>VLANs</acronym> sont présents sur le commutateur virtuel de couche
+    distribution appelé <citetitle>dsw-host</citetitle>. Ce commutateur
+    appartient au système hôte. Il assure le raccordement entre les réseaux
+    physiques et virtualisés. On retrouve le routeur de couleur verte raccordé
+    avec un lien unique sur lequel le trafic des deux <acronym>VLANs</acronym>
+    doit transiter.</para>
 
-	<para>Côté conteneurs, seule l'interface <systemitem>enp0s1</systemitem>
-	est raccordé via un lien en mode accès. La technologie
-	<acronym>macVLAN</acronym> permet d'utiliser plusieurs adresses
-	<acronym>MAC</acronym> sur une même interface réseau.</para>
+    <para>Côté conteneurs, seule l'interface <systemitem>enp0s1</systemitem>
+    est raccordé via un lien en mode accès. La technologie
+    <acronym>macVLAN</acronym> permet d'utiliser plusieurs adresses
+    <acronym>MAC</acronym> sur une même interface réseau.</para>
 
-	<mediaobject>
-	<imageobject role='html'>
-	<imagedata fileref='images/inter-VLAN-hosting-topology.png' format='PNG' width='700px' scalefit='1'/>
-	</imageobject>
-	<imageobject role='fo'>
-	<imagedata fileref='images/inter-VLAN-hosting-topology.png' format='PNG' width='16cm' scalefit='1'/>
-	</imageobject>
-	<textobject>
-	<phrase>Topologie type</phrase>
-	</textobject>
-	<caption>
-	<para><link xlink:href='images/inter-VLAN-hosting-topology.png'>Topologie hébergée</link></para>
-	</caption>
-	</mediaobject>
+    <mediaobject>
+    <imageobject role='html'>
+    <imagedata fileref='images/inter-VLAN-hosting-topology.png' format='PNG' width='700px' scalefit='1'/>
+    </imageobject>
+    <imageobject role='fo'>
+    <imagedata fileref='images/inter-VLAN-hosting-topology.png' format='PNG' width='16cm' scalefit='1'/>
+    </imageobject>
+    <textobject>
+    <phrase>Topologie type</phrase>
+    </textobject>
+    <caption>
+    <para><link xlink:href='images/inter-VLAN-hosting-topology.png'>Topologie hébergée</link></para>
+    </caption>
+    </mediaobject>
 
-	<table xml:id='interco.inter-vlan.qa.addressing' frame='all' pgwide='1'>
-		<title>Plan d'adressage des réseaux de la maquette</title>
-	<tgroup cols='3'>
-	<colspec colnum='1' colwidth='1*'/>
-	<colspec colnum='2' colwidth='1*'/>
-	<colspec colnum='3' colwidth='3*'/>
-	<thead>
-	<row>
-		<?dbfo bgcolor="#333" ?>
-		<?dbfo color="#fff" ?>
-		<entry>Réseau</entry>
-		<entry>Numéro VLAN</entry>
-		<entry>Adresses de passerelles</entry>
-	</row>
-	</thead>
-	<tbody>
-	<row>
-		<entry>
-		<citetitle>Hébergement</citetitle><?custom-linebreak?>
-		VLAN rouge
-		</entry>
-		<entry>360</entry>
-		<entry>
-		<systemitem class='ipaddress'>192.168.104.129/29</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>2001:678:3fc:168::1/64</systemitem>
-		</entry>
-	</row>
-	<row>
-		<entry>
-		<citetitle>Services</citetitle><?custom-linebreak?>
-		VLAN vert
-		</entry>
-		<entry>440</entry>
-		<entry>
-		<systemitem class='ipaddress'>192.0.2.1/24</systemitem><?custom-linebreak?>
-		<systemitem class='ipaddress'>fda0:7a62:1b8::1/64</systemitem>
-		</entry>
-	</row>
-	</tbody>
-	</tgroup>
-	</table>
+    <table xml:id='interco.inter-vlan.qa.addressing' frame='all' pgwide='1'>
+        <title>Plan d'adressage des réseaux de la maquette</title>
+    <tgroup cols='3'>
+    <colspec colnum='1' colwidth='1*'/>
+    <colspec colnum='2' colwidth='1*'/>
+    <colspec colnum='3' colwidth='3*'/>
+    <thead>
+    <row>
+        <?dbfo bgcolor="#333" ?>
+        <?dbfo color="#fff" ?>
+        <entry>Réseau</entry>
+        <entry>Numéro VLAN</entry>
+        <entry>Adresses de passerelles</entry>
+    </row>
+    </thead>
+    <tbody>
+    <row>
+        <entry>
+        <citetitle>Hébergement</citetitle><?custom-linebreak?>
+        VLAN rouge
+        </entry>
+        <entry>360</entry>
+        <entry>
+        <systemitem class='ipaddress'>192.168.104.129/29</systemitem><?custom-linebreak?>
+        <systemitem class='ipaddress'>2001:678:3fc:168::1/64</systemitem>
+        </entry>
+    </row>
+    <row>
+        <entry>
+        <citetitle>Services</citetitle><?custom-linebreak?>
+        VLAN vert
+        </entry>
+        <entry>440</entry>
+        <entry>
+        <systemitem class='ipaddress'>192.0.2.1/24</systemitem><?custom-linebreak?>
+        <systemitem class='ipaddress'>fda0:7a62:1b8::1/64</systemitem>
+        </entry>
+    </row>
+    </tbody>
+    </tgroup>
+    </table>
 </sect1>
 
 <sect1 xml:id='interco.inter-vlan.qa.vm'>
-	<title>Raccordement au commutateur de distribution</title>
+    <title>Raccordement au commutateur de distribution</title>
 
-	<para>Dans cette section, on étudie le raccordement des deux machines
-	virtuelles au commutateur de distribution sur le système hôte.</para>
+    <para>Dans cette section, on étudie le raccordement des deux machines
+    virtuelles au commutateur de distribution sur le système hôte.</para>
 
-	<qandaset defaultlabel='number'>
-	<qandaentry>
-	<question>
-	<para><phrase>Comment contrôler la configuration des ports du commutateur
-	de distribution sur le système hôte&nbsp;?</phrase></para>
-	</question>
-	<answer>
-	<para>Le commutateur virtuel implanté sur le système hôte est géré par
-	<citetitle>Open vSwitch</citetitle>. On fait donc appel à la commande
-	<command>ovs-vsctl</command> pour afficher la configuration des ports. Le
-	mot clé dans le cas de cette question est
-	<option>vlan_mode</option>.</para>
+    <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment contrôler la configuration des ports du commutateur
+    de distribution sur le système hôte&nbsp;?</phrase></para>
+    </question>
+    <answer>
+    <para>Le commutateur virtuel implanté sur le système hôte est géré par
+    <citetitle>Open vSwitch</citetitle>. On fait donc appel à la commande
+    <command>ovs-vsctl</command> pour accéder aux paramètres de la
+    configuration des ports.</para>
 
-	<itemizedlist>
-	<listitem>
-	<para>Pour le port de raccordement du routeur, on obtient&nbsp;:</para>
-<screen>sudo ovs-vsctl list port tap200 | grep vlan_mode
-vlan_mode           : <emphasis>trunk</emphasis></screen>
-	</listitem>
-	<listitem>
-	<para>Pour le port de raccordement du serveur de conteneur, on obtient&nbsp;:</para>
-<screen>sudo ovs-vsctl list port tap1 | grep vlan_mode
-vlan_mode           : <emphasis>access</emphasis></screen>
-	</listitem>
-	</itemizedlist>
-	</answer>
-	</qandaentry>
+    <itemizedlist>
+    <listitem>
+    <para>Pour le port nommé <systemitem>tap200</systemitem>, on obtient le
+    paramètre <systemitem>vlan_mode</systemitem> avec
+    l'instruction&nbsp;:</para>
+<screen>sudo ovs-vsctl get port tap200 vlan_mode
+<emphasis>trunk</emphasis></screen>
+    <para>Le mode <systemitem>trunk</systemitem> correspond à un canal de
+    transmission unique dans lequel circule le trafic de plusieurs domaines de
+    diffusion ou <acronym>VLANs</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Pour le port nommé <systemitem>tap2</systemitem>, on obtient la
+    valeur <systemitem>access</systemitem> pour le même paramètre&nbsp;:</para>
+<screen>sudo ovs-vsctl get port tap2 vlan_mode
+<emphasis>access</emphasis></screen>
+    <para>Ici, le mode <systemitem>access</systemitem> correspond à un canal de
+    transmission dans lequel circule le trafic d'un seul et unique domaine de
+    diffusion ou <acronym>VLAN</acronym>.</para>
+    </listitem>
+    </itemizedlist>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment afficher le numéro de <acronym>VLAN</acronym>
-	attribué au port en mode accès du commutateur de distribution sur le
-	système hôte&nbsp;?</phrase></para>
-	</question>
-	<answer>
-	<para>On reprend la même commande que dans la question précédente avec le
-	mot clé <option>tag</option>.</para>
-<screen>sudo ovs-vsctl list port tap1 | grep tag
-tag                 : <emphasis>20</emphasis></screen>
-	</answer>
-	</qandaentry>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment afficher le numéro de <acronym>VLAN</acronym>
+    attribué au port en mode accès du commutateur de distribution sur le
+    système hôte&nbsp;?</phrase></para>
+    </question>
+    <answer>
+    <para>On reprend la même commande que dans la question précédente avec le
+    mot clé <option>tag</option>.</para>
+<screen>sudo ovs-vsctl get port tap2 tag
+<emphasis>20</emphasis></screen>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment affecter le numéro de <acronym>VLAN</acronym>
-	attribué au port en mode accès du commutateur de distribution sur le
-	système hôte&nbsp;?</phrase></para>
-	</question>
-	<answer>
-	<para>On reprend à nouveau la même commande avec l'option <option>set</option>.</para>
-<screen>sudo ovs-vsctl set port <emphasis>tap1 tag=440</emphasis></screen>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment affecter le numéro de <acronym>VLAN</acronym>
+    attribué au port en mode accès du commutateur de distribution sur le
+    système hôte&nbsp;?</phrase></para>
+    </question>
+    <answer>
+    <para>On reprend à nouveau la même commande avec l'option <option>set</option>.</para>
+<screen>sudo ovs-vsctl set port <emphasis>tap2 tag=440</emphasis></screen>
 
-	<para>Les valeurs données dans l'exemple ci-dessus sont à changer suivant
-	les attributions du plan d'adressage des réseaux d'hébergement et de
-	conteneurs.</para>
-	</answer>
-	</qandaentry>
+    <para>Les valeurs données dans l'exemple ci-dessus sont à changer suivant
+    les attributions du plan d'adressage des réseaux d'hébergement et de
+    conteneurs.</para>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment s'assurer que le port du commutateur est bien
-	configuré à chaque nouveau lancement de machine
-	virtuelle&nbsp;?</phrase></para>
-	</question>
-	<answer>
-	<para>On place les commandes de configuration dans une section dédiée du
-	script de lancement. Voici deux exemples de script de lancement&nbsp;:</para>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment configurer les ports du commutateur avant le
+    lancement des machines virtuelles&nbsp;?</phrase></para>
+    </question>
+    <answer>
+    <para>On utilise le script de procédure <filename>switch-conf.py</filename>
+    qui applique les déclarations contenues dans un fichier
+    <acronym>YAML</acronym>. Le code du script est accessible à partir du dépôt
+    Git &url.startup-scripts;.</para>
 
-<screen>#!/bin/bash
-RAM=1024
+    <para>Voici une copie du fichier de configuration des deux ports de
+    commutateur.</para>
+<screen>ovs:
+  switches:
+    - name: dsw-host
+      ports:
+        - name: tap5 # Router port
+          type: OVSPort
+          vlan_mode: trunk
+          trunks: [360, 440]
+        - name: tap6 # Container hosting VM
+          type: OVSPort
+          vlan_mode: access
+          tag: 440</screen>
 
-echo "Router VM launch ..."
-SWITCH_PORT=200
+    <para>On applique les paramètres définis ci-dessus.</para>
 
-sudo ovs-vsctl set port tap$SWITCH_PORT vlan_mode=trunk
+<screen>$HOME/masters/scripts/switch-conf.py switch.yaml</screen>
 
-$HOME/vm/scripts/ovs-startup.sh router.qcow2 $RAM $SWITCH_PORT</screen>
+    <para>On obtient les résultats suivants.</para>
+<screen>----------------------------------------
+Configuring switch dsw-host
+>> Port tap5 vlan_mode set to trunk
+>> Port tap5 trunks set to [360, 440]
+>> Port tap6 vlan_mode is already set to access
+>> Port tap6 tag set to 440
+----------------------------------------</screen>
 
-<screen>#!/bin/bash
-RAM=1024
+    <para>Les numéros de port de commutateur et de <acronym>VLAN</acronym>
+    donnés dans les exemples ci-dessus sont à changer suivant le
+    contexte.</para>
+    </answer>
+    </qandaentry>
 
-echo "Server VM launch ..."
-SWITCH_PORT=1
-VLAN=440
+    <qandaentry>
+    <question>
+    <para><phrase>Comment lancer les machines virtuelles associées aux rôles
+    routeur et hébergement de conteneurs&nbsp;?</phrase></para>
+    </question>
+    <answer>
+    <para>On utilise le script de procédure <filename>lab-startup.py</filename>
+    qui applique les déclarations contenues dans un fichier
+    <acronym>YAML</acronym>. Le code du script est accessible à partir du dépôt
+    Git &url.startup-scripts;.</para>
 
-sudo ovs-vsctl set port tap$SWITCH_PORT vlan_mode=access tag=$VLAN
+    <para>Voici une copie du fichier de déclaration des deux machines
+    virtuelles.</para>
 
-$HOME/vm/scripts/ovs-startup.sh server.qcow2 $RAM $SWITCH_PORT</screen>
+<screen>kvm:
+  vms:
+    - vm_name: router
+      master_image: debian-testing-amd64.qcow2 # master image to be used
+      force_copy: false # do not force copy the master image to the VM image
+      memory: 1024
+      tapnum: 5
+    - vm_name: c-hosting
+      master_image: debian-testing-amd64.qcow2 # master image to be used
+      force_copy: false # do not force copy the master image to the VM image
+      memory: 1024
+      tapnum: 6</screen>
 
-	<para>Les numéros de port de commutateur et de <acronym>VLAN</acronym>
-	donnés dans les exemples ci-dessus sont à changer suivant le
-	contexte.</para>
-	</answer>
-	</qandaentry>
-	</qandaset>
+    <para>On lance les deux machines virtuelles avec le script
+    <command>lab-startup.py</command>.</para>
+
+<screen>$HOME/masters/scripts/lab-startup.py lab1.yaml</screen>
+
+<screen>Copying /home/etudianttest/masters/debian-testing-amd64.qcow2 to router.qcow2...done
+Creating OVMF_CODE.fd symlink...
+Creating router_OVMF_VARS.fd file...
+Starting router...
+~> Virtual machine filename   : router.qcow2
+~> RAM size                   : 1024MB
+~> SPICE VDI port number      : 5905
+~> telnet console port number : 2305
+~> MAC address                : b8:ad:ca:fe:00:05
+~> Switch port interface      : tap5, trunk mode
+~> IPv6 LL address            : fe80::baad:caff:fefe:5%dsw-host
+router started!
+Copying /home/etudianttest/masters/debian-testing-amd64.qcow2 to c-hosting.qcow2...done
+Creating c-hosting_OVMF_VARS.fd file...
+Starting c-hosting...
+~> Virtual machine filename   : c-hosting.qcow2
+~> RAM size                   : 1024MB
+~> SPICE VDI port number      : 5906
+~> telnet console port number : 2306
+~> MAC address                : b8:ad:ca:fe:00:06
+~> Switch port interface      : tap6, access mode
+~> IPv6 LL address            : fe80::baad:caff:fefe:6%vlan440
+c-hosting started!</screen>
+
+    <para>Les deux machines virtuelles sont maintenant disponibles pour la
+    suite des manipulations.</para>
+    </answer>
+    </qandaentry>
+    </qandaset>
 </sect1>
 
 <sect1 xml:id='interco.inter-vlan.qa.router'>
-	<title>Rôle routeur</title>
+    <title>Rôle routeur</title>
 
-	<para>Dans cette section, on étudie la machine virtuelle qui joue le rôle
-	de routeur entre le réseau d'hébergement et un réseau de conteneurs. Pour
-	traiter les questions, il est nécessaire de mettre en œuvre une maquette
-	avec un adressage indépendant. Voici les choix effectués pour la
-	maquette.</para>
+    <para>Dans cette section, on étudie la machine virtuelle qui joue le rôle
+    de routeur entre le réseau d'hébergement et un réseau de conteneurs. Pour
+    traiter les questions, il est nécessaire de mettre en œuvre une maquette
+    avec un adressage indépendant. Voici les choix effectués pour la
+    maquette.</para>
 
-	<sect2 xml:id='interco.inter-vlan.qa.router.interfaces'>
-		<title>Configuration des interfaces du routeur</title>
+    <sect2 xml:id='interco.inter-vlan.qa.router.interfaces'>
+        <title>Configuration des interfaces du routeur</title>
 
-	<para>Une fois la machine virtuelle routeur lancée, les premières étapes
-	consistent à lui attribuer un nouveau nom et à configurer les interfaces
-	réseau pour joindre les hôtes voisins.</para>
+    <para>Une fois la machine virtuelle routeur lancée, les premières étapes
+    consistent à lui attribuer un nouveau nom et à configurer les interfaces
+    réseau pour joindre les hôtes voisins.</para>
 
-	<qandaset defaultlabel='number'>
-	<qandaentry>
-	<question>
-	<para><phrase>Comment changer le nom de la machine
-	virtuelle&nbsp;?</phrase></para>
-	</question>
-	<answer>
-	<para>Il faut éditer les deux fichiers <filename>/etc/hosts</filename> et
-	<filename>/etc/hostname</filename> en remplaçant le nom de l'image
-	maître <citetitle>vm0</citetitle> par le nom voulu. Il est ensuite
-	nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
-	tous les outils du système.</para>
+    <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment changer le nom de la machine
+    virtuelle&nbsp;?</phrase></para>
+    </question>
+    <answer>
+    <para>Il faut éditer les deux fichiers <filename>/etc/hosts</filename> et
+    <filename>/etc/hostname</filename> en remplaçant le nom de l'image
+    maître <citetitle>vm0</citetitle> par le nom voulu. Il est ensuite
+    nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
+    tous les outils du système.</para>
 
-<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/rtr/g' /etc/hosts /etc/hostname
+<screen><prompt>etu@vm0:~$</prompt> echo router | sudo tee /etc/hostname
 <prompt>etu@vm0:~$</prompt> sudo reboot</screen>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment appliquer les configurations réseau
-	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> à partir de l'unique
-	interface du routeur&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment appliquer les configurations réseau
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym> à partir de l'unique
+    interface du routeur&nbsp;?</phrase></para>
 
-	<para>Consulter les pages de manuels du fichier de configuration système à
-	l'aide de la commande <command>man&nbsp;interfaces</command>.</para>
-	</question>
-	<answer>
-	<para>Il existe plusieurs possibilités pour configurer une interface
-	réseau. Dans le contexte de ces manipulations, on utilise le fichier de
-	configuration fourni par la distribution <citetitle>Debian
-	GNU/Linux</citetitle>&nbsp;:
-	<filename>/etc/network/interfaces</filename>.</para>
+    <para>Consulter la documentation de <citetitle>Netplan</citetitle> pour
+    obtenir les informations sur la configuration des interfaces réseau à
+    l'adresse &url.netplan-doc;.</para>
+    </question>
+    <answer>
+    <para>Il existe plusieurs possibilités pour configurer une interface
+    réseau. Dans le contexte de ces manipulations, on utilise
+    <citetitle>Netplan</citetitle> dans le but de séparer la partie déclarative
+    du moteur de configuration.</para>
 
-	<para>La configuration de base fournie avec l'image maître suppose que
-	l'interface obtienne un bail <acronym>DHCP</acronym> pour la partie
-	<acronym>IPv4</acronym> et une configuration automatique via
-	<acronym>SLAAC</acronym> pour la partie <acronym>IPv6</acronym>. Cette
-	configuration par défaut doit être éditée et remplacée. Il faut configurer
-	trois interfaces.</para>
+    <para>C'est <systemitem>systemd-networkd</systemitem> qui joue le rôle de
+    moteur de configuration sur les machines virtuelles utilisées avec ces
+    manipulations.</para>
 
-	<itemizedlist>
-	<listitem>
-	<para>L'interface principale doit être placée en mode manuel
-	(<wordasword>manual</wordasword>). Elle doit être activée/désactivée au
-	niveau de la couche liaison.</para>
-	</listitem>
-	<listitem>
-	<para>Une interface doit être créée pour le réseau d'hébergement avec le
-	numéro de <acronym>VLAN</acronym> désigné dans le plan d'adressage des
-	réseaux d'hébergement et de conteneurs. Cette interface doit désigner les
-	passerelles <acronym>IPv4</acronym> et <acronym>IPv6</acronym> de façon à
-	joindre l'Internet.</para>
-	</listitem>
-	<listitem>
-	<para>Une interface doit être créée pour le réseau des conteneurs avec, là
-	encore, le bon numéro de <acronym>VLAN</acronym>. Les adresses
-	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> de cette interface
-	deviendront les passerelles du serveur et des conteneurs.</para>
-	</listitem>
-	</itemizedlist>
+    <para>La configuration de base fournie avec l'image maître suppose que
+    l'interface obtienne un bail <acronym>DHCP</acronym> pour la partie
+    <acronym>IPv4</acronym> et une configuration automatique via
+    <acronym>SLAAC</acronym> pour la partie <acronym>IPv6</acronym>. Cette
+    configuration par défaut doit être éditée et remplacée. Il faut configurer
+    trois interfaces.</para>
 
-	<para>Voici une copie du fichier
-	<filename>/etc/network/interfaces</filename> de la maquette.</para>
+    <itemizedlist>
+    <listitem>
+    <para>L'interface principale correspond à l'interface "physique" de la
+    machine. Elle est nommée <systemitem>enp0s1</systemitem> en fonction de
+    l'ordre des adresses des composants raccordés au bus
+    <acronym>PCI</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Une sous-interface doit être créée pour le réseau d'hébergement avec
+    le numéro de <acronym>VLAN</acronym> désigné dans le plan d'adressage des
+    réseaux d'hébergement et de conteneurs. Cette interface doit désigner les
+    passerelles <acronym>IPv4</acronym> et <acronym>IPv6</acronym> de façon à
+    joindre l'Internet.</para>
+    </listitem>
+    <listitem>
+    <para>Une sous-interface doit être créée pour le réseau des conteneurs avec,
+    là encore, le bon numéro de <acronym>VLAN</acronym>. Les adresses
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym> de cette interface
+    deviendront les passerelles du serveur et des conteneurs.</para>
+    </listitem>
+    </itemizedlist>
 
-<screen># This file describes the network interfaces available on your system
-# and how to activate them. For more information, see interfaces(5).
+    <para>Voici une copie du fichier
+    <filename>/etc/netplan/enp0s1.yaml</filename> de la maquette.</para>
 
-source /etc/network/interfaces.d/*
+<screen>network:
+    version: 2
+    ethernets:
+      enp0s1:
+        dhcp4: false
+        dhcp6: false
+        accept-ra: false
+        nameservers:
+          addresses:
+            - 172.16.0.2
+            - 2001:678:3fc:3::2
 
-# The loopback network interface
-auto lo
-iface lo inet loopback
+    vlans:
+      enp0s1.360:
+        id: 360
+        link: enp0s1
+        addresses:
+          - 192.168.104.130/29
+          - 2001:678:3fc:168::82/64
+        routes:
+          - to: default
+            via: 192.168.104.129
+          - to: "::/0"
+            via: "fe80::168:1"
+            on-link: true
+      enp0s1.440:
+        id: 440
+        link: enp0s1
+        addresses:
+          - 192.0.2.1/24
+          - fda0:7a62:1b8::1/64</screen>
 
-# The primary network interface
-auto enp0s1
-iface enp0s1 inet manual
-	up ip link set dev $IFACE up
-	down ip link set dev $IFACE down
+    <para>Une fois le fichier de configuration en place, il suffit de faire
+    appel à la commande <command>netplan</command> pour appliquer les
+    changements.</para>
 
-auto enp0s1.360
-iface enp0s1.360 inet static
-	address 192.168.104.130/29
-	gateway 192.168.104.129
-	dns-nameserver 172.16.0.2
+<screen>sudo netplan apply</screen>
 
-iface enp0s1.360 inet6 static
-	address 2001:678:3fc:168::2/64
-	gateway fe80:168::1
+    <para>Pour vérifier que l'adressage réseau est correct, on dispose de
+    plusieurs solutions. Voici un exemple avec la commande
+    <command>networkctl</command> qui synthétise l'ensemble de la configuration
+    réseau.</para>
 
-auto enp0s1.440
-iface enp0s1.440 inet static
-	address 192.0.2.1/24
+<screen>networkctl status</screen>
 
-iface enp0s1.440 inet6 static
-	address fda0:7a62:1b8::1/64</screen>
+<screen>● Interfaces: 1, 2, 3, 4
+    State: routable
+Online state: online
+  Address: 192.168.104.130 on enp0s1.360
+           192.0.2.1 on enp0s1.440
+           2001:678:3fc:168::82 on enp0s1.360
+           2001:678:3fc:168:baad:caff:fefe:5 on enp0s1.360
+           fda0:7a62:1b8::1 on enp0s1.440
+           fe80::baad:caff:fefe:5 on enp0s1
+           fe80::baad:caff:fefe:5 on enp0s1.360
+           fe80::baad:caff:fefe:5 on enp0s1.440
+  Gateway: 192.168.104.129 on enp0s1.360
+           fe80:168::1 on enp0s1.360
+      DNS: 172.16.0.2
+           2001:678:3fc:3::2</screen>
+    </answer>
+    </qandaentry>
 
-	<para>Une fois le fichier de configuration en place, il est préférable de
-	redémarrer la machine virtuelle de façon à vérifier que la configuration
-	des interfaces est bien appliquée après chaque réinitialisation.</para>
-	</answer>
-	</qandaentry>
+    <qandaentry>
+    <question>
+    <para><phrase>Quels sont les tests de connectivité réalisables après
+    application de la nouvelle configuration des interfaces
+    réseau&nbsp;?</phrase></para>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Quels sont les tests de connectivité réalisables après
-	application de la nouvelle configuration des interfaces
-	réseau&nbsp;?</phrase></para>
-
-	<para>Relever l'état des trois interfaces et procédez aux tests en
-	respectant les couches de la modélisation.</para>
-	</question>
-	<answer>
-	<para>La commande <command>ip addr ls</command> permet de relever l'état de
-	la configuration pour chaque interface.</para>
-
-<screen>ip addr ls | grep state
-1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
-2: enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq <emphasis>state UP</emphasis> group default qlen 1000
-3: enp0s1.360@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000
-4: enp0s1.440@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000</screen>
-
-	<para>Sans la confirmation que la configuration du serveur de conteneurs
-	est prête, c'est du côté hébergement et accès Internet qu'il faut orienter
-	les tests. Classiquement, on cherche à joindre la passerelle en premier
-	puis l'Internet ensuite via des requêtes <acronym>ICMP</acronym>. Enfin, on
-	effectue un test de couche application avec une requête
-	<acronym>DNS</acronym>.</para>
+    <para>Relever l'état des trois interfaces et procédez aux tests
+    <acronym>ICMP</acronym> et <acronym>DNS</acronym> en respectant l'ordre des
+    couches de la modélisation.</para>
+    </question>
+    <answer>
+    <para>Sans la confirmation que la configuration du serveur de conteneurs
+    est prête, c'est du côté hébergement et accès Internet qu'il faut orienter
+    les tests. Classiquement, on cherche à joindre la passerelle en premier
+    puis l'Internet ensuite via des requêtes <acronym>ICMP</acronym>. Enfin, on
+    effectue un test de couche application avec une requête
+    <acronym>DNS</acronym>.</para>
 
 <screen>ping -q -c2 192.168.104.129
 PING 192.168.104.129 (192.168.104.129) 56(84) bytes of data.
@@ -506,191 +610,191 @@ quad9.net has IPv6 address 2620:0:871:9000::77
 quad9.net mail is handled by 5 mx1.quad9.net.
 quad9.net mail is handled by 20 mx2.quad9.net.
 quad9.net mail is handled by 100 keriomail.pch.net.</screen>
-	</answer>
-	</qandaentry>
-	</qandaset>
-	</sect2>
+    </answer>
+    </qandaentry>
+    </qandaset>
+    </sect2>
 
-	<sect2 xml:id='interco.inter-vlan.qa.router.routing'>
-		<title>Activation de la fonction routage</title>
+    <sect2 xml:id='interco.inter-vlan.qa.router.routing'>
+        <title>Activation de la fonction routage</title>
 
-	<para>Sans modification de la configuration par défaut, un système
-	GNU/Linux n'assure pas la fonction de routage du trafic d'une interface
-	réseau à une autre.</para>
+    <para>Sans modification de la configuration par défaut, un système
+    GNU/Linux n'assure pas la fonction de routage du trafic d'une interface
+    réseau à une autre.</para>
 
-	<para>L'activation du routage correspond à un réglage de paramètres du
-	sous-système réseau du noyau Linux. L'outil qui permet de consulter et
-	modifier les réglages de paramètre sur le noyau est appelé
-	<application>sysctl</application>. Son fichier de configuration principal
-	est <filename>/etc/sysctl.conf</filename>.</para>
+    <para>L'activation du routage correspond à un réglage de paramètres du
+    sous-système réseau du noyau Linux. L'outil qui permet de consulter et
+    modifier les réglages de paramètre sur le noyau est appelé
+    <application>sysctl</application>. Son fichier de configuration principal
+    est <filename>/etc/sysctl.conf</filename>.</para>
 
-	<qandaset defaultlabel='number'>
-	<qandaentry>
-	<question>
-	<para><phrase>Comment activer le routage dans le sous-système réseau du
-	noyau Linuxe&nbsp;?</phrase></para>
+    <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment activer le routage dans le sous-système réseau du
+    noyau Linuxe&nbsp;?</phrase></para>
 
-	<para>Utiliser la commande <command>sysctl</command> pour effectuer des
-	recherches et identifier les paramètres utiles. Par exemple&nbsp;:
-	<userinput> sudo sysctl -a -r
-	".*forward.*"</userinput>.</para>
+    <para>Utiliser la commande <command>sysctl</command> pour effectuer des
+    recherches et identifier les paramètres utiles. Par exemple&nbsp;:</para>
 
-	<para>Le fichier <filename>/etc/sysctl.conf</filename> contient des
-	commentaires qui guident facilement vers les bons paramètres.</para>
+<screen>sudo sysctl -a -r ".*forward.*"</screen>
 
-	<para>Attention ! Il ne faut pas oublier d'appliquer les nouvelles valeurs
-	des paramètres de configuration.</para>
-	</question>
-	<answer>
-	<para>Voici un extrait du fichier <filename>/etc/sysctl.conf</filename> du
-	routeur de la maquette après édition.</para>
+    <para>Il est dorénavant recommandé de créer un fichier de configuration
+    spécifique par fonction.  C'est la raison pour laquelle on crée un nouveau
+    fichier <filename>/etc/sysctl.d/10-routing.conf</filename>.</para>
 
-<screen>egrep -v '(^#|^$)' /etc/sysctl.conf
-net.ipv4.conf.default.rp_filter=1
-net.ipv4.conf.all.rp_filter=1
-<emphasis>net.ipv4.ip_forward=1
-net.ipv6.conf.all.forwarding=1</emphasis>
-net.ipv4.conf.all.log_martians = 1</screen>
+    <para>Attention ! Il ne faut pas oublier d'appliquer les nouvelles valeurs
+    des paramètres de configuration.</para>
+    </question>
+    <answer>
 
-	<para>Voici une copie d'écran de l'application des nouveaux
-	paramètres.</para>
+<screen>cat &lt;&lt; EOF | sudo tee /etc/sysctl.d/10-routing.conf
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+net.ipv4.conf.all.log_martians=1
+EOF</screen>
 
-<screen>sudo sysctl --system
+    <para>Voici un exemple des résultats obtenus après application des nouveaux
+    paramètres.</para>
+
+<screen>sudo sysctl --system</screen>
+
+<screen>* Applique /usr/lib/sysctl.d/10-coredump-debian.conf …
+<emphasis>* Applique /etc/sysctl.d/10-routing.conf …</emphasis>
+* Applique /usr/lib/sysctl.d/50-default.conf …
 * Applique /usr/lib/sysctl.d/50-pid-max.conf …
-kernel.pid_max = 4194304
-* Applique /usr/lib/sysctl.d/99-protect-links.conf …
-fs.protected_fifos = 1
-fs.protected_hardlinks = 1
-fs.protected_regular = 2
-fs.protected_symlinks = 1
-* Applique /etc/sysctl.d/99-sysctl.conf …
-net.ipv4.conf.default.rp_filter = 1
-net.ipv4.conf.all.rp_filter = 1
-net.ipv4.ip_forward = 1
-net.ipv6.conf.all.forwarding = 1
-net.ipv4.conf.all.log_martians = 1
 * Applique /etc/sysctl.conf …
-net.ipv4.conf.default.rp_filter = 1
-net.ipv4.conf.all.rp_filter = 1
-net.ipv4.ip_forward = 1
-net.ipv6.conf.all.forwarding = 1
-net.ipv4.conf.all.log_martians = 1</screen>
-	</answer>
-	</qandaentry>
+kernel.core_pattern = core
+<emphasis>net.ipv4.ip_forward = 1</emphasis>
+<emphasis>net.ipv6.conf.all.forwarding = 1</emphasis>
+<emphasis>net.ipv4.conf.all.log_martians = 1</emphasis>
+kernel.sysrq = 0x01b6
+kernel.core_uses_pid = 1
+net.ipv4.conf.default.rp_filter = 2
+net.ipv4.conf.enp0s1/360.rp_filter = 2
+net.ipv4.conf.enp0s1/440.rp_filter = 2
+net.ipv4.conf.enp0s1.rp_filter = 2
+net.ipv4.conf.lo.rp_filter = 2
+net.ipv4.conf.default.accept_source_route = 0
+net.ipv4.conf.enp0s1/360.accept_source_route = 0
+net.ipv4.conf.enp0s1/440.accept_source_route = 0
+net.ipv4.conf.enp0s1.accept_source_route = 0
+net.ipv4.conf.lo.accept_source_route = 0
+net.ipv4.conf.default.promote_secondaries = 1
+net.ipv4.conf.enp0s1/360.promote_secondaries = 1
+net.ipv4.conf.enp0s1/440.promote_secondaries = 1
+net.ipv4.conf.enp0s1.promote_secondaries = 1
+net.ipv4.conf.lo.promote_secondaries = 1
+net.ipv4.ping_group_range = 0 2147483647
+net.core.default_qdisc = fq_codel
+fs.protected_hardlinks = 1
+fs.protected_symlinks = 1
+fs.protected_regular = 2
+fs.protected_fifos = 1
+kernel.pid_max = 4194304</screen>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Quelles sont les conditions à réunir pour tester le
-	fonctionnement du routage&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Quelles sont les conditions à réunir pour tester le
+    fonctionnement du routage&nbsp;?</phrase></para>
 
-	<para>Rechercher comment utiliser l'analyseur réseau
-	<application>tshark</application> pour caractériser l'acheminement du
-	trafic d'un réseau à l'autre.</para>
-	</question>
-	<answer>
-	<para>Le plan d'adressage prévoit d'utiliser des préfixes ayant une portée
-	locale pour les réseaux de conteneurs. Il n'est donc pas possible de
-	passer par une requête <acronym>ICMP</acronym> pour caractériser l'accès
-	aux réseaux distants. En effet, l'adresse source n'est pas reconnue par
-	l'hôte distant et les routeurs de l'Internet ne disposent d'aucune solution
-	pour joindre le réseau des conteneurs.</para>
+    <para>Rechercher comment utiliser l'analyseur réseau
+    <application>tshark</application> pour caractériser l'acheminement du
+    trafic d'un réseau à l'autre.</para>
+    </question>
+    <answer>
+    <para>Le plan d'adressage prévoit d'utiliser des préfixes ayant une portée
+    locale pour les réseaux de conteneurs. Il n'est donc pas possible de
+    passer par une requête <acronym>ICMP</acronym> pour caractériser l'accès
+    aux réseaux distants. En effet, l'adresse source n'est pas reconnue par
+    l'hôte distant et les routeurs de l'Internet ne disposent d'aucune solution
+    pour joindre le réseau des conteneurs.</para>
 
-	<para>Voici un extrait de capture qui montre que le serveur de conteneur
-	cherche à joindre un hôte sur l'Internet sans succès. Cette capture étant
-	réalisée sur l'interface réseau côté hébergement, elle montre que le trafic
-	est bien acheminé d'un réseau à l'autre.</para>
+    <para>Voici un extrait de capture qui montre que le serveur de conteneur
+    cherche à joindre un hôte sur l'Internet sans succès. Cette capture étant
+    réalisée sur l'interface réseau côté hébergement, elle montre que le trafic
+    est bien acheminé d'un réseau à l'autre.</para>
 
 <screen>tshark -i enp0s1.360
 Capturing on 'enp0s1.360'
     1 0.000000000    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xbdab A 1.debian.pool.ntp.org
     2 0.000056361    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xab92 AAAA 1.debian.pool.ntp.org</screen>
-	</answer>
-	</qandaentry>
-	</qandaset>
-	</sect2>
+    </answer>
+    </qandaentry>
+    </qandaset>
+    </sect2>
 
-	<sect2 xml:id='interco.inter-vlan.qa.router.nat'>
-		<title>Activation de la traduction d'adresses</title>
+    <sect2 xml:id='interco.inter-vlan.qa.router.nat'>
+        <title>Activation de la traduction d'adresses</title>
 
-	<para>Le résultat de la question ci-dessus montre que les hôtes situés dans
-	le réseau des conteneurs ne peuvent pas joindre l'Internet puisque les
-	préfixes réseau utilisés ont une portée limitée.</para>
+    <para>Le résultat de la question ci-dessus montre que les hôtes situés dans
+    le réseau des conteneurs ne peuvent pas joindre l'Internet puisque les
+    préfixes réseau utilisés ont une portée limitée.</para>
 
-	<qandaset defaultlabel='number'>
-	<qandaentry>
-	<question>
-	<para><phrase>Quels sont les paquets qui fournissent les outils de gestion
-	de la traduction d'adresses&nbsp;?</phrase></para>
+    <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Quels sont les paquets qui fournissent les outils de gestion
+    de la traduction d'adresses&nbsp;?</phrase></para>
 
-	<para>Rechercher les paquets relatifs au filtrage et à la gestion des
-	règles de pare-feux.</para>
-	</question>
-	<answer>
-	<para>Sur les systèmes GNU/Linux, le système de pare-feux comprend une
-	partie "espace utilisateur" appelée <application>iptables</application> et
-	une partie "noyau" appelée <application>netfilter</application>.</para>
+    <para>Rechercher les paquets relatifs au filtrage et à la gestion des
+    règles de pare-feux.</para>
 
-	<para>C'est la partie "espace utilisateur" qui nous intéresse ici.</para>
+    <para>Dans le contexte des ces manipulations, nous utilisons
+    <systemitem>firewalld</systemitem> comme outil de gestion du
+    filtrage.</para>
+    </question>
+    <answer>
+    <para>C'est la partie "espace utilisateur" qui nous intéresse ici.</para>
 
-<screen>apt search ^iptables
-Sorting... Done
-Full Text Search... Done
-<emphasis>iptables</emphasis>/testing 1.8.8-1 amd64
-  administration tools for packet filtering and NAT
+<screen>apt search ^firewalld
+<emphasis>firewalld</emphasis>/testing 2.2.1-1 all
+  dynamically managed firewall with support for network zones
 
-iptables-netflow-dkms/testing 2.6-3 amd64
-  iptables target which generates netflows
+firewalld-tests/testing 2.2.1-1 all
+  installed tests for firewalld</screen>
 
-<emphasis>iptables-persistent</emphasis>/testing 1.0.16 all
-  boot-time loader for netfilter rules, iptables plugin
+<screen>sudo apt -y install firewalld</screen>
+    </answer>
+    </qandaentry>
 
-rtpengine-iptables/testing 10.5.2.4-1+b1 amd64
-  IPtables extension module for the kernel-space NGCP media proxy
+    <qandaentry>
+    <question>
+    <para><phrase>Quelles sont les règles à appliquer pour assurer une
+    traduction des adresses sources en sortie sur le réseau
+    hébergement&nbsp;?</phrase></para>
 
-rtpengine-kernel-dkms/testing 10.5.2.4-1 all
-  IPtables kernel module for the NGCP media proxy - DKMS</screen>
+    <para>Rechercher dans des exemples de configuration
+    <systemitem>firewalld</systemitem> avec la fonction
+    <literal>MASQUERADE</literal>.</para>
+    </question>
+    <answer>
+    <para>On commence par définir les deux zones de réseau&nbsp;: une pour le
+    réseau externe ou l'Internet et une pour le réseau interne ou les
+    conteneurs.</para>
 
-	<para>Dans la liste ci-dessus aucun paquet n'est installé. On procède donc
-	à l'installation des deux paquets utiles.</para>
-
-<screen>sudo apt -y install iptables iptables-persistent</screen>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Quelles sont les règles à appliquer pour assurer une
-	traduction des adresses sources en sortie sur le réseau
-	hébergement&nbsp;?</phrase></para>
-
-	<para>Rechercher dans les pages de manuel de la commande
-	<command>iptables</command>.</para>
-	</question>
-	<answer>
-	<para>C'est la cible <literal>MASQUERADE</literal> qui nous intéresse.
-	Voici un exemple de règles de traduction des adresses sources pour la
-	maquette.</para>
-
-<screen>sudo iptables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+<screen>sudo 
  sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
 
 <screen>sudo ip6tables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
  sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment caractériser le fonctionnement de la traduction
-	d'adresses sources&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment caractériser le fonctionnement de la traduction
+    d'adresses sources&nbsp;?</phrase></para>
 
-	<para>Rechercher dans les pages de manuel de la commande
-	<command>iptables</command> les options d'affichage du décompte du trafic
-	traité.</para>
-	</question>
-	<answer>
-	<para>Voici un exemple d'affichage pour le trafic <acronym>IPv4</acronym>
-	uniquement.</para>
+    <para>Rechercher dans les pages de manuel de la commande
+    <command>iptables</command> les options d'affichage du décompte du trafic
+    traité.</para>
+    </question>
+    <answer>
+    <para>Voici un exemple d'affichage pour le trafic <acronym>IPv4</acronym>
+    uniquement.</para>
 
 <screen>sudo iptables -vnL -t nat
 Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
@@ -705,38 +809,38 @@ Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
 Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination
 <emphasis>    0     0 MASQUERADE  all  --  *      enp0s1.360  0.0.0.0/0            0.0.0.0/0</emphasis></screen>
-	</answer>
-	</qandaentry>
-	</qandaset>
-	</sect2>
+    </answer>
+    </qandaentry>
+    </qandaset>
+    </sect2>
 
-	<sect2 xml:id='interco.inter-vlan.qa.router.radvd'>
-		<title>Activation de la configuration IPv6 automatique pour le réseau
-		de conteneurs</title>
+    <sect2 xml:id='interco.inter-vlan.qa.router.radvd'>
+        <title>Activation de la configuration IPv6 automatique pour le réseau
+        de conteneurs</title>
 
-	<para>Pour que les hôtes du réseau de conteneurs obtiennent automatiquement
-	une configuration <acronym>IPv6</acronym>, il faut que le routeur assure
-	les annonces auprès de ces voisins. Un moyen simple pour assurer la
-	configuration <acronym>SLAAC</acronym> des hôtes voisins du routeur
-	consiste à utiliser le paquet <application>radvd</application>.</para>
+    <para>Pour que les hôtes du réseau de conteneurs obtiennent automatiquement
+    une configuration <acronym>IPv6</acronym>, il faut que le routeur assure
+    les annonces auprès de ces voisins. Un moyen simple pour assurer la
+    configuration <acronym>SLAAC</acronym> des hôtes voisins du routeur
+    consiste à utiliser le paquet <application>radvd</application>.</para>
 
-	<para>On débute par l'installation de ce paquet.</para>
+    <para>On débute par l'installation de ce paquet.</para>
 
 <screen>sudo apt -y install radvd</screen>
 
-	<qandaset defaultlabel='number'>
-	<qandaentry>
-	<question>
-	<para><phrase>Comment configurer le service
-	<application>radvd</application> pour publier les annonces côté
-	conteneurs&nbsp;?</phrase></para>
+    <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment configurer le service
+    <application>radvd</application> pour publier les annonces côté
+    conteneurs&nbsp;?</phrase></para>
 
-	<para>Rechercher les options utiles dans les pages de manuel du
-	service&nbsp;: <userinput>man radvd.conf</userinput>.</para>
-	</question>
-	<answer>
-	<para>Voici une copie du fichier de configuration
-	<filename>/etc/radvd.conf</filename> de la maquette.</para>
+    <para>Rechercher les options utiles dans les pages de manuel du
+    service&nbsp;: <userinput>man radvd.conf</userinput>.</para>
+    </question>
+    <answer>
+    <para>Voici une copie du fichier de configuration
+    <filename>/etc/radvd.conf</filename> de la maquette.</para>
 
 <screen>interface enp0s1.440
 {
@@ -754,8 +858,8 @@ Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
         };
 };</screen>
 
-	<para>Attention ! Une fois le fichier créé, il ne faut pas oublier de
-	redémarrer le service et de contrôler l'état de son fonctionnement.</para>
+    <para>Attention ! Une fois le fichier créé, il ne faut pas oublier de
+    redémarrer le service et de contrôler l'état de son fonctionnement.</para>
 
 <screen>sudo systemctl restart radvd
  systemctl status radvd
@@ -777,68 +881,68 @@ oct. 17 17:39:25 router systemd[1]: Starting Router advertisement daemon for IPv
 oct. 17 17:39:25 router radvd[1301]: config file, /etc/radvd.conf, syntax ok
 oct. 17 17:39:25 router radvd[1302]: version 2.18 started
 oct. 17 17:39:25 router systemd[1]: Started Router advertisement daemon for IPv6.</screen>
-	</answer>
-	</qandaentry>
-	</qandaset>
-	</sect2>
+    </answer>
+    </qandaentry>
+    </qandaset>
+    </sect2>
 </sect1>
 
 <sect1 xml:id='interco.inter-vlan.qa.server'>
-	<title>Rôle serveur de conteneurs</title>
+    <title>Rôle serveur de conteneurs</title>
 
-	<sect2 xml:id='interco.inter-vlan.qa.server.interfaces'>
-		<title>Configuration des interfaces du routeur</title>
+    <sect2 xml:id='interco.inter-vlan.qa.server.interfaces'>
+        <title>Configuration des interfaces du routeur</title>
 
-	<para>Une fois la machine virtuelle serveur de conteneurs lancée, les
-	premières étapes consistent à lui attribuer un nouveau nom et à configurer
-	les interfaces réseau pour joindre le routeur voisin et l'Internet.</para>
+    <para>Une fois la machine virtuelle serveur de conteneurs lancée, les
+    premières étapes consistent à lui attribuer un nouveau nom et à configurer
+    les interfaces réseau pour joindre le routeur voisin et l'Internet.</para>
 
-	<qandaset defaultlabel='number'>
-	<qandaentry>
-	<question>
-	<para><phrase>Comment changer le nom de la machine
-	virtuelle&nbsp;?</phrase></para>
-	</question>
-	<answer>
-	<para>Il faut éditer les deux fichiers <filename>/etc/hosts</filename> et
-	<filename>/etc/hostname</filename> en remplaçant le nom de l'image
-	maître <citetitle>vm0</citetitle> par le nom voulu. Il est ensuite
-	nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
-	tous les outils du système.</para>
+    <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment changer le nom de la machine
+    virtuelle&nbsp;?</phrase></para>
+    </question>
+    <answer>
+    <para>Il faut éditer les deux fichiers <filename>/etc/hosts</filename> et
+    <filename>/etc/hostname</filename> en remplaçant le nom de l'image
+    maître <citetitle>vm0</citetitle> par le nom voulu. Il est ensuite
+    nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
+    tous les outils du système.</para>
 
 <screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/server/g' /etc/hosts /etc/hostname
 <prompt>etu@vm0:~$</prompt> sudo reboot</screen>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment appliquer la configuration réseau
-	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> de l'interface du
-	serveur&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment appliquer la configuration réseau
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym> de l'interface du
+    serveur&nbsp;?</phrase></para>
 
-	<para>Consulter les pages de manuels du fichier de configuration système à
-	l'aide de la commande <command>man&nbsp;interfaces</command>.</para>
-	</question>
-	<answer>
-	<para>Il existe plusieurs possibilités pour configurer une interface
-	réseau. Dans le contexte de ces manipulations, on utilise le fichier de
-	configuration fourni par la distribution <citetitle>Debian
-	GNU/Linux</citetitle>&nbsp;:
-	<filename>/etc/network/interfaces</filename>.</para>
+    <para>Consulter les pages de manuels du fichier de configuration système à
+    l'aide de la commande <command>man&nbsp;interfaces</command>.</para>
+    </question>
+    <answer>
+    <para>Il existe plusieurs possibilités pour configurer une interface
+    réseau. Dans le contexte de ces manipulations, on utilise le fichier de
+    configuration fourni par la distribution <citetitle>Debian
+    GNU/Linux</citetitle>&nbsp;:
+    <filename>/etc/network/interfaces</filename>.</para>
 
-	<para>La configuration de base fournie avec l'image maître suppose que
-	l'interface obtienne un bail <acronym>DHCP</acronym> pour la partie
-	<acronym>IPv4</acronym> et une configuration automatique via
-	<acronym>SLAAC</acronym> pour la partie <acronym>IPv6</acronym>.</para>
+    <para>La configuration de base fournie avec l'image maître suppose que
+    l'interface obtienne un bail <acronym>DHCP</acronym> pour la partie
+    <acronym>IPv4</acronym> et une configuration automatique via
+    <acronym>SLAAC</acronym> pour la partie <acronym>IPv6</acronym>.</para>
 
-	<para>La configuration <acronym>IPv4</acronym> par défaut doit être éditée
-	et remplacée par une configuration statique tandis que la configuration
-	<acronym>IPv6</acronym> doit toujours se faire automatiquement via
-	<acronym>SLAAC</acronym>.</para>
+    <para>La configuration <acronym>IPv4</acronym> par défaut doit être éditée
+    et remplacée par une configuration statique tandis que la configuration
+    <acronym>IPv6</acronym> doit toujours se faire automatiquement via
+    <acronym>SLAAC</acronym>.</para>
 
-	<para>Voici une copie du fichier
-	<filename>/etc/network/interfaces</filename> de la maquette.</para>
+    <para>Voici une copie du fichier
+    <filename>/etc/network/interfaces</filename> de la maquette.</para>
 
 <screen># This file describes the network interfaces available on your system
 # and how to activate them. For more information, see interfaces(5).
@@ -859,22 +963,22 @@ iface enp0s1 inet static
 # This is an autoconfigured IPv6 interface
 iface enp0s1 inet6 auto</screen>
 
-	<para>Bien sûr, il ne faut pas oublier de relancer le gestionnaire de
-	configuration réseau ou de redémarrer la machine virtuelle pour que les
-	paramètres soient correctement appliqués.</para>
-	</answer>
-	</qandaentry>
-	<qandaentry>
-	<question>
-	<para><phrase>Comment valider la configuration réseau du serveur de
-	conteneurs&nbsp;?</phrase></para>
+    <para>Bien sûr, il ne faut pas oublier de relancer le gestionnaire de
+    configuration réseau ou de redémarrer la machine virtuelle pour que les
+    paramètres soient correctement appliqués.</para>
+    </answer>
+    </qandaentry>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment valider la configuration réseau du serveur de
+    conteneurs&nbsp;?</phrase></para>
 
-	<para>Lancer une série de tests <acronym>ICMP</acronym>
-	<acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
-	</question>
-	<answer>
-	<para>On reprend les tests usuels avec les commandes
-	<command>ping</command> et <command>host</command>.</para>
+    <para>Lancer une série de tests <acronym>ICMP</acronym>
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+    </question>
+    <answer>
+    <para>On reprend les tests usuels avec les commandes
+    <command>ping</command> et <command>host</command>.</para>
 
 <screen><prompt>etu@server:~$</prompt> ping -q -c2 9.9.9.9
 PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
@@ -896,105 +1000,105 @@ kernel.org has IPv6 address 2604:1380:4641:c500::1
 kernel.org mail is handled by 10 smtp1.kernel.org.
 kernel.org mail is handled by 10 smtp3.kernel.org.
 kernel.org mail is handled by 10 smtp2.kernel.org.</screen>
-	</answer>
-	</qandaentry>
-	</qandaset>
-	</sect2>
+    </answer>
+    </qandaentry>
+    </qandaset>
+    </sect2>
 
-	<sect2 xml:id='interco.inter-vlan.qa.lxd.install'>
-	    <title>Installation du gestionnaire de conteneurs LXD</title>
+    <sect2 xml:id='interco.inter-vlan.qa.lxd.install'>
+        <title>Installation du gestionnaire de conteneurs LXD</title>
 
-	<para>Sur l'hôte serveur, la gestion des conteneurs est confiée à
-	<application>LXD</application>. Pour des raisons de rapidité de mise en
-	œuvre, on choisit de passer par le gestionnaire de paquets
-	<application>snapd</application> pour l'installation des outils.</para>
+    <para>Sur l'hôte serveur, la gestion des conteneurs est confiée à
+    <application>LXD</application>. Pour des raisons de rapidité de mise en
+    œuvre, on choisit de passer par le gestionnaire de paquets
+    <application>snapd</application> pour l'installation des outils.</para>
 
-	<qandaset defaultlabel='number'>
-	<qandaentry>
-	<question>
-	<para><phrase>Comment installer le gestionnaire de paquets
-	<application>snap</application> sur une distribution <citetitle>Debian
-	GNU/Linux</citetitle>&nbsp;?</phrase></para>
+    <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment installer le gestionnaire de paquets
+    <application>snap</application> sur une distribution <citetitle>Debian
+    GNU/Linux</citetitle>&nbsp;?</phrase></para>
 
-	<para>Effectuer une recherche dans les paquets fournis via
-	<acronym>APT</acronym>.</para>
-	</question>
-	<answer>
-	<para>Il existe tout simplement un paquet appelé
-	<application>snapd</application>.</para>
+    <para>Effectuer une recherche dans les paquets fournis via
+    <acronym>APT</acronym>.</para>
+    </question>
+    <answer>
+    <para>Il existe tout simplement un paquet appelé
+    <application>snapd</application>.</para>
 
 <screen>sudo apt -y install snapd</screen>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment installer le gestionnaire de conteneurs
-	<application>LXD</application>&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment installer le gestionnaire de conteneurs
+    <application>LXD</application>&nbsp;?</phrase></para>
 
-	<para>Rechercher dans la liste des <wordasword>snaps</wordasword>.</para>
-	</question>
-	<answer>
-	<para>Le <wordasword>snap</wordasword> s'appelle tout simplement
-	<application>lxd</application>.</para>
+    <para>Rechercher dans la liste des <wordasword>snaps</wordasword>.</para>
+    </question>
+    <answer>
+    <para>Le <wordasword>snap</wordasword> s'appelle tout simplement
+    <application>lxd</application>.</para>
 
 <screen>sudo snap install lxd
 2022-10-17T17:59:45+02:00 INFO Waiting for automatic snapd restart...
 lxd 5.6-794016a from Canonical✓ installed</screen>
 
-	<para>On peut lister les <wordasword>snaps</wordasword> installés.</para>
+    <para>On peut lister les <wordasword>snaps</wordasword> installés.</para>
 
 <screen>snap list
 Name    Version      Rev    Tracking       Publisher   Notes
 core20  20220826     1623   latest/stable  canonical✓  base
 lxd     5.6-794016a  23680  latest/stable  canonical✓  -
 snapd   2.57.2       17029  latest/stable  canonical✓  snapd</screen>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment faire pour que l'utilisateur normal
-	<literal>etu</literal> ait la capacité à gérer les
-	conteneurs&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment faire pour que l'utilisateur normal
+    <literal>etu</literal> ait la capacité à gérer les
+    conteneurs&nbsp;?</phrase></para>
 
-	<para>Rechercher le nom du groupe système correspondant à l'utilisation des
-	outils <application>LXD</application>.</para>
-	</question>
-	<answer>
-	<para>Il faut que l'utilisteur normal appartienne au groupe système
-	<systemitem>lxd</systemitem> pour qu'il est tous les droits sur la gestion
-	des conteneurs.</para>
+    <para>Rechercher le nom du groupe système correspondant à l'utilisation des
+    outils <application>LXD</application>.</para>
+    </question>
+    <answer>
+    <para>Il faut que l'utilisteur normal appartienne au groupe système
+    <systemitem>lxd</systemitem> pour qu'il est tous les droits sur la gestion
+    des conteneurs.</para>
 
 <screen>sudo adduser etu lxd</screen>
 
-	<para>Attention&nbsp;! Il faut se déconnecter/reconnecter pour bénéficier
-	de la nouvelle attribution de groupe. On peut utiliser la commande
-	<command>groups</command> pour vérifier le résultats.</para>
+    <para>Attention&nbsp;! Il faut se déconnecter/reconnecter pour bénéficier
+    de la nouvelle attribution de groupe. On peut utiliser la commande
+    <command>groups</command> pour vérifier le résultats.</para>
 
 <screen>groups
 etu adm cdrom floppy sudo audio dip video plugdev staff netdev <emphasis>lxd</emphasis></screen>
-	</answer>
-	</qandaentry>
-	</qandaset>
-	</sect2>
+    </answer>
+    </qandaentry>
+    </qandaset>
+    </sect2>
 
-	<sect2 xml:id='interco.inter-vlan.qa.lxd.init'>
-	    <title>Configuration du gestionnaire de conteneurs LXD</title>
+    <sect2 xml:id='interco.inter-vlan.qa.lxd.init'>
+        <title>Configuration du gestionnaire de conteneurs LXD</title>
 
-	<qandaset defaultlabel='number'>
-	<qandaentry>
-	<question>
-	<para><phrase>Quelle est l'instruction de configuration initiale du
-	gestionnaire <application>LXD</application>&nbsp;?</phrase></para>
+    <qandaset defaultlabel='number'>
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est l'instruction de configuration initiale du
+    gestionnaire <application>LXD</application>&nbsp;?</phrase></para>
 
-	<para>Utiliser l'aide de la commande <command>lxd</command>.</para>
-	</question>
-	<answer>
-	<para>C'est l'instruction <userinput>lxd init</userinput> qui nous
-	intéresse.</para>
+    <para>Utiliser l'aide de la commande <command>lxd</command>.</para>
+    </question>
+    <answer>
+    <para>C'est l'instruction <userinput>lxd init</userinput> qui nous
+    intéresse.</para>
 
-	<para>Voici une copie d'écran de son exécution.</para>
+    <para>Voici une copie d'écran de son exécution.</para>
 
 <screen>lxd init
 Would you like to use LXD clustering? (yes/no) [default=no]:
@@ -1011,19 +1115,19 @@ Name of the existing bridge or host interface: <emphasis>enp0s1</emphasis>
 Would you like the LXD server to be available over the network? (yes/no) [default=no]:
 Would you like stale cached images to be updated automatically? (yes/no) [default=yes]:
 Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]:</screen>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Quelle est l'instruction qui permet d'afficher le profil par
-	défaut des conteneur&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est l'instruction qui permet d'afficher le profil par
+    défaut des conteneur&nbsp;?</phrase></para>
 
-	<para>Rechercher dans les options de la commande
-	<command>lxc</command>.</para>
-	</question>
-	<answer>
-	<para>Voici un exemple d'exécution.</para>
+    <para>Rechercher dans les options de la commande
+    <command>lxc</command>.</para>
+    </question>
+    <answer>
+    <para>Voici un exemple d'exécution.</para>
 
 <screen>lxc profile show default
 config: {}
@@ -1040,22 +1144,22 @@ devices:
     type: disk
 name: default
 used_by: []</screen>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Quelle est l'instruction de lancement d'un
-	conteneur&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est l'instruction de lancement d'un
+    conteneur&nbsp;?</phrase></para>
 
-	<para>Rechercher dans les options de la commande
-	<command>lxc</command>.</para>
+    <para>Rechercher dans les options de la commande
+    <command>lxc</command>.</para>
 
-	<para>Tester son exécution avec un conteneur de type
-	<literal>debian/12</literal>.</para>
-	</question>
-	<answer>
-	<para>Voici un exemple d'exécution.</para>
+    <para>Tester son exécution avec un conteneur de type
+    <literal>debian/12</literal>.</para>
+    </question>
+    <answer>
+    <para>Voici un exemple d'exécution.</para>
 
 <screen>for i in {0..2}; do lxc launch images:debian/12 c$i; done
 Creating c0
@@ -1075,27 +1179,27 @@ Starting c2</screen>
 +------+---------+------+-------------------------------------------+-----------+-----------+
 | c2   | RUNNING |      | fda0:7a62:1b8:0:216:3eff:fe6b:c9de (eth0) | CONTAINER | 0         |
 +------+---------+------+-------------------------------------------+-----------+-----------+</screen>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment automatiser l'adressage <acronym>IPv4</acronym>
-	statique de chaque conteneur&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment automatiser l'adressage <acronym>IPv4</acronym>
+    statique de chaque conteneur&nbsp;?</phrase></para>
 
-	<para>Comme la gestion de la configuration des interfaces est assurée par
-	<systemitem>systemd-networkd</systemitem>, il faut s'intéresser à la
-	syntaxe du fichier <filename>/etc/systemd/network/eth0.network</filename>
-	de chaque conteneur.</para>
+    <para>Comme la gestion de la configuration des interfaces est assurée par
+    <systemitem>systemd-networkd</systemitem>, il faut s'intéresser à la
+    syntaxe du fichier <filename>/etc/systemd/network/eth0.network</filename>
+    de chaque conteneur.</para>
 
-	<para>Une fois la syntaxe d'un fichier de configuration établie, il faut
-	l'intégrer dans un script Bash avec une boucle qui parcourt toutes les
-	instances de conteneurs.</para>
-	</question>
-	<answer>
-	<para>Voici une proposition de code qui permet d'appliquer une
-	configuration statique et de redémarrer le gestionnaire de configuration
-	réseau de chacun des trois conteneurs.</para>
+    <para>Une fois la syntaxe d'un fichier de configuration établie, il faut
+    l'intégrer dans un script Bash avec une boucle qui parcourt toutes les
+    instances de conteneurs.</para>
+    </question>
+    <answer>
+    <para>Voici une proposition de code qui permet d'appliquer une
+    configuration statique et de redémarrer le gestionnaire de configuration
+    réseau de chacun des trois conteneurs.</para>
 
 <screen>#!/bin/bash
 
@@ -1120,9 +1224,9 @@ done
 
 exit 0</screen>
 
-	<para>Si le code du script ci-dessus est placé dans un fichier appelé
-	<filename>c-static-addresses.sh</filename>, on peut l'exécuter directement
-	et relever les résultats.</para>
+    <para>Si le code du script ci-dessus est placé dans un fichier appelé
+    <filename>c-static-addresses.sh</filename>, on peut l'exécuter directement
+    et relever les résultats.</para>
 
 <screen>bash c-static-addresses.sh</screen>
 
@@ -1139,25 +1243,25 @@ exit 0</screen>
 | c2   | RUNNING | 192.0.2.12 (eth0) | fda0:7a62:1b8::c (eth0)                   | CONTAINER | 0         |
 |      |         |                   | fda0:7a62:1ae:0:216:3eff:fe6b:c9de (eth0) |           |           |
 +------+---------+-------------------+-------------------------------------------+-----------+-----------+</screen>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Comment vérifier la connectivité réseau depuis les
-	conteneurs&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment vérifier la connectivité réseau depuis les
+    conteneurs&nbsp;?</phrase></para>
 
-	<para>La question précédente montre qu'à ce stade de la configuration les
-	conteneurs ne disposent que d'adresses <acronym>IPv6</acronym>. C'est donc
-	sur ce protocole que les tests doivent porter.</para>
-	</question>
-	<answer>
-	<para>Voici un exemple de test <acronym>ICMP</acronym>.</para>
+    <para>La question précédente montre qu'à ce stade de la configuration les
+    conteneurs ne disposent que d'adresses <acronym>IPv6</acronym>. C'est donc
+    sur ce protocole que les tests doivent porter.</para>
+    </question>
+    <answer>
+    <para>Voici un exemple de test <acronym>ICMP</acronym>.</para>
 
 <screen>for i in {0..2}
 do
-	echo ">>>>>>>>>>>>>>>>> c$i"
-	lxc exec c$i -- ping -c2 2620:fe::fe
+    echo ">>>>>>>>>>>>>>>>> c$i"
+    lxc exec c$i -- ping -c2 2620:fe::fe
 done
 >>>>>>>>>>>>>>>>> c0
 PING 2620:fe::fe(2620:fe::fe) 56 data bytes
@@ -1184,19 +1288,19 @@ PING 2620:fe::fe(2620:fe::fe) 56 data bytes
 2 packets transmitted, 2 received, 0% packet loss, time 1002ms
 rtt min/avg/max/mdev = 42.676/43.144/43.612/0.468 ms</screen>
 
-	<para>On peut ensuite passer à la gestion de paquets après paramétrage du
-	<wordasword>resolver</wordasword> <acronym>DNS</acronym>.</para>
+    <para>On peut ensuite passer à la gestion de paquets après paramétrage du
+    <wordasword>resolver</wordasword> <acronym>DNS</acronym>.</para>
 
 <screen>for i in {0..2}
 do
-	echo ">>>>>>>>>>>>>>>>> c$i"
-	lxc exec c$i -- apt update
-	lxc exec c$i -- apt -y full-upgrade
-	lxc exec c$i -- apt clean
+    echo ">>>>>>>>>>>>>>>>> c$i"
+    lxc exec c$i -- apt update
+    lxc exec c$i -- apt -y full-upgrade
+    lxc exec c$i -- apt clean
 done</screen>
-	</answer>
-	</qandaentry>
-	</qandaset>
-	</sect2>
+    </answer>
+    </qandaentry>
+    </qandaset>
+    </sect2>
 </sect1>
 </article>
