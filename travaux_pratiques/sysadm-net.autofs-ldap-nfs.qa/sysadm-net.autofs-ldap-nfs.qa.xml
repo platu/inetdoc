@@ -439,33 +439,13 @@ EOF</screen>
 	commun de gestion de session :
 	<filename>/etc/pam.d/common-session</filename>.</para>
 
-<screen><prompt>$</prompt> aptitude search mkhomedir
-v   libpam-mkhomedir   -
-p   oddjob-mkhomedir   - Oddjob helper which creates and populates home directories
+<screen>sudo pam-auth-update --package --enable mkhomedir</screen>
 
-&lt;snip>
-<prompt>$</prompt> sudo aptitude install oddjob-mkhomedir
-&lt;snip>
+    <para>On peut vérifier le résultat en recherchant la clé
+    <literal>mkhomedir</literal> dans les fichiers du répertoire <filename
+    class='directory'>/etc/pam.d/</filename>.</para>
 
-<prompt>$</prompt> systemctl status oddjobd
-&lt;snip></screen>
-
-<screen><prompt>$</prompt>sudo tail -15 /etc/pam.d/common-session
-# pam-auth-update(8) for details.
-
-# here are the per-package modules (the "Primary" block)
-session [default=1]                     pam_permit.so
-# here's the fallback if no module succeeds
-session requisite                       pam_deny.so
-# prime the stack with a positive return value if there isn't one already;
-# this avoids us returning an error just because nothing sets a success code
-# since the modules above will each just jump around
-session required                        pam_permit.so
-# and here are more per-package modules (the "Additional" block)
-session required        pam_unix.so
-session optional        pam_systemd.so
-# end of pam-auth-update config
-<emphasis>session optional        pam_oddjob_mkhomedir.so skel=/etc/skel/ umask=0022</emphasis></screen>
+<screen>grep mkhomedir /etc/pam.d/*</screen>
 	</listitem>
 	<listitem>
 	<para>Depuis un poste client différent du serveur, on provoque la création
@@ -474,7 +454,7 @@ session optional        pam_systemd.so
 		du répertoire utilisateur ainsi que la copie des fichiers de
 		paramétrage du <wordasword>Shell</wordasword>.</para>
 
-<screen><prompt>$</prompt> ssh padme@fe80::b8ad:caff:fefe:64%eth0
+<screen>ssh padme@fe80::b8ad:caff:fefe:64%eth0
 padme@fe80::b8ad:caff:fefe:64%eth0's password:
 <emphasis>Creating home directory for padme.</emphasis>
 Linux LDAP-Server 4.12.0-1-686-pae #1 SMP Debian 4.12.6-1 (2017-08-12) i686
@@ -502,7 +482,7 @@ padme@LDAP-Server:~$ pwd
 	<para>Sur un client avant connexion la liste des montage fait apparaître
 		l'information suivante :</para>
 
-<screen><prompt>$</prompt> mount | grep ^ldap
+<screen>mount | grep ^ldap
 ldap:ou=auto.home,ou=automount,dc=lab,dc=stri on /ahome type autofs \
 (rw,relatime,fd=7,pgrp=12568,timeout=300,minproto=5,maxproto=5,indirect,pipe_ino=2875248)</screen>
 
@@ -587,7 +567,7 @@ Mot de passe :
     </question>
     <answer>
 
-<screen><prompt>$</prompt> aptitude search "?description(automount)"
+<screen>aptitude search "?description(automount)"
 p   autodir                 - crée automatiquement les répertoires home et
 		group pour les comptes LDAP/NIS/SQL et locaux
 p   autofs                  - montage automatique pour Linux basé sur le noyau
@@ -604,8 +584,7 @@ p   vfu                     - Versatile text-based filemanager</screen>
 	<para>Le paquet <systemitem>autofs-ldap</systemitem> correspond au besoin.
 		On peut obtenir des informations supplémentaires en consultant sa
 		description complète à l'aide de la commande
-		<userinput><prompt>$</prompt> aptitude show
-		autofs-ldap</userinput>.</para>
+		<userinput>aptitude show autofs-ldap</userinput>.</para>
 	</answer>
 	</qandaentry>
 
@@ -622,11 +601,10 @@ p   vfu                     - Versatile text-based filemanager</screen>
     <para>Ce paquet doit être installé sur le poste client puisque le processus
     <systemitem>automount</systemitem> doit être exécuté sur ce même client.
     Son installation se fait simplement avec la commande usuelle
-    <userinput><prompt>$</prompt> sudo aptitude install
-    autofs-ldap</userinput>.</para>
+    <userinput>sudo aptitude install autofs-ldap</userinput>.</para>
     </answer>
     </qandaentry>
-    
+
     <qandaentry>
     <question>
     <para><phrase>Quelles sont les informations relatives au service
@@ -641,14 +619,14 @@ p   vfu                     - Versatile text-based filemanager</screen>
     qu'il peut contenir.</para>
     </question>
     <answer>
-<screen><prompt>$</prompt> sudo dpkg -L autofs-ldap | grep schema
+<screen>dpkg -L autofs-ldap | grep schema
 /etc/ldap/schema
-/etc/ldap/schema/autofs.schema
+/etc/ldap/schema/autofs.schema</screen>
 
-<prompt>$</prompt> cp /etc/ldap/schema/autofs.schema .
-<prompt>$</prompt> sed -i 's/caseExactMatch/caseExactIA5Match/g' autofs.schema
+<screen>cp /etc/ldap/schema/autofs.schema .
+sed -i 's/caseExactMatch/caseExactIA5Match/g' autofs.schema</screen>
 
-<prompt>$</prompt> scp /etc/ldap/schema/autofs.schema etu@192.0.2.12:~</screen>
+<screen> scp autofs.schema etu@192.0.2.12:~</screen>
 
 	<para>Au moment de la rédaction de ces lignes, le fichier de schéma livré
 	avec le paquet <systemitem>autofs-ldap</systemitem> contient une erreur que
@@ -673,8 +651,11 @@ p   vfu                     - Versatile text-based filemanager</screen>
     celui-ci doit être placé dans l'arborescence du service
     <acronym>LDAP</acronym> avec les autres fichiers du même type.</para>
 
-<screen><prompt>$</prompt> ls -lAh /etc/ldap/schema/autofs.schema
--rw-r--r-- 1 etu etu 830 sept. 27 10:29 /etc/ldap/schema/autofs.schema</screen>
+<screen>sudo mv autofs.schema /etc/ldap/schema/
+sudo chown root:root /etc/ldap/schema/autofs.schema</screen>
+
+<screen>ls -lAh /etc/ldap/schema/autofs.schema
+-rw-r--r-- 1 root root 830 sept. 27 10:29 /etc/ldap/schema/autofs.schema</screen>
     </answer>
     </qandaentry>
 
@@ -700,7 +681,7 @@ p   vfu                     - Versatile text-based filemanager</screen>
       <para>Création du répertoire de stockage du résultat de la
       conversion.</para>
 
-<screen><prompt>$</prompt> mkdir schema-convert</screen>
+<screen>mkdir schema-convert</screen>
       </listitem>
       <listitem>
       <para>Création du fichier de traitement des schémas. Comme de schéma
@@ -708,17 +689,18 @@ p   vfu                     - Versatile text-based filemanager</screen>
       schémas de rang supérieur, il est nécessaire d'inclure les autres
       fichiers de schémas fournis avec le paquet.</para>
 
-<screen><prompt>$</prompt> cat schema-convert.conf
+<screen>cat &lt;&lt; EOF >schema-convert.conf
 include /etc/ldap/schema/core.schema
 include /etc/ldap/schema/cosine.schema
 include /etc/ldap/schema/inetorgperson.schema
-include /etc/ldap/schema/autofs.schema</screen>
+include /etc/ldap/schema/autofs.schema
+EOF</screen>
       </listitem>
       <listitem>
       <para>Conversion des fichiers de schémas au format
       <acronym>LDIF</acronym>.</para>
 
-<screen><prompt>$</prompt> slaptest -f schema-convert.conf -F schema-convert
+<screen>sudo slaptest -f schema-convert.conf -F schema-convert
 config file testing succeeded</screen>
       </listitem>
       <listitem>
@@ -726,9 +708,9 @@ config file testing succeeded</screen>
       conversion. La commande ci-dessous élimine toutes les informations
       relatives à l'horodatage et à l'identification de l'utilisateur.</para>
 
-<screen><prompt>$</prompt> cat schema-convert/cn\=config/cn\=schema/cn\=\{3\}autofs.ldif | \
-egrep -v structuralObjectClass\|entryUUID\|creatorsName | \
-egrep -v createTimestamp\|entryCSN\|modifiersName\|modifyTimestamp | \
+<screen>cat schema-convert/cn\=config/cn\=schema/cn\=\{3\}autofs.ldif | \
+grep -Ev structuralObjectClass\|entryUUID\|creatorsName | \
+grep -Ev createTimestamp\|entryCSN\|modifiersName\|modifyTimestamp | \
 sed 's/dn: cn={.}autofs/dn: cn=autofs,cn=schema,cn=config/g' | \
 sed 's/{.}autofs/autofs/' > autofs.ldif</screen>
       </listitem>
@@ -736,7 +718,7 @@ sed 's/{.}autofs/autofs/' > autofs.ldif</screen>
       <para>Ajout du schéma <systemitem>autofs</systemitem> dans la
       configuration du service.</para>
 
-<screen><prompt>$</prompt> sudo ldapadd -Y EXTERNAL -H ldapi:/// -f autofs.ldif 
+<screen>sudo ldapadd -Y EXTERNAL -H ldapi:/// -f autofs.ldif 
 SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
@@ -772,7 +754,7 @@ adding new entry "cn=autofs,cn=schema,cn=config"</screen>
   </mediaobject>
     </question>
     <answer>
-<screen><prompt>$</prompt> cat ou-autofs.ldif 
+<screen>cat ou-autofs.ldif 
 dn: ou=automount,dc=lab,dc=stri
 ou: automount
 objectClass: top
@@ -813,7 +795,7 @@ automountInformation: -fstype=nfs4 192.0.2.12:/home/&amp;</screen>
     <answer>
     <para>On suit la même démarche que pour les comptes utilisateurs.</para>
 
-<screen><prompt>$</prompt> sudo ldapadd -cxWD cn=admin,dc=lab,dc=stri -f ou-autofs.ldif
+<screen>sudo ldapadd -cxWD cn=admin,dc=lab,dc=stri -f ou-autofs.ldif
 Enter LDAP Password:
 adding new entry "ou=automount,dc=lab,dc=stri"
 
@@ -934,7 +916,7 @@ adding new entry "cn=*,ou=auto.home,ou=automount,dc=lab,dc=stri"</screen>
 	<para>On qualifie le mécanisme <wordasword>Name Service Switch</wordasword>
 		à l'aide de la commande <command>getent</command>.</para>
 
-<screen><prompt>$</prompt> getent passwd
+<screen>getent passwd
 root:x:0:0:root:/root:/bin/bash
 &lt;snip>
 nslcd:x:111:117:nslcd name service LDAP connection daemon,,,:/var/run/nslcd/:/bin/false
@@ -946,7 +928,7 @@ luke:x:10003:10003:Luke Skywalker:/ahome/luke:/bin/bash</screen>
 	<para>On qualifie l'authentication <acronym>PAM</acronym> à l'aide de la
 		commande <command>su</command>.</para>
 
-<screen><prompt>$</prompt> su - luke
+<screen>su - luke
 Mot de passe : 
 :/home/etu$</screen>
 	</answer>
@@ -978,7 +960,7 @@ Mot de passe :
     <answer>
     <para>La syntaxe est la suivante.</para>
 
-<screen><prompt>$</prompt> echo -e "\nautomount:      ldap" | sudo tee -a /etc/nsswitch.conf</screen>
+<screen>echo -e "\nautomount:      ldap" | sudo tee -a /etc/nsswitch.conf</screen>
     </answer>
     </qandaentry>
 
@@ -1023,7 +1005,7 @@ Mot de passe :
     </question>
     <answer>
 
-<screen><prompt>$</prompt> sudo grep -v ^# /etc/default/autofs 
+<screen>sudo grep -v ^# /etc/default/autofs 
 MASTER_MAP_NAME="ou=auto.master,ou=automount,dc=lab,dc=stri"
 TIMEOUT=300
 BROWSE_MODE="no"
@@ -1048,7 +1030,7 @@ SEARCH_BASE="ou=automount,dc=lab,dc=stri"</screen>
 	<para>On affiche l'état du service à l'aide de la commande
 		ci-dessous.</para>
 
-<screen><prompt>$</prompt> sudo systemctl status autofs
+<screen>sudo systemctl status autofs
 ● autofs.service - Automounts filesystems on demand
    Loaded: loaded (/lib/systemd/system/autofs.service; enabled; vendor preset: enabled)
    Active: active (running) since Fri 2017-09-15 13:58:18 CEST; 15s ago
@@ -1105,7 +1087,7 @@ systemd[1]: Started Automounts filesystems on demand.</screen>
 	<para>On retrouve la copie d'écran donnée en fin de section
 		précédente.</para>
 
-<screen><prompt>$</prompt> mount | egrep '(ldap|nfs)'
+<screen>mount | egrep '(ldap|nfs)'
 ldap:ou=auto.home,ou=automount,dc=lab,dc=stri on /ahome type autofs \
 		(rw,relatime,fd=7,pgrp=875,timeout=300,minproto=5,maxproto=5,
 		indirect,pipe_ino=16519)
