@@ -16,6 +16,14 @@
   '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://netplan.readthedocs.io/en/stable/">
   <citetitle>Netplan documentation</citetitle></link>'>
 
+<!ENTITY url.incus
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://linuxcontainers.org/incus/docs/main/">
+  <citetitle>Incus</citetitle></link>'>
+
+<!ENTITY url.macvlan
+  '<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://developers.redhat.com/blog/2018/10/22/introduction-to-linux-interfaces-for-virtual-networking#macvlan">
+  <citetitle>macvlan</citetitle></link>'>
+
 <!-- A copy of http://www.w3.org/2003/entities/2007/w3centities-f.ent is at:
 /usr/local/share -->
 <!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
@@ -42,8 +50,8 @@
         présentées dans ces travaux pratiques illustrent l'interconnexion entre
         un réseau d'hébergement de type Cloud IAAS (<wordasword>Infrastructure
         As A Service</wordasword>) et un réseau de conteneurs
-        <acronym>LXD</acronym> raccordés à l'aide de la technologie
-        <acronym>MACVLAN</acronym>.</para>
+        <acronym>Incus</acronym> raccordés à l'aide de la technologie
+        &url.macvlan;.</para>
 
         <para>On introduit aussi un premier niveau de filtrage induit par le
         recours à la traduction d'adresses entre les deux réseaux
@@ -52,10 +60,10 @@
         <entry>
         <inlinemediaobject>
         <imageobject role='html'>
-            <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='220px' scalefit='1'/>
+            <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='320px' scalefit='1'/>
         </imageobject>
         <imageobject role='fo'>
-            <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='4.5cm' scalefit='1'/>
+            <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='5.5cm' scalefit='1'/>
         </imageobject>
         </inlinemediaobject>
         </entry>
@@ -71,8 +79,8 @@
     <keyword>arp</keyword>
     <keyword>dot1q</keyword>
     <keyword>iproute2</keyword>
-    <keyword>iptables</keyword>
-    <keyword>lxd</keyword>
+    <keyword>nftables</keyword>
+    <keyword>incus</keyword>
     <keyword>macvlan</keyword>
     <keyword>route</keyword>
     <keyword>routing</keyword>
@@ -717,8 +725,8 @@ kernel.pid_max = 4194304</screen>
     réalisée sur l'interface réseau côté hébergement, elle montre que le trafic
     est bien acheminé d'un réseau à l'autre.</para>
 
-<screen>tshark -i enp0s1.360
-Capturing on 'enp0s1.360'
+<screen>tshark -i enp0s1.360</screen>
+<screen>Capturing on 'enp0s1.360'
     1 0.000000000    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xbdab A 1.debian.pool.ntp.org
     2 0.000056361    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xab92 AAAA 1.debian.pool.ntp.org</screen>
     </answer>
@@ -743,20 +751,18 @@ Capturing on 'enp0s1.360'
     règles de pare-feux.</para>
 
     <para>Dans le contexte des ces manipulations, nous utilisons
-    <systemitem>firewalld</systemitem> comme outil de gestion du
+    <systemitem>nftables</systemitem> comme outil de gestion du
     filtrage.</para>
     </question>
     <answer>
-    <para>C'est la partie "espace utilisateur" qui nous intéresse ici.</para>
+    <para>C'est la partie outils de l'espace utilisateur qui nous intéresse
+    ici.</para>
 
-<screen>apt search ^firewalld
-<emphasis>firewalld</emphasis>/testing 2.2.1-1 all
-  dynamically managed firewall with support for network zones
+<screen>apt search ^nftables$
+nftables/testing,now 1.1.0-2 amd64  [installé]
+  programme de contrôle des règles de filtrage de paquets du projet Netfilter</screen>
 
-firewalld-tests/testing 2.2.1-1 all
-  installed tests for firewalld</screen>
-
-<screen>sudo apt -y install firewalld</screen>
+<screen>sudo apt -y install nftables</screen>
     </answer>
     </qandaentry>
 
@@ -767,19 +773,82 @@ firewalld-tests/testing 2.2.1-1 all
     hébergement&nbsp;?</phrase></para>
 
     <para>Rechercher dans des exemples de configuration
-    <systemitem>firewalld</systemitem> avec la fonction
+    <systemitem>nftables</systemitem> avec la fonction
     <literal>MASQUERADE</literal>.</para>
     </question>
     <answer>
-    <para>On commence par définir les deux zones de réseau&nbsp;: une pour le
-    réseau externe ou l'Internet et une pour le réseau interne ou les
-    conteneurs.</para>
+    <para>Voici un exemple de création du fichier
+    <filename>/etc/nftables.conf</filename> avec le jeu d'instructions qui
+    assure la traduction d'adresses sources pour <acronym>IPv4</acronym> et
+    <acronym>IPv6</acronym>.</para>
 
-<screen>sudo 
- sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
+<screen>cat &lt;&lt; EOF | sudo tee /etc/nftables.conf
+#!/usr/sbin/nft -f
 
-<screen>sudo ip6tables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
- sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
+flush ruleset
+
+table ip nat {
+    chain postrouting {
+        type nat hook postrouting priority 100;
+        oifname "enp0s1.360" counter packets 0 bytes 0 masquerade
+    }
+}
+
+table ip6 nat {
+    chain postrouting {
+        type nat hook postrouting priority 100;
+        oifname "enp0s1.360" counter packets 0 bytes 0 masquerade
+    }
+}
+EOF</screen>
+
+	<para>La création de ce fichier de règles n'est pas suffisante. Il faut
+	appliquer les règles contenues dans le fichier.</para>
+
+<screen>sudo nft -f /etc/nftables.conf</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment rendre le chargement des règles de filtrage
+    automatique au redémarrage du système&nbsp;?</phrase></para>
+
+    <para>Afficher l'état du service <systemitem>nftables.service</systemitem>.
+    Activer ce service si celui est à l'état désactivé
+    (<wordasword>disabled</wordasword>).</para>
+    </question>
+    <answer>
+    <para>Pour afficher l'état du service, on utilise la commande suivante.</para>
+
+<screen>systemctl status nftables.service</screen>
+
+<screen>○ nftables.service - nftables
+     Loaded: loaded (/usr/lib/systemd/system/nftables.service; <emphasis>disabled</emphasis>; preset: enabled)
+     Active: inactive (dead)
+       Docs: man:nft(8)
+             http://wiki.nftables.org</screen>
+
+	<para>On constate qu'il faut activer ce service pour assurer le chargement
+automatique des règles de filtrage au démarrage.</para>
+
+<screen>sudo systemctl enable nftables.service
+sudo systemctl start nftables.service
+sudo systemctl status nftables.service</screen>
+
+<screen>● nftables.service - nftables
+     Loaded: loaded (/usr/lib/systemd/system/nftables.service; <emphasis>enabled</emphasis>; preset: enabled)
+     Active: active (exited) since Sat 2024-09-14 18:35:00 CEST; 7s ago
+ Invocation: 1dcc395a33c74606bd7dab7f33b90787
+       Docs: man:nft(8)
+             http://wiki.nftables.org
+    Process: 729 ExecStart=<emphasis>/usr/sbin/nft -f /etc/nftables.conf (code=exited, status=0/SUCCESS)</emphasis>
+   Main PID: 729 (code=exited, status=0/SUCCESS)
+   Mem peak: 5.9M
+        CPU: 44ms
+
+sept. 14 18:34:59 router systemd[1]: Starting nftables.service - nftables...
+sept. 14 18:35:00 router systemd[1]: Finished nftables.service - nftables.</screen>
     </answer>
     </qandaentry>
 
@@ -789,98 +858,109 @@ firewalld-tests/testing 2.2.1-1 all
     d'adresses sources&nbsp;?</phrase></para>
 
     <para>Rechercher dans les pages de manuel de la commande
-    <command>iptables</command> les options d'affichage du décompte du trafic
+    <command>nftables</command> les options d'affichage du décompte du trafic
     traité.</para>
     </question>
     <answer>
-    <para>Voici un exemple d'affichage pour le trafic <acronym>IPv4</acronym>
-    uniquement.</para>
+    <para>Voici un exemple d'affichage des règles actives avec visualisation
+    des compteurs d'utilisation.</para>
 
-<screen>sudo iptables -vnL -t nat
-Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination
+<screen>sudo nft list ruleset</screen>
 
-Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination
-
-Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination
-
-Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination
-<emphasis>    0     0 MASQUERADE  all  --  *      enp0s1.360  0.0.0.0/0            0.0.0.0/0</emphasis></screen>
+<screen>table ip nat {
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "enp0s1.360" <emphasis>counter packets 17 bytes 1284 masquerade</emphasis>
+	}
+}
+table ip6 nat {
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "enp0s1.360" <emphasis>counter packets 13 bytes 1220 masquerade</emphasis>
+	}
+}</screen>
     </answer>
     </qandaentry>
     </qandaset>
     </sect2>
 
     <sect2 xml:id='interco.inter-vlan.qa.router.radvd'>
-        <title>Activation de la configuration IPv6 automatique pour le réseau
-        de conteneurs</title>
+        <title>Activation de l'adressage  automatique pour le réseau de
+        conteneurs</title>
 
-    <para>Pour que les hôtes du réseau de conteneurs obtiennent automatiquement
-    une configuration <acronym>IPv6</acronym>, il faut que le routeur assure
-    les annonces auprès de ces voisins. Un moyen simple pour assurer la
-    configuration <acronym>SLAAC</acronym> des hôtes voisins du routeur
-    consiste à utiliser le paquet <application>radvd</application>.</para>
+	<para>Dans le but mettre en place un adressage automatique des conteneurs
+	hébergés sur l'autre machine virtuelle, on utilise l'outil
+	<systemitem>dnsmasq</systemitem>. L'idée est de fournir un service
+	<acronym>DHCPv4</acronym> et <acronym>SLAAC</acronym> en un seul et unique
+	fichier de configuration.</para>
 
-    <para>On débute par l'installation de ce paquet.</para>
+    <para>On débute par l'installation du paquet.</para>
 
-<screen>sudo apt -y install radvd</screen>
+<screen>sudo apt -y install dnsmasq</screen>
 
     <qandaset defaultlabel='number'>
     <qandaentry>
     <question>
-    <para><phrase>Comment configurer le service
-    <application>radvd</application> pour publier les annonces côté
-    conteneurs&nbsp;?</phrase></para>
+	<para><phrase>Comment remplacer le fichier de configuration fourni lors de
+	l'installation du paquet par notre propre fichier de
+	configuration&nbsp;?</phrase></para>
 
-    <para>Rechercher les options utiles dans les pages de manuel du
-    service&nbsp;: <userinput>man radvd.conf</userinput>.</para>
+	<para>Consulter le contenu du fichier
+	<filename>/etc/dnsmasq.conf</filename> et extraire les options de configuration
+	utiles au contexte de ces manipulations.</para>
     </question>
     <answer>
-    <para>Voici une copie du fichier de configuration
-    <filename>/etc/radvd.conf</filename> de la maquette.</para>
+	<para>Voici la commande de copie du fichier issu de l'installation.</para>
 
-<screen>interface enp0s1.440
-{
-        AdvSendAdvert on;
+<screen>sudo mv /etc/dnsmasq.conf /etc/dnsmasq.conf.dist</screen>
 
-        prefix fda0:7a62:1b8::/64
-        {
-                AdvOnLink on;
-                AdvAutonomous on;
-                AdvRouterAddr on;
-        };
+    <para>Voici un exemple de configuration adaptée à la maquette.</para>
 
-        RDNSS 2620:fe::fe
-        {
-        };
-};</screen>
+<screen>cat &lt;&lt; EOF | sudo tee /etc/dnsmasq.conf
+# Enable DHCPv4
+dhcp-range=192.0.2.20,192.0.2.200,3h
+
+# Enable IPv6 router advertisements
+enable-ra
+
+# Enable SLAAC
+dhcp-range=::,constructor:enp0s1.440,ra-names,slaac
+
+# Specify interface
+interface=enp0s1.440
+
+# Optional: Specify DNS servers
+dhcp-option=option:dns-server,172.16.0.2,9.9.9.9
+dhcp-option=option6:dns-server,[2001:678:3fc:3::2],[260:fe::fe]
+
+# Overcome DNS listen port conflict between dnsmasq and systemd-resolved
+bind-interfaces
+listen-address=192.0.2.1
+EOF</screen>
 
     <para>Attention ! Une fois le fichier créé, il ne faut pas oublier de
     redémarrer le service et de contrôler l'état de son fonctionnement.</para>
 
-<screen>sudo systemctl restart radvd
- systemctl status radvd
-• radvd.service - Router advertisement daemon for IPv6
-     Loaded: loaded (/lib/systemd/system/radvd.service; enabled; preset: enabled)
-     Active: active (running) since Mon 2022-10-17 17:39:25 CEST; 1s ago
-       Docs: man:radvd(8)
-    Process: 1301 ExecStartPre=/usr/sbin/radvd --logmethod stderr_clean --configtest (code=exited, status=0/SUCCESS)
-    Process: 1302 ExecStart=/usr/sbin/radvd --logmethod stderr_clean (code=exited, status=0/SUCCESS)
-   Main PID: 1303 (radvd)
-      Tasks: 2 (limit: 1114)
-     Memory: 472.0K
-        CPU: 25ms
-     CGroup: /system.slice/radvd.service
-             ├─1303 /usr/sbin/radvd --logmethod stderr_clean
-             └─1304 /usr/sbin/radvd --logmethod stderr_clean
+<screen>sudo systemctl restart dnsmasq
+systemctl status dnsmasq</screen>
 
-oct. 17 17:39:25 router systemd[1]: Starting Router advertisement daemon for IPv6...
-oct. 17 17:39:25 router radvd[1301]: config file, /etc/radvd.conf, syntax ok
-oct. 17 17:39:25 router radvd[1302]: version 2.18 started
-oct. 17 17:39:25 router systemd[1]: Started Router advertisement daemon for IPv6.</screen>
+<screen>● dnsmasq.service - dnsmasq - A lightweight DHCP and caching DNS server
+     Loaded: loaded (/usr/lib/systemd/system/dnsmasq.service; enabled; preset: enabled)
+     Active: <emphasis>active (running)</emphasis> since Sat 2024-09-14 18:49:02 CEST; 10min ago
+ Invocation: 8887da64fc36432db7be668ec71cbfb7
+    Process: 1072 ExecStartPre=/usr/share/dnsmasq/systemd-helper checkconfig (code=exited, status=0/SUCCESS)
+    Process: 1077 ExecStart=/usr/share/dnsmasq/systemd-helper exec (code=exited, status=0/SUCCESS)
+    Process: 1084 ExecStartPost=/usr/share/dnsmasq/systemd-helper start-resolvconf (code=exited, status=0/SUCCESS)
+   Main PID: 1083 (dnsmasq)
+      Tasks: 1 (limit: 1087)
+     Memory: 720K (peak: 2.8M)
+        CPU: 94ms
+     CGroup: /system.slice/dnsmasq.service
+			 └─1083 /usr/sbin/dnsmasq -x /run/dnsmasq/dnsmasq.pid -u dnsmasq -r /run/dnsmasq/resolv.conf \
+						-7 /etc/dnsmasq.d,.dpkg-dist,.dpkg-old,.dpkg-new --local-service
+						--trust-anchor=.,20326,8,2,e06d44b80b8f1d39a95c0b0d7c65d08458e880409bbc683457104237c7f8ec8d
+
+sept. 14 18:49:02 router systemd[1]: <emphasis>Started dnsmasq.service - dnsmasq - A lightweight DHCP and caching DNS server.</emphasis></screen>
     </answer>
     </qandaentry>
     </qandaset>
@@ -891,7 +971,7 @@ oct. 17 17:39:25 router systemd[1]: Started Router advertisement daemon for IPv6
     <title>Rôle serveur de conteneurs</title>
 
     <sect2 xml:id='interco.inter-vlan.qa.server.interfaces'>
-        <title>Configuration des interfaces du routeur</title>
+        <title>Configuration de l'interface du serveur</title>
 
     <para>Une fois la machine virtuelle serveur de conteneurs lancée, les
     premières étapes consistent à lui attribuer un nouveau nom et à configurer
@@ -904,68 +984,86 @@ oct. 17 17:39:25 router systemd[1]: Started Router advertisement daemon for IPv6
     virtuelle&nbsp;?</phrase></para>
     </question>
     <answer>
-    <para>Il faut éditer les deux fichiers <filename>/etc/hosts</filename> et
-    <filename>/etc/hostname</filename> en remplaçant le nom de l'image
-    maître <citetitle>vm0</citetitle> par le nom voulu. Il est ensuite
-    nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
-    tous les outils du système.</para>
+	<para>Il faut créer le fichier <filename>/etc/hostname</filename> avec le
+	nom d'hôte voulu.</para>
 
-<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/server/g' /etc/hosts /etc/hostname
-<prompt>etu@vm0:~$</prompt> sudo reboot</screen>
+<screen>echo hosting | sudo tee /etc/hostname
+sudo reboot</screen>
     </answer>
     </qandaentry>
 
     <qandaentry>
     <question>
-    <para><phrase>Comment appliquer la configuration réseau
-    <acronym>IPv4</acronym> et <acronym>IPv6</acronym> de l'interface du
-    serveur&nbsp;?</phrase></para>
+    <para><phrase>Comment appliquer les configurations réseau
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym> à partir de l'unique
+    interface de la machine d'hébergement&nbsp;?</phrase></para>
 
-    <para>Consulter les pages de manuels du fichier de configuration système à
-    l'aide de la commande <command>man&nbsp;interfaces</command>.</para>
+    <para>Consulter la documentation de <citetitle>Netplan</citetitle> pour
+    obtenir les informations sur la configuration des interfaces réseau à
+    l'adresse &url.netplan-doc;.</para>
     </question>
     <answer>
     <para>Il existe plusieurs possibilités pour configurer une interface
-    réseau. Dans le contexte de ces manipulations, on utilise le fichier de
-    configuration fourni par la distribution <citetitle>Debian
-    GNU/Linux</citetitle>&nbsp;:
-    <filename>/etc/network/interfaces</filename>.</para>
+    réseau. Dans le contexte de ces manipulations, on utilise
+    <citetitle>Netplan</citetitle> dans le but de séparer la partie déclarative
+    du moteur de configuration.</para>
+
+    <para>C'est <systemitem>systemd-networkd</systemitem> qui joue le rôle de
+    moteur de configuration sur les machines virtuelles utilisées avec ces
+    manipulations.</para>
 
     <para>La configuration de base fournie avec l'image maître suppose que
     l'interface obtienne un bail <acronym>DHCP</acronym> pour la partie
     <acronym>IPv4</acronym> et une configuration automatique via
-    <acronym>SLAAC</acronym> pour la partie <acronym>IPv6</acronym>.</para>
+    <acronym>SLAAC</acronym> pour la partie <acronym>IPv6</acronym>. Cette
+    configuration par défaut doit être éditée et remplacée.</para>
 
-    <para>La configuration <acronym>IPv4</acronym> par défaut doit être éditée
-    et remplacée par une configuration statique tandis que la configuration
-    <acronym>IPv6</acronym> doit toujours se faire automatiquement via
-    <acronym>SLAAC</acronym>.</para>
+	<itemizedlist>
+	<listitem>
+	<para>L'interface réseau appartient un seul et unique domaine de
+	diffusion&nbsp;: le <acronym>VLAN</acronym> 440 dans le contexte de cette
+	maquette.</para>
+    </listitem>
+	<listitem>
+	<para>On fait le choix d'attribuer des adresses statiques à l'interface
+	<systemitem>enp0s1</systemitem> pour être en mesure de tester le routage et
+	la traduction d'adresses sources au niveau du routeur. Ainsi, on ne dépend
+	pas du service <systemitem>dnsmasq</systemitem> pour les tests de
+	communication.</para>
+	</listitem>
+	</itemizedlist>
 
-    <para>Voici une copie du fichier
-    <filename>/etc/network/interfaces</filename> de la maquette.</para>
+	<para>Voici une copie du fichier
+	<filename>/etc/netplan/enp0s1.yaml</filename> de la maquette.</para>
 
-<screen># This file describes the network interfaces available on your system
-# and how to activate them. For more information, see interfaces(5).
+<screen>cat &lt;&lt; EOF | sudo tee /etc/netplan/enp0s1.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp0s1:
+      dhcp4: false
+      dhcp6: false
+      accept-ra: true
+      addresses:
+        - 192.0.2.2/24
+        - fda0:7a62:1b8::2/64
+      routes:
+        - to: default
+          via: 192.0.2.1
+        - to: "::/0"
+          via: fe80::baad:caff:fefe:5
+          on-link: true
+      nameservers:
+        addresses:
+          - 172.16.0.2
+          - 2001:678:3fc:3::2
+EOF</screen>
 
-source /etc/network/interfaces.d/*
+	<para>Bien sûr, il ne faut pas oublier d'appliquer les paramètre de
+	configuration de l'interface.</para>
 
-# The loopback network interface
-auto lo
-iface lo inet loopback
-
-# The primary network interface
-auto enp0s1
-iface enp0s1 inet static
-        address 192.0.2.2/24
-        gateway 192.0.2.1
-        dns-nameserver 172.16.0.2
-
-# This is an autoconfigured IPv6 interface
-iface enp0s1 inet6 auto</screen>
-
-    <para>Bien sûr, il ne faut pas oublier de relancer le gestionnaire de
-    configuration réseau ou de redémarrer la machine virtuelle pour que les
-    paramètres soient correctement appliqués.</para>
+<screen>sudo netplan apply</screen>
     </answer>
     </qandaentry>
     <qandaentry>
@@ -1005,302 +1103,491 @@ kernel.org mail is handled by 10 smtp2.kernel.org.</screen>
     </qandaset>
     </sect2>
 
-    <sect2 xml:id='interco.inter-vlan.qa.lxd.install'>
-        <title>Installation du gestionnaire de conteneurs LXD</title>
+    <sect2 xml:id='interco.inter-vlan.qa.incus.install'>
+        <title>Installation du gestionnaire de conteneurs Incus</title>
 
-    <para>Sur l'hôte serveur, la gestion des conteneurs est confiée à
-    <application>LXD</application>. Pour des raisons de rapidité de mise en
-    œuvre, on choisit de passer par le gestionnaire de paquets
-    <application>snapd</application> pour l'installation des outils.</para>
+    <para>Sur l'hôte qui tient le rôle de serveur d'hébergement, la gestion des
+    conteneurs est confiée à &url.incus;.</para>
+
+    <para>Selon l'exergue du site, <citetitle>Incus</citetitle> est un
+    gestionnaire de conteneurs et de machines virtuelles puissant, sûr et
+    moderne.</para>
+
+    <para>Dans le contexte de ces manipulations, c'est la variété des modes
+    d'interconnexion réseau offerte par <citetitle>Incus</citetitle> qui est le
+    point le plus déterminant. Ici on utilise le mode &url.macvlan; qui
+    raccorde les conteneurs au même domaine de diffusion que la machine hôte.
+    C'est le mode de raccordement le plus simple. Cependant, il n'autorise pas
+    les communications entre les conteneurs du fait de l'isolation des espaces
+    de noms.</para>
 
     <qandaset defaultlabel='number'>
     <qandaentry>
     <question>
-    <para><phrase>Comment installer le gestionnaire de paquets
-    <application>snap</application> sur une distribution <citetitle>Debian
-    GNU/Linux</citetitle>&nbsp;?</phrase></para>
-
-    <para>Effectuer une recherche dans les paquets fournis via
-    <acronym>APT</acronym>.</para>
-    </question>
-    <answer>
-    <para>Il existe tout simplement un paquet appelé
-    <application>snapd</application>.</para>
-
-<screen>sudo apt -y install snapd</screen>
-    </answer>
-    </qandaentry>
-
-    <qandaentry>
-    <question>
     <para><phrase>Comment installer le gestionnaire de conteneurs
-    <application>LXD</application>&nbsp;?</phrase></para>
+    <application>Incus</application>&nbsp;?</phrase></para>
 
-    <para>Rechercher dans la liste des <wordasword>snaps</wordasword>.</para>
+    <para>Lancer une recherche  dans la liste des paquets Debian.</para>
     </question>
     <answer>
-    <para>Le <wordasword>snap</wordasword> s'appelle tout simplement
-    <application>lxd</application>.</para>
+    <para>Le paquet s'appelle tout simplement
+    <application>incus</application>.</para>
 
-<screen>sudo snap install lxd
-2022-10-17T17:59:45+02:00 INFO Waiting for automatic snapd restart...
-lxd 5.6-794016a from Canonical✓ installed</screen>
+<screen>apt search ^incus</screen>
 
-    <para>On peut lister les <wordasword>snaps</wordasword> installés.</para>
-
-<screen>snap list
-Name    Version      Rev    Tracking       Publisher   Notes
-core20  20220826     1623   latest/stable  canonical✓  base
-lxd     5.6-794016a  23680  latest/stable  canonical✓  -
-snapd   2.57.2       17029  latest/stable  canonical✓  snapd</screen>
+<screen>sudo apt -y install incus</screen>
     </answer>
     </qandaentry>
 
     <qandaentry>
     <question>
     <para><phrase>Comment faire pour que l'utilisateur normal
-    <literal>etu</literal> ait la capacité à gérer les
+    <literal>etu</literal> devienne administrateur et gestionnaire des
     conteneurs&nbsp;?</phrase></para>
 
     <para>Rechercher le nom du groupe système correspondant à l'utilisation des
-    outils <application>LXD</application>.</para>
+    outils <application>Incus</application>.</para>
     </question>
     <answer>
-    <para>Il faut que l'utilisteur normal appartienne au groupe système
-    <systemitem>lxd</systemitem> pour qu'il est tous les droits sur la gestion
-    des conteneurs.</para>
+    <para>Il faut que l'utilisateur normal appartienne au groupes systèmes
+    <systemitem>incus</systemitem> et <systemitem>incus-admin</systemitem> pour
+    qu'il ait tous les droits sur la gestion des conteneurs.</para>
 
-<screen>sudo adduser etu lxd</screen>
+<screen>grep incus /etc/group
+incus:x:990:
+incus-admin:x:989:</screen>
 
+<screen>sudo adduser etu incus
+sudo adduser etu incus-admin</screen>
+
+    <warning>
     <para>Attention&nbsp;! Il faut se déconnecter/reconnecter pour bénéficier
-    de la nouvelle attribution de groupe. On peut utiliser la commande
-    <command>groups</command> pour vérifier le résultats.</para>
+    de la nouvelle attribution de groupe. On peut utiliser les commandes
+    <command>groups</command> ou <command>id</command> pour vérifier le
+    résultat.</para>
+    </warning>
 
 <screen>groups
-etu adm cdrom floppy sudo audio dip video plugdev staff netdev <emphasis>lxd</emphasis></screen>
+etu adm sudo users <emphasis>incus-admin</emphasis> <emphasis>incus</emphasis></screen>
     </answer>
     </qandaentry>
     </qandaset>
     </sect2>
 
-    <sect2 xml:id='interco.inter-vlan.qa.lxd.init'>
-        <title>Configuration du gestionnaire de conteneurs LXD</title>
+    <sect2 xml:id='interco.inter-vlan.qa.incus.init'>
+        <title>Configuration du gestionnaire de conteneurs Incus</title>
 
     <qandaset defaultlabel='number'>
     <qandaentry>
     <question>
     <para><phrase>Quelle est l'instruction de configuration initiale du
-    gestionnaire <application>LXD</application>&nbsp;?</phrase></para>
+    gestionnaire <application>Incus</application>&nbsp;?</phrase></para>
 
-    <para>Utiliser l'aide de la commande <command>lxd</command>.</para>
+    <para>Utiliser l'aide de la commande <command>incus</command>.</para>
     </question>
     <answer>
-    <para>C'est l'instruction <userinput>lxd init</userinput> qui nous
+    <para>C'est l'instruction <userinput>incus admin init</userinput> qui nous
     intéresse.</para>
 
     <para>Voici une copie d'écran de son exécution.</para>
 
-<screen>lxd init
-Would you like to use LXD clustering? (yes/no) [default=no]:
+<screen>incus admin init</screen>
+
+<screen>Would you like to use clustering? (yes/no) [default=no]:
 Do you want to configure a new storage pool? (yes/no) [default=yes]:
 Name of the new storage pool [default=default]:
-Name of the storage backend to use (lvm, btrfs, ceph, cephobject, dir) [default=btrfs]:
-Create a new BTRFS pool? (yes/no) [default=yes]:
-Would you like to use an existing empty block device (e.g. a disk or partition)? (yes/no) [default=no]:
-Size in GiB of the new loop device (1GiB minimum) [default=23GiB]:
-Would you like to connect to a MAAS server? (yes/no) [default=no]:
 Would you like to create a new local network bridge? (yes/no) [default=yes]: <emphasis>no</emphasis>
-Would you like to configure LXD to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
+Would you like to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
 Name of the existing bridge or host interface: <emphasis>enp0s1</emphasis>
-Would you like the LXD server to be available over the network? (yes/no) [default=no]:
+Would you like the server to be available over the network? (yes/no) [default=no]:
 Would you like stale cached images to be updated automatically? (yes/no) [default=yes]:
-Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]:</screen>
+Would you like a YAML "init" preseed to be printed? (yes/no) [default=no]:</screen>
     </answer>
     </qandaentry>
 
     <qandaentry>
     <question>
     <para><phrase>Quelle est l'instruction qui permet d'afficher le profil par
-    défaut des conteneur&nbsp;?</phrase></para>
+    défaut des conteneurs&nbsp;?</phrase></para>
 
     <para>Rechercher dans les options de la commande
-    <command>lxc</command>.</para>
+    <command>incus profile</command>.</para>
     </question>
     <answer>
     <para>Voici un exemple d'exécution.</para>
 
-<screen>lxc profile show default
-config: {}
-description: Default LXD profile
+<screen>incus profile show default</screen>
+
+<screen>config: {}
+description: Default Incus profile
 devices:
   eth0:
     name: eth0
-    nictype: macvlan
-    parent: enp0s1
-    type: nic
+    nictype: <emphasis>macvlan</emphasis>
+    parent: <emphasis>enp0s1</emphasis>
+    type: <emphasis>nic</emphasis>
   root:
     path: /
-    pool: default
+    pool: <emphasis>default</emphasis>
     type: disk
 name: default
-used_by: []</screen>
+used_by: []
+project: default</screen>
+
+    <para>L'affichage de ce profil par défaut permet de vérifier que tous les
+    paramètres voulus sont correctement positionnés.</para>
     </answer>
     </qandaentry>
 
     <qandaentry>
     <question>
-    <para><phrase>Quelle est l'instruction de lancement d'un
-    conteneur&nbsp;?</phrase></para>
+    <para><phrase>Quelle est l'instruction de création et de lancement de
+    nouveaux conteneurs&nbsp;?</phrase></para>
 
     <para>Rechercher dans les options de la commande
-    <command>lxc</command>.</para>
+    <command>incus</command>.</para>
 
     <para>Tester son exécution avec un conteneur de type
-    <literal>debian/12</literal>.</para>
+    <literal>debian/trixie</literal>.</para>
     </question>
     <answer>
-    <para>Voici un exemple d'exécution.</para>
+    <para>Voici un exemple d'exécution pour 3 nouveaux conteneurs.</para>
 
-<screen>for i in {0..2}; do lxc launch images:debian/12 c$i; done
-Creating c0
-Starting c0
-Creating c1
-Starting c1
-Creating c2
-Starting c2</screen>
+<screen>for i in {0..2}; do incus launch images:debian/trixie c$i; done</screen>
 
-<screen>lxc ls
-+------+---------+------+-------------------------------------------+-----------+-----------+
-| NAME |  STATE  | IPV4 |                   IPV6                    |   TYPE    | SNAPSHOTS |
-+------+---------+------+-------------------------------------------+-----------+-----------+
-| c0   | RUNNING |      | fda0:7a62:1b8:0:216:3eff:fe9a:c1d1 (eth0) | CONTAINER | 0         |
-+------+---------+------+-------------------------------------------+-----------+-----------+
-| c1   | RUNNING |      | fda0:7a62:1b8:0:216:3eff:fe57:7019 (eth0) | CONTAINER | 0         |
-+------+---------+------+-------------------------------------------+-----------+-----------+
-| c2   | RUNNING |      | fda0:7a62:1b8:0:216:3eff:fe6b:c9de (eth0) | CONTAINER | 0         |
-+------+---------+------+-------------------------------------------+-----------+-----------+</screen>
+<screen>Launching c0
+Launching c1
+Launching c2</screen>
+
+<screen>incus ls</screen>
+
+<screen>+------+---------+--------------------+-------------------------------------------+-----------+-----------+
+| NAME |  STATE  |        IPV4        |                   IPV6                    |   TYPE    | SNAPSHOTS |
++------+---------+--------------------+-------------------------------------------+-----------+-----------+
+| c0   | RUNNING | 192.0.2.52 (eth0)  | fda0:7a62:1b8:0:216:3eff:febd:a233 (eth0) | CONTAINER | 0         |
++------+---------+--------------------+-------------------------------------------+-----------+-----------+
+| c1   | RUNNING | 192.0.2.133 (eth0) | fda0:7a62:1b8:0:216:3eff:fe8e:cc62 (eth0) | CONTAINER | 0         |
++------+---------+--------------------+-------------------------------------------+-----------+-----------+
+| c2   | RUNNING | 192.0.2.187 (eth0) | fda0:7a62:1b8:0:216:3eff:fe7d:6898 (eth0) | CONTAINER | 0         |
++------+---------+--------------------+-------------------------------------------+-----------+-----------+</screen>
+
+    <para>La copie d'écran ci-dessus montre que l'adressage automatique des
+    conteneurs depuis le routeur a fonctionné.</para>
     </answer>
     </qandaentry>
 
     <qandaentry>
     <question>
-    <para><phrase>Comment automatiser l'adressage <acronym>IPv4</acronym>
-    statique de chaque conteneur&nbsp;?</phrase></para>
+    <para><phrase>Comment tester les communications réseau depuis chaque
+    conteneur&nbsp;?</phrase></para>
+
+    <para>Rechercher dans les options de la commande <command>incus</command>
+    celle qui permet de lancer un traitement dans le conteneur.</para>
+    </question>
+    <answer>
+    <para>C'est la commande <command>incus exec</command> qui correspond à
+    notre besoin. Voici une exemple de boucle qui permet de lancer les tests
+    <acronym>ICMP</acronym> <acronym>IPv4</acronym> et <acronym>IPv6</acronym>
+    dans les 3 conteneurs actifs.</para>
+
+<screen>for i in {0..2}
+do
+    echo ">>>>>>>>>>>>>>>>> c$i"
+    incus exec c$i -- ping -qc2 9.9.9.9
+    incus exec c$i -- ping -qc2 2620:fe::fe
+done</screen>
+
+<screen>PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+
+--- 9.9.9.9 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1002ms
+rtt min/avg/max/mdev = 27.887/28.676/29.465/0.789 ms
+PING 2620:fe::fe (2620:fe::fe) 56 data bytes
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 41.727/48.212/54.697/6.485 ms
+>>>>>>>>>>>>>>>>> c1
+PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+
+--- 9.9.9.9 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 28.179/34.740/41.302/6.561 ms
+PING 2620:fe::fe (2620:fe::fe) 56 data bytes
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 40.002/40.529/41.057/0.527 ms
+>>>>>>>>>>>>>>>>> c2
+PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+
+--- 9.9.9.9 ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1002ms
+rtt min/avg/max/mdev = 28.539/35.408/42.278/6.869 ms
+PING 2620:fe::fe (2620:fe::fe) 56 data bytes
+
+--- 2620:fe::fe ping statistics ---
+2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1002ms
+rtt min/avg/max/mdev = 40.428/47.517/54.606/7.089 ms</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment exécuter des jeux d'instructions dans les conteneurs
+    depuis le serveur d'hébergement&nbsp;?</phrase></para>
+
+    <para>On entre ici dans le domaine de l'automatisation à l'aide de scripts
+    <citetitle>Bash</citetitle>. Même si l'ambition reste très modeste, on peut
+    développer un script qui utilise la liste des conteneurs actifs pour lancer
+    une suite de traitements dans ces mêmes conteneurs.</para>
+
+    <para>Comme les conteneurs <citetitle>Incus</citetitle> appartiennent à la
+    famille des conteneurs système, ils disposent d'une arborescence complète
+    et d'une gestion de paquets. Allons y pour une mise à jour des paquets de
+    chaque conteneur actif.</para>
+    </question>
+    <answer>
+    <para>Voici un exemple de code qui stocke les commandes à lancer dans un
+    tableau et qui les exécute sur chacun des conteneurs actifs.</para>
+
+<screen>#!/bin/bash
+
+cmds=(
+  "apt -y update"
+  "apt -y full-upgrade"
+  "apt -y clean"
+  "apt -y autopurge"
+)
+
+clist=$(incus list status=running -c n -f compact | grep -v NAME | tr '\n' ' ' | tr -s ' ')
+
+for c in $clist; do
+  echo ">>>>>>>>>>>>>>>>> $c"
+  for cmd in "${cmds[@]}"; do
+    eval "incus exec $c -- $cmd"
+  done
+done
+
+exit 0</screen>
+
+    <para>Si ce script est enregistré dans le fichier
+    <filename>run-commands-in-containers.sh</filename>, on peut lancer les
+    traitements comme dans l'exemple ci-dessous.</para>
+
+<screen>bash run-commands-in-containers.sh
+>>>>>>>>>>>>>>>>> c0
+Hit:1 http://deb.debian.org/debian trixie InRelease
+Hit:2 http://deb.debian.org/debian trixie-updates InRelease
+Hit:3 http://deb.debian.org/debian-security trixie-security InRelease
+All packages are up to date.
+Summary:
+  Upgrading: 0, Installing: 0, Removing: 0, Not Upgrading: 0
+Summary:
+  Upgrading: 0, Installing: 0, Removing: 0, Not Upgrading: 0
+>>>>>>>>>>>>>>>>> c1
+Hit:1 http://deb.debian.org/debian trixie InRelease
+Hit:2 http://deb.debian.org/debian trixie-updates InRelease
+Hit:3 http://deb.debian.org/debian-security trixie-security InRelease
+All packages are up to date.
+Summary:
+  Upgrading: 0, Installing: 0, Removing: 0, Not Upgrading: 0
+Summary:
+  Upgrading: 0, Installing: 0, Removing: 0, Not Upgrading: 0
+>>>>>>>>>>>>>>>>> c2
+Hit:1 http://deb.debian.org/debian trixie InRelease
+Hit:2 http://deb.debian.org/debian trixie-updates InRelease
+Hit:3 http://deb.debian.org/debian-security trixie-security InRelease
+All packages are up to date.
+Summary:
+  Upgrading: 0, Installing: 0, Removing: 0, Not Upgrading: 0
+Summary:
+  Upgrading: 0, Installing: 0, Removing: 0, Not Upgrading: 0</screen>
+
+    <para>Pour compléter, voici une seconde version du script qui utilise les
+    arguments de la ligne de commande pour remplir le tableau des commandes à
+    exécuter.</para>
+
+<screen>#!/bin/bash
+
+cmds=("$@")
+
+clist=$(incus list status=running -c n -f compact | grep -v NAME | tr '\n' ' ' | tr -s ' ')
+
+for c in $clist; do
+  echo ">>>>>>>>>>>>>>>>> $c"
+  for cmd in "${cmds[@]}"; do
+    eval "incus exec $c -- $cmd"
+  done
+done</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment passer d'un adressage automatique à un adressage
+    statique pour chaque conteneur&nbsp;?</phrase></para>
 
     <para>Comme la gestion de la configuration des interfaces est assurée par
     <systemitem>systemd-networkd</systemitem>, il faut s'intéresser à la
     syntaxe du fichier <filename>/etc/systemd/network/eth0.network</filename>
     de chaque conteneur.</para>
 
-    <para>Une fois la syntaxe d'un fichier de configuration établie, il faut
-    l'intégrer dans un script Bash avec une boucle qui parcourt toutes les
-    instances de conteneurs.</para>
+    <para>Cette question est un prétexte pour utiliser le transfert de fichier
+    depuis le serveur d'hébergement vers les conteneurs.</para>
+
+    <para>Voici une liste des actions à réaliser sur tous les conteneurs
+    actifs.</para>
+    <orderedlist>
+    <listitem>
+    <para>Installer le paquet <application>netplan.io</application></para>
+    </listitem>
+    <listitem>
+    <para>Générer le fichier de déclaration <acronym>YAML</acronym> des
+    paramètres de configuration réseau des interfaces
+    <systemitem>eth0</systemitem></para>
+    </listitem>
+    <listitem>
+    <para>Transférer le fichier de déclaration <acronym>YAML</acronym> dans le
+    dossier <filename class='directory'>/etc/netplan/</filename></para>
+    </listitem>
+    <listitem>
+    <para>Effacer le fichier
+    <filename>/etc/systemd/network/eth0.network</filename></para>
+    </listitem>
+    <listitem>
+    <para>Appliquer la nouvelle configuration réseau</para>
+    </listitem>
+    </orderedlist>
     </question>
     <answer>
-    <para>Voici une proposition de code qui permet d'appliquer une
-    configuration statique et de redémarrer le gestionnaire de configuration
-    réseau de chacun des trois conteneurs.</para>
+    <para>Pour connaître les paramètres de configuration réseau d'une interface
+    de conteneur, on peut extraire le fichier
+    <filename>/etc/systemd/network/eth0.network</filename> et consulter son
+    contenu.</para>
 
-<screen>#!/bin/bash
+<screen>incus file pull c0/etc/systemd/network/eth0.network .
+cat eth0.network</screen>
 
-for i in {0..2}
-do
-        echo ">>>>>>>>>>>>>>>>> c$i"
-config=$(cat &lt;&lt; EOF
-[Match]
+<screen>[Match]
 Name=eth0
 
 [Network]
-DHCP=false
-Address=192.0.2.$((i + 10))/24
-Address=fda0:7a62:1b8::$(printf "%x" $((i + 10)))/64
-Gateway=192.0.2.1
-DNS=172.16.0.2
+DHCP=true
+
+[DHCPv4]
+UseDomains=true
+
+[DHCP]
+ClientIdentifier=mac</screen>
+
+    <para>On vérifie ainsi que la configuration réseau issue de la source de
+    tirage des conteneurs implique un adressage automatique au moins en
+    <acronym>IPv4</acronym>. On propose donc de remplacer cet adressage
+    automatique par un adressage statique.</para>
+
+    <para>Voici une proposition de script qui traite chacun des points définis
+    dans la question.</para>
+
+<screen>#!/bin/bash
+
+# Préparation -> générer la liste des conteneurs actifs
+clist=$(incus list status=running -c n -f compact | grep -v NAME | tr '\n' ' ' | tr -s ' ')
+
+# Étape 1 -> installer le paquet netplan.io
+. run-commands-in-containers.sh "apt -y install netplan.io"
+
+addr_idx=0
+for c in $clist; do
+  echo ">>>>>>>>>>>>>>>>> $c"
+
+# Étape 2 -> générer le fichier de configuration réseau YAML
+$(cat &lt;&lt; EOF > eth0.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: false
+      dhcp6: false
+      accept-ra: true
+      addresses:
+        - 192.0.2.$((addr_idx + 10))/24
+        - fda0:7a62:1b8::$(printf "%x" $((addr_idx + 10)))/64
+      routes:
+        - to: default
+          via: 192.0.2.1
+        - to: "::/0"
+          via: fe80::baad:caff:fefe:5
+          on-link: true
+      nameservers:
+        addresses:
+          - 172.16.0.2
+          - 2001:678:3fc:3::2
 EOF
 )
-        lxc exec c$i -- bash -c "echo \"${config}\" | tee /etc/systemd/network/eth0.network"
-        lxc exec c$i -- systemctl restart systemd-networkd
+
+# Étape 3 -> transférer le fichier de déclaration YAML
+  incus file push eth0.yaml $c/etc/netplan/eth0.yaml
+
+# Étape 4 -> effacer le fichier /etc/systemd/network/eth0.network
+  incus exec $c -- rm /etc/systemd/network/eth0.network
+
+# Étape 5 -> appliquer la nouvelle configuration
+  incus exec $c -- netplan apply
+
+  ((addr_idx++))
 done
 
 exit 0</screen>
 
     <para>Si le code du script ci-dessus est placé dans un fichier appelé
-    <filename>c-static-addresses.sh</filename>, on peut l'exécuter directement
-    et relever les résultats.</para>
+    <filename>set-static-addressing.sh</filename>, on peut l'exécuter
+    directement et relever les résultats.</para>
 
-<screen>bash c-static-addresses.sh</screen>
+<screen>bash set-static-addressing.sh</screen>
 
-<screen>lxc ls
+<screen>incus ls
 +------+---------+-------------------+-------------------------------------------+-----------+-----------+
 | NAME |  STATE  |       IPV4        |                   IPV6                    |   TYPE    | SNAPSHOTS |
 +------+---------+-------------------+-------------------------------------------+-----------+-----------+
 | c0   | RUNNING | 192.0.2.10 (eth0) | fda0:7a62:1b8::a (eth0)                   | CONTAINER | 0         |
-|      |         |                   | fda0:7a62:1ae:0:216:3eff:fe9a:c1d1 (eth0) |           |           |
+|      |         |                   | fda0:7a62:1b8:0:216:3eff:febd:a233 (eth0) |           |           |
 +------+---------+-------------------+-------------------------------------------+-----------+-----------+
 | c1   | RUNNING | 192.0.2.11 (eth0) | fda0:7a62:1b8::b (eth0)                   | CONTAINER | 0         |
-|      |         |                   | fda0:7a62:1ae:0:216:3eff:fe57:7019 (eth0) |           |           |
+|      |         |                   | fda0:7a62:1b8:0:216:3eff:fe8e:cc62 (eth0) |           |           |
 +------+---------+-------------------+-------------------------------------------+-----------+-----------+
 | c2   | RUNNING | 192.0.2.12 (eth0) | fda0:7a62:1b8::c (eth0)                   | CONTAINER | 0         |
-|      |         |                   | fda0:7a62:1ae:0:216:3eff:fe6b:c9de (eth0) |           |           |
+|      |         |                   | fda0:7a62:1b8:0:216:3eff:fe7d:6898 (eth0) |           |           |
 +------+---------+-------------------+-------------------------------------------+-----------+-----------+</screen>
-    </answer>
-    </qandaentry>
-
-    <qandaentry>
-    <question>
-    <para><phrase>Comment vérifier la connectivité réseau depuis les
-    conteneurs&nbsp;?</phrase></para>
-
-    <para>La question précédente montre qu'à ce stade de la configuration les
-    conteneurs ne disposent que d'adresses <acronym>IPv6</acronym>. C'est donc
-    sur ce protocole que les tests doivent porter.</para>
-    </question>
-    <answer>
-    <para>Voici un exemple de test <acronym>ICMP</acronym>.</para>
-
-<screen>for i in {0..2}
-do
-    echo ">>>>>>>>>>>>>>>>> c$i"
-    lxc exec c$i -- ping -c2 2620:fe::fe
-done
->>>>>>>>>>>>>>>>> c0
-PING 2620:fe::fe(2620:fe::fe) 56 data bytes
-64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=44.8 ms
-64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=42.9 ms
-
---- 2620:fe::fe ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1002ms
-rtt min/avg/max/mdev = 42.936/43.857/44.778/0.921 ms
->>>>>>>>>>>>>>>>> c1
-PING 2620:fe::fe(2620:fe::fe) 56 data bytes
-64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=43.4 ms
-64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=42.8 ms
-
---- 2620:fe::fe ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1002ms
-rtt min/avg/max/mdev = 42.762/43.104/43.447/0.342 ms
->>>>>>>>>>>>>>>>> c2
-PING 2620:fe::fe(2620:fe::fe) 56 data bytes
-64 bytes from 2620:fe::fe: icmp_seq=1 ttl=58 time=43.6 ms
-64 bytes from 2620:fe::fe: icmp_seq=2 ttl=58 time=42.7 ms
-
---- 2620:fe::fe ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1002ms
-rtt min/avg/max/mdev = 42.676/43.144/43.612/0.468 ms</screen>
-
-    <para>On peut ensuite passer à la gestion de paquets après paramétrage du
-    <wordasword>resolver</wordasword> <acronym>DNS</acronym>.</para>
-
-<screen>for i in {0..2}
-do
-    echo ">>>>>>>>>>>>>>>>> c$i"
-    lxc exec c$i -- apt update
-    lxc exec c$i -- apt -y full-upgrade
-    lxc exec c$i -- apt clean
-done</screen>
     </answer>
     </qandaentry>
     </qandaset>
     </sect2>
+</sect1>
+<sect1 xml:id='interco.inter-vlan.qa.conclusion'>
+    <title>Pour conclure</title>
+
+    <para>Le routage inter-VLAN joue un rôle essentiel dans les environnements
+    de virtualisation et les réseaux en nuage modernes. Cette technique permet
+    une segmentation logique efficace des réseaux, offrant une flexibilité et
+    une sécurité accrues dans des infrastructures complexes. En permettant la
+    communication entre différents VLANs via un routeur, elle facilite la
+    création de topologies réseau évolutives et adaptables.</para>
+
+    <para>L'outil <application>Incus</application> se distingue par sa
+    simplicité d'utilisation et sa flexibilité, offrant une gestion efficace
+    des conteneurs et des machines virtuelles. Sa capacité à gérer divers modes
+    d'interconnexion réseau, comme le mode &url.macvlan; utilisé dans ce
+    document, en fait un choix idéal pour les administrateurs système cherchant
+    à optimiser et automatiser leurs infrastructures.</para>
+
+    <para>Enfin, pour ce qui est de l'automatisation, les traitements
+    “atomiques” proposés sont pertinents. Ce qui est nettement moins
+    satisfaisant, c'est l'utilisation des boucles dans des scripts Bash. Si
+    l'automatisation dépasse le cadre des manipulations proposées ici, il ne
+    faut pas oublier la séparation entre l'inventaire des dispositifs (routeur,
+    commutateurs, machines virtuelles, conteneurs) et les procédures est un
+    pilier essentiel d'une automatisation efficace.</para>
 </sect1>
 </article>
