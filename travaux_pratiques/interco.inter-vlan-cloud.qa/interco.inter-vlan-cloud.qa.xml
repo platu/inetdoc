@@ -60,10 +60,10 @@
         <entry>
         <inlinemediaobject>
         <imageobject role='html'>
-            <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='320px' scalefit='1'/>
+            <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='360px' scalefit='1'/>
         </imageobject>
         <imageobject role='fo'>
-            <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='5.5cm' scalefit='1'/>
+            <imagedata fileref='images/inter-VLAN-logical-topology.png' format='PNG' width='6cm' scalefit='1'/>
         </imageobject>
         </inlinemediaobject>
         </entry>
@@ -376,7 +376,7 @@ Configuring switch dsw-host
       force_copy: false # do not force copy the master image to the VM image
       memory: 1024
       tapnum: 5
-    - vm_name: c-hosting
+    - vm_name: hosting
       master_image: debian-testing-amd64.qcow2 # master image to be used
       force_copy: false # do not force copy the master image to the VM image
       memory: 1024
@@ -399,17 +399,17 @@ Starting router...
 ~> Switch port interface      : tap5, trunk mode
 ~> IPv6 LL address            : fe80::baad:caff:fefe:5%dsw-host
 router started!
-Copying /home/etudianttest/masters/debian-testing-amd64.qcow2 to c-hosting.qcow2...done
-Creating c-hosting_OVMF_VARS.fd file...
-Starting c-hosting...
-~> Virtual machine filename   : c-hosting.qcow2
+Copying /home/etudianttest/masters/debian-testing-amd64.qcow2 to hosting.qcow2...done
+Creating hosting_OVMF_VARS.fd file...
+Starting hosting...
+~> Virtual machine filename   : hosting.qcow2
 ~> RAM size                   : 1024MB
 ~> SPICE VDI port number      : 5906
 ~> telnet console port number : 2306
 ~> MAC address                : b8:ad:ca:fe:00:06
 ~> Switch port interface      : tap6, access mode
 ~> IPv6 LL address            : fe80::baad:caff:fefe:6%vlan440
-c-hosting started!</screen>
+hosting started!</screen>
 
     <para>Les deux machines virtuelles sont maintenant disponibles pour la
     suite des manipulations.</para>
@@ -790,17 +790,23 @@ flush ruleset
 table ip nat {
     chain postrouting {
         type nat hook postrouting priority 100;
-        oifname "enp0s1.360" counter packets 0 bytes 0 masquerade
+        oifname "<emphasis>enp0s1.360</emphasis>" counter packets 0 bytes 0 masquerade
     }
 }
 
 table ip6 nat {
     chain postrouting {
         type nat hook postrouting priority 100;
-        oifname "enp0s1.360" counter packets 0 bytes 0 masquerade
+        oifname "<emphasis>enp0s1.360</emphasis>" counter packets 0 bytes 0 masquerade
     }
 }
 EOF</screen>
+
+    <warning>
+    <para>Il faut impérativement changer le nom d'interface en utilisant le
+    numéro de <acronym>VLAN</acronym> attribué dans le plan d'adressage des
+    travaux pratiques.</para>
+    </warning>
 
 	<para>La création de ce fichier de règles n'est pas suffisante. Il faut
 	appliquer les règles contenues dans le fichier.</para>
@@ -917,29 +923,35 @@ table ip6 nat {
     <para>Voici un exemple de configuration adaptée à la maquette.</para>
 
 <screen>cat &lt;&lt; EOF | sudo tee /etc/dnsmasq.conf
-# Enable DHCPv4
-dhcp-range=192.0.2.20,192.0.2.200,3h
+# Specify Container VLAN interface
+interface=<emphasis>enp0s1.440</emphasis>
+
+# Enable DHCPv4 on Container VLAN
+dhcp-range=<emphasis>192.0.2.20,192.0.2.200</emphasis>,3h
 
 # Enable IPv6 router advertisements
 enable-ra
 
 # Enable SLAAC
-dhcp-range=::,constructor:enp0s1.440,ra-names,slaac
-
-# Specify interface
-interface=enp0s1.440
+dhcp-range=::,constructor:<emphasis>enp0s1.440</emphasis>,ra-names,slaac
 
 # Optional: Specify DNS servers
 dhcp-option=option:dns-server,172.16.0.2,9.9.9.9
 dhcp-option=option6:dns-server,[2001:678:3fc:3::2],[260:fe::fe]
 
-# Overcome DNS listen port conflict between dnsmasq and systemd-resolved
+# Avoid DNS listen port conflict between dnsmasq and systemd-resolved
 bind-interfaces
-listen-address=192.0.2.1
+listen-address=<emphasis>192.0.2.1</emphasis>
 EOF</screen>
 
-    <para>Attention ! Une fois le fichier créé, il ne faut pas oublier de
+    <warning>
+    <para>Il faut impérativement changer le numéro de VLAN ainsi que les
+    adresses <acronym>IPv4</acronym> de l'exemple ci-dessus par les
+    informations données dans le plan d'adressage des travaux pratiques.</para> 
+
+    <para>De plus, une fois le fichier créé, il ne faut pas oublier de
     redémarrer le service et de contrôler l'état de son fonctionnement.</para>
+    </warning>
 
 <screen>sudo systemctl restart dnsmasq
 systemctl status dnsmasq</screen>
@@ -1546,6 +1558,7 @@ exit 0</screen>
     directement et relever les résultats.</para>
 
 <screen>bash set-static-addressing.sh</screen>
+<screen>incus restart --all</screen>
 
 <screen>incus ls
 +------+---------+-------------------+-------------------------------------------+-----------+-----------+
