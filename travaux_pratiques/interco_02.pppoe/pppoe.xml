@@ -1,0 +1,2501 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V5.0//EN"
+        "/usr/share/xml/docbook/schema/dtd/5.0/docbook.dtd"[
+
+<!ENTITY author				SYSTEM "author.xml">
+<!ENTITY legal				SYSTEM "legal.xml">
+
+<!-- urls -->
+<!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
+%rfc_urls;
+
+<!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.xml'>
+%inetdoc_urls;
+
+<!ENTITY url.ppp-wikipedia
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/Point-to-Point_Protocol">
+<citetitle>Point-to-Point Protocol</citetitle></link>'>
+
+<!ENTITY url.pppoe-wikipedia
+'<link xmlns="http://docbook.org/ns/docbook" xlink:href="https://en.wikipedia.org/wiki/Point-to-point_protocol_over_Ethernet">
+<citetitle>Point-to-point protocol over Ethernet</citetitle></link>'>
+
+<!-- A copy of http://www.w3.org/2003/entities/2007/w3centities-f.ent is at:
+/usr/local/share -->
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"/usr/local/share/w3centities-f.ent">
+%w3centities-f;
+]>
+
+<article xml:lang='fr' xml:id='pppoe'>
+<info>
+	<title>Routage inter-VLAN et protocole PPPoE</title>
+	&author;
+<abstract>
+<para>
+	<informaltable frame='none' pgwide='1'>
+	<tgroup cols='2' align='left' colsep='0' rowsep='0'>
+	<colspec colwidth='5*'/>
+	<colspec colwidth='220px'/>
+	<tbody>
+	<row>
+		<entry valign='top'>
+        <para>La généralisation de l'utilisation de la fibre optique dans les
+        réseaux étendus (<acronym>WAN</acronym>) jusqu'au raccordement
+        domestique s'est accompagnée d'un changement important au niveau des
+        liaisons de données. La technologie Ethernet est devenue universelle et
+        couvre tous les besoins de commutation de circuits.</para>
+
+        <para>Cependant, pour raccorder les sites d'entreprises via des réseaux
+        d'opérateurs, les fonctions historiques du protocole
+        <acronym>PPP</acronym> (<wordasword>Point-to-Point
+        Protocol</wordasword>) sont toujours utiles. C'est là que le protocole
+        <acronym>PPPoE</acronym> intervient. Il permet d'associer un réseau de
+        diffusion Ethernet avec un fonctionnement point à point typique des
+        réseaux étendus.</para>
+
+        <para>Le but des manipulations présentées dans ce document est
+        d'illustrer la mise en œuvre d'une session <acronym>PPPoE</acronym>
+        entre un routeur virtuel central et un site distant factice (une autre
+        machine virtuelle) qui héberge quelques services.</para>
+		</entry>
+		<entry>
+		<inlinemediaobject>
+		<imageobject role='html'>
+			<imagedata fileref='images/pppoe-cloud-logical-topology.png' format='PNG' width='220px' scalefit='1'/>
+		</imageobject>
+		<imageobject role='fo'>
+			<imagedata fileref='images/pppoe-cloud-logical-topology.png' format='PNG' width='4.5cm' scalefit='1'/>
+	    </imageobject>
+		</inlinemediaobject>
+		</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</informaltable>
+</para>
+</abstract>
+<keywordset>
+	<keyword>8021q</keyword>
+	<keyword>access</keyword>
+	<keyword>arp</keyword>
+	<keyword>dot1q</keyword>
+	<keyword>ieee802.1q</keyword>
+	<keyword>iproute2</keyword>
+	<keyword>iptables</keyword>
+	<keyword>incus</keyword>
+	<keyword>openvswitch</keyword>
+	<keyword>route</keyword>
+	<keyword>routing</keyword>
+	<keyword>sysctl</keyword>
+	<keyword>trunk</keyword>
+</keywordset>
+</info>
+
+<sect1 xml:id='pppoe.meta'>
+	&legal;
+	<bridgehead xml:id='pppoe.meta.file'
+	renderas='sect2'>Méta-information</bridgehead>
+
+	<para>Ce document est écrit avec <link
+	xlink:href="http://www.docbook.org"><citetitle>DocBook</citetitle></link>
+	XML sur un système <link
+	xlink:href="https://www.debian.org"><citetitle>Debian
+	GNU/Linux</citetitle></link>. Il est disponible en version imprimable au
+	format PDF : <link
+	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+</sect1>
+
+<sect1 xml:id='pppoe.ethernet'>
+	<title>Interface Ethernet &amp; protocole PPP</title>
+
+    <para>Le format de trame historique <acronym>HDLC</acronym> est abandonné.
+    Il faut dire que ce format de trame date du développement des liaisons
+    séries asynchrones. Aujourd'hui, les liaisons sur fibres optiques sont
+    <wordasword>Full-Duplex</wordasword> et on ne se préoccupe plus de
+    synchronisation au niveau de la couche liaison de données. Le format de
+    trame Ethernet devient ainsi une référence universelle.</para>
+
+    <para>Le protocole <acronym>PPP</acronym> offre depuis l'origine une
+    configuration indépendante de la technologie du réseau étendu aussi bien au
+    niveau de la couche liaison que de la couche réseau.</para>
+
+    <para>L'association entre trame Ethernet et <acronym>PPP</acronym> se fait
+    grâce à un autre protocole baptisé <acronym>PPPoE</acronym>. Ce dernier
+    permet d'encapsuler des trames <acronym>PPP</acronym> dans des trames
+    Ethernet. Il est décrit à la page &url.pppoe-wikipedia; qui permet de
+    traiter les questions ci-après.</para>
+
+<qandaset defaultlabel='number'>
+	<qandadiv>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est la raison de l'ajout d'un nouveau protocole entre
+	Ethernet et <acronym>PPP</acronym>&nbsp;?</phrase></para>
+
+	<para>Consulter la page &url.pppoe-wikipedia;.</para>
+	</question>
+	<answer>
+    <para>Le protocole <acronym>PPP</acronym>, initialement destiné aux
+    liaisons point à point, nécessite un mécanisme de découverte des extrémités
+    pour fonctionner sur un réseau local Ethernet, qui est un réseau de
+    diffusion où le canal de transmission est partagé entre tous les
+    hôtes.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+    <para><phrase>Quels sont les messages de découverte et de session
+    <acronym>PPPoE</acronym>&nbsp;? Préciser qui est l'initiative de la
+    découverte.</phrase></para>
+
+	<para>Consulter la page &url.pppoe-wikipedia;.</para>
+	</question>
+	<answer>
+	<itemizedlist>
+	<listitem>
+	<para>Client to server: Initiation (PADI)</para>
+	</listitem>
+	<listitem>
+	<para>Server to client: Offer (PADO)</para>
+	</listitem>
+	<listitem>
+	<para>Client to server: request (PADR)</para>
+	</listitem>
+	<listitem>
+	<para>Server to client: session-confirmation (PADS)</para>
+	</listitem>
+	<listitem>
+	<para>Either end to other end: termination (PADT)</para>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les autres mécanismes de découverte de voisins
+	connus dans un réseau local Ethernet&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>Voici la liste des «grands classiques».</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Address Resolution Protocol (<acronym>ARP</acronym>).</para>
+
+	<para>Quelle est l'adresse <acronym>MAC</acronym> d'un hôte dont on connaît
+	l'adresse <acronym>IPv4</acronym>&nbsp;?</para>
+	</listitem>
+	<listitem>
+	<para>Neighbor Discovery Protocol (<acronym>NDP</acronym>).</para>
+
+	<para>Ce protocole est associé à <acronym>IPv6</acronym>. Il définit 5
+	messages <acronym>ICMPv6</acronym> qui couvrent les mêmes opérations que
+	celles réalisées par le protocole <acronym>ARP</acronym> sans avoir recours
+	à la diffusion et qui ajoutent de nouvelles fonctions.</para>
+	</listitem>
+	<listitem>
+	<para>Multicast DNS (<acronym>mDNS</acronym>) ou
+		<wordasword>Bonjour</wordasword>.</para>
+
+	<para>Ce protocole entre dans la famille <wordasword>zeroconf</wordasword>
+	qui a pour but d'annoncer et de fournir des éléments de configuration aux
+	hôtes du réseau sans faire appel à une infrastructure de services de la
+	couche application tels que <acronym>DNS</acronym> et
+	<acronym>DHCP</acronym>.</para>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+	</qandadiv>
+</qandaset>
+</sect1>
+
+<sect1 xml:id='pppoe.topology'>
+	<title>Topologies logiques et virtuelles</title>
+
+    <para>La représentation de la topologie logique ci-dessous montre deux
+    routeurs. Le routeur placé à gauche assure l'interconnexion entre un réseau
+    d'infrastructure (VLAN rouge) et le réseau opérateur (VLAN violet). Le
+    routeur placé à droite assure l'interconnexion entre le même réseau
+    opérateur et le réseau du site distant (VLAN vert). Les services hébergés
+    sur le site distant sont compris dans le même réseau (VLAN vert).</para>
+
+    <para>Sur le réseau étendu factice, on distingue deux autres
+    <acronym>VLAN</acronym>s&nbsp;: le VLAN violet appelé <citetitle>Management
+    VLAN</citetitle> est utilisé pour la supervision et le VLAN orange appelé
+    <citetitle>Data VLAN</citetitle> est utilisé pour acheminer les données
+    entre le site central (<citetitle>Hub</citetitle>) et le site distant
+    (<citetitle>Spoke</citetitle>).</para>
+
+    <para>C'est sur ce dernier réseau (VLAN orange) que la session
+    <acronym>PPPoE</acronym> doit être établie pour que le plan d'adressage
+    réseau de l'entreprise soit conforme.</para>
+
+    <para>Enfin, les deux rectangles en gris pointillé identifient les machines
+    virtuelles utilisées pour les manipulations.</para>
+
+	<mediaobject>
+	<imageobject role='html'>
+	<imagedata fileref='images/pppoe-logical-topology.png' format='PNG' width='720px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+	<imagedata fileref='images/pppoe-logical-topology.png' format='PNG' width='16cm' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie type</phrase>
+	</textobject>
+	<caption>
+	<para><link xlink:href='images/pppoe-logical-topology.png'>Topologie logique</link></para>
+	</caption>
+	</mediaobject>
+
+	<para>La représentation de la topologie vue sous l'angle de l'hébergement
+	sur un système hôte hyperviseur montre que le <acronym>VLAN</acronym> de
+	couleur verte appelé <wordasword>Container VLAN</wordasword> n'est visible
+	qu'à l'intérieur de la machine virtuelle qui représente le site distant. Ce
+	<acronym>VLAN</acronym> est isolé et ses préfixes réseau
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> doivent être
+	<emphasis>routés</emphasis>. C'est la raison pour laquelle la machine
+	virtuelle du site distant dispose de son propre commutateur&nbsp;:
+	<systemitem>asw-host</systemitem>.</para>
+
+	<para>Tous les autres <acronym>VLANs</acronym> sont présents sur le
+	commutateur virtuel de couche distribution appelé
+	<systemitem>dsw-host</systemitem>. Ce commutateur appartient au système
+	hôte. Il assure le raccordement entre les réseaux physiques et virtualisés.
+	Chacun des routeurs bleu et vert est raccordé avec un lien unique (port en
+	mode <wordasword>trunk</wordasword>) sur lequel le trafic des
+	<acronym>VLANs</acronym> doit transiter.</para>
+
+	<para>Côté conteneurs, le raccordement au commutateur
+	<systemitem>asw-host</systemitem> sera assuré automatiquement par le
+	gestionnaire <citetitle>LXD</citetitle>.</para>
+
+	<mediaobject>
+	<imageobject role='html'>
+	<imagedata fileref='images/pppoe-cloud-hypervisor-topology.png' format='PNG' width='700px' scalefit='1'/>
+	</imageobject>
+	<imageobject role='fo'>
+	<imagedata fileref='images/pppoe-cloud-hypervisor-topology.png' format='PNG' width='16cm' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie type</phrase>
+	</textobject>
+	<caption>
+	<para><link xlink:href='images/pppoe-cloud-hypervisor-topology.png'>Topologie hébergée</link></para>
+	</caption>
+	</mediaobject>
+
+	<para>Voici le plan d'adressage utilisé pour la maquette qui sert à la
+	rédaction de ce support de travaux pratiques.</para>
+
+<table frame='all' pgwide='1'>
+	<title>Affectation des numéros de VLANs, des adresses de passerelle et des
+	authentifiants</title>
+	<tgroup cols='5' align='left' colsep='1' rowsep='1'>
+	<colspec colname='c1' colwidth='1*'/>
+	<colspec colname='c2' colwidth='1*'/>
+	<colspec colname='c3' colwidth='1*'/>
+	<colspec colname='c4' colwidth='1*'/>
+	<colspec colname='c5' colwidth='2*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333" ?>
+		<?dbfo color="#fff" ?>
+		<entry>Planète</entry>
+		<entry>VLAN</entry>
+		<entry>Numéro</entry>
+		<entry>Type</entry>
+		<entry>Adresse</entry>
+	</row>
+	</thead>
+	<tbody>
+	<!-- Maquette -->
+	<row>
+	<entry morerows='5' valign='middle'>Maquette</entry>
+	<entry>Rouge</entry>
+	<entry>360</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>192.168.104.130/29</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:168::1/64</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Violet</entry>
+	<entry morerows='1'>440</entry>
+	<entry morerows='1'>Adresse</entry>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1b8::1</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>
+		<systemitem class='ipaddress'>fe80:1b8::2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry morerows='1'>Orange</entry>
+	<entry morerows='1'>441</entry>
+	<entry>Point à point</entry>
+	<entry>
+		<systemitem class='ipaddress'>10.4.41.1:10.4.41.2</systemitem>
+	</entry>
+	</row>
+	<row>
+	<entry>Authentifiants</entry>
+	<entry><systemitem>green / 5p0k3</systemitem></entry>
+	</row>
+	<row>
+	<entry>Vert</entry>
+	<entry>40</entry>
+	<entry>Passerelle</entry>
+	<entry>
+		<systemitem class='ipaddress'>203.0.113.1/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>fda0:7a62:28::1/64</systemitem>
+	</entry>
+	</row>
+	</tbody>
+	</tgroup>
+</table>
+</sect1>
+
+<sect1 xml:id='pppoe.dsw'>
+	<title>Raccordement au commutateur de distribution</title>
+
+	<para>Dans cette section, on étudie le raccordement des deux machines
+	virtuelles au commutateur de distribution sur le système hôte.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment contrôler la configuration des ports du commutateur
+	de distribution sur le système hôte&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>Le commutateur virtuel implanté sur le système hôte est géré par
+	<citetitle>Open vSwitch</citetitle>. On fait donc appel à la commande
+	<command>ovs-vsctl</command> pour afficher la configuration des ports. Le
+	mot clé dans le cas de cette question est
+	<option>vlan_mode</option>.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Pour le port de raccordement du routeur bleu, on
+	obtient&nbsp;:</para>
+
+<screen>sudo ovs-vsctl list port tap200 | grep vlan_mode
+vlan_mode           : <emphasis>trunk</emphasis></screen>
+	</listitem>
+	<listitem>
+	<para>Pour le port de raccordement du routeur vert, on
+	obtient&nbsp;:</para>
+
+<screen>sudo ovs-vsctl list port tap201 | grep vlan_mode
+vlan_mode           : <emphasis>trunk</emphasis></screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment s'assurer que le port du commutateur est bien configuré à
+	chaque nouveau lancement de machine virtuelle&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>On place les commandes de configuration dans une section dédiée du
+	script de lancement. Voici deux exemples de script de lancement&nbsp;:</para>
+<screen>#!/bin/bash
+RAM=1024
+
+echo "Lancement routeur Bleu ou Vert"
+SWITCH_PORT=200
+
+sudo ovs-vsctl set port tap$SWITCH_PORT vlan_mode=trunk
+
+$HOME/vm/scripts/ovs-startup.sh router.qcow2 $RAM $SWITCH_PORT</screen>
+
+	<para>Les numéros de port et de <acronym>VLAN</acronym> donnés dans les
+	exemples ci-dessus sont à changer suivant le contexte.</para>
+	</answer>
+	</qandaentry>
+	</qandaset>
+</sect1>
+
+<sect1 xml:id='pppoe.hub'>
+	<title>Routeur Hub (bleu)</title>
+
+	<para>Dans cette section, on étudie la machine virtuelle qui joue le rôle
+	de routeur entre le réseau opérateur et le réseau étendu qui dessert le
+	site distant.</para>
+
+	<sect2 xml:id='pppoe.hub.interfaces'>
+		<title>Configuration des interfaces du routeur</title>
+
+	<para>Une fois la machine virtuelle routeur lancée, les premières étapes
+	consistent à lui attribuer un nouveau nom et à configurer les interfaces
+	réseau pour joindre les hôtes voisins.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment changer le nom de la machine
+	virtuelle&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>Il faut éditer les deux fichiers <filename>/etc/hosts</filename> et
+	<filename>/etc/hostname</filename> en remplaçant le nom de l'image
+	maître <citetitle>vm0</citetitle> par le nom voulu. Il est ensuite
+	nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
+	tous les outils du système.</para>
+
+<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/bleu/g' /etc/hosts /etc/hostname
+<prompt>etu@vm0:~$</prompt> sudo reboot</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment appliquer les configurations réseau
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> à partir de l'unique
+	interface du routeur&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuels du fichier de configuration système à
+	l'aide de la commande <command>man&nbsp;interfaces</command>.</para>
+	</question>
+	<answer>
+	<para>Il existe plusieurs possibilités pour configurer une interface
+	réseau. Dans le contexte de ces manipulations, on utilise le fichier de
+	configuration fourni par la distribution <citetitle>Debian
+	GNU/Linux</citetitle>&nbsp;:
+	<filename>/etc/network/interfaces</filename>.</para>
+
+	<para>La configuration de base fournie avec l'image maître suppose que
+	l'interface obtienne un bail <acronym>DHCP</acronym> pour la partie
+	<acronym>IPv4</acronym> et une configuration automatique via
+	<acronym>SLAAC</acronym> pour la partie <acronym>IPv6</acronym>. Cette
+	configuration par défaut doit être éditée et remplacée. Il faut configurer
+	trois interfaces.</para>
+
+	<para>Une interface doit être créée pour chacun des différents réseaux avec
+	le numéro de <acronym>VLAN</acronym> désigné dans le plan
+	d'adressage.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>L'interface principale doit être placée en mode manuel
+	(<wordasword>manual</wordasword>). Elle doit être activée/désactivée au
+	niveau de la couche liaison.</para>
+	</listitem>
+	<listitem>
+	<para>Une interface doit être créée pour le <acronym>VLAN</acronym> rouge.
+	Cette interface doit désigner les passerelles <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> de façon à joindre l'Internet.</para>
+	</listitem>
+	<listitem>
+	<para>Une interface doit être créée pour le <acronym>VLAN</acronym> violet
+	avec une adresse de lien local <acronym>IPv6</acronym> pour la
+	supervision.</para>
+	</listitem>
+	<listitem>
+	<para>Une interface doit être créée pour le <acronym>VLAN</acronym> orange
+	avec les adresses <acronym>IPv4</acronym> et <acronym>IPv6</acronym> de
+	passerelle pour le réseau étendu.</para>
+	</listitem>
+	</itemizedlist>
+
+	<para>Voici une copie du fichier
+	<filename>/etc/network/interfaces</filename> de la maquette.</para>
+
+<screen># This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto enp0s1
+iface enp0s1 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+# ---------- VLAN ROUGE ----------
+auto enp0s1.360
+iface enp0s1.360 inet static
+	address 192.168.104.130
+	gateway 192.168.104.129
+	dns-nameserver 172.16.0.2
+
+iface enp0s1.360 inet6 static
+	address 2001:678:3fc:168::2/64
+	gateway fe80:168::1
+
+# ---------- VLAN VIOLET ----------
+auto enp0s1.440
+iface enp0s1.440 inet6 static
+	address fe80:1b8::1/64
+
+# ---------- VLAN ORANGE ----------
+auto enp0s1.441
+iface enp0s1.441 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down</screen>
+
+	<para>Une fois le fichier de configuration en place, il est préférable de
+	redémarrer la machine virtuelle de façon à vérifier que la configuration
+	des interfaces est bien appliquée après chaque réinitialisation.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les tests de connectivité réalisables après
+	application de la nouvelle configuration des interfaces
+	réseau&nbsp;?</phrase></para>
+
+	<para>Relever l'état des trois interfaces et procédez aux tests en
+	respectant les couches de la modélisation.</para>
+	</question>
+	<answer>
+	<para>La commande <command>ip addr ls</command> permet de relever l'état de
+	la configuration pour chaque interface.</para>
+
+<screen>ip addr ls | grep state
+1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+2: enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq <emphasis>state UP</emphasis> group default qlen 1000
+3: enp0s1.360@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000
+4: enp0s1.440@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000
+6: enp0s1.441@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue <emphasis>state UP</emphasis> group default qlen 1000</screen>
+
+	<para>Sans la confirmation que la configuration du routeur vert est prête,
+	c'est du côté hébergement et accès Internet qu'il faut orienter les tests.
+	Classiquement, on cherche à joindre la passerelle en premier puis
+	l'Internet ensuite via des requêtes <acronym>ICMP</acronym>. Enfin, on
+	effectue un test de couche application avec une requête
+	<acronym>DNS</acronym>.</para>
+
+<screen>ping -q -c2 192.168.104.129
+PING 192.168.104.129 (192.168.104.129) 56(84) bytes of data.
+
+--- 192.168.104.129 ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 999ms
+rtt min/avg/max/mdev = 1.190/1.712/2.235/0.522 ms</screen>
+
+<screen>ping -q -c2 9.9.9.9
+PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+
+--- 9.9.9.9 ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 20.820/22.682/24.545/1.862 ms</screen>
+
+<screen>ping -q -c2 fe80:168::1%enp0s1.360
+PING fe80:168::1%enp0s1.360(fe80:168::1%enp0s1.360) 56 data bytes
+
+--- fe80:168::1%enp0s1.360 ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 1.631/1.911/2.192/0.280 ms</screen>
+
+<screen>ping -q -c2 2620:fe::fe
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+
+--- 2620:fe::fe ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 42.231/45.095/47.959/2.864 ms</screen>
+
+<screen>host quad9.net
+quad9.net has address 216.21.3.77
+quad9.net has IPv6 address 2620:0:871:9000::77
+quad9.net mail is handled by 5 mx1.quad9.net.
+quad9.net mail is handled by 20 mx2.quad9.net.
+quad9.net mail is handled by 100 keriomail.pch.net.</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.hub.routing'>
+		<title>Activation de la fonction routage</title>
+
+	<para>Sans modification de la configuration par défaut, un système
+	GNU/Linux n'assure pas la fonction de routage du trafic d'une interface
+	réseau à une autre.</para>
+
+	<para>L'activation du routage correspond à un réglage de paramètres du
+	sous-système réseau du noyau Linux. L'outil qui permet de consulter et
+	modifier les réglages de paramètre sur le noyau est appelé
+	<application>sysctl</application>. Son fichier de configuration principal
+	est <filename>/etc/sysctl.conf</filename>.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer le routage dans le sous-système réseau du
+	noyau Linux&nbsp;?</phrase></para>
+
+	<para>Utiliser la commande <command>sysctl</command> pour effectuer des
+	recherches et identifier les paramètres utiles. Par exemple&nbsp;:
+	<userinput> sudo sysctl -a -r
+	".*forward.*"</userinput>.</para>
+
+	<para>Le fichier <filename>/etc/sysctl.conf</filename> contient des
+	commentaires qui guident facilement vers les bons paramètres.</para>
+
+	<para>Attention&nbsp;! Il ne faut pas oublier d'appliquer les nouvelles
+	valeurs des paramètres de configuration.</para>
+	</question>
+	<answer>
+	<para>Voici un extrait du fichier <filename>/etc/sysctl.conf</filename> du
+	routeur de la maquette après édition.</para>
+
+<screen>egrep -v '(^#|^$)' /etc/sysctl.conf
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter=1
+<emphasis>net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1</emphasis>
+net.ipv4.conf.all.log_martians = 1</screen>
+
+	<para>Voici une copie d'écran de l'application des nouveaux
+	paramètres.</para>
+
+<screen>sudo sysctl --system
+* Applying /usr/lib/sysctl.d/50-pid-max.conf ...
+kernel.pid_max = 4194404
+* Applying /etc/sysctl.d/99-sysctl.conf ...
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv4.conf.all.log_martians = 1
+* Applying /usr/lib/sysctl.d/protect-links.conf ...
+fs.protected_fifos = 1
+fs.protected_hardlinks = 1
+fs.protected_regular = 2
+fs.protected_symlinks = 1
+* Applying /etc/sysctl.conf ...
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv4.conf.all.log_martians = 1</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les conditions à réunir pour tester le
+	fonctionnement du routage&nbsp;?</phrase></para>
+
+	<para>Rechercher comment utiliser l'analyseur réseau
+	<application>tshark</application> pour caractériser l'acheminement du
+	trafic d'un réseau à l'autre.</para>
+	</question>
+	<answer>
+	<para>Le plan d'adressage prévoit d'utiliser des préfixes ayant une portée
+	locale pour les réseaux de conteneurs. Il n'est donc pas possible de
+	passer par une requête <acronym>ICMP</acronym> pour caractériser l'accès
+	aux réseaux distants. En effet, l'adresse source n'est pas reconnue par
+	l'hôte distant et les routeurs de l'Internet ne disposent d'aucune solution
+	pour joindre le réseau des conteneurs.</para>
+
+	<para>Voici un extrait de capture qui montre que le serveur de conteneur
+	cherche à joindre un hôte sur l'Internet sans succès. Cette capture étant
+	réalisée sur l'interface réseau côté hébergement, elle montre que le trafic
+	est bien acheminé d'un réseau à l'autre.</para>
+
+<screen>tshark -i enp0s1.360
+Capturing on 'enp0s1.360'
+    1 0.000000000    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xbdab A 1.debian.pool.ntp.org
+    2 0.000056361    192.0.2.2 → 9.9.9.9      DNS 81 Standard query 0xab92 AAAA 1.debian.pool.ntp.org</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.hub.nat'>
+		<title>Activation de la traduction d'adresses</title>
+
+	<para>Le résultat de la question ci-dessus montre que les hôtes situés dans
+	le réseau des conteneurs ne peuvent pas joindre l'Internet puisque les
+	préfixes réseau utilisés ont une portée limitée.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les paquets qui fournissent les outils de gestion
+	de la traduction d'adresses&nbsp;?</phrase></para>
+
+	<para>Rechercher les paquets relatifs au filtrage et à la gestion des
+	règles de pare-feux.</para>
+	</question>
+	<answer>
+	<para>Sur les systèmes GNU/Linux, le système de pare-feux comprend une
+	partie "espace utilisateur" appelée <application>iptables</application> et
+	une partie "noyau" appelée <application>netfilter</application>.</para>
+
+	<para>C'est la partie "espace utilisateur" qui nous intéresse ici.</para>
+
+<screen>apt search ^iptables
+Sorting... Done
+Full Text Search... Done
+<emphasis>iptables</emphasis>/testing 1.8.8-1 amd64
+  administration tools for packet filtering and NAT
+
+iptables-netflow-dkms/testing 2.6-3 amd64
+  iptables target which generates netflows
+
+<emphasis>iptables-persistent</emphasis>/testing 1.0.16 all
+  boot-time loader for netfilter rules, iptables plugin
+
+rtpengine-iptables/testing 10.5.2.4-1+b1 amd64
+  IPtables extension module for the kernel-space NGCP media proxy
+
+rtpengine-kernel-dkms/testing 10.5.2.4-1 all
+  IPtables kernel module for the NGCP media proxy - DKMS</screen>
+
+	<para>On lance l'installation des deux paquets propres à notre
+	contexte.</para>
+
+<screen>sudo apt -y install iptables iptables-persistent</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les règles à appliquer pour assurer une
+	traduction des adresses sources en sortie sur le réseau
+	hébergement&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les pages de manuel de la commande
+	<command>iptables</command>.</para>
+	</question>
+	<answer>
+	<para>C'est la cible <literal>MASQUERADE</literal> qui nous intéresse.
+	Voici un exemple de règles de traduction des adresses sources pour la
+	maquette.</para>
+
+<screen>sudo iptables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+ sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
+
+<screen>sudo ip6tables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
+ sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment caractériser le fonctionnement de la traduction
+	d'adresses sources&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les pages de manuel de la commande
+	<command>iptables</command> les options d'affichage du décompte du trafic
+	traité.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple d'affichage pour le trafic <acronym>IPv4</acronym>
+	uniquement.</para>
+
+<screen>sudo iptables -vnL -t nat
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+<emphasis>    8   598 MASQUERADE  all  --  *      enp0s1.360  0.0.0.0/0            0.0.0.0/0</emphasis>
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.hub.pppoe'>
+		<title>Activation du protocole PPPoE côté réseau étendu</title>
+
+	<para>Pour acheminer le trafic depuis et vers le site distant, il est
+	nécessaire de passer par une authentification. Cette fonction est assurée à
+	l'aide du protocole <acronym>PPPoE</acronym>.</para>
+
+	<para>Le protocole <acronym>PPP</acronym> n'a pas été conçu suivant le
+	modèle Client/Serveur. Il suppose que deux processus pairs échangent des
+	informations. Dans les questions qui suivent, le routeur bleu doit exiger
+	que le routeur vert s'authentifie auprès de lui avant de délivrer les
+	adresses de couche réseau.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel paquet spécifique à la gestion du dialogue
+	<acronym>PPPoE</acronym> à installer sur le routeur
+	<wordasword>Hub</wordasword>&nbsp;?</phrase></para>
+
+	<para>Rechercher dans le catalogue des paquets, la référence
+	<acronym>pppoe</acronym>.</para>
+	</question>
+	<answer>
+<screen>apt search ^pppoe
+Sorting... Done
+Full Text Search... Done
+<emphasis>pppoe</emphasis>/testing 3.15-1+b1 amd64
+  PPP over Ethernet driver</screen>
+
+	<para>Le résultat de la commande <command>apt show pppoe</command>
+	montre que c'est bien ce paquet qui répond au besoin.</para>
+
+<screen>sudo apt -y install pppoe</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le rôle de l'outil contenu dans le paquet demandé à
+	la question précédente relativement au démon <command>pppd</command> fourni
+	avec le paquet <application>ppp</application>&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les pages de manuels de l'outil demandé à la question
+	précédente.</para>
+	</question>
+	<answer>
+	<para>L'outil <command>pppoe-server</command> gère directement
+	l'encapsulation des trames <acronym>PPP</acronym> dans les trames Ethernet.
+	Il communique ensuite les paramètres utiles au démon
+	<application>pppd</application> qui fonctionne de façon totalement
+	transparente vis-à-vis de la technologie du réseau sous-jacent.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les noms des deux sous-couches du protocole
+	<acronym>PPP</acronym> qui apparaissent dans les journaux
+	systèmes&nbsp;?</phrase></para>
+
+	<para>Quels sont les rôles respectifs de ces deux
+	sous-couches&nbsp;?</para>
+
+	<para>Consulter la page &url.ppp-wikipedia;.</para>
+	</question>
+	<answer>
+	<para>La consultation des journaux système lors du dialogue
+	<acronym>PPP</acronym> fait apparaître des informations du type
+	suivant.</para>
+
+	<para>La <xref linkend='pppoe.trace' /> montre en détails
+	les différentes phases de l'établissement de la session
+	<acronym>PPP</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les en-têtes du dialogue qui identifient les
+	requêtes (émises|reçues), les rejets et les
+	acquittements&nbsp;?</phrase></para>
+
+	<para>Consulter les journaux système contenant les traces d'une connexion
+	<acronym>PPP</acronym>.</para>
+	</question>
+	<answer>
+	<para>La copie d'écran donnée ci-dessus fait apparaître les directives
+	<literal>Conf*</literal> pour chaque paramètre négocié.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para><literal>ConfReq</literal> indique une requête.</para>
+	</listitem>
+	<listitem>
+		<para><literal>ConfAck</literal> indique un acquittement.</para>
+	</listitem>
+	<listitem>
+		<para><literal>ConfNak</literal> indique un rejet.</para>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Dans quel fichier sont stockés les paramètres d'identité et
+	d'authentification utilisés par le protocole
+	<acronym>CHAP</acronym>&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuels du démon <command>pppd</command> à la
+	section <citetitle>AUTHENTICATION</citetitle>.</para>
+	</question>
+	<answer>
+	<para>C'est le fichier <filename>/etc/ppp/chap-secrets</filename> qui
+	contient les couples <wordasword>login/password</wordasword> utilisés lors
+	de l'authentification.</para>
+
+	<para>Voici un exemple du contenu de ce fichier.</para>
+
+<screen># Secrets for authentication using CHAP
+# client	server	secret			IP addresses
+"green"		*		"5p0k3"			*</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Dans quel fichier sont stockés les paramètres passés au démon
+	<command>pppd</command> lors du lancement du serveur
+	<acronym>PPPoE</acronym>&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuels de l'outil
+	<command>pppoe-server</command>.</para>
+	</question>
+	<answer>
+	<para>C'est le fichier <filename>/etc/ppp/pppoe-server-options</filename>
+	qui contient la liste des paramètres utilisés lors du dialogue
+	<acronym>PPP</acronym>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les options du protocole <acronym>PPP</acronym>
+	qui doivent être implantées dans le fichier demandé à la question
+	précédente&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuels du démon <command>pppd</command> et
+	rechercher les paramètres correspondant à la liste suivante.</para>
+
+	<itemizedlist>
+	<listitem>
+		<para>Afficher en détail toutes les étapes d'établissement de session
+		dans les journaux système.</para>
+	</listitem>
+	<listitem>
+		<para>Référencer l'identifiant du compte utilisateur à utiliser lors de
+		l'authentification du routeur vert. Cette option implique que le compte
+		utilisateur existe sur le système et qu'il soit présent dans le fichier
+		<filename>/etc/ppp/chap-secrets</filename>.</para>
+	</listitem>
+	<listitem>
+		<para>Imposer au routeur vert une authentification via le protocole
+		<acronym>CHAP</acronym> (<wordasword>Challenge Handshake Authentication
+		Protocol</wordasword>).</para>
+	</listitem>
+	<listitem>
+		<para>Préserver la route par défaut, et donc l'accès Internet, du
+		routeur bleu.</para>
+	</listitem>
+	<listitem>
+		<para>Publier l'adresse <acronym>IP</acronym> du serveur
+		<acronym>DNS</acronym> à utiliser pour la résolution des noms de
+		domaines.</para>
+	</listitem>
+	<listitem>
+		<para>Activer l'utilisation des protocoles <acronym>IPv6CP</acronym> et
+		<acronym>IPv6</acronym>.</para>
+	</listitem>
+	</itemizedlist>
+	</question>
+	<answer>
+	<para>Voici une copie de la commande de création du fichier
+	<filename>/etc/ppp/pppoe-server-options</filename> qui contient la liste
+	des paramètres demandés.</para>
+
+<screen>cat &lt;&lt; EOF | sudo tee /etc/ppp/pppoe-server-options
+login
+require-chap
+nodefaultroute
+ms-dns 172.16.0.2
++ipv6
+EOF</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment créer le compte utilisateur local sur le routeur bleu
+	sachant qu'il n'est autorisé ni à se connecter ni à avoir un répertoire
+	personnel&nbsp;?</phrase></para>
+
+	<para>Consulter les options de la commande
+	<command>adduser</command>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple de commande <command>adduser</command>.</para>
+
+<screen>sudo adduser --gecos 'GREEN Router' --disabled-login --no-create-home green</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les paramètres à donner au lancement de l'outil
+	<command>pppoe-server</command> pour qu'il délivre les adresses au routeur
+	vert après authentification de celui-ci&nbsp;?</phrase></para>
+
+	<para>Consulter les options de la commande
+	<command>pppoe-server</command>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple de commande <command>pppoe-server</command>.</para>
+
+<screen>sudo pppoe-server -I enp0s1.441 -C BRAS -L 10.4.41.1 -R 10.4.41.2 -N 1</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les résultats obtenus une fois que la session
+	<acronym>PPP</acronym> est établie et que les adresses de couche réseau ont
+	été délivrées&nbsp;?</phrase></para>
+
+	<para>Consulter les journaux système, la liste des processus, l'état des
+	interfaces réseau et de la table de routage.</para>
+
+	<para>Attention&nbsp;! Les résultats ne sont pertinents que si le dialogue
+	avec le routeur vert est effectif.</para>
+	</question>
+	<answer>
+	<itemizedlist>
+	<listitem>
+		<para>Consultation des journaux système.</para>
+
+		<para>Voir la <xref linkend='pppoe.trace' /> pour le
+		détail des phases de l'établissement de la session
+		<acronym>PPP</acronym>.</para>
+		</listitem>
+
+		<listitem>
+			<para>Liste des processus.</para>
+
+<screen>pppoe-server -I enp0s1.441 -C BRAS -L 10.4.41.1 -R 10.4.41.2 -N 1
+	\_ pppd pty /usr/sbin/pppoe -n -I enp0s1.441 -e 1:b0:ad:ca:fe:00:65 -S '' \
+	   file /etc/ppp/pppoe-server-options 10.4.41.1:10.4.41.2 nodetach noaccomp \
+	   nopcomp default-asyncmap mru 1492 mtu 1492
+		\_ sh -c /usr/sbin/pppoe -n -I enp0s1.441 -e 1:b0:ad:ca:fe:00:65 -S ''
+			\_ /usr/sbin/pppoe -n -I enp0s1.441 -e 1:b0:ad:ca:fe:00:65 -S</screen>
+		</listitem>
+
+		<listitem>
+			<para>État des interfaces.</para>
+
+<screen>$ ip addr ls dev enp0s1.441
+6: enp0s1.441@enp0s1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether b0:ad:ca:fe:00:64 brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::b2ad:caff:fefe:64/64 scope link
+       valid_lft forever preferred_lft forever
+
+ ip addr ls dev ppp0
+26: ppp0: &lt;POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1492 qdisc pfifo_fast state UNKNOWN group default qlen 3
+    link/ppp
+    inet 10.4.41.1 peer 10.4.41.2/32 scope global ppp0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::6c07:edbf:a0b4:f114/10 scope link
+       valid_lft forever preferred_lft forever</screen>
+		</listitem>
+
+		<listitem>
+			<para>Table de routage.</para>
+
+<screen>ip route ls dev ppp0
+10.4.41.2 proto kernel scope link src 10.4.41.1</screen>
+		</listitem>
+		</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les modifications à apporter au fichier de
+	configuration système des interfaces réseau pour que l'ouverture de session
+	<acronym>PPP</acronym> soit disponible après chaque
+	réinitialisation&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuel du fichier
+	<filename>/etc/network/interfaces</filename>&nbsp;: <userinput>man
+	interfaces</userinput>.</para>
+	</question>
+	<answer>
+	<para>Voici une copie du fichier dans le contexte de la maquette.</para>
+
+<screen># This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto enp0s1
+iface enp0s1 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+# ---------- VLAN ROUGE ----------
+auto enp0s1.360
+iface enp0s1.360 inet static
+	address 192.168.104.130/29
+	gateway 192.168.104.129
+	dns-nameserver 172.16.0.2
+
+iface enp0s1.360 inet6 static
+	address 2001:678:3fc:168::2/64
+	gateway 2001:678:3fc:168::1
+
+# ---------- VLAN VIOLET ----------
+auto enp0s1.440
+iface enp0s1.440 inet6 static
+	address fe80:1b8::1/64
+
+# ---------- VLAN ORANGE ----------
+auto enp0s1.441
+iface enp0s1.441 inet manual
+	up ip link set dev $IFACE up
+	up pppoe-server -I $IFACE -C BRAS -L 10.4.41.1 -R 10.4.41.2 -N 1
+	down killall pppoe-server
+	down ip link set dev $IFACE down</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.hub.static-route'>
+		<title>Ajout des routes statiques vers le réseau des conteneurs</title>
+
+	<para>Pour joindre le réseau des conteneurs situé au delà du routeur vert,
+	il est nécessaire d'ajouter une route statique pour chaque protocole de la
+	couche réseau&nbsp;<acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym>. Le choix du routage statique est justifié par le
+	fait que l'on adresse un site distant d'extrémité via un lien
+	unique.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment ajouter manuellement les routes
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> vers le réseau desservi
+	par le routeur vert&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuel sur le routage avec la commande&nbsp;:
+	<userinput>man ip-route</userinput>.</para>
+	</question>
+	<answer>
+	<para>Sachant que le site distant est raccordé via une liaison point à
+	point unique, on choisit de désigner la destination par l'interface de la
+	liaison.</para>
+
+<screen>sudo ip route add 203.0.113.0/24 dev ppp0
+sudo ip -6 route add fda0:7a62:28::/64 dev ppp0</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les tests de connectivité qui permettent valider
+	la communication à destination des conteneurs du réseau
+	distant&nbsp;?</phrase></para>
+
+	<para>Collecter les adresses <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym> des conteneurs avant de lancer des requêtes
+	<acronym>ICMP</acronym>.</para>
+	</question>
+	<answer>
+	<para>Une fois que l'on est assuré que la question <xref
+	linkend='pppoe.spoke.lxc.adressing' /> a été traitée, on
+	peut relever les adresses des conteneurs et lancer les tests
+	<acronym>ICMP</acronym>.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Séquence de tests <acronym>IPv4</acronym>&nbsp;:</para>
+
+<screen>for addr in {10..12}
+do
+	ping -q -c2 203.0.113.$addr
+done</screen>
+	</listitem>
+	<listitem>
+	<para>Séquence de tests <acronym>IPv6</acronym>&nbsp;:</para>
+
+<screen>for addr in {10..12}
+do
+	ping -q -c2 fda0:7a62:28::$(printf "%x" $addr)
+done</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment appliquer ces routes statiques dans la configuration
+	système pour qu'elles soient activées à chaque établissement de session
+	<acronym>PPP</acronym>&nbsp;?</phrase></para>
+
+	<para>Il faut parcourir l'arborescence du répertoire <filename
+	class='directory'>/etc/ppp/</filename> pour repérer les scripts exécutés
+	lors de l'ouverture de session. Créer un script pour chaque protocole de
+	couche réseau qui ajoute la route statique voulue.</para>
+	</question>
+	<answer>
+	<itemizedlist>
+	<listitem>
+	<para>Pour <acronym>IPv4</acronym>, le répertoire est <filename
+	class='directory'>/etc/ppp/ip-up.d/</filename>. Voici comment créer le
+	script exécutable <filename>staticroute</filename>.</para>
+
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/ppp/ip-up.d/staticroute
+#!/bin/sh
+
+if [ -z "${CONNECT_TIME}" ]; then
+    ip route add 203.0.113.0/24 dev ${PPP_IFACE}
+fi
+EOF</screen>
+
+<screen>sudo chmod +x /etc/ppp/ip-up.d/staticroute</screen>
+	</listitem>
+
+	<listitem>
+	<para>Pour <acronym>IPv6</acronym>, le répertoire est <filename
+	class='directory'>/etc/ppp/ipv6-up.d/</filename>. Voici comment créer le
+	script exécutable <filename>staticroute</filename>.</para>
+
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/ppp/ipv6-up.d/staticroute
+#!/bin/sh
+
+if [ -z "${CONNECT_TIME}" ]; then
+    ip -6 route add fda0:7a62:28::/64 dev ${PPP_IFACE}
+fi
+EOF</screen>
+
+<screen>sudo chmod +x /etc/ppp/ipv6-up.d/staticroute</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+</sect1>
+
+<sect1 xml:id='pppoe.spoke'>
+	<title>Routeur Spoke (vert)</title>
+
+	<sect2 xml:id='pppoe.spoke.interfaces'>
+		<title>Configuration des interfaces du routeur</title>
+
+	<para>Une fois la machine virtuelle serveur de conteneurs lancée, les
+	premières étapes consistent à lui attribuer un nouveau nom et à configurer
+	les interfaces réseau pour joindre le routeur voisin et l'Internet.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment changer le nom de la machine
+	virtuelle&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>Il faut éditer les deux fichiers <filename>/etc/hosts</filename> et
+	<filename>/etc/hostname</filename> en remplaçant le nom de l'image
+	maître <citetitle>vm0</citetitle> par le nom voulu. Il est ensuite
+	nécessaire de redémarrer pour que le nouveau nom soit pris en compte par
+	tous les outils du système.</para>
+
+<screen><prompt>etu@vm0:~$</prompt> sudo sed -i 's/vm0/vert/g' /etc/hosts /etc/hostname
+<prompt>etu@vm0:~$</prompt> sudo reboot</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment appliquer la configuration réseau
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> de l'interface du
+	serveur&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuels du fichier de configuration système à
+	l'aide de la commande <command>man&nbsp;interfaces</command>.</para>
+	</question>
+	<answer>
+	<para>Il existe plusieurs possibilités pour configurer une interface
+	réseau. Dans le contexte de ces manipulations, on utilise le fichier de
+	configuration fourni par la distribution <citetitle>Debian
+	GNU/Linux</citetitle>&nbsp;:
+	<filename>/etc/network/interfaces</filename>.</para>
+
+	<para>La configuration de base fournie avec l'image maître suppose que
+	l'interface obtienne un bail <acronym>DHCP</acronym> pour la partie
+	<acronym>IPv4</acronym> et une configuration automatique via
+	<acronym>SLAAC</acronym> pour la partie <acronym>IPv6</acronym>.</para>
+
+	<para>La configuration par défaut doit être éditée et remplacée par une
+	configuration manuelle pour l'interface <systemitem>enp0s1</systemitem> et
+	pour le <acronym>VLAN</acronym> orange. Pour la supervision dans le
+	<acronym>VLAN</acronym> violet, l'adresse <acronym>IPv6</acronym> de lien
+	locale est fournie dans le tableau du plan d'adressage.</para>
+
+	<para>En attendant que la configuration du routeur bleu soit prête, on
+	ajoute temporairement une interface <systemitem>enp0s1.60</systemitem>
+	avec une configuration automatique. Ainsi, il est possible d'installer et
+	de configurer des services en parallèle. Cette interface doit être
+	désactivée dès que tous les outils sont en place.</para>
+
+	<para>Voici une copie du fichier
+	<filename>/etc/network/interfaces</filename> de la maquette.</para>
+
+<screen># This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto enp0s1
+iface enp0s1 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+# ---------- VLAN VIOLET ----------
+auto enp0s1.440
+iface enp0s1.440 inet6 static
+	address fe80:1b8::2/64
+
+# ---------- VLAN ORANGE ----------
+auto enp0s1.441
+iface enp0s1.441 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+# ---------- TEMPORAIRE -----------
+auto enp0s1.60
+iface enp0s1.60 inet dhcp</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.spoke.routing'>
+		<title>Activation de la fonction routage</title>
+
+	<para>Sans modification de la configuration par défaut, un système
+	GNU/Linux n'assure pas la fonction de routage du trafic d'une interface
+	réseau à une autre.</para>
+
+	<para>L'activation du routage correspond à un réglage de paramètres du
+	sous-système réseau du noyau Linux. L'outil qui permet de consulter et
+	modifier les réglages de paramètre sur le noyau est appelé
+	<application>sysctl</application>. Son fichier de configuration principal
+	est <filename>/etc/sysctl.conf</filename>.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment activer le routage dans le sous-système réseau du
+	noyau Linux&nbsp;?</phrase></para>
+
+	<para>Utiliser la commande <command>sysctl</command> pour effectuer des
+	recherches et identifier les paramètres utiles. Par exemple&nbsp;:
+	<userinput> sudo sysctl -a -r
+	".*forward.*"</userinput>.</para>
+
+	<para>Le fichier <filename>/etc/sysctl.conf</filename> contient des
+	commentaires qui guident facilement vers les bons paramètres.</para>
+
+	<para>Attention&nbsp;! Il ne faut pas oublier d'appliquer les nouvelles
+	valeurs des paramètres de configuration.</para>
+	</question>
+	<answer>
+	<para>Voici un extrait du fichier <filename>/etc/sysctl.conf</filename> du
+	routeur de la maquette après édition.</para>
+
+<screen>egrep -v '(^#|^$)' /etc/sysctl.conf
+net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.rp_filter=1
+<emphasis>net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1</emphasis>
+net.ipv4.conf.all.log_martians = 1</screen>
+
+	<para>Voici une copie d'écran de l'application des nouveaux
+	paramètres.</para>
+
+<screen>sudo sysctl --system
+* Applying /usr/lib/sysctl.d/50-pid-max.conf ...
+kernel.pid_max = 4194404
+* Applying /etc/sysctl.d/99-sysctl.conf ...
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv4.conf.all.log_martians = 1
+* Applying /usr/lib/sysctl.d/protect-links.conf ...
+fs.protected_fifos = 1
+fs.protected_hardlinks = 1
+fs.protected_regular = 2
+fs.protected_symlinks = 1
+* Applying /etc/sysctl.conf ...
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv4.conf.all.log_martians = 1</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.spoke.ppp'>
+		<title>Activation du protocole PPP dans le VLAN orange</title>
+
+	<para>Le routeur vert utilise un démon <application>pppd</application> sur
+	le <acronym>VLAN</acronym> <option>Data</option> pour établir une session
+	<acronym>PPP</acronym> avec le routeur bleu. À la différence de ce dernier,
+	il n'est pas à l'initiative du dialogue <acronym>PPPoE</acronym> mais il
+	doit être capable de gérer l'encapsulation des trames
+	<acronym>PPP</acronym> sur un réseau local Ethernet.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel paquet fournit le démon de gestion des sessions du
+	protocole <acronym>PPP</acronym> sur le routeur vert&nbsp;?</phrase></para>
+
+	<para>Rechercher dans le catalogue des paquets, la référence
+	<acronym>ppp</acronym>.</para>
+	</question>
+	<answer>
+<screen>apt search ^ppp
+Sorting... Done
+Full Text Search... Done
+<emphasis>ppp</emphasis>/testing 2.4.9-1+1.1+b1 amd64
+  Point-to-Point Protocol (PPP) - daemon
+
+ppp-dev/testing 2.4.9-1+1.1 all
+  Point-to-Point Protocol (PPP) - development files
+
+ppp-gatekeeper/testing 0.1.0-201406111015-1.1 all
+  PPP manager for handling balanced, redundant and failover links
+
+pppconfig/testing 2.3.26 all
+  Text menu based utility for configuring ppp
+
+pppoe/testing 3.15-1+b1 amd64
+  PPP over Ethernet driver
+
+wmppp.app/testing 1.3.2-2 amd64
+  PPP dial control and network load monitor w/ NeXTStep look</screen>
+
+	<para>Le résultat de la commande <command>apt show ppp</command>
+	montre que c'est bien ce paquet qui répond au besoin.</para>
+
+<screen>sudo apt -y install ppp</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment utiliser l'encapsulation des trames
+	<acronym>PPP</acronym> dans Ethernet à partir du démon
+	<command>pppd</command> fourni avec le paquet
+	<application>ppp</application>&nbsp;?</phrase></para>
+
+	<para>Rechercher dans le répertoire de documentation du paquet
+	<application>ppp</application>.</para>
+	</question>
+	<answer>
+	<para>Dans le répertoire <filename
+	class='directory'>/usr/share/doc/ppp/</filename>, on trouve le fichier
+	<filename>README.pppoe</filename> qui indique que l'appel au module
+	<filename>rp-pppoe.so</filename> permet d'encapsuler des trames
+	<acronym>PPP</acronym> sur un réseau local Ethernet.</para>
+
+	<para>Toujours à partir du même répertoire, on trouve dans la liste des
+	fichiers d'exemples de configuration un modèle adapté à notre
+	contexte&nbsp;: <filename>peers-pppoe</filename>.</para>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Dans quel fichier sont stockés les paramètres d'identité et
+	d'authentification utilisés par le protocole
+	<acronym>CHAP</acronym>&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuels du démon <command>pppd</command> à la
+	section <citetitle>AUTHENTICATION</citetitle>.</para>
+	</question>
+	<answer>
+	<para>C'est le fichier <filename>/etc/ppp/chap-secrets</filename> qui
+	contient les couples <wordasword>login/password</wordasword> utilisés lors
+	de l'authentification.</para>
+
+	<para>Voici un exemple du contenu de ce fichier. Le nom du client ainsi que
+	son mot de passe secret doivent être identiques à chaque extrémité de la
+	session <acronym>PPP</acronym>.</para>
+
+<screen># Secrets for authentication using CHAP
+# client	server	secret			IP addresses
+"green"		*		"5p0k3"			*</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les options de configuration du démon
+	<command>pppd</command> à placer dans le fichier
+	<filename>/etc/ppp/peers/pppoe-provider</filename> pour assurer
+	l'établissement de la session <acronym>PPP</acronym> entre les
+	routeurs&nbsp;?</phrase></para>
+
+	<para>Utiliser le fichier exemple <acronym>PPPoE</acronym> fourni avec la
+	documentation du paquet <application>ppp</application>.</para>
+	</question>
+	<answer>
+	<para>Voici comment créer un fichier
+	<filename>/etc/ppp/peers/pppoe-provider</filename> avec les options
+	correspondant au contexte de la maquette du routeur vert.</para>
+
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/ppp/peers/pppoe-provider
+# There should be a matching entry with the password in /etc/ppp/chap-secrets.
+user "green"
+
+# Load the PPPoE plugin.
+plugin rp-pppoe.so
+
+# Ethernet interface to which the modem is connected.
+enp0s1.441
+
+# Assumes that your IP address is allocated dynamically by the ISP.
+noipdefault
+# Try to get the name server addresses from the ISP.
+usepeerdns
+# Use this connection as the default route.
+defaultroute
+
+# Makes pppd "dial again" when the connection is lost.
+persist
+
+# Do not ask the remote to authenticate.
+noauth
+
+debug
++ipv6
+EOF</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment lancer le démon <command>pppd</command> pour qu'il
+	prenne en compte les paramètres définis dans le fichier complété à la
+	question précédente&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuels du démon
+	<command>pppd</command>.</para>
+	</question>
+	<answer>
+	<para>C'est l'option <option>file</option> qui permet de désigner le
+	fichier de configuration à utiliser. Voici une copie d'écran du lancement
+	de <command>pppd</command>.</para>
+
+<screen>sudo pppd file /etc/ppp/peers/pppoe-provider</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les noms des deux sous-couches du protocole
+	<acronym>PPP</acronym> qui apparaissent dans les journaux
+	systèmes&nbsp;?</phrase> Quels sont les rôles respectifs de ces deux
+	sous-couches&nbsp;?</para>
+
+	<para>Consulter la page &url.ppp-wikipedia;.</para>
+	</question>
+	<answer>
+	<para>La consultation des journaux système lors du dialogue
+	<acronym>PPP</acronym> fait apparaître tous les détails. Voir la <xref
+	linkend='pppoe.trace' />.</para> 
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les en-têtes du dialogue qui identifient les
+	requêtes (émises|reçues), les rejets et les
+	acquittements&nbsp;?</phrase></para>
+
+	<para>Consulter les journaux système contenant les traces d'une connexion
+	<acronym>PPP</acronym>.</para>
+	</question>
+	<answer>
+	<para>La copie d'écran donnée ci-dessus fait apparaître les directives
+	<literal>Conf*</literal> pour chaque paramètre négocié.</para>
+	<itemizedlist> <listitem>
+		<para><literal>ConfReq</literal> indique une requête.</para>
+	</listitem>
+	<listitem>
+		<para><literal>ConfAck</literal> indique un acquittement.</para>
+	</listitem>
+	<listitem>
+		<para><literal>ConfNak</literal> indique un rejet.</para>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les modifications à apporter au fichier système
+	de configuration des interfaces réseau pour ouvrir la session
+	<acronym>PPP</acronym> à chaque réinitialisation
+	système&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuel du fichier
+	<filename>/etc/network/interfaces</filename>&nbsp;: <userinput>man
+	interfaces</userinput>.</para>
+	</question>
+	<answer>
+	<para>Voici une copie du fichier modifié dans le contexte de la
+	maquette.</para>
+
+	<para>Attention&nbsp;! L'interface temporaire doit être impérativement
+	désactivée au moment de l'activation de la session
+	<acronym>PPP</acronym>.</para>
+
+	<para>Voir la <xref linkend='pppoe.trace' /> pour le
+	détail des phases de l'établissement de la session
+	<acronym>PPP</acronym>.</para>
+
+<screen># This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto enp0s1
+iface enp0s1 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+# ---------- VLAN VIOLET ----------
+auto enp0s1.440
+iface enp0s1.440 inet6 static
+	address fe80:1b8::2/64
+
+# ---------- VLAN ORANGE ----------
+auto enp0s1.441
+iface enp0s1.441 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+# ---------- PPPoE ---------------
+auto pppoe-provider
+iface pppoe-provider inet ppp
+        pre-up ifup enp0s1.441
+        provider pppoe-provider
+
+# ---------- TEMPORAIRE -----------
+#auto enp0s1.60
+#iface enp0s1.60 inet dhcp</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.spoke.ovs'>
+		<title>Activation du commutateur virtuel asw-host</title>
+
+	<para>Dans le scénario étudié, les services sont hébergés dans un réseau de
+	conteneurs propre au routeur vert. La mise en œuvre de cette configuration
+	passe par l'installation d'un commutateur virtuel appelé
+	<systemitem>asw-host</systemitem>. On utilise <application>Open
+	vSwitch</application> pour configurer ce commutateur.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le paquet à installer pour pouvoir ajouter un
+	commutateur virtuel au routeur vert&nbsp;?</phrase></para>
+
+	<para>Rechercher le mot clé <application>openvswitch</application> dans la
+	liste des paquets.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple de recherche.</para>
+
+<screen>apt search ^openvswitch
+Sorting... Done
+Full Text Search... Done
+openvswitch-common/testing 2.17.2-5+b1 amd64
+  Open vSwitch common components
+
+openvswitch-doc/testing 2.17.2-5 all
+  Open vSwitch documentation
+
+openvswitch-ipsec/testing 2.17.2-5+b1 amd64
+  Open vSwitch IPsec tunneling support
+
+openvswitch-pki/testing 2.17.2-5 all
+  Open vSwitch public key infrastructure dependency package
+
+openvswitch-source/testing 2.17.2-5 all
+  Open vSwitch source code
+
+<emphasis>openvswitch-switch</emphasis>/testing 2.17.2-5+b1 amd64
+  Open vSwitch switch implementations
+
+openvswitch-switch-dpdk/testing 2.17.2-5+b1 amd64
+  DPDK enabled Open vSwitch switch implementation
+
+openvswitch-test/testing 2.17.2-5 all
+  Open vSwitch test package
+
+openvswitch-testcontroller/testing 2.17.2-5+b1 amd64
+  Simple controller for testing OpenFlow setups
+
+openvswitch-vtep/testing 2.17.2-5+b1 amd64
+  Open vSwitch VTEP utilities</screen>
+
+	<para>C'est le paquet <systemitem>openvswitch-switch</systemitem> qui nous
+	intéresse.</para>
+
+<screen>sudo apt -y install openvswitch-switch</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quel est le fichier de documentation qui fournit les
+	directives de configuration d'un commutateur intégré au fichier système
+	<filename>/etc/network/interfaces</filename>&nbsp;?</phrase></para>
+
+	<para>Rechercher dans la liste des fichiers des paquets installés à la
+	question précédente.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple de recherche.</para>
+<screen>dpkg -L openvswitch-switch | grep README
+/usr/share/doc/openvswitch-switch/README.Debian.gz</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelles sont les modiifications à apporter au fichier
+	<filename>/etc/network/interfaces</filename> pour configurer le commutateur
+	<systemitem>asw-host</systemitem>&nbsp;?</phrase></para>
+	</question>
+	<answer>
+	<para>Voici une copie du fichier de configuration réseau système dans le
+	contexte de la maquette.</para>
+
+<screen># This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto enp0s1
+iface enp0s1 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+# ---------- VLAN VIOLET ----------
+auto enp0s1.440
+iface enp0s1.440 inet6 static
+	address fe80:1b8::2/64
+
+# ---------- VLAN ORANGE ----------
+auto enp0s1.441
+iface enp0s1.441 inet manual
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+# ---------- PPPoE ----------------
+auto pppoe-provider
+iface pppoe-provider inet ppp
+        pre-up ifup enp0s1.441
+        provider pppoe-provider
+
+# ---------- VLAN VERT ------------
+auto asw-host
+iface asw-host inet manual
+	ovs_type OVSBridge
+	ovs_ports sw-vlan40
+	up ip link set dev $IFACE up
+	down ip link set dev $IFACE down
+
+allow-asw-host sw-vlan40
+iface sw-vlan40 inet static
+	ovs_type OVSBridge
+	ovs_bridge asw-host
+	ovs_options asw-host 40
+	address 203.0.113.1/24
+
+iface sw-vlan40 inet6 static
+	ovs_type OVSBridge
+	ovs_bridge asw-host
+	ovs_options asw-host 40
+	address fda0:7a62:28::1/64</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.spoke.radvd'>
+		<title>Activation de la configuration IPv6 automatique pour le réseau
+		de conteneurs</title>
+
+	<para>Pour que les hôtes du réseau de conteneurs obtiennent automatiquement
+	une configuration <acronym>IPv6</acronym>, il faut que le routeur assure
+	les annonces auprès de ces voisins. Un moyen simple pour assurer la
+	configuration <acronym>SLAAC</acronym> des hôtes voisins du routeur
+	consiste à utiliser le paquet <application>radvd</application>.</para>
+
+	<para>On débute par l'installation de ce paquet.</para>
+
+<screen>sudo apt install radvd</screen>
+
+	<para>On voit que le lancement du service a échoué.</para>
+
+<screen>systemctl status radvd
+○ radvd.service - Router advertisement daemon for IPv6
+     Loaded: loaded (/lib/systemd/system/radvd.service; enabled; preset: enabled)
+     Active: inactive (dead)
+  Condition: start condition failed at Thu 2022-10-20 10:38:12 CEST; 38s ago
+             └─ <emphasis>ConditionPathExists=/etc/radvd.conf was not met</emphasis>
+       Docs: man:radvd(8)</screen>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Comment configurer le service <application>radvd</application> pour
+	publier les annonces côté conteneurs&nbsp;?</para>
+
+	<para>Rechercher les options utiles dans les pages de manuel du
+	service&nbsp;: <userinput>man radvd.conf</userinput>.</para>
+	</question>
+	<answer>
+	<para>Voici comment créer le fichier de configuration
+	<filename>/etc/radvd.conf</filename> de la maquette.</para>
+
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/radvd.conf
+interface sw-vlan40
+{
+        AdvSendAdvert on;
+
+        prefix fda0:7a62:28::/64
+        {
+                AdvOnLink on;
+                AdvAutonomous on;
+                AdvRouterAddr on;
+        };
+
+        RDNSS 2620:fe::fe
+        {
+        };
+};
+EOF</screen>
+
+	<para>Attention&nbsp;! Une fois le fichier créé, il ne faut pas oublier de
+	redémarrer le service et de contrôler l'état de son fonctionnement.</para>
+
+<screen>sudo systemctl restart radvd</screen>
+
+<screen>systemctl status radvd
+• radvd.service - Router advertisement daemon for IPv6
+     Loaded: loaded (/lib/systemd/system/radvd.service; enabled; preset: enabled)
+     Active: <emphasis>active (running)</emphasis> since Thu 2022-10-20 10:42:10 CEST; 13s ago
+       Docs: man:radvd(8)
+    Process: 1693 ExecStartPre=/usr/sbin/radvd --logmethod stderr_clean --configtest (code=exited, status=0/SUCCESS)
+    Process: 1694 ExecStart=/usr/sbin/radvd --logmethod stderr_clean (code=exited, status=0/SUCCESS)
+   Main PID: 1695 (radvd)
+      Tasks: 2 (limit: 1114)
+     Memory: 476.0K
+        CPU: 30ms
+     CGroup: /system.slice/radvd.service
+             ├─1695 /usr/sbin/radvd --logmethod stderr_clean
+             └─1696 /usr/sbin/radvd --logmethod stderr_clean</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.spoke.default-route'>
+		<title>Validation des routes par défaut vers le réseau opérateur</title>
+
+	<para>Pour joindre l'Internet situé au delà du routeur bleu, il est
+	nécessaire de vérifier la route par défaut pour chaque protocole de la
+	couche réseau&nbsp;: <acronym>IPv4</acronym> et
+	<acronym>IPv6</acronym>.</para>
+
+	<para>Attention&nbsp;! Les tests de connectivité vers l'Internet supposent
+	que le routeur bleu soit fonctionnel.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Comment tester la présence des  routes par défaut
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> vers le routeur
+	bleu&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuel sur le routage avec la commande&nbsp;:
+	<userinput>man ip-route</userinput>.</para>
+	</question>
+	<answer>
+	<para>Sachant que le site distant est raccordé via une liaison point à
+	point unique, on doit voir apparaître le nom de l'interface de la session
+	<acronym>PPP</acronym>.</para>
+
+	<itemizedlist>
+	<listitem>
+	<para>Table de routage <acronym>IPv4</acronym>&nbsp;: la route par défaut
+	est bien présente.</para>
+
+<screen>ip route ls
+<emphasis>default dev ppp0 scope link</emphasis>
+10.4.41.1 dev ppp0 proto kernel scope link src 10.4.41.2
+203.0.113.0/24 dev sw-vlan40 proto kernel scope link src 203.0.113.1</screen>
+	</listitem>
+	<listitem>
+	<para>Table de routage <acronym>IPv6</acronym>&nbsp;: la route par défaut
+	est absente.</para>
+
+<screen>ip -6 route ls
+::1 dev lo proto kernel metric 256 pref medium
+fda0:7a62:28::/64 dev sw-vlan40 proto kernel metric 256 pref medium
+fe80::5d72:1dd3:781a:ff02 dev ppp0 proto kernel metric 256 pref medium
+fe80::dd00:24bc:4b7d:f4df dev ppp0 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.440 proto kernel metric 256 pref medium
+fe80::/64 dev enp0s1.441 proto kernel metric 256 pref medium
+fe80::/64 dev sw-vlan40 proto kernel metric 256 pref medium
+fe80::/64 dev asw-host proto kernel metric 256 pref medium
+fe80:1b8::/64 dev enp0s1.440 proto kernel metric 256 pref medium</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment ajouter des routes statiques dans la configuration
+	système pour qu'elles soient activées à chaque établissement de session
+	<acronym>PPP</acronym>&nbsp;?</phrase></para>
+
+	<para>Il faut parcourir l'arborescence du répertoire <filename
+	class='directory'>/etc/ppp/</filename> pour repérer les scripts exécutés
+	lors de l'ouverture de session. Créer un script pour chaque protocole de
+	couche réseau qui ajoute la route statique voulue.</para>
+	</question>
+	<answer>
+	<itemizedlist>
+	<listitem>
+	<para>Pour <acronym>IPv4</acronym>, le répertoire est <filename
+	class='directory'>/etc/ppp/ip-up.d/</filename>. Voici comment créer un
+	script exécutable appelé <filename>staticroute</filename>.</para>
+
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/ppp/ip-up.d/staticroute
+#!/bin/sh
+
+if [ -z "${CONNECT_TIME}" ]; then
+	ip route add default dev ${PPP_IFACE}
+fi
+EOF</screen>
+
+<screen>sudo chmod +x /etc/ppp/ip-up.d/staticroute</screen>
+	</listitem>
+
+	<listitem>
+	<para>Pour <acronym>IPv6</acronym>, le répertoire est <filename
+	class='directory'>/etc/ppp/ipv6-up.d/</filename>. Voici comment créer un
+	script exécutable aussi appelé<filename>staticroute</filename>.</para>
+
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/ppp/ipv6-up.d/staticroute
+#!/bin/sh
+
+  if [ -z "${CONNECT_TIME}" ]; then
+      ip -6 route add default dev ${PPP_IFACE}
+  fi
+EOF</screen>
+
+<screen>sudo chmod +x /etc/ppp/ipv6-up.d/staticroute</screen>
+	</listitem>
+	</itemizedlist>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quels sont les tests de connectivité qui permettent valider
+	la communication vers l'Internet en passant par le routeur
+	bleu&nbsp;?</phrase></para>
+
+	<para>Au niveau de la couche réseau, on lance les requêtes
+	<acronym>ICMP</acronym> classques.</para>
+	</question>
+	<answer>
+	<para>Les tests suivants doivent nécessairement se faire depuis le routeur
+	<emphasis>Spoke</emphasis> après avoir réinitialisé la session
+	<acronym>PPP</acronym> de façon à bien utiliser les routes par défaut
+	imposées.</para>
+
+<screen>sudo ifdown pppoe-provider
+sudo ifup pppoe-provider</screen>
+
+	<para>Voici un exemple de test pour <acronym>IPv4</acronym>.</para>
+
+<screen>ip route get 9.9.9.9
+9.9.9.9 <emphasis>dev ppp0</emphasis> src 10.4.41.2 uid 1000
+    cache</screen>
+
+<screen>ping -q -c2 9.9.9.9
+PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+
+--- 9.9.9.9 ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 112.766/127.443/142.120/14.677 ms</screen>
+
+	<para>On change l'adresse de destination <acronym>IPv6</acronym>.</para>
+
+<screen>ip -6 route get 2620:fe::fe
+2620:fe::fe from :: <emphasis>dev ppp0</emphasis> src fda0:7a62:28::1 metric 1024 pref medium</screen>
+
+<screen>ping -q -c2 2620:fe::fe
+PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+
+--- 2620:fe::fe ping statistics ---
+<emphasis>2 packets transmitted, 2 received, 0% packet loss</emphasis>, time 1001ms
+rtt min/avg/max/mdev = 44.403/44.627/44.852/0.224 ms</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.spoke.lxd.install'>
+	    <title>Installation du gestionnaire de conteneurs LXD</title>
+
+	<para>Sur le routeur vert, la gestion des conteneurs est confiée à
+	<application>LXD</application>. Pour des raisons de rapidité de mise en
+	œuvre, on choisit de passer par le gestionnaire de paquets
+	<application>snapd</application> pour l'installation des outils.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para>Comment installer le gestionnaire de paquets
+	<application>snap</application> sur une distribution <citetitle>Debian
+	GNU/Linux</citetitle>&nbsp;?</para>
+
+	<para>Effectuer une recherche dans les paquets fournis via
+	<acronym>APT</acronym>.</para>
+	</question>
+	<answer>
+	<para>Il existe tout simplement un paquet appelé
+	<application>snapd</application>.</para>
+
+<screen>sudo apt -y install snapd</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment installer le gestionnaire de conteneurs
+	<application>LXD</application>&nbsp;?</para>
+
+	<para>Rechercher dans la liste des <wordasword>snaps</wordasword>.</para>
+	</question>
+	<answer>
+	<para>Le <wordasword>snap</wordasword> s'appelle tout simplement
+	<application>lxd</application>.</para>
+
+<screen>sudo snap install lxd
+2022-10-20T11:14:38+02:00 INFO Waiting for automatic snapd restart...
+lxd 5.6-794016a from Canonical✓ installed</screen>
+
+	<para>On peut lister les <wordasword>snaps</wordasword> installés.</para>
+
+<screen>snap list
+Name    Version      Rev    Tracking       Publisher   Notes
+core20  20220826     1623   latest/stable  canonical✓  base
+lxd     5.6-794016a  23680  latest/stable  canonical✓  -
+snapd   2.57.4       17336  latest/stable  canonical✓  snapd</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment faire pour que l'utilisateur normal <literal>etu</literal>
+	ait la capacité à gérer les conteneurs&nbsp;?</para>
+
+	<para>Rechercher le nom du groupe système correspondant à l'utilisation des
+	outils <application>LXD</application>.</para>
+	</question>
+	<answer>
+	<para>Il faut que l'utilisteur normal appartienne au groupe système
+	<systemitem>lxd</systemitem> pour qu'il est tous les droits sur la gestion
+	des conteneurs.</para>
+
+<screen>sudo adduser etu lxd</screen>
+
+	<para>Attention&nbsp;! Il faut se déconnecter/reconnecter pour bénéficier
+	de la nouvelle attribution de groupe. On peut utiliser la commande
+	<command>groups</command> pour vérifier le résultats.</para>
+
+<screen>groups
+etu adm cdrom floppy sudo audio dip video plugdev staff netdev <emphasis>lxd</emphasis></screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+
+	<sect2 xml:id='pppoe.spoke.lxd.init'>
+	    <title>Configuration du gestionnaire de conteneurs LXD</title>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction de configuration initiale du
+	gestionnaire <application>LXD</application>&nbsp;?</phrase></para>
+
+	<para>Utiliser l'aide de la commande <command>lxd</command>.</para>
+	</question>
+	<answer>
+	<para>C'est l'instruction <userinput>lxd init</userinput> qui nous
+	intéresse.</para>
+
+	<para>Voici une copie d'écran de son exécution.</para>
+
+<screen>lxd init
+Would you like to use LXD clustering? (yes/no) [default=no]:
+Do you want to configure a new storage pool? (yes/no) [default=yes]:
+Name of the new storage pool [default=default]:
+Name of the storage backend to use (lvm, btrfs, ceph, cephobject, dir) [default=btrfs]:
+Create a new BTRFS pool? (yes/no) [default=yes]:
+Would you like to use an existing empty block device (e.g. a disk or partition)? (yes/no) [default=no]:
+Size in GiB of the new loop device (1GiB minimum) [default=23GiB]:
+Would you like to connect to a MAAS server? (yes/no) [default=no]:
+Would you like to create a new local network bridge? (yes/no) [default=yes]: <emphasis>no</emphasis>
+Would you like to configure LXD to use an existing bridge or host interface? (yes/no) [default=no]: <emphasis>yes</emphasis>
+Name of the existing bridge or host interface: <emphasis>sw-vlan40</emphasis>
+Would you like the LXD server to be available over the network? (yes/no) [default=no]:
+Would you like stale cached images to be updated automatically? (yes/no) [default=yes]:
+Would you like a YAML "lxd init" preseed to be printed? (yes/no) [default=no]:</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Comment changer le type de raccordement défini par le
+	paramètre <option>nictype</option> de <option>macvlan</option> à
+	<option>bridged</option>&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les options d'édition des paramètres du profil avec
+	la commande <command>lxc</command>.</para>
+	</question>
+	<answer>
+	<para>Il faut suivre les champs du fichier <citetitle>yaml</citetitle> de
+	description du profil.</para>
+
+<screen>lxc profile device set default eth0 nictype bridged
+lxc profile device get default eth0 nictype
+<emphasis>bridged</emphasis></screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction qui permet d'afficher le profil par
+	défaut des conteneur&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les options de la commande
+	<command>lxc</command>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple d'exécution.</para>
+
+<screen>lxc profile show default
+config: {}
+description: Default LXD profile
+devices:
+  eth0:
+    name: eth0
+    nictype: <emphasis>bridged</emphasis>
+    parent: <emphasis>sw-vlan40</emphasis>
+    type: nic
+  root:
+    path: /
+    pool: default
+    type: disk
+name: default
+used_by: []</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para><phrase>Quelle est l'instruction de lancement d'un
+	conteneur&nbsp;?</phrase></para>
+
+	<para>Rechercher dans les options de la commande
+	<command>lxc</command>.</para>
+
+	<para>Tester son exécution avec un conteneur de type
+	<literal>debian/bullseye</literal>.</para>
+	</question>
+	<answer>
+	<para>Voici un exemple de création de 3 conteneurs.</para>
+
+<screen>for i in {0..2}
+do
+	lxc launch images:debian/12 c$i
+done</screen>
+
+<screen>lxc ls
++------+---------+------+------------------------------------------+-----------+-----------+
+| NAME |  STATE  | IPV4 |                   IPV6                   |   TYPE    | SNAPSHOTS |
++------+---------+------+------------------------------------------+-----------+-----------+
+| c0   | RUNNING |      | fda0:7a62:28:0:216:3eff:fe0d:3814 (eth0) | CONTAINER | 0         |
++------+---------+------+------------------------------------------+-----------+-----------+
+| c1   | RUNNING |      | fda0:7a62:28:0:216:3eff:fe8e:dfbb (eth0) | CONTAINER | 0         |
++------+---------+------+------------------------------------------+-----------+-----------+
+| c2   | RUNNING |      | fda0:7a62:28:0:216:3eff:fe48:e06f (eth0) | CONTAINER | 0         |
++------+---------+------+------------------------------------------+-----------+-----------+</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry xml:id='pppoe.spoke.lxc.adressing'>
+	<question>
+	<para><phrase>Comment appliquer une configuration <acronym>IPv4</acronym>
+	statique à chaque conteneur&nbsp;?</phrase></para>
+
+	<para>Identifier le fichier de configuration système et modifier ce fichier
+	pour chaque conteneur</para>
+	</question>
+	<answer>
+	<para>Comme les conteneurs utilisent
+	<systemitem>systemd-networkd</systemitem> comme gestionnaire de la
+	configuration réseau, le fichier à identifier est&nbsp;:
+	<filename>/etc/systemd/network/eth0.network</filename>.</para>
+
+
+<screen>for i in {0..2}
+do
+        echo ">>>>>>>>>>>>>>>>> c$i"
+config=$(cat &lt;&lt; EOF
+[Match]
+Name=eth0
+
+[Network]
+DHCP=false
+Address=203.0.113.$((i + 10))/24
+Address=fda0:7a62:28::$(printf "%x" $((i + 10)))/64
+Gateway=203.0.113.1
+DNS=172.16.0.2
+EOF
+)
+        lxc exec c$i -- bash -c "echo \"${config}\" | tee /etc/systemd/network/eth0.network"
+        lxc exec c$i -- systemctl restart systemd-networkd
+done</screen>
+
+	<para>On relève le résultat avec la commande
+	<userinput>lxc&nbsp;ls</userinput>.</para>
+
+<screen>lxc ls
++------+---------+---------------------+------------------------------------------+-----------+-----------+
+| NAME |  STATE  |        IPV4         |                   IPV6                   |   TYPE    | SNAPSHOTS |
++------+---------+---------------------+------------------------------------------+-----------+-----------+
+| c0   | RUNNING | 203.0.113.10 (eth0) | fda0:7a62:28::a (eth0)                   | CONTAINER | 0         |
+|      |         |                     | fda0:7a62:28:0:216:3eff:fe0d:3814 (eth0) |           |           |
++------+---------+---------------------+------------------------------------------+-----------+-----------+
+| c1   | RUNNING | 203.0.113.11 (eth0) | fda0:7a62:28::b (eth0)                   | CONTAINER | 0         |
+|      |         |                     | fda0:7a62:28:0:216:3eff:fe8e:dfbb (eth0) |           |           |
++------+---------+---------------------+------------------------------------------+-----------+-----------+
+| c2   | RUNNING | 203.0.113.12 (eth0) | fda0:7a62:28::c (eth0)                   | CONTAINER | 0         |
+|      |         |                     | fda0:7a62:28:0:216:3eff:fe48:e06f (eth0) |           |           |
++------+---------+---------------------+------------------------------------------+-----------+-----------+</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+	<para>Comment vérifier la connectivité réseau depuis les
+	conteneurs&nbsp;?</para>
+
+	<para>La question précédente montre que la configuration réseau des
+	conteneurs est complète. On doit donc lancer des tests
+	<acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+	</question>
+	<answer>
+	<para>Voici deux exemples de tests <acronym>ICMP</acronym>.</para>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>>>>>>>>>>>>>> c$i"
+	lxc exec c$i -- ping -c2 2620:fe::fe
+done</screen>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>>>>>>>>>>>>>> c$i"
+	lxc exec c$i -- ping -c2 9.9.9.9
+done</screen>
+
+	<para>On peut ensuite passer à la gestion de paquets pour valider les
+	transactions de la couche application.</para>
+
+<screen>for i in {0..2}
+do
+	echo ">>>>>>>>>>>>>>>>> c$i"
+	lxc exec c$i -- apt -y update
+	lxc exec c$i -- apt -y full-upgrade
+	lxc exec c$i -- apt clean
+done</screen>
+	</answer>
+	</qandaentry>
+	</qandaset>
+	</sect2>
+</sect1>
+
+<sect1 xml:id='pppoe.trace'>
+	<title>Trace d'une transaction complète PPPoE</title>
+
+	<para>Pour obtenir la trace des transactions entre les deux routeurs de la
+	maquette, on peut utiliser l'une des deux commandes suivantes&nbsp;:</para>
+
+<screen>grep -i ppp /var/log/syslog</screen>
+
+<screen>journalctl /usr/sbin/pppd</screen>
+
+<sect2 xml:id='pppoe.trace.green'>
+	<title>Routeur Spoke (vert)</title>
+
+	<para>Côté routeur <emphasis>Spoke</emphasis>, on obtient des résultats
+	très détaillés.</para>
+
+<screen>vert pppd[672]: pppd 2.4.9 started by root, uid 0
+vert kernel: [    6.610615] NET: Registered PF_PPPOX protocol family
+vert pppd[672]: Send PPPOE Discovery V1T1 PADI session 0x0 length 12 <co xml:id='pppoe.padi' />
+vert pppd[672]:  dst ff:ff:ff:ff:ff:ff  src b8:ad:ca:fe:00:c9
+vert pppd[672]:  [service-name] [host-uniq  a0 02 00 00]
+vert pppd[672]: Recv PPPOE Discovery V1T1 PADO session 0x0 length 44
+vert pppd[672]:  dst b8:ad:ca:fe:00:c9  src b8:ad:ca:fe:00:c8
+vert pppd[672]:  [AC-name BRAS] [service-name] [AC-cookie  3c 46 65 e0 22 81 9c b1 a9 1b fd 9a 56 fe 6f 6f a5 07 00 00] [host-uniq  a0 02 00 00]
+vert pppd[672]: Send PPPOE Discovery V1T1 PADR session 0x0 length 36
+vert pppd[672]:  dst b8:ad:ca:fe:00:c8  src b8:ad:ca:fe:00:c9
+vert pppd[672]:  [service-name] [host-uniq  a0 02 00 00] [AC-cookie  3c 46 65 e0 22 81 9c b1 a9 1b fd 9a 56 fe 6f 6f a5 07 00 00]
+vert pppd[672]: Recv PPPOE Discovery V1T1 PADS session 0x1 length 12
+vert pppd[672]:  dst b8:ad:ca:fe:00:c9  src b8:ad:ca:fe:00:c8
+vert pppd[672]:  [service-name] [host-uniq  a0 02 00 00]
+vert pppd[672]: PADS: Service-Name: ''
+vert pppd[672]: PPP session is 1
+vert pppd[672]: Connected to b8:ad:ca:fe:00:c8 via interface enp0s1.441
+vert pppd[672]: using channel 1
+vert pppd[672]: Using interface ppp0
+vert pppd[672]: Connect: ppp0 &lt;--> enp0s1.441
+vert pppd[672]: sent [LCP ConfReq id=0x1 &lt;mru 1492> &lt;magic 0x2d6c5498>] <co xml:id='lcp' />
+vert pppd[672]: rcvd [LCP ConfReq id=0x1 &lt;mru 1492> &lt;auth chap MD5> &lt;magic 0xac34879f>]
+vert pppd[672]: sent [LCP ConfAck id=0x1 &lt;mru 1492> &lt;auth chap MD5> &lt;magic 0xac34879f>]
+vert pppd[672]: sent [LCP ConfReq id=0x1 &lt;mru 1492> &lt;magic 0x2d6c5498>]
+vert pppd[672]: rcvd [LCP ConfAck id=0x1 &lt;mru 1492> &lt;magic 0x2d6c5498>]
+vert pppd[672]: sent [LCP EchoReq id=0x0 magic=0x2d6c5498]
+vert pppd[672]: rcvd [LCP EchoReq id=0x0 magic=0xac34879f]
+vert pppd[672]: sent [LCP EchoRep id=0x0 magic=0x2d6c5498]
+vert pppd[672]: rcvd [CHAP Challenge id=0xb2 &lt;23999618eb56316376ef1f75f76e89e33da0697a7df4>, name = "bleu"]
+vert pppd[672]: sent [CHAP Response id=0xb2 &lt;1551c472fd270cc4853896725f1b1757>, name = "green"]
+vert pppd[672]: rcvd [LCP EchoRep id=0x0 magic=0xac34879f]
+vert pppd[672]: rcvd [CHAP Success id=0xb2 "Access granted"]
+vert pppd[672]: CHAP authentication succeeded: Access granted
+vert pppd[672]: CHAP authentication succeeded
+vert pppd[672]: peer from calling number B8:AD:CA:FE:00:C8 authorized
+vert pppd[672]: sent [IPCP ConfReq id=0x1 &lt;addr 0.0.0.0> &lt;ms-dns1 0.0.0.0> &lt;ms-dns2 0.0.0.0>] <co xml:id='ncp' />
+vert pppd[672]: sent [IPV6CP ConfReq id=0x1 &lt;addr fe80::dd00:24bc:4b7d:f4df>]
+vert pppd[672]: rcvd [CCP ConfReq id=0x1 &lt;deflate 15> &lt;deflate(old#) 15> &lt;bsd v1 15>]
+vert pppd[672]: sent [CCP ConfReq id=0x1]
+vert pppd[672]: sent [CCP ConfRej id=0x1 &lt;deflate 15> &lt;deflate(old#) 15> &lt;bsd v1 15>]
+vert pppd[672]: rcvd [IPCP ConfReq id=0x1 &lt;compress VJ 0f 01> &lt;addr 10.4.41.1>]
+vert pppd[672]: sent [IPCP ConfRej id=0x1 &lt;compress VJ 0f 01>]
+vert pppd[672]: rcvd [IPV6CP ConfReq id=0x1 &lt;addr fe80::5d72:1dd3:781a:ff02>]
+vert pppd[672]: sent [IPV6CP ConfAck id=0x1 &lt;addr fe80::5d72:1dd3:781a:ff02>]
+vert pppd[672]: rcvd [IPCP ConfNak id=0x1 &lt;addr 10.4.41.2> &lt;ms-dns1 172.16.0.2> &lt;ms-dns2 172.16.0.2>]
+vert pppd[672]: sent [IPCP ConfReq id=0x2 &lt;addr 10.4.41.2> &lt;ms-dns1 172.16.0.2> &lt;ms-dns2 172.16.0.2>]
+vert pppd[672]: rcvd [IPV6CP ConfAck id=0x1 &lt;addr fe80::dd00:24bc:4b7d:f4df>]
+vert pppd[672]: local  LL address fe80::dd00:24bc:4b7d:f4df
+vert pppd[672]: remote LL address fe80::5d72:1dd3:781a:ff02
+vert pppd[672]: Script /etc/ppp/ipv6-up started (pid 700)
+vert pppd[672]: rcvd [CCP ConfAck id=0x1]
+vert pppd[672]: rcvd [CCP ConfReq id=0x2]
+vert pppd[672]: sent [CCP ConfAck id=0x2]
+vert pppd[672]: rcvd [IPCP ConfReq id=0x2 &lt;addr 10.4.41.1>]
+vert pppd[672]: sent [IPCP ConfAck id=0x2 &lt;addr 10.4.41.1>]
+vert pppd[672]: rcvd [IPCP ConfAck id=0x2 &lt;addr 10.4.41.2> &lt;ms-dns1 172.16.0.2> &lt;ms-dns2 172.16.0.2>]
+vert pppd[672]: Script /etc/ppp/ip-pre-up started (pid 701)
+vert pppd[672]: Script /etc/ppp/ip-pre-up finished (pid 701), status = 0x0
+vert pppd[672]: local  IP address 10.4.41.2
+vert pppd[672]: remote IP address 10.4.41.1
+vert pppd[672]: primary   DNS address 172.16.0.2
+vert pppd[672]: secondary DNS address 172.16.0.2
+vert pppd[672]: Script /etc/ppp/ip-up started (pid 705)
+vert pppd[672]: Script /etc/ppp/ipv6-up finished (pid 700), status = 0x0
+vert pppd[672]: Script /etc/ppp/ip-up finished (pid 705), status = 0x0</screen>
+
+	<calloutlist>
+	<callout arearefs='pppoe.padi'>
+		<para>Sur un réseau de diffusion il est nécessaire d'identifier les
+		deux hôtes qui doivent établir une session <acronym>PPP</acronym>.
+		Cette toute première phase d'identification utilise des trames
+		spécifiques avec les messages décrits dans la <xref
+		linkend='pppoe.ethernet' />.</para>
+	</callout>
+	<callout arearefs='lcp'>
+		<para>La sous-couche <wordasword>Link Control Protocol</wordasword>
+		(<acronym>LCP</acronym>) assure la configuration automatique des
+		interfaces à chaque extrémité. Les paramètres négociés entre les deux
+		hôtes en communication sont multiples&nbsp;: l'adaptation de la taille de
+		datagramme, les caractères d'échappement, les numéros magiques et la
+		sélection des options d'authentification.</para>
+	</callout>
+	<callout arearefs='ncp'>
+		<para>La sous-couche <wordasword>Network Control Protocol</wordasword>
+		(<acronym>NCP</acronym>) assure l'encapsulation de multiples protocoles
+		de la couche réseau. Dans l'exemple donné, c'est le protocole
+		<acronym>IPv4</acronym> qui est utilisé ; d'où l'acronyme
+		<acronym>IPCP</acronym>.</para>
+	</callout>
+	</calloutlist>
+</sect2>
+
+<sect2 xml:id='pppoe.trace.hub'>
+	<title>Routeur Hub (bleu)</title>
+
+	<para>Côté routeur <emphasis>Spoke</emphasis>, on obtient des résultats
+	très simplifiés.</para>
+
+<screen>bleu pppoe-server[3388]: Session 1 created for client b8:ad:ca:fe:00:c9 (10.4.41.2) on enp0s1.441 using Service-Name ''
+bleu pppd[3388]: pppd 2.4.9 started by etu, uid 0
+bleu pppd[3388]: Using interface ppp0
+bleu pppd[3388]: Connect: ppp0 &lt;--> /dev/pts/0
+bleu pppd[3388]: pam_unix(ppp:session): session opened for user green(uid=1001) by (uid=0)
+bleu pppd[3388]: user green logged in on tty  intf ppp0
+bleu pppd[3388]: local  LL address fe80::5d72:1dd3:781a:ff02
+bleu pppd[3388]: remote LL address fe80::dd00:24bc:4b7d:f4df
+bleu pppd[3388]: local  IP address 10.4.41.1
+bleu pppd[3388]: remote IP address 10.4.41.2</screen>
+</sect2>
+</sect1>
+</article>
