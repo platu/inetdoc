@@ -50,7 +50,7 @@ tp3.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ppp.qa/$(ABSTRACT_FILE)
 tp4.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.netfilter.qa/$(ABSTRACT_FILE)
 	ln -s $< $@
 
-tp5.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.inter-vlan.qa/$(ABSTRACT_FILE)
+tp5.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.inter-vlan/$(ABSTRACT_FILE)
 	ln -s $< $@
 
 tp6.abstract.xml: $(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/$(ABSTRACT_FILE)
