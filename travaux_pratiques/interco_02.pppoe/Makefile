@@ -14,7 +14,7 @@ SYMLINKS = \
 	$(MAIN_DIR)/common/rfc.urls.xml
 
 XML_FILES = \
-	interco.pppoe-cloud.qa.xml \
+	pppoe.xml \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \

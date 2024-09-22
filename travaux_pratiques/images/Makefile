@@ -11,11 +11,10 @@ SYMLINKS = \
 	$(MAIN_DIR)/travaux_pratiques/sysadm-net.iscsi.qa/images/targetcli.png \
 	$(MAIN_DIR)/travaux_pratiques/sysadm-net.ldap.qa/images/ldap-tree.png \
 	$(MAIN_DIR)/travaux_pratiques/sysadm-net.autofs-ldap-nfs.qa/images/ldap-automount.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.inter-vlan/images/*.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.ppp.qa/images/WAN-DSL-Topology.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.pppoe.qa/images/WAN-FTTH-Topology.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.pppoe-cloud.qa/images/pppoe-cloud-logical-topology.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.pppoe.qa/images/pppoe-hub-and-spoke-logical-topology.png \
+	$(MAIN_DIR)/travaux_pratiques/interco_01.inter-vlan-iaas/images/*.png \
+	$(MAIN_DIR)/travaux_pratiques/interco_02.pppoe/images/pppoe-logical-topology.png \
+	$(MAIN_DIR)/travaux_pratiques/interco_02.pppoe/images/pppoe-hypervisor-topology.png \
+	$(MAIN_DIR)/travaux_pratiques/interco_03.hub-and-spoke/images/pppoe-hub-and-spoke-logical-topology.png \
 	$(MAIN_DIR)/travaux_pratiques/interco.ospf-frr.qa/images/ospf-cloud-logical-topology.png \
 	$(MAIN_DIR)/travaux_pratiques/interco.ospf-frr.qa/images/interco.ospf.physical-topology.png \
 	$(MAIN_DIR)/travaux_pratiques/interco.cs/images/interco.cs.png \

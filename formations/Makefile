@@ -10,8 +10,8 @@ SUBDIRS = \
 	reseau \
 	sysadm-base \
 	sysadm-net \
-	interco-lan-wan \
-	security
+	security 
+#	interco-lan-wan \
 
 # Type(s) de traitement
 PROCESS = subdirs xml2xhtml xml2pdf
@@ -21,8 +21,8 @@ XML_FILES = \
 	reseau/$(ABSTRACT_FILE) \
 	sysadm-base/$(ABSTRACT_FILE) \
 	sysadm-net/$(ABSTRACT_FILE) \
-	interco-lan-wan/$(ABSTRACT_FILE) \
 	security/$(ABSTRACT_FILE)
+#	interco-lan-wan/$(ABSTRACT_FILE) \
 
 all: $(PROCESS)
 

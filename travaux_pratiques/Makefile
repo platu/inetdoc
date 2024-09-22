@@ -19,13 +19,10 @@ SUBDIRS = \
 	sysadm-net.autofs-nis-nfs.qa \
 	sysadm-net.dns.qa \
 	sysadm-net.set \
-	interco.kernel.qa \
-	interco.rawip.qa \
-	interco.ppp.qa \
-	interco.pppoe.qa \
-	interco.pppoe-cloud.qa \
+	interco_01.inter-vlan-iaas \
+	interco_02.pppoe \
+	interco_03.hub-and-spoke \
 	interco.netfilter.qa \
-	interco.inter-vlan \
 	interco.ospf-frr.qa \
 	interco.ospf-bird.qa \
 	interco.cs
@@ -49,13 +46,10 @@ XML_FILES = \
 	sysadm-net.nis.qa/$(ABSTRACT_FILE) \
 	sysadm-net.autofs-nis-nfs.qa/$(ABSTRACT_FILE) \
 	sysadm-net.dns.qa/$(ABSTRACT_FILE) \
-	interco.kernel.qa/$(ABSTRACT_FILE) \
-	interco.rawip.qa/$(ABSTRACT_FILE) \
-	interco.ppp.qa/$(ABSTRACT_FILE) \
-	interco.pppoe.qa/$(ABSTRACT_FILE) \
-	interco.pppoe-cloud.qa/$(ABSTRACT_FILE) \
+	interco_01.inter-vlan-iaas/$(ABSTRACT_FILE) \
+	interco_02.pppoe/$(ABSTRACT_FILE) \
+	interco_03.hub-and-spoke/$(ABSTRACT_FILE) \
 	interco.netfilter.qa/$(ABSTRACT_FILE) \
-	interco.inter-vlan/$(ABSTRACT_FILE) \
 	interco.ospf-frr.qa/$(ABSTRACT_FILE) \
 	interco.ospf-bird.qa/$(ABSTRACT_FILE) \
 	interco.cs/$(ABSTRACT_FILE) \

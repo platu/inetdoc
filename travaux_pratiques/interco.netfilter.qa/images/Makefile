@@ -7,7 +7,7 @@ PNGTARGET = $(patsubst %.odg,%.png,$(wildcard *.odg))
 # Type(s) de traitement
 PROCESS = $(PNGTARGET) symlink
 
-SYMLINKS = $(MAIN_DIR)/travaux_pratiques/interco.pppoe.qa/images/pppoe-hub-and-spoke-logical-topology.png
+SYMLINKS = $(MAIN_DIR)/travaux_pratiques/interco.pppoe/images/pppoe-hub-and-spoke-logical-topology.png
 
 all: $(PROCESS)
 
