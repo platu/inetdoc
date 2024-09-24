@@ -16,7 +16,7 @@ SYMLINKS = \
         $(MAIN_DIR)/common/rfc.urls.xml
 
 XML_FILES = \
-	interco.hub-and-spoke.xml \
+	hub-and-spoke.xml \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \
