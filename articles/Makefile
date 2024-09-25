@@ -13,7 +13,6 @@ SUBDIRS = \
 	wireshark-as-user \
 	rnis \
 	ethernet \
-	pppoe \
 	adressage.ipv4 \
 	autoconf-ipv6 \
 	ospf-triangle-multiple-default \
@@ -36,7 +35,6 @@ XML_FILES = \
 	wireshark-as-user/$(ABSTRACT_FILE) \
 	rnis/$(ABSTRACT_FILE) \
 	ethernet/$(ABSTRACT_FILE) \
-	pppoe/$(ABSTRACT_FILE) \
 	adressage.ipv4/$(ABSTRACT_FILE) \
 	autoconf-ipv6/$(ABSTRACT_FILE) \
 	ospf-triangle-multiple-default/$(ABSTRACT_FILE) \

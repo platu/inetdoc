@@ -22,7 +22,7 @@ SUBDIRS = \
 	interco_01.inter-vlan-iaas \
 	interco_02.pppoe \
 	interco_03.hub-and-spoke \
-	interco.netfilter.qa \
+	interco_04.netfilter \
 	interco.ospf-frr.qa \
 	interco.ospf-bird.qa \
 	interco.cs
@@ -49,7 +49,7 @@ XML_FILES = \
 	interco_01.inter-vlan-iaas/$(ABSTRACT_FILE) \
 	interco_02.pppoe/$(ABSTRACT_FILE) \
 	interco_03.hub-and-spoke/$(ABSTRACT_FILE) \
-	interco.netfilter.qa/$(ABSTRACT_FILE) \
+	interco_04.netfilter/$(ABSTRACT_FILE) \
 	interco.ospf-frr.qa/$(ABSTRACT_FILE) \
 	interco.ospf-bird.qa/$(ABSTRACT_FILE) \
 	interco.cs/$(ABSTRACT_FILE) \
