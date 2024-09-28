@@ -311,7 +311,7 @@
 			<entry>441</entry>
 			<entry>Authentifiants</entry>
 			<entry>Hub</entry>
-			<entry align='center'><systemitem>5p0k3_1 / 0r4ng3_1</systemitem></entry>
+			<entry align='center'><systemitem>spoke_site1 / 0r4ng3_1</systemitem></entry>
 		</row>
 		<row>
 			<entry>Vert</entry>
@@ -336,7 +336,7 @@
 			<entry>443</entry>
 			<entry>Authentifiants</entry>
 			<entry>Hub</entry>
-			<entry align='center'><systemitem>5p0k3_2 / 0r4ng3_2</systemitem></entry>
+			<entry align='center'><systemitem>spoke_site2 / 0r4ng3_2</systemitem></entry>
 		</row>
 		<row>
 			<entry>Vert</entry>
@@ -353,7 +353,7 @@
 </table>
 </sect1>
 
-<?icustom-pagebreak?>
+<?custom-pagebreak?>
 <sect1 xml:id='hub-and-spoke.hub'>
 	<title>Routeur Hub</title>
 
@@ -371,82 +371,142 @@
 	l'encapsulation des trames <acronym>PPP</acronym> sur un réseau de
 	diffusion Ethernet.</para>
 
-	<para>Cette section reprend essentiellement la partie
-<!--	&url.interco.; du support &url.hub-and-spoke-cloud;.-->
-	On doit cependant adapter la configuration des interfaces réseau du routeur
-	<wordasword>Hub</wordasword> en ajoutant un second jeu d'interfaces pour le
-	deuxième site distant.</para>
+    <para>Cette section reprend essentiellement la partie <citetitle>Routeur
+    Hub</citetitle> du support &url.interco.pppoe;.  On doit cependant adapter
+    la configuration des interfaces réseau du routeur
+    <wordasword>Hub</wordasword> en ajoutant un second jeu d'interfaces pour le
+    deuxième site distant.</para>
 
 	<qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
-	<para><phrase>Comment activer la fonction routage du sous-système réseau du
-	noyau&nbsp;?</phrase></para>
+	<para><phrase>Comment activer le routage dans le sous-système réseau du
+	noyau Linux&nbsp;?</phrase></para>
 
-	<para>Reprendre les mêmes actions que dans le support
-	&url.interco.pppoe;.</para>
-	</question>
-	<answer>
-	<para>Il faut éditer le fichier <filename>/etc/sysctl.conf</filename> et
-	appliquer les modifications.</para>
+    <para>Utiliser la commande <command>sysctl</command> pour effectuer des
+    recherches et identifier les paramètres utiles. Par exemple&nbsp;:</para>
 
-<screen>sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
-sudo sed -i 's/#net.ipv6.conf.all.forwarding=1/net.ipv6.conf.all.forwarding=1/' /etc/sysctl.conf
-sudo sysctl --system</screen>
+<screen>sudo sysctl -a -r ".*forward.*"</screen>
+
+    <para>Il est dorénavant recommandé de créer un fichier de configuration
+    spécifique par fonction. C'est la raison pour laquelle on crée un nouveau
+    fichier <filename>/etc/sysctl.d/10-routing.conf</filename>.</para>
+    </question>
+    <answer>
+
+<screen>cat &lt;&lt; EOF | sudo tee /etc/sysctl.d/10-routing.conf
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+net.ipv4.conf.all.log_martians=1
+EOF</screen>
+
+    <para>Attention ! Il ne faut pas oublier d'appliquer les nouvelles valeurs
+    des paramètres de configuration.</para>
+
+<screen>sudo sysctl --system</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment activer la traduction d'adresses sources pour tous
-	les flux réseaux sortants sur le VLAN rouge&nbsp;?</phrase></para>
+    <para><phrase>Comment assurer la traduction d'adresses sources pour tous
+    les flux réseaux sortants sur le réseau d'infrastructure
+    (<acronym>VLAN</acronym> rouge)&nbsp;?</phrase></para>
 
-	<para>Reprendre les mêmes actions que dans le support
-	&url.interco.pppoe;.</para>
+    <para>Rechercher dans des exemples de configuration
+    <systemitem>nftables</systemitem> avec la fonction
+    <literal>MASQUERADE</literal>.</para>
 	</question>
 	<answer>
-	<para>Il faut créer une règle par protocole de couche réseau et sauvegarder
-	ces deux règles dans les fichiers prévus pour la persistance au
-	redémarrage.</para>
+    <para>Voici un exemple de création du fichier
+    <filename>/etc/nftables.conf</filename> avec le jeu d'instructions qui
+    assure la traduction d'adresses sources pour <acronym>IPv4</acronym> et
+    <acronym>IPv6</acronym>.</para>
 
-	<itemizedlist>
-	<listitem>
-		<para>On débute par l'installation des paquets nécessaires au filtrage
-		réseau et à la sauvegarde des règles.</para>
+<screen>cat &lt;&lt; 'EOF' | sudo tee /etc/nftables.conf
+#!/usr/sbin/nft -f
 
-<screen>sudo apt -y install iptables iptables-persistent</screen>
-	</listitem>
-	<listitem>
-		<para>On active la traduction des adresses source
-		<acronym>IPv4</acronym>.</para>
+flush ruleset
 
-<screen>sudo iptables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
-sudo sh -c "iptables-save >/etc/iptables/rules.v4"</screen>
-	</listitem>
-	<listitem>
-		<para>On applique le même traitement pour
-		<acronym>IPv6</acronym>.</para>
+# Define variables
+define RED_VLAN = <emphasis>enp0s1.360</emphasis>
 
-<screen>sudo ip6tables -t nat -A POSTROUTING -o enp0s1.360 -j MASQUERADE
-sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
-	</listitem>
-	</itemizedlist>
+table ip nat {
+    chain postrouting {
+        type nat hook postrouting priority 100;
+        oifname $RED_VLAN counter packets 0 bytes 0 masquerade
+    }
+}
+
+table ip6 nat {
+    chain postrouting {
+        type nat hook postrouting priority 100;
+        oifname $RED_VLAN counter packets 0 bytes 0 masquerade
+    }
+}
+EOF</screen>
+
+    <warning>
+    <para>Il faut impérativement changer le nom d'interface en utilisant le
+    numéro de <acronym>VLAN</acronym> attribué dans le plan d'adressage des
+    travaux pratiques.</para>
+    </warning>
+
+	<para>La création de ce fichier de règles n'est pas suffisante. Il faut
+	appliquer les règles contenues dans le fichier.</para>
+
+<screen>sudo nft -f /etc/nftables.conf</screen>
+
+    <para>Il faut aussi activer ce service pour assurer le chargement
+    automatique des règles de filtrage au démarrage.</para>
+
+<screen>sudo systemctl enable nftables.service
+sudo systemctl start nftables.service
+sudo systemctl status nftables.service</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quel est le paquet qui fournit le démon de gestion du
-	dialogue <acronym>PPPoE</acronym>&nbsp;?</phrase></para>
+	<para><phrase>Quel paquet spécifique à la gestion du dialogue
+	<acronym>PPPoE</acronym> à installer sur le routeur
+	<wordasword>Hub</wordasword>&nbsp;?</phrase></para>
 
-	<para>Dans un réseau de diffusion, il est nécessaire d'identifier les deux
-	extrémités qui vont établir une session <acronym>PPP</acronym>.</para>
+	<para>Rechercher dans le catalogue des paquets, la référence
+	<acronym>pppoe</acronym>.</para>
 	</question>
 	<answer>
-	<para>C'est le paquet <systemitem>pppoe</systemitem>. Il a pour dépendance
-	le paquet <systemitem>ppp</systemitem>.</para>
+<screen>apt search ^pppoe</screen>
+
+    <para>Le résultat de la commande
+    <command>apt&nbsp;show&nbsp;pppoe</command> montre que c'est bien le paquet
+    <systemitem>pppoe</systemitem> qui répond au besoin. On peut donc
+    l'installer.</para>
 
 <screen>sudo apt -y install pppoe</screen>
+	</answer>
+	</qandaentry>
+
+	<qandaentry>
+	<question>
+    <para><phrase>Dans quel fichier sont stockés les paramètres d'identité et
+    d'authentification utilisés par le protocole <acronym>EAP</acronym> pour la
+    méthode <acronym>CHAP</acronym>&nbsp;?</phrase></para>
+
+	<para>Consulter les pages de manuels du démon <command>pppd</command> à la
+	section <citetitle>AUTHENTICATION</citetitle>.</para>
+	</question>
+	<answer>
+	<para>C'est le fichier <filename>/etc/ppp/chap-secrets</filename> qui
+	contient les couples <wordasword>login/password</wordasword> utilisés lors
+	de l'authentification.</para>
+
+	<para>Voici un exemple du contenu de ce fichier.</para>
+
+<screen># Secrets for authentication using CHAP
+# client    	server	secret			IP addresses
+"spoke_site1"	*		"0r4ng3_1"		*
+"spoke_site2"	*		"0r4ng3_2"		*</screen>
 	</answer>
 	</qandaentry>
 
@@ -489,9 +549,9 @@ EOF</screen>
 	<answer>
 		<para>Voici un exemple dans le contexte de la maquette.</para>
 
-<screen>sudo adduser --gecos 'Spoke 1' --disabled-login --no-create-home --force-badname 5p0k3_1</screen>
+<screen>sudo adduser --gecos 'Spoke 1' --disabled-login --no-create-home spoke_site1</screen>
 
-<screen>sudo adduser --gecos 'Spoke 2' --disabled-login --no-create-home --force-badname 5p0k3_2</screen>
+<screen>sudo adduser --gecos 'Spoke 2' --disabled-login --no-create-home spoke_site2</screen>
 	</answer>
 	</qandaentry>
 
@@ -508,23 +568,6 @@ EOF</screen>
 	<para>C'est le fichier <filename>/etc/ppp/chap-secrets</filename> qui
 	contient les couples <wordasword>login/password</wordasword> utilisés lors
 	de l'authentification.</para>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Comment ajouter les authentifiants des deux routeurs
-	<wordasword>Spoke</wordasword> dans le fichier d'authentification
-	<acronym>CHAP</acronym>&nbsp;?</phrase></para>
-	</question>
-	<answer>
-	<para>Voici une copie du fichier dans le contexte de la maquette. Seuls les
-	noms d'utilisateur et les mots de passe comptent.</para>
-
-<screen># Secrets for authentication using CHAP
-# client	server	secret			IP addresses
-"5p0k3_1"	*		"0r4ng3_1"		*
-"5p0k3_2"	*		"0r4ng3_2"		*</screen>
 	</answer>
 	</qandaentry>
 
@@ -705,7 +748,7 @@ EOF</screen>
 
 <?custom-pagebreak?>
 <sect1 xml:id='hub-and-spoke.spoke'>
-	<title>Routeurs Spoke (vert)</title>
+	<title>Routeurs Spoke</title>
 
 	<para>Dans le scénario défini dans la <xref
 	linkend='hub-and-spoke.hub-and-spoke'/>, un routeur de site d'extrémité
@@ -1184,6 +1227,7 @@ requête HTTP transmise, en attente de la réponse… 200 OK</screen>
 	</qandaset>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='hub-and-spoke.tests'>
       <title>Tests sur la topologie Hub &amp; Spokes</title>
 
@@ -1499,17 +1543,6 @@ HTTP request sent, awaiting response... <emphasis>200 OK</emphasis></screen>
 		établir et configurer différents protocoles de niveau réseau.</para>
 		</listitem>
 		</orderedlist>
-		</listitem>
-	</varlistentry>
-
-	<varlistentry xml:id='hub-and-spoke.config.interface.lan'>
-		<term><citetitle>Configuration d'une interface de réseau
-		local</citetitle></term>
-		<listitem>
-		<para>&url.config.interface.lan;&nbsp;: identification du type d'interface,
-		de ses caractéristiques et manipulations des paramètres. Ce support
-		fournit une méthodologie de dépannage simple d'une connexion
-		réseau.</para>
 		</listitem>
 	</varlistentry>
 	</variablelist>
