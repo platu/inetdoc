@@ -11,7 +11,6 @@ SUBDIRS = \
 	ssh-ios \
 	modelisation \
 	wireshark-as-user \
-	rnis \
 	ethernet \
 	adressage.ipv4 \
 	autoconf-ipv6 \
@@ -33,7 +32,6 @@ XML_FILES = \
 	ssh-ios/$(ABSTRACT_FILE) \
 	modelisation/$(ABSTRACT_FILE) \
 	wireshark-as-user/$(ABSTRACT_FILE) \
-	rnis/$(ABSTRACT_FILE) \
 	ethernet/$(ABSTRACT_FILE) \
 	adressage.ipv4/$(ABSTRACT_FILE) \
 	autoconf-ipv6/$(ABSTRACT_FILE) \
