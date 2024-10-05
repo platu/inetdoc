@@ -1059,21 +1059,119 @@ table ip6 raw {
     <acronym>IPv4</acronym>&nbsp;?</phrase></para>
 
 	<para>Rechercher les options de la commande <command>hping3</command> qui
-	permettent de générer des flux <acronym>ICMP</acronym> en utilisant des
-	adresses <acronym>IPv4</acronym> source aléatoires.</para>
+    permettent de générer un envoi de requêtes <acronym>ICMP</acronym> en grand
+    nombre.</para>
 	</question>
 	<answer>
+    <para>Voici un exemple d'envoi de requêtes <acronym>ICMP</acronym> en
+    nombre à destination du deuxième conteneur hébergé sur le premier routeur
+    <citetitle>Spoke</citetitle>.</para>
 
-<screen><prompt>etu@HubBleu:~$</prompt> sudo hping3 -1 --rand-source --fast -c 100 10.0.2.11</screen>
+<screen>sudo hping3 -1 --flood -c 10 10.0.10.11</screen>
 
-	<para>À la fin de l'émission, les résultats montrent que 76% des 100
-	requêtes ont été rejetées.</para>
+    <para>Si le temps d'exécution de ces émission paraît trop long, il ne faut
+    pas hésiter à interrompre l'émission avec <keycap>Ctrl+C</keycap>.</para>
 
-<screen>--- 10.0.2.11 hping statistic ---
-100 packets transmitted, 24 packets received, <emphasis>76% packet loss</emphasis>
-round-trip min/avg/max = 1.1/5.0/9.3 ms</screen>
+<screen>HPING 10.0.10.11 (ppp0 10.0.10.11): icmp mode set, 28 headers + 0 data bytes
+hping in flood mode, no replies will be shown
+
+--- 10.0.10.11 hping statistic ---
+61492309 packets transmitted, 0 packets received, 100% packet loss
+round-trip min/avg/max = 0.0/0.0/0.0 ms</screen>
+
+    <para>Les résultats de cette commande montrent que le mécanisme de
+    protection a bien fonctionné. On doit aussi vérifier qu'une émission
+    “raisonnable“ de requêtes <acronym>ICMP</acronym> donne des résultats
+    corrects.</para>
+
+<screen>ping -qc 10 10.0.10.11</screen>
+
+<screen>PING 10.0.10.11 (10.0.10.11) 56(84) bytes of data.
+
+--- 10.0.10.11 ping statistics ---
+<emphasis>10 packets transmitted, 10 received, 0% packet loss</emphasis>, time 9013ms
+rtt min/avg/max/mdev = 1.056/1.279/2.034/0.268 ms</screen>
+
+    <para>Côté routeur <citetitle>Spoke</citetitle> “cible”, on peut relever
+    les compteurs des règles de traitement <acronym>ICMP</acronym> et constater
+    qu'un grand nombre de paquets ont été jetés.</para>
+
+<screen>sudo nft list table ip raw</screen>
+
+<screen>table ip raw {
+    chain rpfilter {
+        type filter hook prerouting priority raw; policy accept;
+        iifname "ppp0" fib saddr . iif oif 0 counter packets 0 bytes 0 drop
+    }
+
+    chain icmpfilter {
+        type filter hook prerouting priority raw; policy accept;
+        icmp type echo-request limit rate 10/second burst 5 packets <emphasis>counter packets 5378 bytes 150584 accept</emphasis>
+        icmp type echo-request <emphasis>counter packets 90460174 bytes 2532884872 drop</emphasis>
+    }
+}</screen>
 	</answer>
 	</qandaentry>
+
+	<qandaentry>
+	<question>
+    <para><phrase>Comment qualifier le fonctionnement des règles de limitation
+    du nombre de nouvelles requêtes <acronym>ICMP</acronym> avec
+    <acronym>IPv6</acronym>&nbsp;?</phrase></para>
+
+	<para>Rechercher les options de la commande <command>ping</command> qui
+	permettent de générer un flux de saturation <acronym>ICMPv6</acronym>.</para>
+
+    <para>On s'intéresse plus particulièrement aux options <option>-f</option>
+    et <option>-i</option>.</para>
+	</question>
+	<answer>
+    <para>Voici un exemple de tentative de saturation à destination du deuxième
+    conteneur du réseau d'hébergement du premier routeur
+    <citetitle>Spoke</citetitle>.</para>
+
+<screen>sudo ping -6 -c100 -i 0.0005 -f fda0:7a62:a::b</screen>
+
+    <para>En réponse à cette commande, on voit que le taux de perte de paquets
+    est important.</para>
+
+<screen>PING fda0:7a62:a::b (fda0:7a62:a::b) 56 data bytes
+..................................................................................
+--- fda0:7a62:a::b ping statistics ---
+<emphasis>100 packets transmitted, 18 received, 82% packet loss</emphasis>, time 1315ms
+rtt min/avg/max/mdev = 0.316/0.845/2.057/0.334 ms, ipg/ewma 13.281/0.931 ms</screen>
+
+    <para>Côte routeur “cible”, on relève à nouveau un grand nombre de paquets
+    jetés.</para>
+
+<screen>sudo nft list table ip6 raw</screen>
+
+<screen>table ip6 raw {
+        chain rpfilter {
+                type filter hook prerouting priority raw; policy accept;
+                iifname "ppp0" fib saddr . iif oif 0 counter packets 0 bytes 0 drop
+        }
+
+        chain icmpfilter {
+                type filter hook prerouting priority raw; policy accept;
+                icmpv6 type echo-request limit rate 10/second burst 5 packets <emphasis>counter packets 93 bytes 9672 accept</emphasis>
+                icmpv6 type echo-request <emphasis>counter packets 485 bytes 50440 drop</emphasis>
+        }
+}</screen>
+
+    <para>Comme on l'a fait pour le protocole <acronym>IPv4</acronym>, on
+    vérifie qu'on obtient un retour correct suite à des requêtes émises “à un
+    rythme normal”.</para>
+
+<screen>ping -qc10 fda0:7a62:a::b</screen>
+
+<screen>PING fda0:7a62:a::b (fda0:7a62:a::b) 56 data bytes
+
+--- fda0:7a62:a::b ping statistics ---
+<emphasis>10 packets transmitted, 10 received, 0% packet loss</emphasis>, time 9018ms
+rtt min/avg/max/mdev = 0.839/1.055/1.191/0.097 ms</screen>
+    </answer>
+    </qandaentry>
     </qandaset>
     </sect2>
 
@@ -1081,32 +1179,42 @@ round-trip min/avg/max = 1.1/5.0/9.3 ms</screen>
 	<title>Protection contre les robots de connexion au service
 	<acronym>SSH</acronym></title>
 
-<qandaset>
-<qandadiv>
+    <para>Comme dans les deux sections précédentes, l'évaluation du mécanisme
+    de protection se joue entre le routeur <citetitle>Hub</citetitle> et un
+    routeur <citetitle>Spoke</citetitle>. On verra que le cas d'une protection
+    contre les robots <acronym>SSH</acronym>, celle-ci doit s'appliquer sur
+    tous les systèmes qui autorisent une connexion par mot de passe.</para>
+
+    <para>Le sujet de ce document étant l'étude du filtrage réseau, on
+    s'intéresse ici à la génération automatique de règles suite à la violation
+    des critères définis dans l'application de gestion des tentatives de
+    connexion&nbsp;: <application>fail2ban</application>.</para>
+
+    <qandaset>
 	<qandaentry>
 	<question>
-	<para><phrase>Quel est la fonction du paquet
-	<citetitle>fail2ban</citetitle>&nbsp;?</phrase></para>
+    <para><phrase>Quel est la fonction de
+    <citetitle>fail2ban</citetitle>&nbsp;?</phrase></para>
 
 	<para>Afficher la description du paquet <citetitle>fail2ban</citetitle>
 	après l'avoir installé.</para>
 	</question>
 	<answer>
-<screen>apt install fail2ban</screen>
+<screen>sudo apt -y install fail2ban</screen>
 
-<screen>aptitude show fail2ban | grep -A2 Desc | fmt -t -w80</screen>
+<screen>apt show fail2ban | grep  Description</screen>
 
-<screen>Description : <emphasis>ban hosts that cause multiple authentication errors Fail2ban</emphasis>
- monitors log files (e.g. /var/log/auth.log, /var/log/apache/access.log)
- and temporarily or persistently bans failure-prone addresses by updating
- existing firewall rules.  Fail2ban allows easy specification of different
- actions to be taken such as to ban an IP using iptables or hostsdeny rules,
- or simply to send a notification email.</screen>
+<screen>Description : <emphasis>ban hosts that cause multiple authentication errors Fail2ban</emphasis></screen>
 
-	<para>Le rôle du service <citetitle>fail2ban</citetitle> est de repérer les
-	erreurs d'authentification dans les journaux des différents services actifs
-	et de créer une chaîne <systemitem>iptables</systemitem> qui bloque les
-	tentatives de connexion suivantes.</para>
+    <para><citetitle>Fail2ban</citetitle> est un outil de sécurité qui analyse
+    les journaux système pour détecter et empêcher les attaques par force brute
+    sur les serveurs. Il bloque automatiquement les adresses
+    <acronym>IP</acronym> suspectes après plusieurs tentatives de connexion
+    infructueuses au cours d'une période donnée en mettant à jour les règles du
+    pare-feu. Cette application prend en charge différents services, dont
+    <acronym>SSH</acronym>,  et offre des paramètres personnalisables pour
+    améliorer la protection des serveurs contre les attaques
+    automatisées.</para>
 	</answer>
 	</qandaentry>
 
@@ -1115,10 +1223,10 @@ round-trip min/avg/max = 1.1/5.0/9.3 ms</screen>
 	<para><phrase>Quel est le numéro de port utilisé par le service
 	<acronym>SSH</acronym> sur les routeurs&nbsp;?</phrase></para>
 
-	<para>Il est important de connaître les caractéristiques du service qui
-	doit être surveillé par <citetitle>fail2ban</citetitle>. Rechercher dans la
-	liste des ports réseau ouverts celui qui concerne le service
-	<acronym>SSH</acronym>.</para>
+    <para>Il est important de connaître les caractéristiques du service qui
+    doit être surveillé par <application>fail2ban</application>. Rechercher
+    dans la liste des ports réseau ouverts celui qui concerne le service
+    <acronym>SSH</acronym>.</para>
 	</question>
 	<answer>
 	<para>Dans le contexte de la maquette, le service <acronym>SSH</acronym> a
@@ -1126,117 +1234,60 @@ round-trip min/avg/max = 1.1/5.0/9.3 ms</screen>
 	ports en écoute avec les commandes <command>lsof</command> ou
 	<command>ss</command>.</para>
 
-<screen><prompt>$</prompt> sudo lsof -i tcp:2222 -sTCP:listen
-COMMAND   PID USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME
-sshd    43975 root    3u  IPv4 7613072      0t0  TCP *:2222 (LISTEN)
-sshd    43975 root    4u  IPv6 7613074      0t0  TCP *:2222 (LISTEN)</screen>
+<screen>sudo lsof -i tcp:2222 -sTCP:listen</screen>
 
-<screen><prompt>$</prompt> ss -tapl '( sport = :2222 )' | fmt -t -w80
-State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+<screen>COMMAND PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+sshd    672 root    7u  IPv4   7601      0t0  TCP *:2222 (LISTEN)
+sshd    672 root    8u  IPv6   7603      0t0  TCP *:2222 (LISTEN)</screen>
+
+<screen>ss -tapl '( sport = :2222 )' | fmt -t -w80</screen>
+
+<screen>State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
 LISTEN 0      128          0.0.0.0:2222      0.0.0.0:*
 LISTEN 0      128             [::]:2222         [::]:*</screen>
 
 	<para>Ce sont donc les tentatives de connexion au service
 	<acronym>SSH</acronym> sur le port numéro <emphasis>2222</emphasis> que le
-	service <citetitle>fail2ban</citetitle> doit surveiller.</para>
+	service <application>fail2ban</application> doit surveiller.</para>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quel est le fichier de configuration du service
-	<acronym>SSH</acronym> qui permet de définir le numéro de port en écoute
-	avec le protocole <acronym>TCP</acronym>&nbsp;?</phrase></para>
+    <para><phrase>Comment créer un fichier de configuration des paramètres de
+    gestion du service <acronym>SSH</acronym>&nbsp;?</phrase></para>
 
-	<para>Repérer le répertoire qui contient les éléments de configuration du
-	service <acronym>SSH</acronym>.</para>
+    <para>Rechercher dans la documentation de
+    <application>fail2ban</application> les paramètres de réglage
+    suivants.</para>
+    <itemizedlist>
+    <listitem>
+    <para>Le numéro de port</para>
+    </listitem>
+    <listitem>
+    <para>Le service à filtrer</para>
+    </listitem>
+    </itemizedlist>
 	</question>
 	<answer>
-	<para>C'est le fichier <filename>/etc/ssh/sshd_config</filename> qui
-	contient les paramètres du serveur. Dans le cas de ces manipulations, on a
-	décommenté la ligne avec le mot clé <literal>Port</literal>.</para>
+    <para>Pour traiter la demande, on créé un fichier spécifique dans le
+    répertoire dédié&nbsp;:
+    <filename>/etc/fail2ban/jail.d/custom-sshd.conf</filename> qui contient
+    tous les paramètres utiles.</para>
 
-<screen><prompt>$</prompt> grep ^Port /etc/ssh/sshd_config
-Port 2222</screen>
-
-	<para>Attention&nbsp;! Si on édite ce fichier de configuration, les
-	modifications ne sont prises en compte qu'au redémarrage du service via la
-	commande
-	<userinput>sudo&nbsp;systemctl&nbsp;restart&nbsp;ssh</userinput>.</para>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Quels sont les deux fichiers de configuration principaux
-	fournis à l'installation du paquet
-	<systemitem>fail2ban</systemitem>&nbsp;?</phrase></para>
-
-	<para>Rechercher dans l'arborescence des fichiers de configuration, les
-	informations relatives aux traitements assurés en cas de détection
-	d'erreurs de connexion à n'importe quel service, puis les informations
-	spécifiques au service <acronym>SSH</acronym>.</para>
-	</question>
-	<answer>
-	<para>Dans le répertoire <filename
-	class='directory'>/etc/fail2ban</filename>, on identifie les deux fichiers
-	demandés.</para>
-
-	<itemizedlist>
-	<listitem>
-	<para>Le fichier <filename>/etc/fail2ban/jail.conf</filename> donne la
-	liste des paramètres par défaut en cas de détection de tentatives de
-	connexions en erreur. Voici une extraction des premiers paramètres
-	généraux. Ici, le temps de maintien d'une adresse source en prison
-	(<literal>bantime</literal>) est de 10 minutes mais ce temps est multiplié
-	par deux en cas de récidive.</para>
-
-<screen><prompt>etu@Spoke1Vert:~$</prompt> sed -n '/^\[DEF/,/fail2ban_agent/p' /etc/fail2ban/jail.conf | egrep -v '(^#|^$)'
-[DEFAULT]
-bantime.increment = true
-bantime.factor = 2
-ignoreself = true
-ignorecommand =
-bantime  = 10m
-findtime  = 10m
-maxretry = 5
-maxmatches = %(maxretry)s
-backend = systemd
-usedns = warn
-logencoding = auto
-enabled = false
-mode = normal
-filter = %(name)s[mode=%(mode)s]
-destemail = root@localhost
-sender = root@&lt;fq-hostname>
-mta = sendmail
-protocol = tcp
-chain = &lt;known/chain>
-port = 0:65535
-fail2ban_agent = Fail2Ban/%(fail2ban_version)s</screen>
-	</listitem>
-	<listitem>
-	<para>Le fichier
-	<filename>/etc/fail2ban/jail.d/defaults-debian.conf</filename> contient les
-	paramètres par défaut pour la distribution avec une section spécifique au
-	service <acronym>SSH</acronym>. C'est ce fichier que l'on édite pour
-	l'adapter ua contexte des routeurs de la topologie. On spécifie le numéro
-	de port identifié dans les questions précédentes ainsi qu'un traitement
-	particulier. Voici un exemple de configuration appliqué à la
-	maquette.</para>
-
-<screen>[sshd]
+<screen>cat &lt;&lt; EOF | sudo tee /etc/fail2ban/jail.d/custom-sshd.conf
+[sshd]
 enabled = true
-filter  = sshd
-action = %(action_)s
+port = 2222
+filter = sshd
+logpath = journalctl -u ssh.service
+backend = systemd
+banaction = nftables-multiport
 maxretry = 3
-banaction = iptables-new</screen>
+bantime = 1h
+findtime = 10m
+EOF</screen>
 
-	<para>Là encore, les modifications effectuées sur la configuration ne sont
-	prises en compte qu'au redémarrage du service&nbsp;:
-	<userinput>sudo&nbsp;systemctl&nbsp;restart&nbsp;fail2ban</userinput>.</para>
-	</listitem>
-	</itemizedlist>
 	</answer>
 	</qandaentry>
 
@@ -1357,8 +1408,7 @@ Chain f2b-sshd (1 references)
     1    80 RETURN     all      any    any     anywhere  anywhere</screen>
 	</answer>
 	</qandaentry>
-</qandadiv>
-</qandaset>
+    </qandaset>
 </sect2>
 </sect1>
 
