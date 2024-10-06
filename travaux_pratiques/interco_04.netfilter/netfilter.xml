@@ -1798,10 +1798,182 @@ table inet f2b-table {
     sortie. La règle associe l'état <option>new</option> à l'autorisation
     <option>accept</option>.</para>
 
-<screen>oifname "ppp0" ct state new counter accept</screen>
+<screen><emphasis>oifname</emphasis> "ppp0" <emphasis>ct state new</emphasis> counter <emphasis>accept</emphasis></screen>
     </answer>
     </qandaentry>
 
+    <qandaentry>
+    <question>
+    <para><phrase>Comment est géré l'enregistrement des états de flux
+    entrants&nbsp;?</phrase></para>
+
+    <para>Rechercher à nouveau les règles dans lesquelles l'état
+    <option>new</option> est associé à la clé <option>iifname</option>.</para>
+    </question>
+    <answer>
+    <para>Dans le cas des flux entrants, on voit qu'une liste fermée de
+    protocoles sont acceptés. Tous les nouveaux flux qui ne correspondent pas à
+    l'une des règles avec la décision <option>accept</option> sont
+    jetés.</para>
+
+    <para>Prenons l'exemple du protocole <acronym>HTTP</acronym>, une règle
+    autorise l'accès aux ports <option>80</option> et
+    <option>443</option>.</para>
+
+<screen><emphasis>iifname</emphasis> "ppp0" meta l4proto {tcp, udp} th <emphasis>dport {80, 443}</emphasis> <emphasis>ct state new</emphasis> counter <emphasis>accept</emphasis></screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment sont gérés les flux déjà admis dans le système
+    d'enregistrement&nbsp;?</phrase></para>
+
+    <para>Rechercher la règle qui contient les états
+    <option>established</option> et <option>related</option>.</para>
+    </question>
+    <answer>
+    <para>Cette question touche au cœur du filtrage
+    <wordasword>stateful</wordasword>. Tout flux retour relatif à une première
+    transaction admise ou enregistrée est accepté. C'est la raison pour
+    laquelle on doit insister encore et encore sur le fait qu'il faut décrire le
+    premier paquet admis dans le système d'enregistrement de la façon la plus
+    exhaustive possible.</para>
+
+    <para>Voici la règle qui laisse passer tous les flux relatifs à un
+    enregistrement déjà effectué.</para>
+
+<screen>ct state established,related accept</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment appliquer le jeu de règles proposé sur les routeurs
+    <citetitle>Spoke</citetitle>&nbsp;?</phrase></para>
+
+    <para>On dispose de plusieurs réponse à cette question. Dans le but de
+    rendre l'application des règles de filtrage pérenne, on complète le fichier
+    <filename>/etc/nftables.conf</filename> et on relance le service.</para>
+    </question>
+    <answer>
+    <para>On a une fois de plus recours au
+    <wordasword>heredoc</wordasword>.</para>
+
+<screen>cat &lt;&lt; 'EOF' | sudo tee -a /etc/nftables.conf
+
+table inet filter {
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+
+        # Allow outbound new connections
+        oifname "ppp0" ct state new counter accept
+
+        # Allow established and related connections
+        ct state established,related accept
+
+        # Allow specific inbound traffic
+        # ICMP IPv4 + IPv6
+        iifname "ppp0" meta l4proto {icmp, ipv6-icmp} ct state new counter accept
+        # SSH
+        iifname "ppp0" tcp dport 2222 ct state new counter accept
+        # HTTP(S)
+        iifname "ppp0" meta l4proto {tcp, udp} th dport {80, 443} ct state new counter accept
+
+        # Count dropped packets
+        counter comment "count dropped packets"
+    }
+}
+EOF</screen>
+
+    <para>Ensuite, on relance le service et on vérifie que le jeu de règles
+    actives est complet.</para>
+
+<screen>sudo systemctl restart nftables.service</screen>
+
+<screen>sudo nft list ruleset</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment tester les règles relatives aux flux
+    sortants&nbsp;?</phrase></para>
+
+    <para>Pour tester la chaîne <systemitem>forward</systemitem> dans le sens
+    réseau d'hébergement vers le routeur <citetitle>Hub</citetitle>, il faut
+    initier du trafic depuis les conteneurs.</para>
+    </question>
+    <answer>
+    <para>Voici un exemple qui passe par la couche application&nbsp;: la mise à
+    jour du catalogue de paquets de chaque conteneur.</para>
+
+<screen>for i in {0..2}
+do
+    echo ">>>>>>>>>>>>>>>>> c$i"
+    incus exec c$i -- apt update
+done</screen>
+
+    <para>Une fois la  mise à jour effectuée dans les conteneurs, on peut
+    relever les compteurs associés aux règles de filtrage.</para>
+
+<screen>sudo nft list table inet filter</screen>
+
+<screen>table inet filter {
+        chain forward {
+                type filter hook forward priority filter; policy drop;
+                <emphasis>oifname "ppp0" ct state new counter packets 41 bytes 3078 accept</emphasis>
+                ct state established,related accept
+                iifname "ppp0" meta l4proto { icmp, ipv6-icmp } ct state new counter packets 2 bytes 188 accept
+                iifname "ppp0" tcp dport 2222 ct state new counter packets 0 bytes 0 accept
+                iifname "ppp0" meta l4proto { tcp, udp } th dport { 80, 443 } ct state new counter packets 1 bytes 60 accept
+                counter packets 0 bytes 0 comment "count dropped packets"
+        }
+}</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment tester les règles relatives aux flux
+    entrants&nbsp;?</phrase></para>
+
+    <para>Il suffit de reprendre les séquences de tests présentées à la fin du
+    support de travaux pratiques précédent&nbsp;: &url.interco.hub-and-spoke; à
+    la question 21.</para>
+    </question>
+    <answer>
+    <para>On reprend l'accès aux pages Web depuis le routeur
+    <citetitle>Hub</citetitle>.</para>
+
+<screen>for addr in {10..12}
+do
+    wget -O /dev/null http://10.0.10.$addr 2>&amp;1 | grep "HTTP "
+done</screen>
+
+<screen>for addr in {10..12}
+do
+    wget -O /dev/null http://[fda0:7a62:a::$(printf "%x" $addr)] 2>&amp;1 | grep "HTTP "
+done</screen>
+
+    <para>Ensuite, on vérifie la nouvelle valeur de comptage sur la règle de
+    filtrage concernée.</para>
+
+<screen>sudo nft list table inet filter</screen>
+
+<screen>table inet filter {
+        chain forward {
+                type filter hook forward priority filter; policy drop;
+                oifname "ppp0" ct state new counter packets 0 bytes 0 accept
+                <emphasis>ct state established,related counter packets 81 bytes 13581 accept</emphasis>
+                iifname "ppp0" meta l4proto { icmp, ipv6-icmp } ct state new counter packets 0 bytes 0 accept
+                iifname "ppp0" tcp dport 2222 ct state new counter packets 0 bytes 0 accept
+                <emphasis>iifname "ppp0" meta l4proto { tcp, udp } th dport { 80, 443 } ct state new counter packets 9 bytes 600 accept</emphasis>
+                counter packets 0 bytes 0 comment "count dropped packets"
+        }
+}</screen>
+    </answer>
+    </qandaentry>
     </qandaset>
 
     <para>Une fois ces règles basiques en place, on peut aborder les filtrages
