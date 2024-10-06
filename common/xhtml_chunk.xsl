@@ -70,6 +70,18 @@
 	</xsl:template>
 	<xsl:param name="qandadiv.autolabel" select="0"/>
 
+    <xsl:template match="question">
+      <div class="question">
+        <xsl:apply-templates/>
+      </div>
+    </xsl:template>
+
+    <xsl:template match="answer">
+      <div class="answer">
+        <xsl:apply-templates/>
+      </div>
+    </xsl:template>
+
 	<xsl:template match="collabname">
 		<xsl:apply-templates/>
 	</xsl:template>
