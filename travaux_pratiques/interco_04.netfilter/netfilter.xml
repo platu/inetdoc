@@ -611,10 +611,14 @@ tcp      6 118 TIME_WAIT src=fda0:7a62:a:0:216:3eff:fe37:f12a dst=2620:0:2830:20
 
 <?custom-pagebreak?>
 <sect1 xml:id='netfilter.base'>
-    <title>Protection de base des routeurs <citetitle>Hub</citetitle> et
-	<citetitle>Spoke</citetitle></title>
+    <title>Protection de base des routeurs Hub et Spoke</title>
 
-    <para>Le but de cette section est de mettre en place les fonctions de
+    <para>Du point de vue conception, cette partie est consacrée au filtrage
+    réseau sans état. Les trois sections proposent des règles qui demandent un
+    traitement le plus rapide possible et le moins coûteux possible en
+    ressources.</para>
+
+    <para>Le but de cette partie est de mettre en place les fonctions de
     filtrage de base communes à tous les routeurs de la topologie. Ceci
     implique que le paquet <systemitem>nftables</systemitem> soit installé et
     que le service <systemitem>systemd</systemitem> soit activé sur tous
@@ -630,8 +634,6 @@ tcp      6 118 TIME_WAIT src=fda0:7a62:a:0:216:3eff:fe37:f12a dst=2620:0:2830:20
 	<variablelist>
 	<varlistentry>
 	<term>Protection contre l'usurpation des adresses sources</term>
-	<term>rpfilter</term>
-	<term>BCP38</term>
 	<listitem>
     <para>Pour bloquer tous les paquets provenant d'un réseau
     <emphasis>extérieur</emphasis> avec des adresses <acronym>IP</acronym>
@@ -651,7 +653,6 @@ tcp      6 118 TIME_WAIT src=fda0:7a62:a:0:216:3eff:fe37:f12a dst=2620:0:2830:20
 
 	<varlistentry>
 	<term>Protection contre les dénis de services <acronym>ICMP</acronym></term>
-	<term>module <systemitem>netfilter</systemitem> <option>limit</option></term>
 	<listitem>
 	<para>Les routeurs doivent s'assurer que le volume de trafic qui est
 	présenté en entrée est compatible avec un fonctionnement nominal des
@@ -660,8 +661,8 @@ tcp      6 118 TIME_WAIT src=fda0:7a62:a:0:216:3eff:fe37:f12a dst=2620:0:2830:20
 	</varlistentry>
 
 	<varlistentry>
-	<term>Protection contre les robots de connexion au service <acronym>SSH</acronym></term>
-	<term><application>fail2ban</application></term>
+    <term>Protection contre les robots de connexion au service
+    <acronym>SSH</acronym></term>
 	<listitem>
 	<para>Les routeurs ont besoin d'un accès d'administration à distance via
 	<acronym>SSH</acronym>. Pour autant, cet accès doit être protégé contre les
@@ -1267,6 +1268,21 @@ LISTEN 0      128             [::]:2222         [::]:*</screen>
     <listitem>
     <para>Le service à filtrer</para>
     </listitem>
+    <listitem>
+    <para>La règle à appliquer en cas de violation du nombre de tentatives de
+    connexion autorisées</para>
+    </listitem>
+    <listitem>
+    <para>Le nombre de tentatives de connexion autorisées</para>
+    </listitem>
+    <listitem>
+    <para>La durée de mise en quarantaine de l'adresse <acronym>IPv4</acronym>
+    ou <acronym>IPv6</acronym></para>
+    </listitem>
+    <listitem>
+    <para>La durée pendant laquelle on comptabilise les tentatives de
+    connexion</para>
+    </listitem>
     </itemizedlist>
 	</question>
 	<answer>
@@ -1280,7 +1296,6 @@ LISTEN 0      128             [::]:2222         [::]:*</screen>
 enabled = true
 port = 2222
 filter = sshd
-logpath = journalctl -u ssh.service
 backend = systemd
 banaction = nftables-multiport
 maxretry = 3
@@ -1288,8 +1303,70 @@ bantime = 1h
 findtime = 10m
 EOF</screen>
 
+    <para>De manière classique, il convient de redémarrer le service pour que
+    le nouveau fichier de configuration soit pris en compte.</para>
+
+<screen>sudo systemctl restart fail2ban</screen>
 	</answer>
 	</qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quels sont les outils qui permettent de connaître l'état du
+    service et le fonctionnement du nouveau filtrage des tentatives de
+    connexion&nbsp;?</phrase></para>
+
+    <para>Relever l'état du service pour commencer. Ensuite, rechercher dans
+    les outils fournis avec le paquet <application>fail2ban</application>,
+    celui qui affiche les informations sur le filtrage
+    <acronym>SSH</acronym>.</para>
+    </question>
+    <answer>
+    <para>L'affichage de l'état du service n'a rien de spécifique à
+    <application>fail2ban</application>, mais c'est le point de départ
+    obligatoire.</para>
+
+<screen>systemctl status fail2ban.service</screen>
+
+    <para>Les mots clé recherchés sont&nbsp;: <wordasword>enabled</wordasword>
+    et <wordasword>active (running)</wordasword>.</para>
+
+    <para>Pour la partie plus spécifique à <application>fail2ban</application>,
+    on liste les fichiers contenus dans le paquet du même nom.</para>
+
+<screen>dpkg -L fail2ban | grep bin</screen>
+
+<screen>/usr/bin
+<emphasis>/usr/bin/fail2ban-client</emphasis>
+/usr/bin/fail2ban-regex
+/usr/bin/fail2ban-server
+/usr/bin/fail2ban-testcases
+/usr/bin/fail2ban-python</screen>
+
+    <para>C'est la commande <command>fail2ban-client</command> qui nous
+    intéresse. La recherche du mot clé <literal>status</literal> dans les pages
+    de manuels donne le mode opératoire pour accéder au statut des services
+    traités.</para>
+
+<screen>sudo fail2ban-client status</screen>
+
+<screen>Status
+|- Number of jail:      1
+`- Jail list:   sshd</screen>
+
+<screen>sudo fail2ban-client status sshd</screen>
+
+<screen>Status for the jail: sshd
+|- Filter
+|  |- Currently failed: 0
+|  |- Total failed:     0
+|  `- Journal matches:  _SYSTEMD_UNIT=ssh.service + _COMM=sshd
+`- Actions
+   |- Currently banned: 0
+   |- Total banned:     0
+   `- Banned IP list:</screen>
+    </answer>
+    </qandaentry>
 
 	<qandaentry>
 	<question>
@@ -1297,447 +1374,333 @@ EOF</screen>
 	<application>fail2ban</application>&nbsp;?</phrase></para>
 
 	<para>Si le service a été installé et configuré sur un routeur
-	<wordasword>Spoke</wordasword>, il est possible de lancer plusieurs
+	<citetitle>Spoke</citetitle>, il est possible de lancer plusieurs
 	tentatives de connexion <acronym>SSH</acronym> depuis le routeur
-	<wordasword>Hub</wordasword> en se trompant de mot de passe.</para>
+	<citetitle>Hub</citetitle> en se trompant de mot de passe.</para>
 
-	<para>On peut alors afficher les règles de filtrage
-	<application>iptables</application> et consulter l'état de la prison
-	<application>fail2ban</application>.</para>
+    <para>On peut alors afficher les règles de filtrage
+    <application>nftables</application> et obtenir la liste des adresses
+    bannies par <application>fail2ban</application>.</para>
 	</question>
 	<answer>
 	<para>On commence par lancer plusieurs tentatives (au moins 3) de connexion
 	<acronym>SSH</acronym> à partir du routeur
 	<wordasword>Hub</wordasword>.</para>
 
-<screen><prompt>etu@HubBleu:~$</prompt> ssh -p 2222 etu@10.47.1.2
-etu@10.47.1.2's password:
+<screen>ssh -p 2222 etu@10.44.1.2
+etu@10.44.1.2's password:
 Permission denied, please try again.
-etu@10.47.1.2's password:
+etu@10.44.1.2's password:
 Permission denied, please try again.
-etu@10.47.1.2's password:
-etu@10.47.1.2: Permission denied (publickey,password).
-<prompt>etu@HubBleu:~$</prompt> ssh -p 2222 etu@10.47.1.2
-ssh: connect to host 10.47.1.2 port 2222: <emphasis>Connection refused</emphasis></screen>
+etu@10.44.1.2's password:
+etu@10.44.1.2: Permission denied (publickey,password)</screen>
+
+    <para>Une fois le mécanisme de blocage activé, il est impossible de tenter
+    une nouvelle connexion.</para>
+
+<screen>ssh -p 2222 etu@10.44.1.2
+ssh: connect to host 10.44.1.2 port 2222: <emphasis>Connection refused</emphasis></screen>
 
 	<para>On relève ensuite les résultats côté routeur
-	<wordasword>Spoke</wordasword>.</para>
+	<citetitle>Spoke</citetitle>.</para>
+
+    <para>L'état de la quarantaine montre que l'adresse <acronym>IPv4</acronym>
+    du routeur <citetitle>Hub</citetitle> sur le lien <acronym>PPP</acronym>
+    est en quarantaine.</para>
+
+<screen>sudo fail2ban-client status sshd</screen>
+
+<screen>Status for the jail: sshd
+|- Filter
+|  |- Currently failed: 0
+|  |- Total failed:     3
+|  `- Journal matches:  _SYSTEMD_UNIT=ssh.service + _COMM=sshd
+`- Actions
+   |- Currently banned: 1
+   |- Total banned:     1
+   `- Banned IP list:   <emphasis>10.44.1.1</emphasis></screen>
 
 	<para>La liste des règles de filtrage montre qu'une nouvelle chaîne a été
 	ajoutée. Dans cette chaîne, on reconnaît l'adresse <acronym>IPv4</acronym>
 	du lien <acronym>PPP</acronym> côté <wordasword>Hub</wordasword>.</para>
 
-<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo iptables -vL
-Chain INPUT (policy ACCEPT 335K packets, 401M bytes)
- pkts bytes target     prot opt in     out     source      destination
-    2   120 <emphasis>f2b-sshd</emphasis>   tcp  --  any    any     anywhere    anywhere   state NEW tcp dpt:2222
+<screen>sudo nft list ruleset</screen>
 
-Chain FORWARD (policy ACCEPT 60353 packets, 58M bytes)
- pkts bytes target     prot opt in     out     source      destination
+    <para>En limitant l'affichage à la table ajoutée par le service
+    <application>fail2ban</application>, on obtient le jeu de règles
+    suivant.</para>
 
-Chain OUTPUT (policy ACCEPT 95465 packets, 5602K bytes)
- pkts bytes target     prot opt in     out     source      destination
+<screen>sudo nft list table inet f2b-table</screen>
 
-<emphasis>Chain f2b-sshd (1 references)</emphasis>
- pkts bytes target     prot opt in     out     source      destination
-    <emphasis>2   120 REJECT     all  --  any    any     10.47.1.1</emphasis>   anywhere   reject-with icmp-port-unreachable
-    0     0 RETURN     all  --  any    any     anywhere    anywhere</screen>
+<screen>table inet f2b-table {
+    set addr-set-sshd {
+        type ipv4_addr
+        elements = { 10.44.1.1 }
+    }
 
-	<para>Toujours sur le routeur <wordasword>Spoke</wordasword>, on relève
-	l'état du service <application>fail2ban</application> et plus
-	particulièrement celui de la "prison" spécifique au protocole
-	<acronym>SSH</acronym>.</para>
-
-<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo fail2ban-client status sshd
-Status for the jail: sshd
-|- Filter
-|  |- Currently failed:	0
-|  |- Total failed:	3
-|  `- Journal matches:	_SYSTEMD_UNIT=sshd.service + _COMM=sshd
-`- Actions
-   |- Currently banned:	1
-   |- Total banned:	1
-   `- Banned IP list:	10.47.1.1</screen>
+    chain f2b-chain {
+        type filter hook input priority filter - 1; policy accept;
+        tcp dport 2222 ip saddr @addr-set-sshd reject with icmp port-unreachable
+    }
+}</screen>
 
 	<para>Enfin, on répète l'opération avec l'adresse <acronym>IPv6</acronym>
 	du routeur <wordasword>Spoke</wordasword> sur le lien
 	<acronym>PPP</acronym>.</para>
 
-<screen><prompt>etu@HubBleu:~$</prompt> ssh -p 2222 fe80::5c93:b536:53e7:f976%ppp0
-etu@fe80::5c93:b536:53e7:f976%ppp0's password:
+<screen>ssh -p 2222 etu@fe80::c59:5d57:7476:13cc%ppp0
+etu@fe80::c59:5d57:7476:13cc%ppp0's password:
 Permission denied, please try again.
-etu@fe80::5c93:b536:53e7:f976%ppp0's password:
+etu@fe80::c59:5d57:7476:13cc%ppp0's password:
 Permission denied, please try again.
-etu@fe80::5c93:b536:53e7:f976%ppp0's password:
-etu@fe80::5c93:b536:53e7:f976%ppp0: Permission denied (publickey,password).
-<prompt>etu@HubBleu:~$</prompt> ssh -p 2222 fe80::5c93:b536:53e7:f976%ppp0
-ssh: connect to host fe80::5c93:b536:53e7:f976%ppp0 port 2222: <emphasis>Connection refused</emphasis></screen>
+etu@fe80::c59:5d57:7476:13cc%ppp0's password:
+etu@fe80::c59:5d57:7476:13cc%ppp0: Permission denied (publickey,password).</screen>
+
+<screen>ssh -p 2222 etu@fe80::c59:5d57:7476:13cc%ppp0
+ssh: connect to host fe80::c59:5d57:7476:13cc%ppp0 port 2222: <emphasis>Connection refused</emphasis></screen>
 
 	<para>On voit apparaître une nouvelle adresse dans la liste sur le routeur
-	<wordasword>Spoke</wordasword>.</para>
+	<citetitle>Spoke</citetitle>.</para>
 
-<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo fail2ban-client status sshd
-Status for the jail: sshd
+<screen>sudo fail2ban-client status sshd</screen>
+
+<screen>Status for the jail: sshd
 |- Filter
-|  |- Currently failed:	1
-|  |- Total failed:	7
-|  `- Journal matches:	_SYSTEMD_UNIT=sshd.service + _COMM=sshd
+|  |- Currently failed: 0
+|  |- Total failed:     6
+|  `- Journal matches:  _SYSTEMD_UNIT=ssh.service + _COMM=sshd
 `- Actions
-   |- Currently banned:	2
-   |- Total banned:	2
-   `- Banned IP list:	10.47.1.1 <emphasis>fe80::490a:39d4:1a05:f33d</emphasis></screen>
+   |- Currently banned: 2
+   |- Total banned:     2
+   `- Banned IP list:   <emphasis>10.44.1.1 fe80::f153:4881:c7c4:f371</emphasis></screen>
 
 	<para>Les règles de filtrage pour le protocole <acronym>IPv6</acronym> ont
 	aussi été complétées.</para>
 
-<screen><prompt>etu@Spoke1Vert:~$</prompt> sudo ip6tables -vL
-# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
-Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source    destination
-    3   240 f2b-sshd   tcp      any    any     anywhere  anywhere     state NEW tcp dpt:2222
+<screen>sudo nft list table inet f2b-table</screen>
 
-Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source    destination
+<screen>table inet f2b-table {
+    set addr-set-sshd {
+        type ipv4_addr
+        elements = { 10.44.1.1 }
+    }
 
-Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source    destination
+    set addr6-set-sshd {
+        type ipv6_addr
+        elements = { fe80::f153:4881:c7c4:f371 }
+    }
 
-Chain f2b-sshd (1 references)
- pkts bytes target     prot opt in     out     source    destination
-    <emphasis>2   160 REJECT     all      any    any     fe80::490a:39d4:1a05:f33d</emphasis>  anywhere   reject-with icmp6-port-unreachable
-    1    80 RETURN     all      any    any     anywhere  anywhere</screen>
+    chain f2b-chain {
+        type filter hook input priority filter - 1; policy accept;
+        tcp dport 2222 ip saddr @addr-set-sshd reject with icmp port-unreachable
+        tcp dport 2222 ip6 saddr @addr6-set-sshd reject with icmpv6 port-unreachable
+    }
+}</screen>
 	</answer>
 	</qandaentry>
     </qandaset>
-</sect2>
+
+    <para>En appliquant cette configuration du service
+    <application>fail2ban</application> sur les trois routeurs, on dispose
+    d'une base de protection contre les attaques de type <wordasword>brute
+    force</wordasword> sur l'authentification au service
+    <acronym>SSH</acronym>.</para>
+    </sect2>
 </sect1>
 
 <?custom-pagebreak?>
-<sect1 xml:id='netfilter.common'>
-	<title>Règles de filtrage communes à toutes les configurations</title>
+<sect1 xml:id='netfilter.stateful'>
+	<title>Filtrage des flux réseaux traversant les routeurs</title>
 
-	<para>La mise en place du filtrage réseau sur les équipements doit répondre
-		à deux principes.</para>
-
-	<itemizedlist>
-	<listitem>
-	<para>On considère que les équipements d'interconnexion mis en œuvre dans
-	ces travaux pratiques délimitent des périmètres de dimension moyenne. Par
-	conséquent, on a une connaissance exhaustive des flux réseaux sur le
-	système. On adopte donc la règle&nbsp;: <emphasis>tout trafic réseau non
-	autorisé est interdit</emphasis>.</para>
-	</listitem>
-
-	<listitem>
-	<para>On fait le choix d'un filtrage basé sur le suivi de communication
-	(<wordasword>stateful inspection</wordasword>). On cherche donc à écrire
-	des règles qui <emphasis>décrivent le plus précisément possible le premier
-	paquet qui doit être enregistré dans la table de suivi de
-	communication</emphasis>. Ces règles de description du premier paquet
-	doivent être placées après celle qui laisse passer le trafic qui correspond
-	ou qui est relatif à une communication déjà enregistrée dans les
-	tables.</para>
-	</listitem>
-
-	<listitem>
-	<para>Dans le but de simplifier l'étude du filtrage, on fait le choix
-	d'autoriser tous les flux sortants émis par les routeurs
-	<wordasword>Hub</wordasword> et <wordasword>Spoke</wordasword>. On laisse
-	donc la politique par défaut à <option>ACCEPT</option> pour les chaînes
-	<option>OUTPUT</option> des routeurs.</para>
-	</listitem>
-	</itemizedlist>
-
-	<para>On commence par afficher les règles actives sur les différents
-	routeurs à l'issue des questions de la section précédente&nbsp;: <xref
-	linkend='netfilter.base'/>.</para>
-
-	<para>Attention&nbsp;! Les noms d'interfaces correspondent à la maquette de
-	test.</para>
+    <para>Pour rappel, la mise en place du filtrage réseau sur les équipements
+    doit répondre à deux principes.</para>
 
 	<itemizedlist>
 	<listitem>
-	<para>Régles de filtrage <acronym>IPv4</acronym> côté
-	<wordasword>Hub</wordasword>&nbsp;: fichier
-	<filename>/etc/iptables/rules.v4</filename>.</para>
-<screen>#~~~~~~~~~~~~ R A W
-*raw
-:PREROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
-COMMIT
-#~~~~~~~~~~~~ N A T
-*nat
-:PREROUTING ACCEPT [0:0]
-:INPUT ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A POSTROUTING -o enp0s2.300 -j MASQUERADE
-COMMIT
-#~~~~~~~~~~~~ F I L T E R
-*filter
-:INPUT ACCEPT [0:0]
-:FORWARD ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
--A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
-COMMIT</screen>
+    <para>On considère que les équipements d'interconnexion mis en œuvre dans
+    ces travaux pratiques délimitent des périmètres de dimension moyenne. Par
+    conséquent, on a une connaissance exhaustive des flux réseaux sur le
+    système. On adopte donc la règle suivante&nbsp;: <emphasis>tout trafic
+    réseau non autorisé est interdit</emphasis>.</para>
 	</listitem>
+
 	<listitem>
-	<para>Régles de filtrage <acronym>IPv6</acronym> côté
-	<wordasword>Hub</wordasword>&nbsp;: fichier
-	<filename>/etc/iptables/rules.v6</filename>.</para>
-<screen>#~~~~~~~~~~~~ R A W
-*raw
-:PREROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
-COMMIT
-#~~~~~~~~~~~~ N A T
-*nat
-:PREROUTING ACCEPT [0:0]
-:INPUT ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A POSTROUTING -o enp0s2.300 -j MASQUERADE
-COMMIT
-#~~~~~~~~~~~~ F I L T E R
-*filter
-:INPUT ACCEPT [0:0]
-:FORWARD ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -s fe80::/10 -j ACCEPT
--A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
--A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
-COMMIT</screen>
+    <para>Le filtrage est basé sur le suivi de communication
+    (<wordasword>stateful inspection</wordasword>). On cherche donc à écrire
+    des règles qui <emphasis>décrivent le plus précisément possible le premier
+    paquet qui doit être enregistré dans la table de suivi de
+    communication</emphasis>. Ces règles de description du premier paquet
+    doivent être placées après celles qui laissent passer le trafic
+    correspondant ou relatif à une communication déjà enregistrée dans les
+    tables.</para>
 	</listitem>
+
 	<listitem>
-	<para>Régles de filtrage <acronym>IPv4</acronym> côté
-	<wordasword>Spoke</wordasword>&nbsp;: fichier
-	<filename>/etc/iptables/rules.v4</filename>.</para>
-<screen>#~~~~~~~~~~~~ R A W
-*raw
-:PREROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
-COMMIT
-#~~~~~~~~~~~~ F I L T E R
-*filter
-:INPUT ACCEPT [0:0]
-:FORWARD ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
--A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
-COMMIT</screen>
-	</listitem>
-	<listitem>
-	<para>Régles de filtrage <acronym>IPv6</acronym> côté
-	<wordasword>Spoke</wordasword>&nbsp;: fichier
-	<filename>/etc/iptables/rules.v6</filename>.</para>
-<screen>#~~~~~~~~~~~~ R A W
-*raw
-:PREROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
-COMMIT
-#~~~~~~~~~~~~ F I L T E R
-*filter
-:INPUT ACCEPT [0:0]
-:FORWARD ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -s fe80::/10 -j ACCEPT
--A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
--A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
-COMMIT</screen>
+    <para>Afin de simplifier l'étude du filtrage, on fait le choix d'autoriser
+    tous les flux sortants émis par les routeurs <citetitle>Hub</citetitle> et
+    <citetitle>Spoke</citetitle>.</para>
 	</listitem>
 	</itemizedlist>
 
-<qandaset defaultlabel='number'>
-<qandadiv>
+    <para>On commence par afficher les règles actives sur un routeur
+    <citetitle>Spoke</citetitle> à l'issue des questions de la section
+    précédente&nbsp;: <xref linkend='netfilter.base'/>.</para>
+
+    <caution>
+    <para>Les noms d'interfaces correspondent à la maquette de test.</para>
+    </caution>
+
+<screen>sudo nft list ruleset</screen>
+
+<screen>table ip raw {
+        chain rpfilter {
+                type filter hook prerouting priority raw; policy accept;
+                iifname "ppp0" fib saddr . iif oif 0 counter packets 0 bytes 0 drop
+        }
+
+        chain icmpfilter {
+                type filter hook prerouting priority raw; policy accept;
+                icmp type echo-request limit rate 10/second burst 5 packets counter packets 6821 bytes 193228 accept
+                icmp type echo-request counter packets 116414622 bytes 3259609416 drop
+        }
+}
+table ip6 raw {
+        chain rpfilter {
+                type filter hook prerouting priority raw; policy accept;
+                iifname "ppp0" fib saddr . iif oif 0 counter packets 0 bytes 0 drop
+        }
+
+        chain icmpfilter {
+                type filter hook prerouting priority raw; policy accept;
+                icmpv6 type echo-request limit rate 10/second burst 5 packets counter packets 113 bytes 11752 accept
+                icmpv6 type echo-request counter packets 485 bytes 50440 drop
+        }
+}
+table inet f2b-table {
+        set addr-set-sshd {
+                type ipv4_addr
+                elements = { 10.44.1.1 }
+        }
+
+        set addr6-set-sshd {
+                type ipv6_addr
+                elements = { fe80::f153:4881:c7c4:f371 }
+        }
+
+        chain f2b-chain {
+                type filter hook input priority filter - 1; policy accept;
+                tcp dport 2222 ip saddr @addr-set-sshd reject with icmp port-unreachable
+                tcp dport 2222 ip6 saddr @addr6-set-sshd reject with icmpv6 port-unreachable
+        }
+}</screen>
+
+    <qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
-	<para><phrase>Dans les jeux de règles déjà en place, comment identifier les
-	règles qui traitent les flux réseau dèjà enregistrés dans le suivi de
-	communication&nbsp;?</phrase></para>
+    <para><phrase>Quel est le nom de la table du système
+    <systemitem>netfilter</systemitem> utilisée par défaut pour le traitement
+    des flux traversant un routeur&nbsp;?</phrase></para>
 
-	<para>La section <citetitle>«7.3. États de l'espace
-		utilisateur»</citetitle> du &url.iptables-tutorial.fr; décrit les
-		correspondances entre les états et les flux réseau.</para>
+    <para>Consulter la représentation graphique &url.packetflow; et repérer le
+    nom des tables concernées par le transfert des flux réseau.</para>
 	</question>
 	<answer>
-	<para>Le tableau de la section <citetitle>«7.3. États de l'espace
-	utilisateur»</citetitle> permet de sélectionner les états
-	<option>ESTABLISHED</option> et <option>RELATED</option> que l'on retrouve
-	en première position dans les chaînes <literal>INPUT</literal> et
-	<literal>FORWARD</literal>.</para>
+    <para>On commence par identifier la colonne <wordasword>FORWARD
+    PATH</wordasword> au centre de la représentation.</para>
 
-	<para>Voici un exemple qui illustre l'utilisation de ces règles dans le
-	contexte de la maquette. L'évolution des compteurs, montre qu'une règle est
-	effectivement utilisée dans le traitement du trafic réseau.</para>
+    <para>Dans cette colonne, on trouve les tables
+    <systemitem>mangle</systemitem> et <systemitem>filter</systemitem>.</para>
 
-<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -vL
-# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
-Chain INPUT (policy ACCEPT 26 packets, 2192 bytes)
- pkts bytes target     prot opt in     out     source     destination
-  <emphasis>591 54216</emphasis> ACCEPT     all      any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
-    0     0 ACCEPT     icmp     any    any     anywhere   anywhere     limit: avg 2/sec burst 5
+    <para>Une recherche sur les différences entre ces deux tables nous donne
+    les indications suivantes.</para>
 
-Chain FORWARD (policy ACCEPT 6 packets, 480 bytes)
- pkts bytes target     prot opt in     out     source     destination
-    <emphasis>6   360</emphasis> ACCEPT     all      any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
-    0     0 ACCEPT     icmp     any    any     anywhere   anywhere     limit: avg 2/sec burst 5
+    <variablelist>
+    <varlistentry>
+    <term>Table filter</term>
+    <listitem>
+    <para>Cette table est principalement utilisée pour filtrer les paquets et
+    prendre des décisions concernant l'autorisation ou le blocage du trafic.
+    Elle sert à contrôler quels paquets sont autorisés à entrer dans le
+    système, à le quitter ou à le traverser.</para>
+    </listitem>
+    </varlistentry>
 
-Chain OUTPUT (policy ACCEPT 505 packets, 97048 bytes)
- pkts bytes target     prot opt in     out     source     destination</screen>
+    <varlistentry>
+    <term>Table mangle</term>
+    <listitem>
+    <para>La table d'altération est utilisée pour la modification de paquets.
+    Les altérations principales portent sur les en-têtes, les métadonnées et le
+    marquage, pour permettre un traitement ultérieur par d'autres tables ou les
+    outils de gestion de la qualité de service.</para>
+    </listitem>
+    </varlistentry>
+    </variablelist>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quelles règles faut-il ajouter pour autoriser les nouveaux
-	flux réseau depuis et vers l'interface de boucle locale (chaîne
-	<literal>INPUT</literal>)&nbsp;?</phrase></para>
+    <para><phrase>Quel est le nom de la <emphasis>chaîne</emphasis> de
+    traitement des flux traversant les routeurs&nbsp;?</phrase></para>
 
-	<para>Pour que les processus locaux au système puissent communiquer entre
-	eux, il est <emphasis>essentiel</emphasis> d'autoriser le trafic sur
-	l'interface de boucle locale <literal>lo</literal>.</para>
+    <para>Consulter la représentation graphique &url.packetflow; et repérer les
+    noms des chaînes de la table <systemitem>filter</systemitem>.</para>
     </question>
     <answer>
-	<para>On insère une nouvelle règle sur la chaîne <literal>INPUT</literal>
-	qui admet tous les nouveaux paquets entrant sur l'interface de
-	<literal>lo</literal> sans tenir compte de la table de suivi des
-	communications.</para>
-
-	<para>La même règle est insérée pour les protocoles <acronym>IPv4</acronym>
-	et <acronym>IPv6</acronym>. On utilise les numéros de lignes pour insérer
-	les nouvelles règles en postion 2.</para>
-
-<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -I INPUT 2 -i lo -j ACCEPT
-<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -I INPUT 2 -i lo -j ACCEPT</screen>
-
-	<para>On relève un exemple de résultat en affichant la liste des règles
-	actives avec leurs numéros.</para>
-
-<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -vL --line-numbers
-# Warning: iptables-legacy tables present, use iptables-legacy to see them
-Chain INPUT (policy ACCEPT 939 packets, 364K bytes)
-num   pkts bytes target     prot opt in     out     source     destination
-1      955 1336K ACCEPT     all  --  any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
-2        0     0 ACCEPT     all  --  lo     any     anywhere   anywhere
-3        0     0 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5
-
-Chain FORWARD (policy ACCEPT 12 packets, 825 bytes)
-num   pkts bytes target     prot opt in     out     source     destination
-1      864  653K ACCEPT     all  --  any    any     anywhere   anywhere     ctstate RELATED,ESTABLISHED
-2        0     0 ACCEPT     icmp --  any    any     anywhere   anywhere     limit: avg 2/sec burst 5
-
-Chain OUTPUT (policy ACCEPT 573 packets, 34052 bytes)
-num   pkts bytes target     prot opt in     out     source     destination</screen>
-
-	<para>À partir de ce jeu de règles, on peut lancer un test
-	<acronym>ICMP</acronym> et relever les compteurs d'utilisation de la
-	nouvelle règle.</para>
-
-<screen><prompt>etu@Spoke2Vert:~$</prompt> ping -q -c 4 ::1
-PING ::1(::1) 56 data bytes
-
---- ::1 ping statistics ---
-4 packets transmitted, 4 received, <emphasis>0% packet loss</emphasis>, time 3074ms
-rtt min/avg/max/mdev = 0.116/0.139/0.162/0.022 ms</screen>
-
-<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -vL INPUT --line-numbers
-# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
-Chain INPUT (policy ACCEPT 33 packets, 2968 bytes)
-num   pkts bytes target     prot opt in     out     source    destination
-1     1445  131K ACCEPT     all      any    any     anywhere  anywhere     ctstate RELATED,ESTABLISHED
-2        <emphasis>2   208</emphasis> ACCEPT     all      lo     any     anywhere  anywhere
-3        0     0 ACCEPT     ipv6-icmp  any    any     anywhere  anywhere     limit: avg 2/sec burst 5</screen>
+    <para>Comme on se concentre sur la colonne <wordasword>FORWARD
+    PATH</wordasword> de la représentation graphique, on repère facilement la
+    chaîne <systemitem>forward</systemitem>.</para>
 	</answer>
 	</qandaentry>
+    </qandaset>
 
+    <para>Voici une proposition de jeu de règles de filtrage à implanter dans
+    la chaîne <systemitem>forward</systemitem> de la table
+    <systemitem>filter</systemitem> des routeurs
+    <citetitle>Spoke</citetitle>.</para>
+
+<screen>table inet <emphasis>filter</emphasis> {
+    chain <emphasis>forward</emphasis> {
+        type filter hook forward priority 0; <emphasis>policy drop</emphasis>;
+
+        # Allow outbound new connections
+        <emphasis>oifname</emphasis> "ppp0" ct state new counter accept
+
+        # Allow established and related connections
+        ct state established,related accept
+
+        # Allow specific inbound traffic
+        # ICMP IPv4 + IPv6
+        <emphasis>iifname</emphasis> "ppp0" meta l4proto {icmp, ipv6-icmp} ct state new counter accept
+        # SSH
+        iifname "ppp0" tcp dport 2222 ct state new counter accept
+        # HTTP(S)
+        iifname "ppp0" meta l4proto {tcp, udp} th dport {80, 443} ct state new counter accept
+
+        # Count dropped packets
+        counter comment "count dropped packets"
+    }
+}</screen>
+
+    <qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
-	<para><phrase>Quelles règles faut-il ajouter pour autoriser les nouvelles
-	connexions <acronym>SSH</acronym> et les intégrer dans la table de suivi
-	des communications&nbsp;?</phrase></para>
+    <para><phrase>Quelle est la politique par défaut appliquée par ce nouveau
+    jeu de règles?</phrase></para>
 
-	<para>Le protocole de couche transport utilisé est <acronym>TCP</acronym>
-	et le numéro de port utilisé par le service <acronym>SSH</acronym> est
-	<option>2222</option>.</para>
-
-	<para>La section <citetitle>«7.3. États de l'espace
-	utilisateur»</citetitle> du &url.iptables-tutorial.fr; décrit les
-	correspondances entre les états et les flux réseau. Rechercher la clé
-	relative aux nouveaux flux entrants.</para>
+    <para>Rechercher le mot clé <wordasword>policy</wordasword> dans la copie
+    ci-dessus.</para>
 	</question>
 	<answer>
-	<para>Le tableau de la section <citetitle>«7.3. États de l'espace
-	utilisateur»</citetitle> permet de sélectionner l'état
-	<option>NEW</option>.</para>
+    <para>La politique appliquée à tous les paquets qui passent par la chaîne
+    <systemitem>forward</systemitem> est <systemitem>drop</systemitem>.</para>
 
-	<para>Voici un exemple d'ajout de règles dans le contexte de la
-	maquette.</para>
-
-<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -A INPUT -p tcp --syn --dport 2222 \
-  -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
-<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -A INPUT -p tcp --syn --dport 2222 \
-  -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT</screen>
-
-	<para>Comme précédemment, on peut relever les compteurs suite à une
-	nouvelle connexion <acronym>SSH</acronym>.</para>
-
-<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -vL INPUT
-# Warning: ip6tables-legacy tables present, use ip6tables-legacy to see them
-Chain INPUT (policy ACCEPT 41 packets, 3608 bytes)
- pkts bytes target     prot opt in     out     source    destination
- 2227  206K ACCEPT     all      any    any     anywhere  anywhere     ctstate RELATED,ESTABLISHED
-    2   208 ACCEPT     all      lo     any     anywhere  anywhere
-    0     0 ACCEPT     ipv6-icmp  any    any     anywhere  anywhere     limit: avg 2/sec burst 5
-    <emphasis>1    80</emphasis> ACCEPT     tcp      any    any     anywhere  anywhere     tcp dpt:2222 flags:FIN,SYN,RST,ACK/SYN ctstate NEW /* SSH */</screen>
+    <para>Tous les flux qui ne sont pas explicitement autorisés dans les règles
+    de la chaîne <systemitem>forward</systemitem> sont jetés.</para>
 	</answer>
 	</qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Quelle est l'instruction qui définit la politique par défaut
-	à appliquer sur les chaînes de la table
-	<systemitem>netfilter</systemitem>&nbsp;?</phrase></para>
-
-	<para>Il s'agit d'appliquer le principe de filtrage énoncé en début de
-	section qui veut que tout trafic non autorisé soit interdit.</para>
-
-	<para>La section <citetitle>«9.3. Commandes»</citetitle> du
-	&url.iptables-tutorial.fr; donne la syntaxe de configuration de
-	<emphasis>cible par défaut</emphasis> pour les chaînes&nbsp;:
-	<literal>INPUT</literal>, <literal>FORWARD</literal> et
-	<literal>OUTPUT</literal>.</para>
-	</question>
-	<answer>
-	<para>On consulte la documentation et on relève la commande
-	<command>-P</command>. Ensuite, on sélectionne la politique par défaut
-	adaptée au contexte&nbsp;: <option>DROP</option>.</para>
-
-	<para>Voici un exemple sur un routeur
-	<wordasword>Spoke</wordasword>.</para>
-
-<screen><prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -P INPUT DROP
-<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -P INPUT DROP
-<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -P FORWARD DROP
-<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -P FORWARD DROP
-<prompt>etu@Spoke2Vert:~$</prompt> sudo iptables -P OUTPUT ACCEPT
-<prompt>etu@Spoke2Vert:~$</prompt> sudo ip6tables -P OUTPUT ACCEPT</screen>
-	</answer>
-	</qandaentry>
-</qandadiv>
-</qandaset>
+    </qandaset>
 
 	<para>Une fois ces règles basiques en place, on peut aborder les filtrages
 		réseau spécifiques à la topologie de travaux pratiques.</para>
@@ -1745,8 +1708,7 @@ Chain INPUT (policy ACCEPT 41 packets, 3608 bytes)
 
 <?custom-pagebreak?>
 <sect1 xml:id='netfilter.hub'>
-	<title>Règles de filtrage sur le routeur
-	<wordasword>Hub</wordasword></title>
+    <title>Règles de filtrage sur le routeur Hub</title>
 
 	<para>Dans cette section, on doit compléter les règles de filtrage pour
 	répondre à deux objectifs&nbsp;:</para>
