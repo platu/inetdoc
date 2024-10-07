@@ -1533,7 +1533,7 @@ ssh: connect to host fe80::c59:5d57:7476:13cc%ppp0 port 2222: <emphasis>Connecti
 </sect1>
 
 <?custom-pagebreak?>
-<sect1 xml:id='netfilter.stateful'>
+<sect1 xml:id='netfilter.spoke'>
 	<title>Filtrage des flux réseaux traversant les routeurs Spoke</title>
 
     <para>Pour rappel, la mise en place du filtrage réseau sur les équipements
@@ -2121,56 +2121,73 @@ table ip6 raw {
     <qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
-    <para><phrase>Comment autoriser et enregistrer dans le mécanisme de suivi
-    des états les flux traversants depuis les routeurs
-    <citetitle>Spoke</citetitle>&nbsp;?</phrase></para>
+    <para><phrase>Comment appliquer la politique par défaut, autoriser et
+    enregistrer dans le mécanisme de suivi des états les flux traversants
+    depuis les routeurs <citetitle>Spoke</citetitle>&nbsp;?</phrase></para>
 
-		<para>Rechercher dans les pages de manuels de la commande
-		<command>iptables</command> le moyen de désigner plusieurs interfaces
-		en une seule règle.</para>
+    <para>Reprendre le jeu de règles de la <xref linkend='netfilter.spoke' />
+    et adapter ce jeu au contexte du routeur <citetitle>Hub</citetitle>.</para>
+
+    <para>Il faut notamment choisir sur quelle(s) interface(s) la règle doit
+    s'appliquer pour ne pas bloquer les flux entre routeurs
+    <citetitle>Spoke</citetitle>.</para>
 	</question>
 	<answer>
-		<para>C'est le symbole <literal>+</literal> qui permet de regrouper
-		les interfaces <literal>ppp0</literal> et <literal>ppp1</literal> dans
-		une même règle de filtrage.</para>
+    <para>Voici un exemple de règles basées sur l'utilisation des interfaces de
+    raccordement des routeurs <citetitle>Spoke</citetitle>.</para>
 
-		<para>On ajoute donc les deux règles suivantes sur le routeur
-		<wordasword>Hub</wordasword>.</para>
+<screen>table inet filter {
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        iifname "ppp*" ct state new counter packets 6 bytes 504 accept
+        ct state established,related counter packets 18 bytes 1512 accept
+        counter packets 0 bytes 0 comment "count dropped packets"
+    }
+}</screen>
 
-<screen><prompt>etu@HubBleu:~$</prompt> sudo iptables -A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT
-<prompt>etu@HubBleu:~$</prompt> sudo ip6tables -A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT</screen>
+    <para>Dans ce cas de figure le trafic entrant par les interfaces
+    <acronym>PPP</acronym> est autorisé à traverser le routeur
+    <citetitle>Hub</citetitle>.</para>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment valider l'utilisation de ces deux nouvelles
-		règles à partir d'un routeur
-		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+    <para><phrase>Comment valider l'utilisation de ces nouvelles règles à
+    partir d'un routeur <wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
 
-		<para>Il suffit de lancer un téléchargement depuis un routeur
-		<wordasword>Spoke</wordasword> en utilisant successivement les
-		protocoles <acronym>IPv4</acronym> et <acronym>IPv6</acronym>. Ensuite,
-		on relève les enregistrements sur le routeur
-		<wordasword>Hub</wordasword> à l'aide de la commande
-		<command>conntrack</command>.</para>
+    <para>Il suffit de lancer une mise à jour de catalogue de paquets dans les
+    conteneurs hébergés sur un routeur <citetitle>Spoke</citetitle>.</para>
+
+    <para>On peut aussi utiliser la commande <command>conntrack</command> pour
+    afficher la liste des enregistrements en cours sur le routeur
+    <citetitle>Hub</citetitle> pendant les transactions des conteneurs.</para>
 	</question>
 	<answer>
-		<para>Voici un exemple de relevé avec un téléchargement suffisamment
-		volumineux pour collecter la liste des entrées de suivi d'état sur le
-		routeur <wordasword>Hub</wordasword>.</para>
+    <para>Voici un exemple de trace qui montre que les flux initiés par les
+    conteneurs sont correctement acheminés par le routeur
+    <citetitle>Hub</citetitle>.</para>
 
-<screen><prompt>etu@Spoke2Vert:~$</prompt> wget -4 -O /dev/null https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz</screen>
+    <itemizedlist>
+    <listitem>
+    <para>Côté routeur <citetitle>Spoke</citetitle>, on initie le
+    trafic.</para>
 
-<screen><prompt>etu@HubBleu:~$</prompt> sudo conntrack -f ipv4 -L
-tcp      6 300 ESTABLISHED src=10.47.3.2 dst=151.101.121.176 sport=60962 dport=443 \
-			src=151.101.121.176 dst=10.141.0.162 sport=443 dport=60962 [ASSURED] mark=0 use=2</screen>
+<screen>for i in {0..2}
+do
+    echo ">>>>>>>>>>>>>>>>> c$i"
+    incus exec c$i -- apt update
+done</screen>
+    </listitem>
+    <listitem>
+    <para>Côté routeur <citetitle>Hub</citetitle>, on relève “rapidement” la
+    liste des enregistrements relatif à une adresse de conteneur.</para>
 
-<screen><prompt>etu@Spoke2Vert:~$</prompt> wget -6 -O /dev/null https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.9.1.tar.xz</screen>
+<screen>sudo conntrack -L -j 10.0.10.1</screen>
 
-<screen><prompt>etu@HubBleu:~$</prompt> sudo conntrack -f ipv6 -L
-tcp      6 300 ESTABLISHED src=fda0:7a62:2::1 dst=2a04:4e42:1d::432 sport=49156 dport=443 \
-			src=2a04:4e42:1d::432 dst=2001:678:3fc:12c::2 sport=443 dport=49156 [ASSURED] mark=0 use=2</screen>
+<screen>tcp      6 36 TIME_WAIT src=10.0.10.10 dst=151.101.2.132 sport=39664 dport=80 src=151.101.2.132 dst=192.168.104.130 sport=80 dport=39664 [ASSURED] mark=0 use=1</screen>
+    </listitem>
+    </itemizedlist>
 	</answer>
 	</qandaentry>
 
