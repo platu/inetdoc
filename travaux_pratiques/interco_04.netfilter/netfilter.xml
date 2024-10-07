@@ -1534,7 +1534,7 @@ ssh: connect to host fe80::c59:5d57:7476:13cc%ppp0 port 2222: <emphasis>Connecti
 
 <?custom-pagebreak?>
 <sect1 xml:id='netfilter.stateful'>
-	<title>Filtrage des flux réseaux traversant les routeurs</title>
+	<title>Filtrage des flux réseaux traversant les routeurs Spoke</title>
 
     <para>Pour rappel, la mise en place du filtrage réseau sur les équipements
     doit répondre à deux principes.</para>
@@ -1984,18 +1984,21 @@ done</screen>
 <sect1 xml:id='netfilter.hub'>
     <title>Règles de filtrage sur le routeur Hub</title>
 
-	<para>Dans cette section, on doit compléter les règles de filtrage pour
-	répondre à deux objectifs&nbsp;:</para>
+    <para>Dans cette partie, on doit compléter les règles de filtrage sur le
+    routeur <citetitle>Hub</citetitle> en appliquant la même politique que sur
+    les routeurs <citetitle>Spoke</citetitle> pour les flux traversants&nbsp;:
+    tout ce qui n'est pas autorisé est interdit. En complément à cette
+    politique par défaut, on doit aussi répondre à deux objectifs&nbsp;:</para>
 
 	<itemizedlist>
 	<listitem>
-	<para>Le routeur <wordasword>Hub</wordasword> doit autoriser le trafic issu
-	des routeurs <wordasword>Spoke</wordasword> vers l'Internet.</para>
+    <para>Autoriser le trafic provenant des routeurs
+    <citetitle>Spoke</citetitle> vers l'Internet.</para>
 	</listitem>
 	<listitem>
-	<para>Les demandes de connexion aux services Web hébergés sur les
-	conteneurs desservis par les routeurs <wordasword>Spoke</wordasword>
-	doivent être redirigées via la traduction des adresses destination.</para>
+    <para>Autoriser l'accès aux services Web hébergés sur les conteneurs des
+    réseaux d'hébergement des sites distants à l'aide de la traduction des
+    adresses destination.</para>
 
 	<para>Voici un exemple de correspondances de numéros de ports pour l'accès
 	aux différents services web.</para>
@@ -2017,43 +2020,43 @@ done</screen>
 		<row>
 			<entry>8010,8453</entry>
 			<entry>
-				<systemitem class='ipaddress'>10.0.1.10</systemitem><?custom-linebreak?>
-				<systemitem class='ipaddress'>fda0:7a62:1:0:216:3eff:feda:e1a</systemitem>
+				<systemitem class='ipaddress'>10.0.10.10</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:a::a</systemitem>
 			</entry>
 		</row>
 		<row>
 			<entry>8011,8454</entry>
 			<entry>
-				<systemitem class='ipaddress'>10.0.1.11</systemitem><?custom-linebreak?>
-				<systemitem class='ipaddress'>fda0:7a62:1:0:216:3eff:fec4:d325</systemitem>
+				<systemitem class='ipaddress'>10.0.10.11</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:a::b</systemitem>
 			</entry>
 		</row>
 		<row>
 			<entry>8012,8455</entry>
 			<entry>
-				<systemitem class='ipaddress'>10.0.1.12</systemitem><?custom-linebreak?>
-				<systemitem class='ipaddress'>fda0:7a62:1:0:216:3eff:fe66:86fb</systemitem>
+				<systemitem class='ipaddress'>10.0.10.12</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:a::c</systemitem>
 			</entry>
 		</row>
 		<row>
 			<entry>8020,8463</entry>
 			<entry>
-				<systemitem class='ipaddress'>10.0.2.10</systemitem><?custom-linebreak?>
-				<systemitem class='ipaddress'>fda0:7a62:2:0:216:3eff:feda:e1a</systemitem>
+				<systemitem class='ipaddress'>10.0.20.10</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:14::a</systemitem>
 			</entry>
 		</row>
 		<row>
 			<entry>8021,8464</entry>
 			<entry>
-				<systemitem class='ipaddress'>10.0.2.11</systemitem><?custom-linebreak?>
-				<systemitem class='ipaddress'>fda0:7a62:2:0:216:3eff:fec4:d325</systemitem>
+				<systemitem class='ipaddress'>10.0.20.11</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:14::b</systemitem>
 			</entry>
 		</row>
 		<row>
 			<entry>8022,8465</entry>
 			<entry>
-				<systemitem class='ipaddress'>10.0.2.12</systemitem><?custom-linebreak?>
-				<systemitem class='ipaddress'>fda0:7a62:2:0:216:3eff:fe66:86fb</systemitem>
+				<systemitem class='ipaddress'>10.0.20.12</systemitem><?custom-linebreak?>
+				<systemitem class='ipaddress'>fda0:7a62:14::c</systemitem>
 			</entry>
 		</row>
 	</tbody>
@@ -2062,78 +2065,65 @@ done</screen>
 	</listitem>
 	</itemizedlist>
 
-	<para>Avant d'aborder les questions, on commence par afficher le contenu
-	des deux fichiers <filename>/etc/iptables/rules.v4</filename> et
-	<filename>/etc/iptables/rules.v6</filename> qui correspondent à la
-	situation initiale avant de répondre aux objectifs de cette section.</para>
+    <para>Avant d'aborder les questions, on commence par afficher l'état
+    courant du jeu de règles de filtrage sur le routeur
+    <citetitle>Hub</citetitle>.</para>
 
-	<itemizedlist>
-	<listitem>
-	<para>Jeu de règles pour le protocole <acronym>IPv4</acronym>.</para>
-<screen>#~~~~~~~~~~~~ R A W
-*raw
-:PREROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
-COMMIT
-#~~~~~~~~~~~~ N A T
-*nat
-:PREROUTING ACCEPT [0:0]
-:INPUT ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A POSTROUTING -o enp0s2.300 -j MASQUERADE
-COMMIT
-#~~~~~~~~~~~~ F I L T E R
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -i lo -j ACCEPT
--A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
--A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
-COMMIT</screen>
-	</listitem>
-	<listitem>
-	<para>Jeu de règles pour le protocole <acronym>IPv6</acronym>.</para>
-<screen>#~~~~~~~~~~~~ R A W
-*raw
-:PREROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
-COMMIT
-#~~~~~~~~~~~~ N A T
-*nat
-:PREROUTING ACCEPT [0:0]
-:INPUT ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A POSTROUTING -o enp0s2.300 -j MASQUERADE
-COMMIT
-#~~~~~~~~~~~~ F I L T E R
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -i lo -j ACCEPT
--A INPUT -s fe80::/10 -j ACCEPT
--A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
--A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
-COMMIT</screen>
-	</listitem>
-	</itemizedlist>
+<screen>#!/usr/sbin/nft -f
 
-	<qandaset>
+flush ruleset
+
+# Outbound interface
+define RED_VLAN = enp0s1.360
+
+table ip nat {
+    chain postrouting {
+        type nat hook postrouting priority 100;
+        oifname $RED_VLAN counter packets 0 bytes 0 masquerade
+    }
+}
+
+table ip6 nat {
+    chain postrouting {
+        type nat hook postrouting priority 100;
+        oifname $RED_VLAN counter packets 0 bytes 0 masquerade
+    }
+}
+
+table ip raw {
+        chain rpfilter {
+                type filter hook prerouting priority raw; policy accept;
+                iifname $RED_VLAN fib saddr . iif oif 0 counter packets 0 bytes 0 drop
+        }
+
+        # ICMP Rate Limiting Rules
+        chain icmpfilter {
+                type filter hook prerouting priority raw; policy accept;
+                icmp type echo-request limit rate 10/second burst 5 packets counter accept
+                icmp type echo-request counter drop
+        }
+}
+
+table ip6 raw {
+        chain rpfilter {
+                type filter hook prerouting priority raw; policy accept;
+                iifname $RED_VLAN fib saddr . iif oif 0 counter packets 0 bytes 0 drop
+        }
+
+        # ICMP Rate Limiting Rules
+        chain icmpfilter {
+                type filter hook prerouting priority raw; policy accept;
+                icmpv6 type echo-request limit rate 10/second burst 5 packets counter accept
+                icmpv6 type echo-request counter drop
+        }
+}</screen>
+
+    <qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
-		<para><phrase>Comment autoriser et enregistrer dans le mécanisme de
-		suivi des états les flux entrants par les interfaces
-		<acronym>WAN</acronym> du routeur
-		<wordasword>Hub</wordasword>&nbsp;?</phrase></para>
+    <para><phrase>Comment autoriser et enregistrer dans le mécanisme de suivi
+    des états les flux traversants depuis les routeurs
+    <citetitle>Spoke</citetitle>&nbsp;?</phrase></para>
 
 		<para>Rechercher dans les pages de manuels de la commande
 		<command>iptables</command> le moyen de désigner plusieurs interfaces
