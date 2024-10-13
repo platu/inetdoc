@@ -5,8 +5,6 @@
 <!ENTITY author		SYSTEM "author.xml">
 <!ENTITY legal		SYSTEM "legal.xml">
 
-<!ENTITY topologie	SYSTEM "files/topologie.txt">
-
 <!-- external urls -->
 <!ENTITY % rfc_urls SYSTEM 'rfc.urls.xml'>
 %rfc_urls;
@@ -1936,7 +1934,7 @@ done</screen>
 
 <?custom-pagebreak?>
 <sect1 xml:id='netfilter.hub'>
-    <title>Règles de filtrage sur le routeur Hub</title>
+    <title>Traduction d'adresses destination sur le routeur Hub</title>
 
     <para>Dans cette partie, on doit compléter les règles de filtrage sur le
     routeur <citetitle>Hub</citetitle> en appliquant la même politique que sur
@@ -2030,46 +2028,41 @@ flush ruleset
 # Outbound interface
 define RED_VLAN = enp0s1.360
 
-table ip nat {
+table inet nat {
     chain postrouting {
         type nat hook postrouting priority 100;
-        oifname $RED_VLAN counter packets 0 bytes 0 masquerade
+        oifname $RED_VLAN counter masquerade
     }
 }
 
-table ip6 nat {
-    chain postrouting {
-        type nat hook postrouting priority 100;
-        oifname $RED_VLAN counter packets 0 bytes 0 masquerade
+table inet raw {
+    chain rpfilter {
+        type filter hook prerouting priority raw; policy accept;
+        iifname $RED_VLAN fib saddr . iif oif 0 counter packets 0 bytes 0 drop
+    }
+
+    # ICMP Rate Limiting Rules
+    chain icmpfilter {
+        type filter hook prerouting priority raw; policy accept;
+        icmp type echo-request limit rate 10/second burst 5 packets counter accept
+        icmp type echo-request counter drop
     }
 }
 
-table ip raw {
-        chain rpfilter {
-                type filter hook prerouting priority raw; policy accept;
-                iifname $RED_VLAN fib saddr . iif oif 0 counter packets 0 bytes 0 drop
-        }
+table inet filter {
 
-        # ICMP Rate Limiting Rules
-        chain icmpfilter {
-                type filter hook prerouting priority raw; policy accept;
-                icmp type echo-request limit rate 10/second burst 5 packets counter accept
-                icmp type echo-request counter drop
-        }
-}
+    chain forward {
+        type filter hook forward priority 0; policy drop;
 
-table ip6 raw {
-        chain rpfilter {
-                type filter hook prerouting priority raw; policy accept;
-                iifname $RED_VLAN fib saddr . iif oif 0 counter packets 0 bytes 0 drop
-        }
+        # Allow outbound new connections
+        iifname "ppp*" ct state new counter accept
 
-        # ICMP Rate Limiting Rules
-        chain icmpfilter {
-                type filter hook prerouting priority raw; policy accept;
-                icmpv6 type echo-request limit rate 10/second burst 5 packets counter accept
-                icmpv6 type echo-request counter drop
-        }
+        # Allow established and related connections
+        ct state established,related counter accept
+
+        # Count dropped packets
+        counter comment "count dropped packets"
+    }
 }</screen>
 
     <qandaset defaultlabel='number'>
@@ -2093,7 +2086,7 @@ table ip6 raw {
 <screen>table inet filter {
     chain forward {
         type filter hook forward priority filter; policy drop;
-        iifname "ppp*" ct state new counter packets 6 bytes 504 accept
+        <emphasis>iifname "ppp*" ct state new counter packets 6 bytes 504 accept</emphasis>
         ct state established,related counter packets 18 bytes 1512 accept
         counter packets 0 bytes 0 comment "count dropped packets"
     }
@@ -2139,7 +2132,8 @@ done</screen>
 
 <screen>sudo conntrack -L -j 10.0.10.1</screen>
 
-<screen>tcp      6 36 TIME_WAIT src=10.0.10.10 dst=151.101.2.132 sport=39664 dport=80 src=151.101.2.132 dst=192.168.104.130 sport=80 dport=39664 [ASSURED] mark=0 use=1</screen>
+<screen>tcp      6 36 TIME_WAIT src=10.0.10.10 dst=151.101.2.132 sport=39664 dport=80
+    src=151.101.2.132 dst=192.168.104.130 sport=80 dport=39664 [ASSURED] mark=0 use=1</screen>
     </listitem>
     </itemizedlist>
 	</answer>
@@ -2147,197 +2141,380 @@ done</screen>
 
 	<qandaentry>
 	<question>
-		<para><phrase>Comment implanter les règles de traduction d'adresses
-		<acronym>IPv4</acronym> et <acronym>IPv6</acronym> destination de façon
-		à rendre accessibles les services Web configurés dans les conteneurs
-		situés dans les réseaux desservis par les routeurs
-		<wordasword>Spoke</wordasword>&nbsp;?</phrase></para>
+    <para><phrase>Comment implanter les règles de traduction d'adresses
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym> destination pour ouvrir
+    l'accès aux services Web placés dans les conteneurs des réseaux
+    d'hébergement des routeurs
+    <citetitle>Spoke</citetitle>&nbsp;?</phrase></para>
 
-		<para>Il faut rechercher la syntaxe des règles de la cible
-		<acronym>DNAT</acronym> à appliquer dans la table des règles de
-		traduction d'adresses (<acronym>nat</acronym>) ainsi que la syntaxe des
-		règles à ajouter dans la chaîne <literal>FORWARD</literal> de la table
-		<literal>netfilter</literal>.</para>
+    <para>Rechercher la chaîne présente par défaut à utiliser pour les
+    traitements de traduction d'adresses et de ports destination dans la
+    représentation graphique &url.packetflow;.</para>
 
-		<para>Ces nouvelles règles doivent être conformes au tableau de
-		correspondance donné en début de section. Bien sûr, les adresses
-		doivent être modifiées en fonction du plan d'adressage du document
-		&url.interco.pppoe;.</para>
+    <para>Une fois la chaîne identifiée, rechercher des exemples de règles de
+    filtrage de type <systemitem>dnat</systemitem> et une adaptation au
+    critères de redirection de ports définis dans le tableau ci-dessus.</para>
+
+    <para>Bien sûr, les adresses <acronym>IPv4</acronym> et
+    <acronym>IPv6</acronym> des conteneurs hébergés sur les routeur
+    <citetitle>Spoke</citetitle> doivent être modifiées en fonction du plan
+    d'adressage du document &url.interco.hub-and-spoke;.</para>
 	</question>
 	<answer>
-		<para>Comme indiqué dans l'énoncé de la question, l'ajout des règles
-		comprend deux parties&nbsp;: les règles de la table
-		<literal>nat</literal> et les règles de la table
-		<literal>netfilter</literal>.</para>
+    <para>Le nom de chaîne recherchée est <systemitem>prerouting</systemitem>.
+    En effet, la traduction d'adresse destination doit se faire avant la
+    décision de routage des paquets <acronym>IPv4</acronym> ou
+    <acronym>IPv6</acronym>.</para>
 
-		<para>Dans le contexte de la maquette, on a édité les fichiers
-		<filename>/etc/iptables/rules.v4</filename> et
-		<filename>/etc/iptables/rules.v6</filename>.</para>
+    <para>Voici un extrait du fichier <filename>/etc/nftables.conf</filename>
+    qui ne comprend que les règles définies dans la table
+    <systemitem>nat</systemitem>.</para>
 
-		<itemizedlist>
-		<listitem>
-		<para>Pour le protocole <acronym>IPv4</acronym>.</para>
+<screen>table inet nat {
+    chain postrouting {
+        type nat hook postrouting priority 100;
+        oifname $RED_VLAN counter masquerade
+    }
 
-<screen>#~~~~~~~~~~~~ R A W
-*raw
-:PREROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
-COMMIT
-#~~~~~~~~~~~~ N A T
-*nat
-:PREROUTING ACCEPT [0:0]
-:INPUT ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8010 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke1C0 -j DNAT --to 10.0.1.10:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8453 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke1C0 -j DNAT --to 10.0.1.10:443
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8011 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke1C1 -j DNAT --to 10.0.1.11:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8454 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke1C1 -j DNAT --to 10.0.1.11:443
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8012 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke1C2 -j DNAT --to 10.0.1.12:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8455 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke1C2 -j DNAT --to 10.0.1.12:443
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8020 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke2C0 -j DNAT --to 10.0.2.10:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8463 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke2C0 -j DNAT --to 10.0.2.10:443
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8021 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke2C1 -j DNAT --to 10.0.2.11:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8464 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke2C1 -j DNAT --to 10.0.2.11:443
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8022 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke2C2 -j DNAT --to 10.0.2.12:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8465 -m conntrack --ctstate NEW \
-		-m comment --comment Spoke2C2 -j DNAT --to 10.0.2.12:443
--A POSTROUTING -o enp0s2.300 -j MASQUERADE
-COMMIT
-#~~~~~~~~~~~~ F I L T E R
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -i lo -j ACCEPT
--A INPUT -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
--A INPUT -p tcp --syn --dport 2222 -m conntrack --ctstate NEW \
-		-m comment --comment SSH -j ACCEPT
--A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -p icmp -m limit --limit 2/sec -m conntrack --ctstate NEW -j ACCEPT
--A FORWARD -p tcp --syn --dport 2222 -m conntrack --ctstate NEW \
-		-m comment --comment SSH -j ACCEPT
--A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT
--A FORWARD -d 10.0.1.10/32 -p tcp --syn -m multiport --dports 80,443 \
-		-m comment --comment Spoke1C0 -j ACCEPT
--A FORWARD -d 10.0.1.11/32 -p tcp --syn -m multiport --dports 80,443 \
-		-m comment --comment Spoke1C1 -j ACCEPT
--A FORWARD -d 10.0.1.12/32 -p tcp --syn -m multiport --dports 80,443 \
-		-m comment --comment Spoke1C2 -j ACCEPT
--A FORWARD -d 10.0.2.10/32 -p tcp --syn -m multiport --dports 80,443 \
-		-m comment --comment Spoke2C0 -j ACCEPT
--A FORWARD -d 10.0.2.11/32 -p tcp --syn -m multiport --dports 80,443 \
-		-m comment --comment Spoke2C1 -j ACCEPT
--A FORWARD -d 10.0.2.12/32 -p tcp --syn -m multiport --dports 80,443 \
-		-m comment --comment Spoke2C2 -j ACCEPT
-COMMIT</screen>
-		</listitem>
-		<listitem>
-		<para>Pour le protocole <acronym>IPv6</acronym>.</para>
+    chain <emphasis>prerouting</emphasis> {
+        type nat hook prerouting priority dstnat; policy accept;
+        # Spoke1
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8010, 8453 } \
+            dnat ip to 10.0.10.10
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8010, 8453 } \
+            dnat ip6 to fda0:7a62:a::a
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8011, 8454 } \
+            dnat ip to 10.0.10.11
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8011, 8454 } \
+            dnat ip6 to fda0:7a62:a::b
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8012, 8455 } \
+            dnat ip to 10.0.10.12
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8012, 8455 } \
+            dnat ip6 to fda0:7a62:a::c
+        # Spoke2
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8020, 8463 } \
+            dnat ip to 10.0.20.10
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8020, 8463 } \
+            dnat ip6 to fda0:7a62:14::a
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8021, 8464 } \
+            dnat ip to 10.0.20.11
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8021, 8464 } \
+            dnat ip6 to fda0:7a62:14::b
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8022, 8465 } \
+            dnat ip to 10.0.20.12
+        iifname $RED_VLAN meta l4proto { tcp, udp } th dport { 8022, 8465 } \
+            dnat ip6 to fda0:7a62:14::c
+    }
+}</screen>
 
-<screen>#~~~~~~~~~~~~ R A W
-*raw
-:PREROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A PREROUTING -m rpfilter --invert -m comment --comment BCP38 -j DROP
-COMMIT
-#~~~~~~~~~~~~ N A T
-*nat
-:PREROUTING ACCEPT [0:0]
-:INPUT ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8010 \
-		-m comment --comment Spoke1C0 -j DNAT --to [fda0:7a62:1:0:216:3eff:feda:e1a]:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8453 \
-		-m comment --comment Spoke1C0 -j DNAT --to [fda0:7a62:1:0:216:3eff:feda:e1a]:443
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8011 \
-		-m comment --comment Spoke1C1 -j DNAT --to [fda0:7a62:1:0:216:3eff:fec4:d325]:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8454 \
-		-m comment --comment Spoke1C1 -j DNAT --to [fda0:7a62:1:0:216:3eff:fec4:d325]:443
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8012 \
-		-m comment --comment Spoke1C2 -j DNAT --to [fda0:7a62:1:0:216:3eff:fe66:86fb]:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8455 \
-		-m comment --comment Spoke1C2 -j DNAT --to [fda0:7a62:1:0:216:3eff:fe66:86fb]:443
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8020 \
-		-m comment --comment Spoke2C0 -j DNAT --to [fda0:7a62:2:0:216:3eff:feda:e1a]:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8463 \
-		-m comment --comment Spoke2C0 -j DNAT --to [fda0:7a62:2:0:216:3eff:feda:e1a]:443
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8021 \
-		-m comment --comment Spoke2C1 -j DNAT --to [fda0:7a62:2:0:216:3eff:fec4:d325]:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8464 \
-		-m comment --comment Spoke2C1 -j DNAT --to [fda0:7a62:2:0:216:3eff:fec4:d325]:443
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8022 \
-		-m comment --comment Spoke2C2 -j DNAT --to [fda0:7a62:2:0:216:3eff:fe66:86fb]:80
--A PREROUTING -i enp0s2.300 -p tcp --syn --dport 8465 \
-		-m comment --comment Spoke2C2 -j DNAT --to [fda0:7a62:2:0:216:3eff:fe66:86fb]:443
--A POSTROUTING -o enp0s2.300 -j MASQUERADE
-COMMIT
-#~~~~~~~~~~~~ F I L T E R
-*filter
-:INPUT DROP [0:0]
-:FORWARD DROP [0:0]
-:OUTPUT ACCEPT [0:0]
--A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A INPUT -i lo -j ACCEPT
--A INPUT -s fe80::/10 -j ACCEPT
--A INPUT -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
--A INPUT -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
--A INPUT -m limit --limit 1/sec -m conntrack --ctstate INVALID -j DROP
--A INPUT -m limit --limit 1/sec -j NFLOG
--A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -p ipv6-icmp -m limit --limit 2/sec -j ACCEPT
--A FORWARD -p tcp --syn --dport 2222 -m conntrack --ctstate NEW -m comment --comment SSH -j ACCEPT
--A FORWARD -i ppp+ -m conntrack --ctstate NEW -j ACCEPT
--A FORWARD -d fda0:7a62:1:0:216:3eff:feda:e1a/128 -p tcp --syn -m multiport --dports 80,443 \
-		-m conntrack --ctstate NEW -m comment --comment Spoke1C0 -j ACCEPT
--A FORWARD -d fda0:7a62:1:0:216:3eff:fec4:d325/128 -p tcp --syn -m multiport --dports 80,443 \
-		-m conntrack --ctstate NEW -m comment --comment Spoke1C1 -j ACCEPT
--A FORWARD -d fda0:7a62:1:0:216:3eff:fe66:86fb/128 -p tcp --syn -m multiport --dports 80,443 \
-		-m conntrack --ctstate NEW -m comment --comment Spoke1C2 -j ACCEPT
--A FORWARD -d fda0:7a62:2:0:216:3eff:feda:e1a/128 -p tcp --syn -m multiport --dports 80,443 \
-		-m conntrack --ctstate NEW -m comment --comment Spoke2C0 -j ACCEPT
--A FORWARD -d fda0:7a62:2:0:216:3eff:fec4:d325/128 -p tcp --syn -m multiport --dports 80,443 \
-		-m conntrack --ctstate NEW -m comment --comment Spoke2C1 -j ACCEPT
--A FORWARD -d fda0:7a62:2:0:216:3eff:fe66:86fb/128 -p tcp --syn -m multiport --dports 80,443 \
-		-m conntrack --ctstate NEW -m comment --comment Spoke2C2 -j ACCEPT
--A FORWARD -m limit --limit 1/sec -m conntrack --ctstate INVALID -j DROP
--A FORWARD -m limit --limit 1/sec -j NFLOG
-COMMIT</screen>
-		</listitem>
-		</itemizedlist>
+    <para>Relativement à l'unique règle de la chaîne
+    <systemitem>postrouting</systemitem>, il est nécessaire d'ajouter deux
+    règles par destination en distinguant les protocoles
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym>. Dans le contexte de la
+    maquette, il y a trois conteneurs hébergés sur chaque routeur
+    <citetitle>Spoke</citetitle>. On doit donc ajouter 6 règles pour chacun
+    d'eux.</para>
 
-		<para>Pour rétablir les lignes des copies d'écran ci-dessus, il est
-		possible d'utiliser la commande ci-dessous avec laquelle le fichier
-		<filename>rules.txt</filename> contient les lignes coupées avec le
-		caractère <literal>\</literal>.</para>
+    <para>Les règles de traduction d'adresses de la chaîne
+    <systemitem>prerouting</systemitem> sont structurées de la façon
+    suivante&nbsp;:</para>
 
-<screen><prompt>$</prompt> sudo sed '/^[ \-].*\\$/N;s/\\\n *//' rules.txt</screen>
+    <itemizedlist>
+    <listitem>
+    <para>Une même règle traite les protocoles de couche transport
+    <acronym>TCP</acronym> et <acronym>UDP</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Les numéros de ports sont aussi regroupés. Par exemple&nbsp;: { 8010,
+    8453 }.</para>
+    </listitem>
+    <listitem>
+    <para>Relativement aux règles des autres parties du document, les
+    protocoles <acronym>IPv4</acronym> et <acronym>IPv6</acronym> sont séparés
+    et les adresses destination sont explicitement définies pour chaque routeur
+    <citetitle>Spoke</citetitle>.</para>
+    </listitem>
+    </itemizedlist>
 	</answer>
 	</qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment tester le ces nouvelles règles de traduction
+    d'adresse destination sur le routeur
+    <citetitle>Hub</citetitle>&nbsp;?</phrase></para>
+
+    <para>Comme il s'agit de flux réseau entrants sur le routeur
+    <citetitle>Hub</citetitle>, il faut nécessairement lancer les tests depuis
+    le réseau d'infrastructure, c'est-à-dire le <acronym>VLAN</acronym>
+    rouge.</para>
+    </question>
+    <answer>
+    <para>La connexion au Shell de l'hyperviseur nous permet de lancer nos
+    tests à destination de l'adresse du routeur <citetitle>Hub</citetitle> dans
+    le réseau d'infrastructure, c'est-à-dire le <acronym>VLAN
+    rouge</acronym>. Voici un exemple avec l'adresse définie dans le plan
+    d'adressage de la maquette utilisée pour ce document.</para>
+
+<screen>wget http://192.168.104.130:8010
+--2024-10-13 15:47:25--  http://192.168.104.130:8010/
+Connexion à 192.168.104.130:8010…</screen>
+
+    <para>Si l'adresse <acronym>IPv4</acronym> et le numéro de port utilisés
+    pour ce test sont corrects, cela ne suffit toutefois pas.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment autoriser les flux de la traduction d'adresse
+    destination à traverser le routeur
+    <citetitle>Hub</citetitle>&nbsp;?</phrase></para>
+
+    <para>Rechercher à nouveau le nom de la chaîne présente par défaut qui
+    traite les flux réseau qui traversent le routeur
+    <citetitle>Hub</citetitle>.</para>
+
+    <para>Une fois la chaîner identifiée, rechercher la syntaxe des règles qui
+    admettent les premiers paquets de traitement de la traduction d'adresse
+    destination dans le mécanisme de suivi des communications du système de
+    filtrage.</para>
+    </question>
+    <answer>
+    <para>C'est la chaîne <systemitem>forward</systemitem> qui nous intéresse
+    ici. On a déjà créé des règles dans cette chaîne qui traitent les flux
+    sortants du routeur <citetitle>Hub</citetitle> provenant des routeurs
+    <citetitle>Spoke</citetitle>.</para>
+
+    <para>Voici un exemple de jeu de règles pour la chaîne
+    <systemitem>forward</systemitem> adapté au plan d'adressage de la
+    maquette.</para>
+
+<screen>table inet filter {
+    chain <emphasis>forward</emphasis> {
+        type filter hook forward priority 0; policy drop;
+
+        # Allow outbound new connections
+        iifname "ppp*" ct state new counter accept
+
+        # Allow inbound new connections to the web services hosted on spoke routers
+        # Spoke1
+        iifname $RED_VLAN ip daddr 10.0.10.10 meta l4proto { tcp, udp } \
+            th dport { 8010, 8453 } ct state new counter accept
+        iifname $RED_VLAN ip6 daddr fda0:7a62:a::a meta l4proto { tcp, udp } \
+            th dport { 8010, 8453 } ct state new counter accept
+        iifname $RED_VLAN ip daddr 10.0.10.11 meta l4proto { tcp, udp } \
+            th dport { 8011, 8454 } ct state new counter accept
+        iifname $RED_VLAN ip6 daddr fda0:7a62:a::b meta l4proto { tcp, udp } \
+            th dport { 8011, 8454 } ct state new counter accept
+        iifname $RED_VLAN ip daddr 10.0.10.12 meta l4proto { tcp, udp } \
+            th dport { 8012, 8455 } ct state new counter accept
+        iifname $RED_VLAN ip6 daddr fda0:7a62:a::c meta l4proto { tcp, udp } \
+            th dport { 8012, 8455 } ct state new counter accept
+        # Spoke2
+        iifname $RED_VLAN ip daddr 10.0.20.10 meta l4proto { tcp, udp } \
+            th dport { 8020, 8463 } ct state new counter accept
+        iifname $RED_VLAN ip6 daddr fda0:7a62:14::a meta l4proto { tcp, udp } \
+            th dport { 8020, 8463 } ct state new counter accept
+        iifname $RED_VLAN ip daddr 10.0.20.11 meta l4proto { tcp, udp } \
+            th dport { 8021, 8464 } ct state new counter accept
+        iifname $RED_VLAN ip6 daddr fda0:7a62:14::b meta l4proto { tcp, udp } \
+            th dport { 8021, 8464 } ct state new counter accept
+        iifname $RED_VLAN ip daddr 10.0.20.12 meta l4proto { tcp, udp } \
+            th dport { 8022, 8465 } ct state new counter accept
+        iifname $RED_VLAN ip6 daddr fda0:7a62:14::c meta l4proto { tcp, udp } \
+            th dport { 8022, 8465 } ct state new counter accept
+
+        # Allow established and related connections
+        ct state established,related counter accept
+
+        # Count dropped packets
+        counter comment "count dropped packets"
+    }
+}</screen>
+
+    <para>Comme dans le cas de la chaîne <systemitem>prerouting</systemitem>,
+    il est nécessaire de décrire le plus finement possible le premier flux
+    autorisé à entrer dans le mécanisme de suivi des communication. Cela
+    engendre un nombre important de règles même si on parvient à regrouper les
+    deux protocoles de la couches transport et les numéros de ports.</para>
+
+    <para>Une fois ce jeu de règles implanté, ce n'est toujours pas suffisant
+    pour accéder aux site web de chaque conteneur du réseau d'hébergement. On
+    peut tout de même qualifier les règles à l'aide des compteurs et de
+    l'affichage des enregistrements du suivi des communications. Voici un
+    exemple.</para>
+
+    <para>On commence par lancer une requête qui ne parvient pas à charger la
+    page web du service <application>nginx</application>.</para>
+
+<screen>wget http://192.168.104.130:8010
+--2024-10-13 18:34:00--  http://192.168.104.130:8010/
+Connexion à 192.168.104.130:8010… échec : Connexion terminée par expiration du délai d'attente.</screen>
+
+    <para>Côté routeur <citetitle>Hub</citetitle>, on peut examiner les
+    compteurs relatifs à la règle qui autorise l'accès au service Web du
+    conteneur à l'adresse <acronym>IPv4</acronym>
+    <systemitem>10.0.10.10</systemitem>.</para>
+
+<screen>sudo nft list table inet filter | grep '10.0.10.10'
+    iifname "enp0s1.360" ip daddr 10.0.10.10 meta l4proto { tcp, udp } th dport { 8010, 8453 }
+        ct state new <emphasis>counter packets 22 bytes 1320 accept</emphasis></screen>
+
+    <para>L'affichage de la liste des enregistrements de suivi des
+    communication au niveau du routeur <citetitle>Hub</citetitle> montre
+    qu'aucune réponse à la requête n'a été vue avec la clé
+    <option>UNREPLIED</option>.</para>
+
+<screen> sudo conntrack -f ipv4 -L | grep "10.0.10.10"
+conntrack v1.4.8 (conntrack-tools): 2 flow entries have been shown.
+tcp      6 87 SYN_SENT src=172.16.0.6 dst=192.168.104.130 sport=48430 dport=8010
+    <emphasis>[UNREPLIED]</emphasis> src=10.0.10.10 dst=172.16.0.6 sport=8010 dport=48430 mark=0 use=1</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment reconfigurer les services Web des conteneurs pour
+    qu'ils soient en écoute sur les numéros de ports définis dans les règles de
+    filtrage ci-dessus&nbsp;?</phrase></para>
+
+    <para>On sait depuis l'installation des services
+    <application>nginx</application> qu'ils sont tous en écoute sur le port
+    <option>80</option>. On doit donc reconfigurer ces mêmes services avec les
+    numéros de ports définis dans le tableau donné au début de cette
+    partie.</para>
+
+    <caution>
+    <para>Pour les besoins de nos tests, on se contente du protocole
+    <acronym>HTTP</acronym> et on ne traite pas les ports
+    <acronym>HTTPS</acronym>.</para>
+    </caution>
+    </question>
+    <answer>
+    <para>On doit réaliser deux tâches sur chaque routeur
+    <citetitle>Spoke</citetitle>.</para>
+
+    <itemizedlist>
+    <listitem>
+    <para>Définir le numéro de port en écoute pour chaque service
+    <application>nginx</application> sur chaque conteneur.</para>
+    </listitem>
+    <listitem>
+    <para>Compléter la liste des ports autorisés dans les règles de filtrage
+    Web.</para>
+    </listitem>
+    </itemizedlist>
+
+    <para>Voici un exemple des traitements à réaliser sur le routeur
+    <citetitle>Spoke1</citetitle>.</para>
+
+    <para>Pour reconfigurer les services Web, on lance un script avec comme
+    celui-ci.</para>
+
+<screen>for i in {0..2}
+do
+    echo ">>>>>>>>>>>>>>>>> c$i"
+    incus exec c$i -- \
+        sh -c "sed -i <emphasis>'s/listen 80/listen $((8010 + i))/'</emphasis> /etc/nginx/sites-enabled/default"
+    incus exec c$i -- systemctl restart nginx
+done</screen>
+
+    <para>Pour la liste des ports autorisés, on complète la ligne des services
+    Web de la chaîne <systemitem>forward</systemitem> de la table
+    <systemitem>filter</systemitem>. Voici une copie de la table.</para>
+
+<screen>table inet filter {
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+
+        # Allow outbound new connections
+        oifname "ppp0" ct state new counter accept
+
+        # Allow established and related connections
+        ct state established,related counter accept
+
+        # Allow specific inbound traffic
+        # ICMP IPv4 + IPv6
+        iifname "ppp0" meta l4proto {icmp, ipv6-icmp} ct state new counter accept
+        # SSH
+        iifname "ppp0" tcp dport 2222 ct state new counter accept
+        # HTTP(S)
+        iifname "ppp0" meta l4proto {tcp, udp} th dport \
+            <emphasis>{80, 443, 8010, 8011, 8012, 8453, 8454, 8455}</emphasis> ct state new counter accept
+
+        # Count dropped packets
+        counter comment "count dropped packets"
+    }
+}</screen>
+
+    <para>Pour terminer, les tests d'accès depuis l'hyperviseur sont maintenant
+    concluants.</para>
+
+<screen>for p in {0..2}
+do
+    wget -O /dev/null http://192.168.104.130:$((8010 + $p))
+done</screen>
+
+<screen>--2024-10-13 19:24:24--  http://192.168.104.130:8010/
+Connexion à 192.168.104.130:8010… connecté.
+requête HTTP transmise, en attente de la réponse… 200 OK
+Taille : 615 [text/html]
+Sauvegarde en : « /dev/null »
+
+/dev/null  100%[===============================================>]     615  --.-KB/s    ds 0s
+
+2024-10-13 19:24:24 (33,6 MB/s) — « /dev/null » sauvegardé [615/615]
+
+--2024-10-13 19:24:24--  http://192.168.104.130:8011/
+Connexion à 192.168.104.130:8011… connecté.
+requête HTTP transmise, en attente de la réponse… 200 OK
+Taille : 615 [text/html]
+Sauvegarde en : « /dev/null »
+
+/dev/null  100%[================================================>]     615  --.-KB/s    ds 0s
+
+2024-10-13 19:24:24 (34,4 MB/s) — « /dev/null » sauvegardé [615/615]
+
+--2024-10-13 19:24:24--  http://192.168.104.130:8012/
+Connexion à 192.168.104.130:8012… connecté.
+requête HTTP transmise, en attente de la réponse… 200 OK
+Taille : 615 [text/html]
+Sauvegarde en : « /dev/null »
+
+/dev/null  100%[================================================>]     615  --.-KB/s    ds 0s
+
+2024-10-13 19:24:24 (36,3 MB/s) — « /dev/null » sauvegardé [615/615]</screen>
+
+    <para>C'est gagné ! La traduction d'adresse destination au niveau du
+    routeur <citetitle>Hub</citetitle> est validée.</para>
+    </answer>
+    </qandaentry>
 	</qandaset>
-
-	<para>Comme pour toutes les autres sections, on n'oublie pas de sauvegarder
-	le jeu des règles qui ont été validées.</para>
-
-<screen><prompt>$</prompt> sudo sh -c "iptables-save >/etc/iptables/rules.v4"
-<prompt>$</prompt> sudo sh -c "ip6tables-save >/etc/iptables/rules.v6"</screen>
 </sect1>
 
 <?custom-pagebreak?>
+<sect1 xml:id='netfilter.conclusion'>
+	<title>Pour conclure...</title>
+
+<para>Ce document a présenté les concepts fondamentaux du filtrage réseau avec
+<systemitem>netfilter/nftables</systemitem> sur Linux. Il a couvert la
+configuration de base des règles de filtrage, la protection contre les attaques
+courantes, et la mise en place de traductions d'adresses sur une topologie
+<citetitle>Hub &amp; Spoke</citetitle>.</para>
+
+<para>Les travaux pratiques ont permis d'explorer concrètement l'implémentation
+des règles de filtrage <wordasword>stateful</wordasword> et
+<wordasword>stateless</wordasword>. Les étudiants ont pu configurer et tester
+des règles pour sécuriser les routeurs, contrôler le trafic traversant, et
+mettre en place de la traduction d'adresse source puis destination.</para>
+
+<para>Ce support fournit une base solide pour comprendre et mettre en œuvre le
+filtrage réseau avec les outils de filtrage des systèmes Linux. Les compétences
+acquises permettront aux étudiants de concevoir et déployer des politiques de
+sécurité réseau efficaces dans des environnements réels.</para>
+</sect1>
+
 <sect1 xml:id='netfilter.refdocs'>
 	<title>Documents de référence</title>
 
