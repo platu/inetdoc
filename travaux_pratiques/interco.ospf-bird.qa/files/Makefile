@@ -5,7 +5,7 @@ endif
 # Type(s) de traitement
 PROCESS = symlink
 
-SYMLINKS = $(MAIN_DIR)/travaux_pratiques/interco.ospf-frr.qa/files/*
+SYMLINKS = $(MAIN_DIR)/travaux_pratiques/interco_05.ospf/files/*
 
 all: $(PROCESS)
 
