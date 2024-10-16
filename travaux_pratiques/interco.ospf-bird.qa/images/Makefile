@@ -5,9 +5,7 @@ endif
 PNGTARGET = $(addsuffix .png,$(basename $(wildcard *.odg)))
 
 # Type(s) de traitement
-PROCESS = symlink $(PNGTARGET)
-
-SYMLINKS = $(MAIN_DIR)/travaux_pratiques/interco_05.ospf/images/*.png
+PROCESS = $(PNGTARGET)
 
 all: $(PROCESS)
 
