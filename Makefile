@@ -10,7 +10,6 @@ SUBDIRS = \
 	presentations \
 	travaux_pratiques \
 	dev \
-	formations
 
 # Type(s) de traitement
 PROCESS = subdirs /var/www/tp favicon.ico
