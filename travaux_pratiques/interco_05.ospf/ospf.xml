@@ -2461,7 +2461,7 @@ N <emphasis>E2 0.0.0.0/0</emphasis>             [10/10] tag: 0
 	class='systemname'>R1</systemitem> vers l'Internet&nbsp;?</phrase></para>
 
     <para>Reprendre la section <citetitle>Activation de la traduction
-    d'adresses</citetitle> du support &url.interco.inter-vlan;.</para>
+    d'adresses</citetitle> du support &url.interco.pppoe;.</para>
 	</question>
 	<answer>
 	<para>Dans le cas de la maquette, c'est l'interface
@@ -2527,7 +2527,7 @@ rtt min/avg/max/mdev = 28.604/28.676/28.748/0.072 ms</screen>
 </sect1>
 
 <sect1 xml:id='ospf.containersi-network'>
-	<title>Ajouter un réseau de conteneurs à chaque routeur du triangle</title>
+	<title>Ajouter un réseau d'hébergement à chaque routeur</title>
 
 	<para>Dans cette section, on créé un réseau de conteneur attaché à chaque
 	routeur de la topologie triangle. L'objectif est de peupler les tables de
@@ -2537,9 +2537,9 @@ rtt min/avg/max/mdev = 28.604/28.676/28.748/0.072 ms</screen>
 	<para>Une fois ces réseaux en place, il est possible de réaliser des tests
 	de connectivité entre conteneurs et d'optimiser les métriques.</para>
 
-	<para>Cette partie reprend le contenu de la section <citetitle>Rôle serveur
-	de conteneurs</citetitle> du support de travaux pratiques
-	&url.interco.inter-vlan;.</para>
+    <para>Cette partie reprend le contenu de la section <citetitle>Réseau
+    d'hébergement de conteneurs</citetitle> du support de travaux pratiques
+    &url.interco.pppoe;.</para>
 
 <qandaset>
 	<qandaentry>
@@ -2548,8 +2548,8 @@ rtt min/avg/max/mdev = 28.604/28.676/28.748/0.072 ms</screen>
     commutateur d'accès et le gestionnaire de conteneurs
     <citetitle>Incus</citetitle>&nbsp;?</phrase></para>
 
-    <para>Consulter la section <citetitle>rôle serveur de
-    conteneurs</citetitle> du support &url.interco.inter-vlan;.</para>
+    <para>Consulter la section <citetitle>Réseau d'hébergement de
+    conteneurs</citetitle> du support &url.interco.pppoe;.</para>
 
     <note>
     <para>Pour les routeurs <systemitem>R2</systemitem> et
@@ -2579,6 +2579,8 @@ rtt min/avg/max/mdev = 28.604/28.676/28.748/0.072 ms</screen>
     </listitem>
     </varlistentry>
     </variablelist>
+
+<screen>sudo apt -y install openvswitch-switch dnsmasq incus</screen>
 	</answer>
 	</qandaentry>
 
@@ -2687,7 +2689,8 @@ rtt min/avg/max/mdev = 28.604/28.676/28.748/0.072 ms</screen>
     </question>
     <answer>
     <para>On active le protocole <acronym>OSPF</acronym> pour l'interface
-    commutée virtuelle</para>
+    commutée virtuelle de chacun des trois routeurs. Voici un exemple pour le
+    routeur <systemitem>R2</systemitem>.</para>
 
 <screen><prompt>R2#</prompt> conf t
 R2(config)# int vlan20
@@ -2715,170 +2718,210 @@ rtt min/avg/max/mdev = 28.502/29.014/29.526/0.512 ms</screen>
 --- 2620:fe::fe ping statistics ---
 2 packets transmitted, 2 received, <emphasis>0% packet loss</emphasis>, time 1001ms
 rtt min/avg/max/mdev = 40.675/47.384/54.094/6.709 ms</screen>
-
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment créer 3 conteneurs avec un adressage
-	<acronym>IPv4</acronym> et <acronym>IPv6</acronym> conforme au plan
-	défini&nbsp;?</phrase></para>
+    <para><phrase>Comment administrer et initialiser le gestionnaire de
+    conteneurs <citetitle>Incus</citetitle>&nbsp;?</phrase></para>
 
-	<para>consulter la section <citetitle>rôle serveur de
-	conteneurs</citetitle>.</para>
+    <para>Consulter la section <citetitle>Réseau d'hébergement de
+    conteneurs</citetitle>.</para>
 	</question>
 	<answer>
-	<para>On commence par la création des 3 conteneurs demandés.</para>
+    <para>Pour commencer, l'utilisateur normal doit appartenir aux deux groupes
+    système <systemitem>incus</systemitem> et
+    <systemitem>incus-admin</systemitem>. On reprend la démarche
+    précédente.</para>
 
-<screen>for i in {0..2}
+<screen>for grp in incus incus-admin
 do
-	lxc launch images:debian/12 c$i
+    sudo adduser etu $grp
 done</screen>
 
-<screen>lxc ls
-+------+---------+------+------+-----------+-----------+
-| NAME |  STATE  | IPV4 | IPV6 |   TYPE    | SNAPSHOTS |
-+------+---------+------+------+-----------+-----------+
-| c0   | RUNNING |      |      | CONTAINER | 0         |
-+------+---------+------+------+-----------+-----------+
-| c1   | RUNNING |      |      | CONTAINER | 0         |
-+------+---------+------+------+-----------+-----------+
-| c2   | RUNNING |      |      | CONTAINER | 0         |
-+------+---------+------+------+-----------+-----------+</screen>
+    <para>Comme l'affectation de groupe se joue à la connexion, il faut se
+    déconnecter/reconnecter pour rendre l'attribution effective.</para>
 
-	<para>Les conteneurs sont bien lancés. On peut passer à l'adressage
-	automatisé. On applique les adresses avec une boucle.</para>
+<screen>groups</screen>
+<screen>etu adm sudo users frrvty frr incus-admin incus</screen>
 
-<screen>for i in {0..2}
-do
-        echo ">>>>>>>>>>>>>>>>> c$i"
-config=$(cat &lt;&lt; EOF
-[Match]
-Name=eth0
+    <para>Pour l'initialisation du gestionnaire de conteneur, on utilise un
+    fichier de déclaration préparé en amont. Voici une copie du fichier
+    <filename>incus.yaml</filename> pour le routeur
+    <systemitem>R2</systemitem>.</para>
 
-[Network]
-DHCP=false
-Address=10.20.0.$((i + 10))/24
-Gateway=10.20.0.1
-DNS=172.16.0.2
-Address=fd14:ca46:3864:14::$(printf "%x" $((i + 10)))/64
-Gateway=fd14:ca46:3864:14::1
-DNS=2620:fe::fe
-EOF
-)
-        lxc exec c$i -- bash -c "echo \"${config}\" | tee /etc/systemd/network/eth0.network"
-        lxc exec c$i -- systemctl restart systemd-networkd
-done</screen>
+<screen>config: {}
+networks: []
+storage_pools:
+- config: {}
+  description: ""
+  name: default
+  driver: dir
+profiles:
+- config: {}
+  description: ""
+  devices:
+    eth0:
+      name: eth0
+      nictype: bridged
+      parent: asw-host
+      type: nic
+      vlan: 20
+    root:
+      path: /
+      pool: default
+      type: disk
+  name: default
+projects: []
+cluster: null</screen>
 
-	<para>Suivant les préfixes réseau attribués, on obtient le résultat ci-dessous.</para>
+    <para>L'initialisation se fait à partir de ce fichier.</para>
 
-<screen>lxc ls
-+------+---------+-------------------+-----------------------------+-----------+-----------+
-| NAME |  STATE  |       IPV4        |            IPV6             |   TYPE    | SNAPSHOTS |
-+------+---------+-------------------+-----------------------------+-----------+-----------+
-| c0   | RUNNING | 10.20.0.10 (eth0) | fd14:ca46:3864:14::a (eth0) | CONTAINER | 0         |
-+------+---------+-------------------+-----------------------------+-----------+-----------+
-| c1   | RUNNING | 10.20.0.11 (eth0) | fd14:ca46:3864:14::b (eth0) | CONTAINER | 0         |
-+------+---------+-------------------+-----------------------------+-----------+-----------+
-| c2   | RUNNING | 10.20.0.12 (eth0) | fd14:ca46:3864:14::c (eth0) | CONTAINER | 0         |
-+------+---------+-------------------+-----------------------------+-----------+-----------+</screen>
-	</answer>
-	</qandaentry>
+<screen>cat incus.yaml | incus admin init --preseed</screen>
+
+    <para>On peut afficher le résultat de cette initialisation du gestionnaire
+    de conteneurs avec l'instruction suivante.</para>
+
+<screen>incus profile show default</screen>
+
+    <para>En cas d'erreur, il est aussi possible d'éditer le profil par défaut.</para>
+
+<screen>incus profile edit default</screen>
+
+    <important>
+    <para>Les opérations de cette question doivent être réalisées sur les trois
+    routeurs en adaptant les numéros de <acronym>VLAN</acronym> de réseau
+    d'hébergement.</para>
+    </important>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment mettre en place l'adressage automatique
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym> dans le réseau
+    d'hébergement&nbsp;?</phrase></para>
+
+    <para>Consulter la section <citetitle>Adressage automatique dans le réseau
+    d'hébergement</citetitle> du document &url.interco.pppoe;</para>
+    </question>
+    <answer>
+    <para>On créé un fichier de configuration pour le service
+    <application>dnsmasq</application> en l'adaptant au contexte du plan
+    d'adressage de chaque routeur. Voici un exemple pour le routeur
+    <systemitem>R1</systemitem> de la maquette.</para>
+
+<screen>cat &lt;&lt; EOF | sudo tee /etc/dnsmasq.conf
+# Specify Container VLAN interface
+interface=<emphasis>vlan10</emphasis>
+
+# Enable DHCPv4 on Container VLAN
+dhcp-range=<emphasis>10.10.0.20,10.10.0.200</emphasis>,3h
+
+# Enable IPv6 router advertisements
+enable-ra
+
+# Enable SLAAC
+dhcp-range=::,constructor:<emphasis>vlan10</emphasis>,ra-names,slaac
+
+# Optional: Specify DNS servers
+dhcp-option=option:dns-server,172.16.0.2,9.9.9.9
+dhcp-option=option6:dns-server,[2001:678:3fc:3::2],[2620:fe::fe]
+
+# Avoid DNS listen port conflict between dnsmasq and systemd-resolved
+port=0
+EOF</screen>
+
+    <para>Une fois le fichier de configuration en place, on peut relancer le
+    service et afficher son état.</para>
+
+<screen>sudo systemctl restart dnsmasq
+systemctl status dnsmasq</screen>
+
+    <important>
+    <para>Une fois encore, les opérations de cette question doivent être
+    réalisées sur les trois routeurs en adaptant le nom de l'interface et les
+    adresses <acronym>IPv4</acronym> du réseau d'hébergement.</para>
+    </important>
+    </answer>
+    </qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Le trafic issu des conteneurs est-il routé à travers la
-	topologie <acronym>OSPF</acronym>&nbsp;? Pourquoi&nbsp;?</phrase></para>
+    <para><phrase>Comment créer 3 conteneurs avec un
+    adressage&nbsp;?</phrase></para>
 
-	<para>Effectuer quelques tests de connectivité <acronym>ICMP</acronym>
-	depuis un conteneur.</para>
+    <para>Consulter la section <citetitle>Configuration et lancement des
+    conteneurs</citetitle> du document &url.interco.pppoe;.</para>
 	</question>
 	<answer>
-<screen>lxc exec c0 -- ping -qc2 9.9.9.9
-PING 9.9.9.9 (9.9.9.9) 56(84) bytes of data.
+	<para>On lance la création des 3 conteneurs demandés avec une boucle.</para>
 
---- 9.9.9.9 ping statistics ---
-2 packets transmitted, 0 received, <emphasis>100% packet loss</emphasis>, time 1006ms</screen>
+<screen>for i in {0..2}; do incus launch images:debian/trixie c$i; done</screen>
 
-<screen>lxc exec c0 -- ping -qc2 2620:fe::fe
-PING 2620:fe::fe(2620:fe::fe) 56 data bytes
+<screen>incus ls</screen>
 
---- 2620:fe::fe ping statistics ---
-2 packets transmitted, 0 received, <emphasis>100% packet loss</emphasis>, time 1010ms</screen>
-
-	<para>Les préfixes réseau <acronym>IPv4</acronym> et
-	<acronym>IPv6</acronym> ne sont pas annoncés via le protocole de routage
-	dynamique. Par conséquent, les routeurs voisins n'ont aucune solution pour
-	acheminer le trafic.</para>
+<screen>+------+---------+--------------------+---------------------------------------------+-----------+-----------+
+| NAME |  STATE  |        IPV4        |                    IPV6                     |   TYPE    | SNAPSHOTS |
++------+---------+--------------------+---------------------------------------------+-----------+-----------+
+| c0   | RUNNING | 10.20.0.33 (eth0)  | fd14:ca46:3864:14:216:3eff:fe2c:c5b9 (eth0) | CONTAINER | 0         |
++------+---------+--------------------+---------------------------------------------+-----------+-----------+
+| c1   | RUNNING | 10.20.0.87 (eth0)  | fd14:ca46:3864:14:216:3eff:fe76:f0d0 (eth0) | CONTAINER | 0         |
++------+---------+--------------------+---------------------------------------------+-----------+-----------+
+| c2   | RUNNING | 10.20.0.153 (eth0) | fd14:ca46:3864:14:216:3eff:fe2c:d169 (eth0) | CONTAINER | 0         |
++------+---------+--------------------+---------------------------------------------+-----------+-----------+</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment publier les réseaux de conteneurs dans l'aire
-	<acronym>OSPF</acronym>&nbsp;?</phrase></para>
+    <para><phrase>Comment vérifier la publication des réseaux de conteneurs
+    dans l'aire <acronym>OSPF</acronym>&nbsp;?</phrase></para>
 
-	<para>Ajouter chaque interface <acronym>SVI</acronym> dans l'aire
-	<acronym>OSPF</acronym> et s'assurer qu'aucune annonce de protocole de
-	routage n'est émise en direction des conteneurs.</para>
-
-	<para>La liste des commandes utiles en mode console et en mode
-	configuration dans <application>vtysh</application> est la suivante.</para>
-
-	<simplelist type='horiz'>
-		<member><command>ip&nbsp;ospf&nbsp;area&nbsp;0</command></member>
-		<member><command>ipv6&nbsp;ospf6&nbsp;area&nbsp;0</command></member>
-		<member><command>ip&nbsp;ospf&nbsp;passive</command></member>
-		<member><command>ipv6&nbsp;ospf6&nbsp;passive</command></member>
-	</simplelist>
+    <para>On vérifie que l'interface commutée virtuelle (<wordasword>Switched
+    Virtual Interface</wordasword> )est bien active pour chacune des deux
+    versions du protocole de routage dynamique.</para>
 	</question>
 	<answer>
 	<para>Voici un exemple de configuration pour le routeur <systemitem
-	class='systemname'>R2-vert</systemitem>.</para>
+	class='systemname'>R2</systemitem>.</para>
 
-<screen><prompt>R2#</prompt> conf t
-R2(config)# int sw-vlan20
-R2(config-if)# ip ospf area 0
-R2(config-if)# ip ospf passive
-R2(config-if)# ipv6 ospf6 area 0
-R2(config-if)# ipv6 ospf6 passive
-R2(config-if)# ^Z</screen>
+<screen><prompt>R2#</prompt> sh ip ospf interface vlan20</screen>
 
-	<para>On vérifie que l'interface est bien active pour chacun des deux
-	protocoles de routage dynamique.</para>
-
-<screen><prompt>R2#</prompt> sh ip ospf interface sw-vlan20
-<emphasis>sw-vlan20 is up</emphasis>
-  ifindex 7, MTU 1500 bytes, BW 0 Mbit &lt;UP,BROADCAST,RUNNING,MULTICAST>
+<screen><emphasis>vlan20 is up</emphasis>
+  ifindex 6, MTU 1500 bytes, BW 0 Mbit &lt;UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>
   Internet Address 10.20.0.1/24, Broadcast 10.20.0.255, Area 0.0.0.0
   MTU mismatch detection: enabled
-  Router ID 0.0.4.2, <emphasis>Network Type BROADCAST</emphasis>, Cost: 10
+  Router ID 2.0.0.4, <emphasis>Network Type BROADCAST, Cost: 10</emphasis>
   Transmit Delay is 1 sec, State DR, Priority 1
-  Designated Router (ID) 0.0.4.2 Interface Address 10.20.0.1/24
+  Designated Router (ID) 2.0.0.4 Interface Address 10.20.0.1/24
   No backup designated router on this network
   Multicast group memberships: &lt;None>
   Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
     <emphasis>No Hellos (Passive interface)</emphasis>
-  Neighbor Count is 0, Adjacent neighbor count is 0</screen>
+  Neighbor Count is 0, Adjacent neighbor count is 0
+  Graceful Restart hello delay: 10s</screen>
 
-<screen><prompt>R2#</prompt> sh ipv6 ospf6 interface sw-vlan20
-<emphasis>sw-vlan20 is up, type BROADCAST</emphasis>
-  Interface ID: 7
+<screen><prompt>R2#</prompt> sh ipv6 ospf6 interface vlan20</screen>
+
+<screen><emphasis>vlan20 is up, type BROADCAST</emphasis>
+  Interface ID: 6
   Internet Address:
     inet : 10.20.0.1/24
     inet6: fd14:ca46:3864:14::1/64
-    inet6: fe80::68c5:c6ff:feef:b948/64
+    inet6: fe80::2865:4aff:fe35:fdd0/64
   Instance ID 0, Interface MTU 1500 (autodetect: 1500)
   MTU mismatch detection: enabled
-  Area ID 0.0.0.0, Cost 10
+  Area ID 0.0.0.0, <emphasis>Cost 10</emphasis>
   State DR, Transmit Delay 1 sec, Priority 1
   Timer intervals configured:
-   Hello 10(-), Dead 40, Retransmit 5
-  DR: 0.0.6.2 BDR: 0.0.0.0
+   <emphasis>No Hellos (Passive interface)</emphasis>
+  DR: 2.0.0.4 BDR: 0.0.0.0
   Number of I/F scoped LSAs is 1
     0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
     0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+  Graceful Restart hello delay: 10s
   Authentication Trailer is disabled</screen>
 	</answer>
 	</qandaentry>
@@ -2902,14 +2945,14 @@ R2(config-if)# ^Z</screen>
 
 <screen>for i in {0..2}
 do
-echo ">>>>>>>>>>>>>>>>> c$i"
-lxc exec c$i -- ping -qc2 9.9.9.9
+    echo ">>>>>>>>>>>>>>>>> c$i"
+    incus exec c$i -- ping -qc2 9.9.9.9
 done</screen>
 
 <screen>for i in {0..2}
 do
-echo ">>>>>>>>>>>>>>>>> c$i"
-lxc exec c$i -- ping -qc2 2620:fe::fe
+    echo ">>>>>>>>>>>>>>>>> c$i"
+    incus exec c$i -- ping -qc2 2620:fe::fe
 done</screen>
 	</listitem>
 	<listitem>
@@ -2917,9 +2960,9 @@ done</screen>
 
 <screen>for i in {0..2}
 do
-echo ">>>>>>>>>>>>>>>>> c$i"
-lxc exec c$i -- apt update
-lxc exec c$i -- apt -y full-upgrade
+    echo ">>>>>>>>>>>>>>>>> c$i"
+    incus exec c$i -- apt update
+    incus exec c$i -- apt -y full-upgrade
 done</screen>
 	</listitem>
 	</itemizedlist>
@@ -2929,7 +2972,7 @@ done</screen>
 	<qandaentry>
 	<question>
 	<para><phrase>Comment vérifier que tous les réseaux de conteneurs sont bien
-	visiblede la topologie <acronym>OSPF</acronym>&nbsp;?</phrase></para>
+	visibles depuis les routeurs de la topologie triangle&nbsp;?</phrase></para>
 
 	<para>Afficher les tables de routage <acronym>IPv4</acronym> et
 	<acronym>IPv6</acronym> de l'un des trois routeurs et vérifier la présence
@@ -2937,43 +2980,58 @@ done</screen>
 	</question>
 	<answer>
 	<para>Voici le résultat obtenu depuis la console du routeur <systemitem
-	class='systemname'>R3</systemitem>.</para>
+    class='systemname'>R3</systemitem>. On identifie les réseaux d'hébergement
+    des routeurs <systemitem>R1</systemitem> et <systemitem>R2</systemitem>
+    pour lesquels on trouve des entrées marquées <literal>O>*</literal>.</para>
 
-<screen><prompt>R3#</prompt> sh ip route
-Codes: K - kernel route, C - connected, S - static, R - RIP,
-       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+<screen><prompt>R3#</prompt> sh ip route</screen>
+<screen>Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
        T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
-       f - OpenFabric,
+       f - OpenFabric, t - Table-Direct,
        > - selected route, * - FIB route, q - queued, r - rejected, b - backup
        t - trapped, o - offload failure
 
-O>* 0.0.0.0/0 [110/10] via 10.48.1.1, enp0s1.481, weight 1, 00:48:18
-<emphasis>O>* 10.20.0.0/24 [110/11] via 10.48.2.2, enp0s1.482, weight 1, 00:06:26</emphasis>
-C>* 10.30.0.0/24 is directly connected, sw-vlan30, 04:53:34
-O>* 10.48.0.0/29 [110/2] via 10.48.1.1, enp0s1.481, weight 1, 01:00:23
-  *                      via 10.48.2.2, enp0s1.482, weight 1, 01:00:23
-O   10.48.1.0/29 [110/1] is directly connected, enp0s1.481, weight 1, 01:01:06
-C>* 10.48.1.0/29 is directly connected, enp0s1.481, 04:53:34
-O   10.48.2.0/29 [110/1] is directly connected, enp0s1.482, weight 1, 01:01:03
-C>* 10.48.2.0/29 is directly connected, enp0s1.482, 04:53:34</screen>
+O>* 0.0.0.0/0 [110/10] via 10.44.1.1, enp0s1.441, weight 1, 02:12:47
+<emphasis>O>* 10.10.0.0/24 [110/20] via 10.44.1.1</emphasis>, enp0s1.441, weight 1, 02:12:48
+<emphasis>O>* 10.20.0.0/24 [110/20] via 10.44.2.2</emphasis>, enp0s1.442, weight 1, 00:11:37
+O   10.30.0.0/24 [110/10] is directly connected, vlan30, weight 1, 02:12:36
+C>* 10.30.0.0/24 is directly connected, vlan30, 02:12:54
+L>* 10.30.0.1/32 is directly connected, vlan30, 02:12:54
+O>* 10.44.0.0/29 [110/20] via 10.44.1.1, enp0s1.441, weight 1, 00:11:37
+  *                       via 10.44.2.2, enp0s1.442, weight 1, 00:11:37
+O   10.44.1.0/29 [110/10] is directly connected, enp0s1.441, weight 1, 02:12:55
+C>* 10.44.1.0/29 is directly connected, enp0s1.441, 02:12:55
+L>* 10.44.1.3/32 is directly connected, enp0s1.441, 02:12:55
+O   10.44.2.0/29 [110/10] is directly connected, enp0s1.442, weight 1, 01:18:48
+C>* 10.44.2.0/29 is directly connected, enp0s1.442, 02:12:55
+L>* 10.44.2.3/32 is directly connected, enp0s1.442, 02:12:55</screen>
 
-<screen><prompt>R3#</prompt> sh ipv6 route
-Codes: K - kernel route, C - connected, S - static, R - RIPng,
-       O - OSPFv3, I - IS-IS, B - BGP, N - NHRP, T - Table,
-       v - VNC, V - VNC-Direct, A - Babel, F - PBR,
-       f - OpenFabric,
+<screen><prompt>R3#</prompt> sh ipv6 route</screen>
+<screen>Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
        > - selected route, * - FIB route, q - queued, r - rejected, b - backup
        t - trapped, o - offload failure
 
-O>* ::/0 [110/10] via fe80::baad:caff:fefe:c8, enp0s1.481, weight 1, 00:45:39
-<emphasis>O>* fd14:ca46:3864:14::/64 [110/11] via fe80::baad:caff:fefe:c9, enp0s1.482, weight 1, 00:07:00</emphasis>
-C>* fd14:ca46:3864:1e::/64 is directly connected, sw-vlan30, 04:54:21
-C * fe80::/64 is directly connected, asw-host, 04:54:20
-C * fe80::/64 is directly connected, sw-vlan30, 04:54:21
-C * fe80::/64 is directly connected, enp0s1.482, 04:54:22
-C * fe80::/64 is directly connected, enp0s1, 04:54:22
-C>* fe80::/64 is directly connected, enp0s1.481, 04:54:22</screen>
-	</answer>
+O>* ::/0 [110/10] via fe80::1b9:1, enp0s1.441, weight 1, 00:14:55
+<emphasis>O>* fd14:ca46:3864:a::/64 [110/20] via fe80::1b9:1</emphasis>, enp0s1.441, weight 1, 02:21:04
+<emphasis>O>* fd14:ca46:3864:14::/64 [110/20] via fe80::baad:caff:fefe:6</emphasis>, enp0s1.442, weight 1, 00:14:56
+O   fd14:ca46:3864:1e::/64 [110/10] is directly connected, vlan30, weight 1, 02:14:55
+C>* fd14:ca46:3864:1e::/64 is directly connected, vlan30, 02:15:27
+L>* fd14:ca46:3864:1e::1/128 is directly connected, vlan30, 02:15:27
+C * fe80::/64 is directly connected, vlan30, 02:15:28
+C * fe80::/64 is directly connected, asw-host, 02:15:29
+C * fe80::/64 is directly connected, enp0s1.52, 02:19:13
+C * fe80::/64 is directly connected, enp0s1.441, 22:24:07
+C * fe80::/64 is directly connected, enp0s1.442, 22:24:08
+C>* fe80::/64 is directly connected, enp0s1, 22:24:08</screen>
+
+    <para>Si on reprend, la même démarche sur chaque routeur, on doit trouver
+    deux entrées <acronym>OSPF</acronym> relatives aux réseaux d'hébergement
+    raccordés aux deux “sommets du triangle” dans les tables de routage.</para>
+    </answer>
 	</qandaentry>
 </qandaset>
 </sect1>
@@ -2981,24 +3039,30 @@ C>* fe80::/64 is directly connected, enp0s1.481, 04:54:22</screen>
 <sect1 xml:id='ospf.auto-cost'>
 	<title>Adapter de la métrique de lien au débit</title>
 
-	<para>Par défaut, le calcul de métrique du le protocole
-	<acronym>OSPF</acronym> se fait à partir de l'expression&nbsp;:
-	10<superscript>8</superscript>&nbsp;/&nbsp;bande&nbsp;passante&nbsp;du&nbsp;lien.</para>
+    <para>Par défaut, le calcul de métrique du le protocole
+    <acronym>OSPF</acronym> se fait à partir d'un coût fixe de 10. Dans cette
+    section, on revient au calcul du quotient entre le débit binaire de
+    référence et le débit binaire de l'interface.</para>
+
+    <para>À l'origine, le calcul de ce quotient utilise la
+    formule&nbsp;10<superscript>8</superscript>&nbsp;/&nbsp;bande&nbsp;passante&nbsp;du&nbsp;lien.</para>
 
 	<para>Cette règle a été établie à une époque où l'utilisation d'un lien à
 	100Mbps était considéré comme une situation futuriste. Aujourd'hui, les
 	liens à 100Mbps sont dépassés.</para>
 
-	<para>Cette section traite de la configuration des instances de
-	protocole de routage <acronym>OSPF</acronym> utilisant des liens avec un
-	débit binaire supérieur à 100Mbps.</para>
+    <important>
+    <para>Pour que les calculs de métriques soient cohérents sur l'ensemble de
+    la topologie triangle, il est essentiel d'appliquer les modifications de
+    configuration sur les trois routeurs.</para>
+    </important>
 
 	<qandaset>
 	<qandaentry>
 	<question>
 	<para><phrase>Quelle est l'instruction à utiliser pour que le calcul de
 	métrique <acronym>OSPF</acronym> se fasse sur la base d'un débit de lien à
-	10Gbps&nbsp;?</phrase></para>
+	40Gbps&nbsp;?</phrase></para>
 
 	<para>Rechercher le mot clé <wordasword>reference</wordasword> dans
 	l'index des instructions de configuration. Consulter la documentation
@@ -3011,33 +3075,21 @@ C>* fe80::/64 is directly connected, enp0s1.481, 04:54:22</screen>
 
 <screen><prompt>R1#</prompt> conf t
 R1(config)# router ospf
-R1(config-router)# auto-cost reference-bandwidth
+R1(config-router)# auto-cost reference-bandwidth ?
   (1-4294967)  The reference bandwidth in terms of Mbits per second
-R1(config-router)# auto-cost reference-bandwidth 100000
+R1(config-router)# auto-cost reference-bandwidth 400000
 R1(config-router)# ^Z</screen>
 
 <screen><prompt>R1#</prompt> conf t
 R1(config)# router ospf6
-R1(config-ospf6)# auto-cost reference-bandwidth
+R1(config-ospf6)# auto-cost reference-bandwidth ?
   (1-4294967)  The reference bandwidth in terms of Mbits per second
-R1(config-ospf6)# auto-cost reference-bandwidth 100000
+R1(config-ospf6)# auto-cost reference-bandwidth 400000
 R1(config-ospf6)# ^Z</screen>
 
-	<para>Voici un extrait de la configuration du routeur <systemitem
-	class='systemname'>R2</systemitem> après application d'une nouvelle
-	référence à 100000Mbps soit 100Gbps.</para>
-
-<screen><prompt>R2#</prompt> conf t
-R2(config)# router ospf
-R2(config-router)# auto-cost reference-bandwidth 100000
-R2(config-router)# router ospf6
-R2(config-ospf6)# auto-cost reference-bandwidth 100000
-R2(config-ospf6)# ^Z</screen>
-
-	<para>Il est indispensable que tous les routeurs de l'aire
-	<acronym>OSPF</acronym> aient la même référence de calcul de métrique.  La
-	même instruction doit donc être implantée dans la configuration des trois
-	routeurs.</para>
+    <para>En appliquant les mêmes instructions sur les trois routeurs de la
+    topologie, on fixe le numérateur du quotient de calcul des métriques de
+    routes.</para>
 	</answer>
 	</qandaentry>
 
@@ -3046,34 +3098,40 @@ R2(config-ospf6)# ^Z</screen>
 	<para><phrase>Comment modifier le débit binaire d'un lien à
 	10Gbps&nbsp;?</phrase></para>
 
-	<para>Normalement, le débit d'un lien est directement extrait des
-	paramètres du composant de l'interface connectée au lien. Dans le cas
-	d'interfaces qui n'ont aucune réalité physique, ce débit peut être attribué
-	arbitrairement par configuration. On doit rechercher dans les options de la
-	console <application>vtysh</application> le moyen d'attribuer une
-	indication de débit aux sous-interfaces de <acronym>VLAN</acronym>s.</para>
+    <note>
+    <para>Sur une machine physique avec des composants réseau matériels, le
+    débit d'un lien est directement extrait des paramètres du composant de
+    l'interface connectée au lien.</para>
+    <para>Dans le cas d'interfaces qui n'ont aucune réalité physique, ce débit
+    peut être attribué arbitrairement par configuration. On doit rechercher
+    dans les options de la console <application>vtysh</application> le moyen
+    d'attribuer une indication de débit aux sous-interfaces de
+    <acronym>VLAN</acronym>s.</para>
+    </note>
 	</question>
 	<answer>
-	<para>Comme indiqué dans la <xref
-	linkend='ospf.prepare-config'/>, c'est dans la configuration
-	des interfaces que l'on attribue le débit binaire d'une interface
-	réseau.</para>
+    <para>En affichant les paramètres des interfaces des routeurs virtuels, on
+    constate que le paramètre <option>speed</option> est à zéro.</para>
 
-<screen><prompt>R3#</prompt> sh int sw-vlan30
-Interface sw-vlan30 is up, line protocol is up
-  Link ups:       1    last: 2022/10/24 10:13:11.41
-  Link downs:     2    last: 2022/10/24 10:13:11.40
+<screen><prompt>R1#</prompt> sh interface vlan10</screen>
+<screen>Interface vlan10 is up, line protocol is up
+  Link ups:       1    last: 2024/11/03 14:26:00.66
+  Link downs:     2    last: 2024/11/03 14:26:00.65
   vrf: default
-  index 7 metric 0 mtu 1500 speed 0
-  flags: &lt;UP,BROADCAST,RUNNING,MULTICAST>
+  index 8 metric 0 mtu 1500 <emphasis>speed 0</emphasis> txqlen 1000
+  flags: &lt;UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>
   Type: Ethernet
-  HWaddr: a6:91:26:2f:34:42
-  inet 10.30.0.1/24
-  inet6 fd14:ca46:3864:1e::1/64
-  inet6 fe80::a491:26ff:fe2f:3442/64
+  HWaddr: da:35:df:7e:5d:42
+  inet 10.10.0.1/24
+  inet6 fd14:ca46:3864:a::1/64
+  inet6 fe80::d835:dfff:fe7e:5d42/64
   Interface Type Other
   Interface Slave Type None
   protodown: off</screen>
+
+    <para>Pour assurer un calcul correct de métrique, on doit fixer
+    manuellement le débit binaire des interfaces dans la configuration
+    <systemitem>frr</systemitem>.</para>
 	</answer>
 	</qandaentry>
 
@@ -3093,26 +3151,27 @@ Interface sw-vlan30 is up, line protocol is up
 	</question>
 	<answer>
 	<para>Voici le résultat obtenu sur le routeur <systemitem
-	class='systemname'>R3-bleu</systemitem>.</para>
+	class='systemname'>R1</systemitem>.</para>
 
-<screen><prompt>R3#</prompt> conf t
-R3(config)# int sw-vlan30
+<screen><prompt>R1#</prompt> conf t
+R3(config)# int vlan10
 R3(config-if)# bandwidth 10000
 R3(config-if)# ^Z</screen>
 
-<screen><prompt>R3#</prompt> sh ip ospf interface sw-vlan30
-sw-vlan30 is up
-  ifindex 7, MTU 1500 bytes, <emphasis>BW 10000 Mbit</emphasis> &lt;UP,BROADCAST,RUNNING,MULTICAST>
-  Internet Address 10.30.0.1/24, Broadcast 10.30.0.255, Area 0.0.0.0
+<screen><prompt>R1#</prompt> sh ip ospf interface vlan10</screen>
+<screen>vlan10 is up
+  ifindex 8, MTU 1500 bytes, <emphasis>BW 10000 Mbit</emphasis> &lt;UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>
+  Internet Address 10.10.0.1/24, Broadcast 10.10.0.255, Area 0.0.0.0
   MTU mismatch detection: enabled
-  Router ID 0.0.4.3, Network Type BROADCAST, Cost: 10
+  Router ID 1.0.0.4, Network Type BROADCAST, Cost: 4
   Transmit Delay is 1 sec, State DR, Priority 1
-  Designated Router (ID) 0.0.4.3 Interface Address 10.30.0.1/24
+  Designated Router (ID) 1.0.0.4 Interface Address 10.10.0.1/24
   No backup designated router on this network
   Multicast group memberships: &lt;None>
   Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
     No Hellos (Passive interface)
-  Neighbor Count is 0, Adjacent neighbor count is 0</screen>
+  Neighbor Count is 0, Adjacent neighbor count is 0
+  Graceful Restart hello delay: 10s</screen>
 	</answer>
 	</qandaentry>
 
@@ -3132,83 +3191,43 @@ sw-vlan30 is up
 	partir de l'affichage d'une route particulière à la console
 	<application>vtysh</application>.</para>
 
-<screen><prompt>R2#</prompt> sh ip route 10.30.0.0/24
-Routing entry for 10.30.0.0/24
-  Known via "ospf", distance 110, <emphasis>metric 11</emphasis>, best
-  Last update 00:43:47 ago
-  * 10.48.2.3, via enp0s1.482, weight 1</screen>
+<screen><prompt>R1#</prompt> sh ip route 10.20.0.0/24</screen>
+<screen>Routing entry for 10.20.0.0/24
+  Known via "ospf", distance 110, <emphasis>metric 8</emphasis>, best
+  Last update 00:21:32 ago
+  * 10.44.0.2, via enp0s1.440, weight 1</screen>
 
-	<para>Dans l'exemple ci-dessus, la métrique d'accès au réseau <systemitem
-	class='ipaddress'>10.30.0.0/24</systemitem> correspond à la somme des
-	métriques de deux liens. La somme donne une métrique de 11.</para>
-
-	<itemizedlist>
-	<listitem>
-	<para>Le lien entre <systemitem class='systemname'>R2</systemitem> et
-	<systemitem class='systemname'>R3</systemitem> est à 100Gbps, soit une
-	métrique de 1</para>
-	</listitem>
-	<listitem>
-	<para>Le lien du réseau de conteneurs est à 10Gbps, soit une métrique de
-	10.</para>
-	</listitem>
-	</itemizedlist>
+    <para>Dans l'exemple ci-dessus, la métrique d'accès au réseau <systemitem
+    class='ipaddress'>10.30.0.0/24</systemitem> correspond à la somme des
+    métriques de deux liens à 10Gbps. La somme donne une métrique de
+    40/10&nbsp;+&nbsp;40/10&nbsp;=&nbsp;8.</para>
 
 	<para>On obtient un résultat identique avec la table de routage
 	<acronym>IPv6</acronym>.</para>
 
-<screen><prompt>R2#</prompt> sh ipv6 route fd14:ca46:3864:1e::/64
-Routing entry for fd14:ca46:3864:1e::/64
-  Known via "ospf6", distance 110, <emphasis>metric 11</emphasis>, best
-  Last update 00:45:59 ago
-  * fe80::baad:caff:fefe:ca, via enp0s1.482, weight 1</screen>
+<screen><prompt>R1#</prompt> sh ipv6 route fd14:ca46:3864:1e::/64</screen>
+<screen>Routing entry for fd14:ca46:3864:1e::/64
+  Known via "ospf6", distance 110, <emphasis>metric 8</emphasis>, best
+  Last update 00:25:44 ago
+  * fe80::1b9:3, via enp0s1.441, weight 1</screen>
 	</answer>
 	</qandaentry>
 	</qandaset>
 </sect1>
 
-<sect1 xml:id='ospf.refdocs'>
-	<title>Consulter les documents de référence</title>
-
-	<variablelist>
-	<varlistentry xml:id='ospf.refdocs.config-interface-lan'>
-		<term><citetitle>Configuration d'une interface réseau</citetitle></term>
-	<listitem>
-		<para>Le support &url.config.interface.lan; présente les opérations de
-		configuration d'une interface réseau et propose quelques
-		manipulations sur les protocoles de la pile
-		<acronym>TCP/IP</acronym></para>
-	</listitem>
-	</varlistentry>
-
-	<varlistentry xml:id='ospf.refdocs.inter-vlan'>
-		<term><citetitle>Introduction au routage inter-VLAN</citetitle></term>
-	<listitem>
-		<para>Le support &url.inter-vlan-routing; introduit le principe du
-		routage inter-VLAN ainsi que ses conditions d'utilisation. C'est aussi
-		un support de travaux pratiques dans lequel on n'utilise que du routage
-		statique et de la traduction d'adresses sources
-		(<acronym>S-NAT</acronym>) pour acheminer le trafic utilisateur entre
-		les différents réseaux.</para>
-	</listitem>
-	</varlistentry>
-
-	<varlistentry xml:id='ospf.refdocs.frr-documentation'>
-		<term><citetitle>Documentation FRRouting</citetitle></term>
-	<listitem>
-		<para>La page à l'adresse&nbsp;: &url.frr-documentation; fournit toutes
-		les instructions utilisables dans console unifiée
-		<command>vtysh</command>.</para>
-
-		<para>Ces commandes sont largement inspirées du système d'exploitation
-		<citetitle>IOS</citetitle> de <trademark>Cisco</trademark>.</para>
-	</listitem>
-	</varlistentry>
-	</variablelist>
-</sect1>
-
 <sect1 xml:id='ospf.conf'>
 	<title>Sauvegarder les fichiers de configuration</title>
+
+    <para>Les commandes utiles pour l'affichage et  la sauvegarde sont les
+    suivantes.</para>
+	<simplelist type='horiz'>
+		<member><command>show&nbsp;run</command></member>
+		<member><command>copy&nbsp;run&nbsp;start</command></member>
+	</simplelist>
+
+    <para>Une fois sorti de la console <systemitem>frr</systemitem>, la
+    configuration unifiée des démons est stockée dans le fichier
+    <filename>/etc/frr/frr.conf</filename>.</para>
 
 	<para>Voici une copie des fichiers de configuration des trois routeurs une
 	fois toutes les manipulations réalisées.</para>
@@ -3233,114 +3252,5 @@ parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 parse='text' xmlns:xi='http://www.w3.org/2001/XInclude'/></screen>
 	</listitem>
 	</itemizedlist>
-
-	<para>Compléter la configuration des interfaces dans la console unifiée
-	<command>vtysh</command> de façon à fixer la bande passante de chaque
-	interface active à 1Gbps.</para>
-
-	<para>Voici un exemple de séquence d'instructions pour configurer les
-	interfaces du routeur rouge de la maquette.</para>
-
-	<para>On commence par lister les interfaces actives à partir de la
-	console.</para>
-
-<screen><prompt>R1#</prompt> sh int brief
-Interface       Status  VRF             Addresses
----------       ------  ---             ---------
-asw-host        up      default
-enp0s1          up      default
-enp0s1.360      up      default         192.168.104.130/27
-                                        + 2001:678:3fc:168::2/64
-enp0s1.480      up      default         10.48.0.1/29
-enp0s1.481      up      default         10.48.1.1/29
-lo              up      default
-ovs-system      down    default
-sw-vlan10       up      default         10.10.0.1/24
-                                        + fd14:ca46:3864:a::1/64</screen>
-
-	<para>Pour les interfaces <systemitem>enp0s1.480</systemitem> (lien R1
-	->&nbsp;R2) et <systemitem>enp0s1.481</systemitem> (lien R1 ->&nbsp;R3), on
-	ajoute le paramètre <systemitem>bandwidth</systemitem> qui permet de
-	définir arbitrairement le débit binaire d'une interface.</para>
-
-<screen><prompt>R1#</prompt> conf t
-R1(config)# int enp0s1.480
-R1(config-if)# bandwidth ?
-  (1-100000)  Bandwidth in megabits
-R1(config-if)# bandwidth 100000
-R1(config-if)# ^Z
-<prompt>R1#</prompt> sh int enp0s1.480
-Interface enp0s1.480 is up, line protocol is up
-  Link ups:       1    last: 2022/10/24 09:25:42.65
-  Link downs:     0    last: (never)
-  vrf: default
-  index 4 metric 0 mtu 1500 speed 4294967295
-  flags: &lt;UP,BROADCAST,RUNNING,MULTICAST>
-  Type: Ethernet
-  HWaddr: b8:ad:ca:fe:00:c8
-  <emphasis>bandwidth 100000 Mbps</emphasis>
-  inet 10.48.0.1/29
-  inet6 fe80::baad:caff:fefe:c8/64
-  Interface Type Vlan
-  Interface Slave Type None
-  VLAN Id 480
-  protodown: off
-  Parent interface: enp0s1</screen>
-
-	<para>On répète la même opération pour l'interface
-	<systemitem>enp0s1.481</systemitem>. Ensuite, on peut sauvegarder la
-	configuration.</para>
-
-<screen><prompt>R1#</prompt> copy run start
-Note: this version of vtysh never writes vtysh.conf
-Building Configuration...
-Integrated configuration saved to /etc/frr/frr.conf
-[OK]</screen>
-
-	<para>Une fois la configuration complétée, les paramètres apparaissent dans
-	la configuration du service.</para>
-
-<screen><prompt>R1#</prompt> sh run
-Building configuration...
-
-Current configuration:
-!
-frr version 8.3.1
-frr defaults traditional
-hostname R1
-log syslog informational
-service integrated-vtysh-config
-!
-interface enp0s1.480
- <emphasis>bandwidth 100000</emphasis>
-exit
-!
-interface enp0s1.481
- <emphasis>bandwidth 100000</emphasis>
-exit
-!
-end</screen>
-
-	<note>
-	<para>Contrairement à un routeur «intégré» avec un système d'exploitation
-		dédié, le démon de routage statique n'a pas directement accès aux
-		interfaces matérielles. Or, sur un système GNU/Linux, le débit d'une
-		interface Ethernet filaire peut varier en fonction du débit proposé par
-		le port du commutateur. Sans information spécifique du noyau,
-		l'application «service de routage» n'a aucun moyen de connaître le
-		débit exact de l'interface. C'est la raison pour laquelle il est
-		nécessaire de paramétrer manuellement les débits de chaque interface
-		dans la	configuration.</para>
-	</note>
-
-	<warning>
-	<para>Sans configuration manuelle du coût de lien d'une interface, ce
-		paramétrage de la bande passante est essentiel dans le <link
-		linkend='ospf.auto-cost'>calcul des métriques</link>
-		et le fonctionnement du protocole de routage <acronym>OSPF</acronym>.
-		Si les calculs de métriques pour les liens actifs sont erronés, le
-		choix des routes à emprunter pour faire transiter le trafic utilisateur
-		entre deux routeurs peut lui aussi être erroné.</para>
-	</warning>
 </sect1>
 </article>

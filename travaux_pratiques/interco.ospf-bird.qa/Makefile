@@ -2,7 +2,7 @@ ifndef $(MAIN_DIR)
 MAIN_DIR = $(HOME)/inetdoc
 endif
 
-SUBDIRS = images files
+SUBDIRS = images
 
 # Type(s) de traitement
 PROCESS = subdirs symlink xml2xhtml xml2pdf
