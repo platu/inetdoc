@@ -24,8 +24,8 @@ SUBDIRS = \
 	interco_03.hub-and-spoke \
 	interco_04.netfilter \
 	interco_05.ospf \
-	interco.ospf-bird.qa \
-	interco.cs
+	interco_06.synthese \
+	interco.ospf-bird.qa
 
 # Type(s) de traitement
 PROCESS = subdirs symlink xml2xhtml xml2pdf
@@ -51,8 +51,8 @@ XML_FILES = \
 	interco_03.hub-and-spoke/$(ABSTRACT_FILE) \
 	interco_04.netfilter/$(ABSTRACT_FILE) \
 	interco_05.ospf/$(ABSTRACT_FILE) \
+	interco_06.synthese/$(ABSTRACT_FILE) \
 	interco.ospf-bird.qa/$(ABSTRACT_FILE) \
-	interco.cs/$(ABSTRACT_FILE) \
 	$(wildcard images/*.png)
 
 all: $(PROCESS)

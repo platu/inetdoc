@@ -18,8 +18,8 @@ SYMLINKS = \
 	$(MAIN_DIR)/travaux_pratiques/interco_04.netfilter/images/forward-chain-rules.png \
 	$(MAIN_DIR)/travaux_pratiques/interco_05.ospf/images/OSPF-topology.png \
 	$(MAIN_DIR)/travaux_pratiques/interco_05.ospf/images/physical-topology.png \
+	$(MAIN_DIR)/travaux_pratiques/interco_06.synthese/images/synthese.png \
 	$(MAIN_DIR)/travaux_pratiques/interco.ospf-bird.qa/images/interco.ospf.physical-topology.png \
-	$(MAIN_DIR)/travaux_pratiques/interco.cs/images/interco.cs.png \
 	$(MAIN_DIR)/articles/inter-vlan-routing-openvswitch/images/ovs-vm.png
 
 all: $(PROCESS)
