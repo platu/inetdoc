@@ -14,6 +14,7 @@ SYMLINKS = \
 
 XML_FILES = \
     synthese.xml \
+    $(MAIN_DIR)/travaux_pratiques/interco_02.pppoe/pppoe.xml \
     $(MAIN_DIR)/travaux_pratiques/interco_03.hub-and-spoke/hub-and-spoke.xml \
     $(MAIN_DIR)/travaux_pratiques/interco_05.ospf/ospf.xml \
 	author.xml \

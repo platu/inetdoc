@@ -163,6 +163,7 @@
 	ci-dessus. Il est utilisé pour la maquette de démonstration du
 	fonctionnement de l'interconnexion réseau.</para>
 
+    <?custom-pagebreak?>
 <table xml:id='synthese.mockup.addressing' frame='all' pgwide='1'>
 	<title>Plan d'adressage de la maquette</title>
 	<tgroup cols='5' align='left' colsep='1' rowsep='1'>
@@ -866,6 +867,9 @@ done</screen>
     <listitem>
     <para>Configurer un commutateur virtuel avec une interface commutée</para>
     </listitem>
+    <listitem>
+    <para>Router les réseaux d'hébergement via <acronym>OSPF</acronym></para>
+    </listitem>
     </itemizedlist>
 
 <sect2 xml:id='synthese.hosting.ovs'>
@@ -886,10 +890,222 @@ done</screen>
     routage des réseaux d'hébergement des services des sites distants à
     l'ouverture de session <acronym>PPP</acronym>.</para>
 
-    <xi:include href="../interco_02.pppoe/pppoe.xml"
-    xpointer="element(pppoe.hosting.routing.qandaset)"
+    <qandaset>
+    <xi:include href="../interco_03.hub-and-spoke/hub-and-spoke.xml"
+    xpointer="element(hub-and-spoke.interconnect.qandadiv)"
     xmlns:xi='http://www.w3.org/2001/XInclude'/>
 
+    <qandadiv>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment l'ajout de route vers les réseaux d'hébergement
+    est-il répercuté par <application>FRR</application>&nbsp;?</phrase></para>
+
+    <para>Afficher les tables de routage des routeurs
+    <citetitle>Hub</citetitle> après avoir relancé les ouvertures de sessions
+    <acronym>PPP</acronym> sur les quatre routeurs
+    <citetitle>Spoke</citetitle>.</para>
+    </question>
+    <answer>
+    <para>Après redémarrage des services <acronym>PPP</acronym> sur les
+    routeurs <citetitle>Spoke</citetitle>, les routes vers les réseaux
+    d'hébergement sont marquées <option>K>*</option>. Ce sont des entrées
+    appartenant à la catégorie <wordasword>kernel</wordasword>.</para>
+
+    <para>Voici deux extraits des tables de routage du routeur <citetitle>Hub
+    numéro 1</citetitle>.</para>
+
+<screen>sh ip route kernel</screen>
+<screen>Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* 0.0.0.0/0 [0/0] via 172.20.120.1, enp0s1.120, 07:19:49
+<emphasis>K>* 10.0.1.0/24 [0/0] is directly connected, ppp0</emphasis>, 00:19:42
+<emphasis>K>* 10.0.2.0/24 [0/0] is directly connected, ppp1</emphasis>, 00:18:21</screen>
+
+<screen>sh ipv6 route kernel</screen>
+<screen>Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* ::/0 [0/1024] via fe80:78::1, enp0s1.120 onlink, 07:21:03
+K>* 2001:678:3fc:78::/64 [0/512] is directly connected, enp0s1.120, 07:21:03
+<emphasis>K>* fda0:7a62:1::/64 [0/1024] is directly connected, ppp0</emphasis>, 00:20:56
+<emphasis>K>* fda0:7a62:2::/64 [0/1024] is directly connected, ppp1</emphasis>, 00:19:35</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment redistribuer ces nouvelles routes dans le protocole
+    <acronym>OSPF</acronym>&nbsp;?</phrase></para>
+
+    <para>Reprendre la section sur la redistribution des routes connectées en
+    l'adaptant à la catégorie <wordasword>kernel</wordasword>.</para>
+    </question>
+    <answer>
+    <para>On ajoute une nouvelle instruction <command>redistribute</command>
+    dans les configurations des démons <acronym>OSPF</acronym> de chacun des
+    routeurs <citetitle>Hub</citetitle>.</para>
+
+    <para>Voici deux extraits de configuration pour le routeur <citetitle>Hub
+    numéro 2</citetitle>.</para>
+
+<screen>sh run ospfd</screen>
+<screen>Building configuration...
+
+Current configuration:
+!
+frr version 10.1.1
+frr defaults traditional
+hostname hub2
+log syslog informational
+service integrated-vtysh-config
+!
+interface enp0s1.470
+ ip ospf area 0
+exit
+!
+router ospf
+ ospf router-id 2.0.0.4
+ log-adjacency-changes detail
+ redistribute kernel
+ redistribute connected
+exit
+!
+end</screen>
+
+<screen>sh run ospf6d</screen>
+<screen>Building configuration...
+
+Current configuration:
+!
+frr version 10.1.1
+frr defaults traditional
+hostname hub2
+log syslog informational
+service integrated-vtysh-config
+!
+interface enp0s1.470
+ ipv6 ospf6 area 0
+exit
+!
+router ospf6
+ ospf6 router-id 2.0.0.6
+ log-adjacency-changes
+ redistribute kernel
+ redistribute connected
+exit
+!
+end</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment vérifier que la redistribution de route est
+    effective&nbsp;?</phrase></para>
+
+    <para>En affichant les entrées <acronym>OSPF</acronym> des tables de
+    routage d'un routeur <citetitle>Hub</citetitle>, on doit voir apparaître
+    les réseaux d'hébergement accessibles via le <citetitle>Hub</citetitle>
+    opposé.</para>
+
+    <para>Voici deux exemples sur le routeurs <citetitle>Hub numéro
+    2</citetitle>.</para>
+
+<screen>sh ip route ospf</screen>
+<screen>Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+<emphasis>O>* 10.0.1.0/24 [110/20] via 172.20.70.1, enp0s1.470</emphasis>, weight 1, 00:27:03
+<emphasis>O>* 10.0.2.0/24 [110/20] via 172.20.70.1, enp0s1.470</emphasis>, weight 1, 00:27:03
+O>* 10.47.2.2/32 [110/20] via 172.20.70.1, enp0s1.470, weight 1, 00:34:51
+O>* 10.47.4.2/32 [110/20] via 172.20.70.1, enp0s1.470, weight 1, 00:33:30
+O   172.20.70.0/29 [110/10] is directly connected, enp0s1.470, weight 1, 06:22:48
+O   172.20.120.0/23 [110/20] via 172.20.70.1, enp0s1.470, weight 1, 03:28:25</screen>
+
+<screen>sh ipv6 route ospf6</screen>
+<screen>Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+O   2001:678:3fc:78::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470, weight 1, 00:29:02
+<emphasis>O>* fda0:7a62:1::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470</emphasis>, weight 1, 00:29:02
+<emphasis>O>* fda0:7a62:2::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470</emphasis>, weight 1, 00:29:02</screen>
+    </question>
+    </qandaentry>
+    </qandadiv>
+    </qandaset>
 </sect2>
+
+<sect2 xml:id='synthese.hosting.incus'>
+    <title>Installer et configurer Incus</title>
+
+    <para>Dans cette section, on s'intéresse aux rôles et fonctionnalités
+    suivantes&nbsp;:</para>
+
+    <itemizedlist>
+    <listitem>
+    <para>Installer le gestionnaire de conteneurs système
+    <application>Incus</application></para>
+    </listitem>
+    <listitem>
+    <para>Appliquer une configuration initiale</para>
+    </listitem>
+    <listitem>
+    <para>Configurer l'adressage automatique pour les conteneurs</para>
+    </listitem>
+    </itemizedlist>
+
+    <para>Pour la partie installation, on reprend les questions du document
+    &url.interco.pppoe;.</para>
+
+    <xi:include href="../interco_02.pppoe/pppoe.xml"
+    xpointer="element(pppoe.incus.install.qandaset)"
+    xmlns:xi='http://www.w3.org/2001/XInclude'/>
+
+    <para>Pour la partie configuration initiale, on reprend l'utilisation d'un
+    fichier <acronym>YAML</acronym> proposée dans le document
+    &url.interco.ospf;.</para>
+
+    <qandaset defaultlabel='number'>
+    <xi:include href="../interco_05.ospf/ospf.xml"
+    xpointer="element(ospf.containers-network.qandadiv)"
+    xmlns:xi='http://www.w3.org/2001/XInclude'/>
+    </qandaset>
+</sect2>
+</sect1>
+
+<sect1 xml:id='synthese.conclusion'>
+    <title>Le bilan de la synthèse</title>
+
+    <para>Arrivé à cette étape, la totalité des outils nécessaires à
+    l'interconnexion des réseaux <acronym>LAN</acronym> et
+    <acronym>WAN</acronym> est en place et il est temps de dresser le bilan
+    avec les ultimes tests de communication entre les services des réseaux
+    distants.</para>
+
+    <para>Après avoir relevé les adresses attribuées aux conteneurs des quatre
+    routeurs <citetitle>Spoke</citetitle>, on peut lancer une boucle de tests
+    <acronym>ICMP</acronym> pour qualifier les communications.</para>
+
+    <para>Voici un exemple réalisé dans le contexte de la maquette utilisée
+    pour rédiger ce document.</para>
+
 </sect1>
 </article>
