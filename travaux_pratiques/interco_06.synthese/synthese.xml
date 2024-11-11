@@ -1092,7 +1092,7 @@ O   2001:678:3fc:78::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470, weight
 </sect1>
 
 <sect1 xml:id='synthese.conclusion'>
-    <title>Le bilan de la synthèse</title>
+    <title>Bilan et conclusion</title>
 
     <para>Arrivé à cette étape, la totalité des outils nécessaires à
     l'interconnexion des réseaux <acronym>LAN</acronym> et
@@ -1107,5 +1107,108 @@ O   2001:678:3fc:78::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470, weight
     <para>Voici un exemple réalisé dans le contexte de la maquette utilisée
     pour rédiger ce document.</para>
 
+    <para>La commande suivante permet de liste les adresses attribuées au
+    conteneurs sur chaque réseau d'extrémité.</para>
+
+<screen>incus ls -c 46 -f csv</screen>
+
+    <para>Les résultats au format <acronym>CSV</acronym> peuvent être accumulés
+    dans un fichier d'adresses qui sert pour les tests
+    <acronym>ICMP</acronym>. Voici un extrait&nbsp;:</para>
+
+<screen>10.0.1.43 (eth0),fda0:7a62:1:0:216:3eff:fec9:2051 (eth0)
+10.0.1.57 (eth0),fda0:7a62:1:0:216:3eff:fe4e:167c (eth0)
+10.0.1.174 (eth0),fda0:7a62:1:0:216:3eff:fe18:3562 (eth0)</screen>
+
+    <para>Pour qualifier l'accord de niveau de service ou <wordasword>Service
+    Level Agreement</wordasword> (<acronym>SLA</acronym>), on peut utiliser un
+    code comme celui du script ci-dessous qui teste la connectivité à partir de
+    toutes les adresses fournies.</para>
+
+<screen><![CDATA[#!/bin/bash
+
+# Test if input file exists
+if [[ ! -f "$1" ]]; then
+    echo "Error: missing or non-existent input file"
+    exit 1
+fi
+
+file=$1
+echo "------------------------------------------------------------"
+echo "CSV input file must be generated from the following command:"
+echo "   incus ls -c 46 -f csv"
+echo "------------------------------------------------------------"
+
+# Declare IPv4 and IPv6 array addresses
+declare -a ipv4_addresses
+declare -a ipv6_addresses
+
+# Read CSV file content
+mapfile -t lines < "$file"
+
+# Extract IP addresses from each line
+for line in "${lines[@]}"; do
+     IFS=',' read -r ipv4 ipv6 <<< "$line"
+     ipv4_addresses+=("${ipv4%% *}")
+     ipv6_addresses+=("${ipv6%% *}")
+done
+
+echo "Launch pings..."
+fail=false
+for address in "${ipv4_addresses[@]}" "${ipv6_addresses[@]}"
+do
+     # Capture ping output
+     ping_output=$(ping -qc2 "$address" | tr '\n' ' ')
+     # Get packet loss number
+     packets_lost=$(echo "$ping_output" |\
+        grep -Eo '[[:digit:]]+\% packet loss' |\
+        grep -Eo '[[:digit:]]+')
+
+     if [[ $packets_lost != 0 ]]; then
+        echo "Test failed : $packets_lost% lost packets for $address"
+        fail=true
+     else
+        echo -n "."
+     fi
+done
+
+if [[ fail==false ]]; then
+        echo "Success!"
+fi
+
+exit 0
+]]></screen>
+
+    <para>Voici un exemple du résultat d'exécution du script sur la
+    maquette.</para>
+
+<screen>bash icmp-tests.sh addresses.csv
+------------------------------------------------------------
+CSV input file must be generated from the following command:
+   incus ls -c 46 -f csv
+------------------------------------------------------------
+Launch pings...
+........................Success!</screen>
+
+    <para>Maintenant que l'on a validé l'ensemble des échanges entre les
+    conteneurs situés aux extrémités de la topologie d'interconnexion de
+    réseaux, on peut passer à la conclusion.</para>
+
+    <para>Ce dernier document de la série des travaux pratiques fournit une
+    synthèse détaillée de tous les modes d'interconnexion de réseaux locaux
+    (<acronym>LAN</acronym>) et étendus (<acronym>WAN</acronym>) en utilisant
+    des protocoles comme <acronym>PPPoE</acronym> et <acronym>OSPF</acronym>.
+    Il couvre les principes de configuration des routeurs d'une architecture
+    <citetitle>Hub &amp; Spoke</citetitle>, l’installation et la configuration
+    de la solution <application>FRRouting</application> avec la mise en place
+    du routage dynamique <acronym>OSPF</acronym> pour <acronym>IPv4</acronym>
+    et <acronym>IPv6</acronym>.</para>
+
+    <para>On peut considérer que nous sommes arrivés à la limite de l'étude des
+    interconnexions de réseaux sans automatisation. Pour aller plus loin,
+    l'automatisation ainsi que l'intégration et le déploiement continu
+    permettraient de déployer et gérer ces configurations à grande échelle,
+    réduisant ainsi les erreurs manuelles et améliorant l'efficacité
+    opérationnelle des réseaux d’entreprise.</para>
 </sect1>
 </article>
