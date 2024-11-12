@@ -30,7 +30,7 @@ CHAPTER_FILES = \
 	../sysadm-net.nfs.qa/sysadm-net.nfs.qa.xml \
 	../sysadm-net.ldap.qa/sysadm-net.ldap.qa.xml \
 	../sysadm-net.autofs-ldap-nfs.qa/sysadm-net.autofs-ldap-nfs.qa.xml \
-	../sysadm-net.dns.qa/sysadm-net.dns.qa.xml 
+	../sysadm-net.dns.qa/sysadm-net.dns.qa.xml
 
 all: $(PROCESS)
 

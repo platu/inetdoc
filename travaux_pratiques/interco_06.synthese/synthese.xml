@@ -1091,7 +1091,7 @@ O   2001:678:3fc:78::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470, weight
 </sect2>
 </sect1>
 
-<sect1 xml:id='synthese.conclusion'>
+<sect1 xml:id='synthese.bilan'>
     <title>Bilan et conclusion</title>
 
     <para>Arrivé à cette étape, la totalité des outils nécessaires à
@@ -1099,6 +1099,9 @@ O   2001:678:3fc:78::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470, weight
     <acronym>WAN</acronym> est en place et il est temps de dresser le bilan
     avec les ultimes tests de communication entre les services des réseaux
     distants.</para>
+
+<sect2 xml:id='synthese.bilan.icmp'>
+    <title>Tester toutes les communications</title>
 
     <para>Après avoir relevé les adresses attribuées aux conteneurs des quatre
     routeurs <citetitle>Spoke</citetitle>, on peut lancer une boucle de tests
@@ -1114,7 +1117,8 @@ O   2001:678:3fc:78::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470, weight
 
     <para>Les résultats au format <acronym>CSV</acronym> peuvent être accumulés
     dans un fichier d'adresses qui sert pour les tests
-    <acronym>ICMP</acronym>. Voici un extrait&nbsp;:</para>
+    <acronym>ICMP</acronym>. Voici un extrait du fichier des adresses de
+    conteneurs&nbsp;:</para>
 
 <screen>10.0.1.43 (eth0),fda0:7a62:1:0:216:3eff:fec9:2051 (eth0)
 10.0.1.57 (eth0),fda0:7a62:1:0:216:3eff:fe4e:167c (eth0)
@@ -1189,6 +1193,108 @@ CSV input file must be generated from the following command:
 ------------------------------------------------------------
 Launch pings...
 ........................Success!</screen>
+</sect2>
+
+<sect2 xml:id='synthese.bilan.routes'>
+    <title>Afficher les tables de routage complètes</title>
+
+    <para>Pour faire le bilan sur le routage dynamique avec les protocoles
+    <acronym>OSPFv2</acronym> et <acronym>OSPFv3</acronym>, on affiche les
+    tables de routage dans lesquelles tous les réseaux doivent figurer.</para>
+
+    <para>En se plaçant sur le routeur <citetitle>Hub numéro 2</citetitle>, on
+    obtient les entrées suivantes&nbsp;:</para>
+
+<screen>sh ip route</screen>
+<screen>Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* 0.0.0.0/0 [0/0] via 172.20.120.1, enp0s1.120, 20:50:24
+<emphasis>O>* 10.0.1.0/24 [110/20] via 172.20.70.1, enp0s1.470</emphasis>, weight 1, 14:53:17
+<emphasis>O>* 10.0.2.0/24 [110/20] via 172.20.70.1, enp0s1.470</emphasis>, weight 1, 14:53:17
+K>* 10.0.3.0/24 [0/0] is directly connected, ppp0, 14:48:53
+K>* 10.0.4.0/24 [0/0] is directly connected, ppp1, 14:48:25
+<emphasis>O>* 10.47.2.2/32 [110/20] via 172.20.70.1, enp0s1.470</emphasis>, weight 1, 15:01:05
+<emphasis>O>* 10.47.4.2/32 [110/20] via 172.20.70.1, enp0s1.470</emphasis>, weight 1, 14:59:44
+L>* 10.47.6.1/32 is directly connected, ppp0, 14:48:53
+C>* 10.47.6.2/32 is directly connected, ppp0, 14:48:53
+L>* 10.47.8.1/32 is directly connected, ppp1, 14:48:25
+C>* 10.47.8.2/32 is directly connected, ppp1, 14:48:25
+O   172.20.70.0/29 [110/10] is directly connected, enp0s1.470, weight 1, 20:49:02
+C>* 172.20.70.0/29 is directly connected, enp0s1.470, 20:50:24
+L>* 172.20.70.2/32 is directly connected, enp0s1.470, 20:50:24
+O   172.20.120.0/23 [110/20] via 172.20.70.1, enp0s1.470, weight 1, 17:54:39
+C>* 172.20.120.0/23 is directly connected, enp0s1.120, 20:50:24
+L>* 172.20.120.3/32 is directly connected, enp0s1.120, 20:50:24</screen>
+
+    <para>Les entrées marquées <option>O>*</option> de la table de routage
+    ci-dessus correspondent aux routes apprises via le protocole
+    <acronym>OSPF</acronym> qui ont été retenues par le sous-système réseau du
+    noyau du routeur. Vu du routeur <citetitle>Hub numéro 2</citetitle>, on
+    identifie quatre routes de ce type&nbsp;: deux pour les réseaux
+    d'hébergement et deux pour les réseaux de transit. Ces quatre entrées
+    correspondent aux routeurs <citetitle>Spoke</citetitle> raccordés au
+    <citetitle>Hub numéro 1</citetitle>.</para>
+
+<screen>sh ipv6 route</screen>
+<screen>Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* ::/0 [0/1024] via fe80:78::1, enp0s1.120 onlink, 20:53:20
+O   2001:678:3fc:78::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470, weight 1, 14:56:06
+K>* 2001:678:3fc:78::/64 [0/512] is directly connected, enp0s1.120, 20:53:20
+L>* 2001:678:3fc:78:baad:caff:fefe:8/128 is directly connected, enp0s1.120, 20:53:20
+O>* fda0:7a62:1::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470, weight 1, 14:56:06
+O>* fda0:7a62:2::/64 [110/20] via fe80::baad:caff:fefe:5, enp0s1.470, weight 1, 14:56:06
+K>* fda0:7a62:3::/64 [0/1024] is directly connected, ppp0, 14:51:49
+K>* fda0:7a62:4::/64 [0/1024] is directly connected, ppp1, 14:51:21
+C * fe80::/64 is directly connected, enp0s1.477, 20:53:20
+C * fe80::/64 is directly connected, enp0s1.476, 20:53:20
+C * fe80::/64 is directly connected, enp0s1.475, 20:53:20
+C * fe80::/64 is directly connected, enp0s1.470, 20:53:20
+C * fe80::/64 is directly connected, enp0s1.120, 20:53:20
+C * fe80::/64 is directly connected, enp0s1.478, 20:53:20
+C>* fe80::/64 is directly connected, enp0s1, 20:53:20
+<emphasis>C>* fe80::4407:6511:26c1:58d1/128 is directly connected, ppp1</emphasis>, 14:51:21
+<emphasis>C>* fe80::551a:aa5f:6325:8f85/128 is directly connected, ppp0</emphasis>, 14:51:49
+<emphasis>C>* fe80:1d6::/64 is directly connected, enp0s1.470</emphasis>, 20:53:20
+<emphasis>C>* fe80:1db::/64 is directly connected, enp0s1.475</emphasis>, 20:53:20
+<emphasis>C>* fe80:1dd::/64 is directly connected, enp0s1.477</emphasis>, 20:53:20</screen>
+
+    <para>Comme on l'a déjà vu, toutes les entrées marquées
+    <option>C>*</option> correspondent aux interfaces actives ou connectées. On
+    peut afficher le résumé de l'état des interfaces du routeur pour voir la
+    correspondance.</para>
+
+<screen> sh int brief</screen>
+<screen>Interface       Status  VRF             Addresses
+---------       ------  ---             ---------
+enp0s1          up      default         fe80::baad:caff:fefe:8/64
+enp0s1.120      up      default         172.20.120.3/23
+                                        + 2001:678:3fc:78:baad:caff:fefe:8/64
+enp0s1.470      up      default         172.20.70.2/29
+                                        + fe80:1d6::2/64
+enp0s1.475      up      default         + fe80:1db::1/64
+enp0s1.476      up      default         fe80::baad:caff:fefe:8/64
+enp0s1.477      up      default         + fe80:1dd::1/64
+enp0s1.478      up      default         fe80::baad:caff:fefe:8/64
+lo              up      default
+ppp0            up      default         10.47.6.1/32
+                                        fe80::1cd0:13ee:bdd1:22bb/128
+ppp1            up      default         10.47.8.1/32
+                                        fe80::7993:fc0f:f5c8:d0c4/128</screen>
+</sect2>
+
+<sect2 xml:id='synthese.bilan.conclusion'>
+    <title>Pour conclure...</title>
 
     <para>Maintenant que l'on a validé l'ensemble des échanges entre les
     conteneurs situés aux extrémités de la topologie d'interconnexion de
@@ -1210,5 +1316,6 @@ Launch pings...
     permettraient de déployer et gérer ces configurations à grande échelle,
     réduisant ainsi les erreurs manuelles et améliorant l'efficacité
     opérationnelle des réseaux d’entreprise.</para>
+</sect2>
 </sect1>
 </article>
