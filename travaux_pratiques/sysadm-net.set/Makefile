@@ -22,7 +22,6 @@ XML_FILES = \
 	$(OUTPUT)/chapter-sysadm-net.nfs.qa.xml \
 	$(OUTPUT)/chapter-sysadm-net.ldap.qa.xml \
 	$(OUTPUT)/chapter-sysadm-net.autofs-ldap-nfs.qa.xml \
-	$(OUTPUT)/chapter-sysadm-net.dns.qa.xml \
 	$(wildcard images/*)
 
 CHAPTER_FILES = \
@@ -30,15 +29,23 @@ CHAPTER_FILES = \
 	../sysadm-net.nfs.qa/sysadm-net.nfs.qa.xml \
 	../sysadm-net.ldap.qa/sysadm-net.ldap.qa.xml \
 	../sysadm-net.autofs-ldap-nfs.qa/sysadm-net.autofs-ldap-nfs.qa.xml \
-	../sysadm-net.dns.qa/sysadm-net.dns.qa.xml
+
+.PHONY: all $(PROCESS)
 
 all: $(PROCESS)
 
 include $(MAIN_DIR)/common/Makefile.Rules
 
-chapter-%.xml: $(CHAPTER_FILES) $(wildcard *.xml)
-	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
-	@for chapter in $(CHAPTER_FILES); do \
-		sed -f $(MAIN_DIR)/common/entity-extract.sed $$chapter >> $(OUTPUT)/chapter-entities.xml; \
-		sed -f $(MAIN_DIR)/common/article2chapter.sed $$chapter > $(OUTPUT)/chapter-`basename $$chapter`; \
-	done
+$(OUTPUT):
+	mkdir -p $@
+
+define generate-chapter
+$(OUTPUT)/chapter-$(notdir $(1)): $(1) | $(OUTPUT)
+	sed -f $(MAIN_DIR)/common/entity-extract.sed $$< >> $(OUTPUT)/chapter-entities.xml
+	python3 $(MAIN_DIR)/common/article2chapter.py $$< > $$@
+endef
+
+$(foreach chapter,$(CHAPTER_FILES),$(eval $(call generate-chapter,$(chapter))))
+
+chapters: $(OUTPUT)/chapter-entities.xml $(foreach chapter,$(CHAPTER_FILES),$(OUTPUT)/chapter-$(notdir $(chapter)))
+
