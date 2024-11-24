@@ -25,6 +25,7 @@ SUBDIRS = \
 	interco_04.netfilter \
 	interco_05.ospf \
 	interco_06.synthese \
+    interco.set \
 	interco.ospf-bird.qa
 
 # Type(s) de traitement

@@ -93,7 +93,7 @@
     <xsl:param name="symbol.font.family">IBMPlexSans</xsl:param>
 
     <!-- Default Font size -->
-    <xsl:param name="body.font.master">11</xsl:param>
+    <xsl:param name="body.font.master">10</xsl:param>
 
     <!-- Line height in body text -->
     <xsl:param name="line-height">1.15</xsl:param>
@@ -107,7 +107,7 @@
             <xsl:value-of select="$monospace.font.family"/>
         </xsl:attribute>
         <xsl:attribute name="font-size">
-          <xsl:value-of select="$body.font.master * 0.8"/>
+          <xsl:value-of select="$body.font.master * 0.7"/>
           <xsl:text>pt</xsl:text>
 	</xsl:attribute>
     </xsl:attribute-set>
@@ -217,23 +217,35 @@
                    Custom Book Title Page
     ################################################### -->
 
+    <xsl:template match="d:abstract" mode="book.titlepage.recto.auto.mode">
+        <fo:block xsl:use-attribute-sets="book.titlepage.recto.style"
+            text-align="left" font-family="IBMPlexSans" font-size="9pt"
+            font-weight="400" font-style="normal">
+			<xsl:apply-templates select="." mode="book.titlepage.recto.mode"/>
+		</fo:block>
+	</xsl:template>
+
 	<xsl:template name="book.titlepage.recto">
 	<fo:block>
 		<fo:block background-color="#333" padding="3pt">
-		<fo:block color="#fff" text-align="right"
-		    font-family="SourceSansPro-Bold" font-weight="bold" font-size="18pt" margin-right="10mm" margin-bottom="5pt">
-		<xsl:value-of select="d:title|d:info/d:title" />
+		<fo:block color="#fff" text-align="left"
+		    font-family="IBMPlexSans-SemiBold" font-size="18pt" margin-right="10mm" margin-bottom="5pt">
+    		<xsl:value-of select="d:title|d:info/d:title" />
+		</fo:block>
+		<fo:block color="#fff" text-align="left"
+		    font-family="IBMPlexSans-SemiBold" font-size="16pt" margin-right="10mm" margin-bottom="5pt">
+    		<xsl:value-of select="d:subtitle|d:info/d:subtitle" />
 		</fo:block>
 
 		<xsl:for-each select="//d:author">
 		<fo:block color="#eee" text-align="right"
-			font-family="SourceSansPro" font-style="normal" font-size="10pt" margin-right="10mm">
+			font-family="IBMPlexSans" font-style="normal" font-size="10pt" margin-right="10mm">
 		<xsl:value-of select="d:personname/d:firstname"/>
 		<xsl:text> </xsl:text>
 		<xsl:value-of select="d:personname/d:surname"/>
 		</fo:block>
 		<fo:block color="#ddd" text-align="right"
-			font-family="SourceSansPro" font-size="9pt" margin-right="10mm">
+			font-family="IBMPlexSans" font-size="9pt" margin-right="10mm">
 		<xsl:value-of select="d:affiliation/d:address/d:email"/>
 		</fo:block>
 		</xsl:for-each>
@@ -241,7 +253,7 @@
 		<xsl:choose>
 		<xsl:when test="//d:editor">
 		<fo:block color="#ddd" text-align="right"
-			font-family="SourceSansPro-It" font-style="italic" margin-right="50mm">
+			font-family="IBMPlexSans-Italic" font-style="italic" margin-right="50mm">
 		<xsl:text>Publié par :</xsl:text>
 		</fo:block>
 		</xsl:when>
@@ -249,13 +261,13 @@
 
 		<xsl:for-each select="//d:editor">
 		<fo:block color="#eee" text-align="right"
-			font-family="SourceSansPro" font-size="10pt" margin-right="10mm">
+			font-family="IBMPlexSans" font-size="10pt" margin-right="10mm">
 		<xsl:value-of select="d:personname/d:firstname"/>
 		<xsl:text> </xsl:text>
 		<xsl:value-of select="d:personname/d:surname"/>
 		</fo:block>
 		<fo:block color="#ddd" text-align="right"
-			font-family="SourceSansPro" font-size="9pt" margin-right="10mm">
+			font-family="IBMPlexSans" font-size="9pt" margin-right="10mm">
 		<xsl:value-of select="d:affiliation/d:address/d:email"/>
 		</fo:block>
 		</xsl:for-each>
@@ -269,14 +281,15 @@
 
         <xsl:choose>
           <xsl:when test="*/d:abstract">
-            <fo:block color="#333">
-	      <xsl:apply-templates mode="book.titlepage.recto.auto.mode" select="d:info/d:abstract"/>
+            <fo:block color="#333" space-before="1em" space-after="1em">
+              <xsl:apply-templates select="d:info/d:abstract"
+                mode="book.titlepage.recto.auto.mode"/>
             </fo:block>
           </xsl:when>
         </xsl:choose>
-        <fo:block>
-          <fo:external-graphic src="url(&img_src_path;titleimage.jpg)"
-            padding="1cm" width="12cm" content-width="scale-to-fit"/>
+        <fo:block text-align="center">
+          <fo:external-graphic src="url(&img_src_path;titleimage.png)"
+            height="7cm" content-width="scale-to-fit"/>
 		</fo:block>
       </fo:block>
     </xsl:template>

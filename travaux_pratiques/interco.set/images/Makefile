@@ -9,10 +9,10 @@ SYMLINKS = \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco_01.inter-vlan-iaas/images/*.png) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco_02.pppoe/images/*.png) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco_03.hub-and-spoke/images/*.png) \
-	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco_04.netfilter/images/*.jpeg) \
+	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco_04.netfilter/images/*.png) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco_05.ospf/images/*.png) \
 	$(wildcard $(MAIN_DIR)/travaux_pratiques/interco_06.synthese/images/*.png) \
-	$(MAIN_DIR)/images/titleimage.jpg
+	$(MAIN_DIR)/images/titleimage.png
 
 all: $(PROCESS)
 

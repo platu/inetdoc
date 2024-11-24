@@ -38,6 +38,31 @@ def remove_meta_section(article):
     return re.sub(r"<sect1[^>]*meta.*?</sect1>", "", article, flags=re.DOTALL)
 
 
+def prepend_chapter_to_arearefs(xml):
+    def replacer(match):
+        arearefs = match.group(1)
+        updated_arearefs = " ".join(
+            f"chapter-{ref.strip()}" for ref in arearefs.split()
+        )
+        return f'arearefs="{updated_arearefs}"'
+
+    return re.sub(r'arearefs=["\']([^"\']*)["\']', replacer, xml, flags=re.DOTALL)
+
+
+# A function that prepends attribute values with "chapter-" in the article
+def prepend_xml_tags(article):
+    xml = article
+    # xml:id with value enclosed in double quotes or single quotes
+    xml = re.sub(r'(xml:id=["\'])', r"\1chapter-", xml, flags=re.DOTALL)
+    # endterm with value enclosed in double quotes or single quotes
+    xml = re.sub(r'(endterm=["\'])', r"\1chapter-", xml, flags=re.DOTALL)
+    # linkend with value enclosed in double quotes or single quotes
+    xml = re.sub(r'(linkend=["\'])', r"\1chapter-", xml, flags=re.DOTALL)
+    # arearefs with value enclosed in double quotes or single quotes
+    xml = prepend_chapter_to_arearefs(xml)
+    return xml
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python3 script.py <filename>")
@@ -58,6 +83,7 @@ def main():
         article = remove_author_entity(article)
         article = remove_custom_pagebreak(article)
         article = remove_meta_section(article)
+        article = prepend_xml_tags(article)
         print(article)
     else:
         print("No article found")
