@@ -15,6 +15,8 @@ LIBREOFFICE		:= $(shell which libreoffice)
 
 XSLT_STYLESHEET	:= $(MAIN_DIR)/common/xhtml_chunk.xsl
 
+DIST_DIRS := $(MAIN_DIR)/odp $(MAIN_DIR)/pdf $(MAIN_DIR)/xml
+
 #/*--------------------------------------------------------------------------
 #* Traitement des répertoires et sous-répertoires
 #*---------------------------------------------------------------------------*/
@@ -54,10 +56,10 @@ ifdef SUBDIRS
 	done
 endif
 
-dist_dirs: $(MAIN_DIR)/odp $(MAIN_DIR)/pdf $(MAIN_DIR)/xml
+dist_dirs: $(DIST_DIRS)
 
-$(MAIN_DIR)/odp $(MAIN_DIR)/pdf $(MAIN_DIR)/xml:
-	mkdir $@
+$(DIST_DIRS):
+	mkdir -p $@
 
 #/*--------------------------------------------------------------------------
 #* Traitement des liens symboliques
@@ -83,16 +85,13 @@ $(STYLESHEET).css: $(MAIN_DIR)/styles/$(STYLESHEET).css
 #* Traitement des images LibreOffice Draw ODG
 #*---------------------------------------------------------------------------*/
 
-%.svg: %.odg
-	@if [ -z $(LIBREOFFICE) ]; then echo 'libreoffice indisponible'; exit 1; fi
+%.svg %.png: %.odg
+	@if [ -z "$(LIBREOFFICE)" ]; then \
+		echo 'ERROR: libreoffice not found'; \
+		exit 1; \
+	fi
 	@$(LIBREOFFICE) --headless --convert-to pdf:draw_pdf_Export $<
-	@convert -density 300 $(subst odg,pdf,$<) -quality 100 $@
-	@rm -f $(basename $<).pdf
-
-%.png: %.odg
-	@if [ -z $(LIBREOFFICE) ]; then echo 'libreoffice indisponible'; exit 1; fi
-	@$(LIBREOFFICE) --headless --convert-to pdf:draw_pdf_Export $<
-	@convert -density 300 $(subst odg,pdf,$<) -quality 100 $@
+	@convert -density 300 $(basename $<).pdf -quality 100 $@
 	@rm -f $(basename $<).pdf
 
 #/*--------------------------------------------------------------------------
@@ -118,6 +117,10 @@ xml2xhtml: \
 	index.html \
 	$(STYLESHEET).css \
 	$(OUTPUT)/abstract.xml
+
+%.validated.xml: %.xml
+	@mkdir -p $(OUTPUT)
+	@xmllint --encode utf-8 --noent --xinclude --postvalid $< > $@ || (rm -f $@ && exit 1)
 
 $(OUTPUT)/$(BASENAME).xml: $(XML_FILES)
 	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
@@ -236,3 +239,13 @@ $(BASENAME).xml: $(QANAME)
 	sed '/<answer.*>/, /<\/answer>/d' $< > $@
 	sed -i 's/$(BASENAME)a/$(BASENAME)/g' $@
 endif
+
+.PHONY: clean subdirs_clean symlink xml2xhtml xml2pdf odp2pdf qonly
+
+$(OUTPUT)/.xslt_cache:
+	@mkdir -p $@
+
+clean-temp:
+	rm -rf $(OUTPUT)/.xslt_cache
+	find . -name '*~' -delete
+	find . -name '*.tmp' -delete
