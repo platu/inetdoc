@@ -68,4 +68,76 @@ l'automatisation DevOps, notamment la déclaration précise de l'état attendu
 d'une infrastructure IaaS.
 </li>
 </ol>
+
+<p>Prenons l'exemple du lancement de conteneurs. Dans un contexte procédural,
+on écrirait le code de la commande de lancement dans un script Bash exécuté via
+SSH. Dans la liste des tâches Ansible ci-dessous, on commence par obtenir la
+liste des conteneurs attendus, puis on ne crée que ceux qui n'existent pas
+(when item.rc !=0) et on lance ceux qui ont l'état 'STOPPED'. Le code
+idempotent contient 3 tâches.</p>
+
+<pre>  tasks:
+    - name: CHECK CONTAINERS STATE
+      ansible.builtin.shell:
+        cmd: set -o pipefail && incus ls --format csv -c n,s | grep {{ item }}
+        executable: /bin/bash
+      register: container_states
+      with_inventory_hostnames:
+        - containers
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: LAUNCH INCUS CONTAINERS
+      ansible.builtin.command:
+        cmd: incus launch {{ container_image }} "{{ item.item }}"
+      loop: "{{ container_states.results }}"
+      when: item.rc != 0 # Container not found
+      register: containers_created
+      changed_when: containers_created is changed
+
+    - name: START STOPPED CONTAINERS
+      ansible.builtin.command:
+        cmd: incus start "{{ item.item }}"
+      loop: "{{ container_states.results }}"
+      when: item.rc == 0 and 'STOPPED' in item.stdout
+      register: containers_started
+      changed_when: containers_started is changed</pre>
+
+<p>À travers cet exemple, on voit que l'idempotence constitue le fil conducteur
+pédagogique qui unifie les deux supports de travaux pratiques tout en servant
+de critère d'évaluation de la qualité des automatisations développées.<p>
+
+<p>Dans le <a href="https://md.inetdoc.net/s/nt636Z4Ct">Lab 14</a> sur la
+configuration des routeurs, les étudiants découvrent progressivement que
+l'idempotence ne peut être atteinte qu'en reprenant l'édition du code des
+playbooks vers une approche plus modulaire et spécialisée - passant d'une
+simple tâche ios_config à une structure plus sophistiquée utilisant des modules
+dédiés comme ios_interfaces et ios_l3_interfaces. Cette progression illustre
+parfaitement la trajectoire d'apprentissage visée : comprendre que l'état
+déclaratif d'une infrastructure nécessite un investissement en termes de
+conception logicielle.</p>
+
+<p>De même, le  <a href="https://md.inetdoc.net/s/wNFfdfcSw">Lab 15</a> sur
+l'installation des serveurs Web dans des conteneurs Incus pousse les étudiants
+à développer une logique conditionnelle élaborée pour vérifier l'état actuel
+avant toute modification, comme l'illustrent les tâches de gestion des
+conteneurs qui déterminent si un conteneur doit être créé ou simplement
+démarré. Ces exercices pratiques transforment un concept théorique -
+l'idempotence - en compétence technique concrète. Ils permettent ainsi aux
+étudiants de comprendre par la pratique que la déclaration précise de l'état
+attendu d'une infrastructure IaaS exige une réflexion approfondie sur les
+conditions préalables, les états intermédiaires et les résultats finaux de
+chaque opération d'automatisation.</p>
+
+<p>En conclusion, l'objectif de l'édition 2025 des supports de travaux
+pratiques du module d'automatisation DevOps est de montrer aux étudiants
+l'importance de l'idempotence et de la précision dans la déclaration de l'état
+attendu d'une infrastructure. En utilisant des outils comme Ansible, ces
+supports pratiques proposent une approche concrète pour comprendre comment gérer
+efficacement les infrastructures automatisées.</p>
+
+<p>Vous êtes invités à explorer ce document et à partager vos retours. Votre
+expérience contribuera à l'amélioration continue de ces ressources
+pédagogiques.</p>
 END-----
