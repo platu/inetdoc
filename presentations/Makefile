@@ -13,9 +13,9 @@ SUBDIRS = \
 	sysadm-base-4 \
 	sysadm-base-5 \
 	sysadm-base-6 \
-	net-storage \
-	net-identity \
-	net-filesystems-object-storage \
+	asr-c1 \
+	asr-c2 \
+	asr-c3 \
     interco-c1
 
 # Type(s) de traitement

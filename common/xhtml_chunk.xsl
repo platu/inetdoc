@@ -184,24 +184,7 @@
 		procedure before
 	</xsl:param>
 
-	<!-- Override formalpara title with a line break before para -->
-	<xsl:template match="formalpara/title|formalpara/info/title">
-		<xsl:variable name="titleStr">
-			<xsl:apply-templates/>
-		</xsl:variable>
-		<xsl:variable name="lastChar">
-			<xsl:if test="$titleStr != ''">
-				<xsl:value-of select="substring($titleStr,string-length($titleStr),1)"/>
-			</xsl:if>
-		</xsl:variable>
-		<b>
-		<xsl:copy-of select="$titleStr"/>
-			<xsl:if test="$lastChar != '' and not(contains($runinhead.title.end.punct, $lastChar))">
-				<xsl:value-of select="$runinhead.default.title.end.punct"/>
-			</xsl:if>
-		</b><br/>
-	</xsl:template>
-
 	<!-- Glossary properties -->
 	<xsl:param name="glossentry.show.acronym">yes</xsl:param>
+
 </xsl:stylesheet>

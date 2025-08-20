@@ -46,7 +46,8 @@ def prepend_chapter_to_arearefs(xml):
         )
         return f'arearefs="{updated_arearefs}"'
 
-    return re.sub(r'arearefs=["\']([^"\']*)["\']', replacer, xml, flags=re.DOTALL)
+    pattern = r'arearefs=["\']([^"\']*)["\']'
+    return re.sub(pattern, replacer, xml, flags=re.DOTALL)
 
 
 # A function that prepends attribute values with "chapter-" in the article
