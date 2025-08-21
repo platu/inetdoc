@@ -10,21 +10,23 @@ set -e
 # $1 -> $(BASENAME)
 # $2 -> $(OUTPUT)/$@.tmp
 
-cat >> "$2" <<-EOF
-<div id='presentation'>
+cat >>"$2" <<-EOF
+	<div id='presentation'>
 EOF
 
-for file in $(ls $1-*[0-9].png); do \
-cat >> "$2" <<-EOF
-<a href='`basename $file .png`.html'>
-<img src='`basename $file .png`.idx.png' width='200'
-     alt='Page `echo $file |sed 's/[-,a-z,A-Z,.]*//g'`' />
-</a>
-EOF
+for file in "$1"-*[0-9].png; do
+	# Skip if no files match the pattern
+	[[ -e ${file} ]] || continue
+	cat >>"$2" <<-EOF
+		<a href='$(basename "${file}" .png).html'>
+		<img src='$(basename "${file}" .png).idx.png' width='200'
+		     alt='Page ${file//[!0-9]/}' />
+		</a>
+	EOF
 done
 
-cat >> "$2" <<-EOF
-</div><!-- /presentation div -->
+cat >>"$2" <<-EOF
+	</div><!-- /presentation div -->
 EOF
 
 exit 0
