@@ -15,7 +15,7 @@ SYMLINKS = \
 	$(MAIN_DIR)/common/rfc.urls.xml
 
 XML_FILES = \
-	sysadm-net.iscsi.qa.xml \
+	sysadm-net.iscsi.xml \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \
