@@ -1781,9 +1781,9 @@ brw-rw---- 1 root disk 254, 0 22 août  19:14 /dev/vda</screen>
 	de manuels de la commande <command>iscsiadm</command>, qui permet de
 	répondre à la question.</para>
 
-<screen>sudo iscsiadm -m session
-tcp: [2] [2001:678:3fc:171:baad:caff:fefe:5]:3260,1
-	iqn.2003-01.org.linux-iscsi.target-vm.x8664:sn.bc4899490660 (non-flash)</screen>
+<screen>sudo iscsiadm -m session</screen>
+<screen>tcp: [2] [2001:678:3fc:171:baad:caff:fefe:5]:3260,1
+    iqn.2003-01.org.linux-iscsi.target.x8664:sn.5fc599ddeef8 (non-flash)</screen>
 	</answer>
 	</qandaentry>
 
@@ -1792,7 +1792,7 @@ tcp: [2] [2001:678:3fc:171:baad:caff:fefe:5]:3260,1
 	<para><phrase>Comment libérer toutes les sessions actives depuis le
 	système <wordasword>Initiator</wordasword>&nbsp;?</phrase></para>
 
-	<para>Consulter les pages de manuels de la commande de configuration du
+	<para>Consultez les pages de manuels de la commande de configuration du
 	rôle <wordasword>Initiator</wordasword>&nbsp;:
 	<command>iscsiadm</command>.</para>
 	</question>
@@ -1800,40 +1800,39 @@ tcp: [2] [2001:678:3fc:171:baad:caff:fefe:5]:3260,1
 	<para>Pour cette question, c'est le mode <option>node</option> qui nous
 	intéresse.</para>
 
-<screen><prompt>$</prompt> sudo iscsiadm -m node -U all
-Logging out of session [sid: 2, target:
-	iqn.2003-01.org.linux-iscsi.target-vm.x8664:sn.bc4899490660,
-	portal: 2001:678:3fc:171:baad:caff:fefe:5,3260]
-Logout of [sid: 2, target:
-	iqn.2003-01.org.linux-iscsi.target-vm.x8664:sn.bc4899490660,
-	portal: 2001:678:3fc:171:baad:caff:fefe:5,3260] <emphasis>successful</emphasis>.</screen>
+<screen>sudo iscsiadm -m node -U all</screen>
+<screen>Logging out of session [sid: 2,
+    target: iqn.2003-01.org.linux-iscsi.target.x8664:sn.5fc599ddeef8, portal: 2001:678:3fc:171:baad:caff:fefe:5,3260]
+Logout of [sid: 2,
+    target: iqn.2003-01.org.linux-iscsi.target.x8664:sn.5fc599ddeef8, portal: 2001:678:3fc:171:baad:caff:fefe:5,3260]
+    <emphasis>successful</emphasis>.</screen>
 	</answer>
 	</qandaentry>
 </qandaset>
 
-	<para>Bien sûr, il faut relancer une nouvelle session
+	<para>Il faut relancer une nouvelle session
 	<acronym>iSCSI</acronym> pour traiter les manipulations
 	suivantes.</para>
 </sect2>
 
 <sect2 xml:id='sysadm-net.iscsi.automatic'>
-	<title>Configuration système permanente</title>
+	<title>Rendre la session iSCSI permanente</title>
 
     <para>Une fois la connexion à la ressource <acronym>iSCSI</acronym> testée,
     passez à la configuration système de façon à retrouver le volume de
-    stockage après une réinitialisation du système
+    stockage après un redémarrage du système
     <wordasword>Initiator</wordasword>.</para>
 
 <qandaset>
 	<qandaentry>
 	<question>
-	<para><phrase>Comment rendre la connexion à l'unité de stockage
-	automatique lors de l'initialisation du système
-	<wordasword>Initiator</wordasword>&nbsp;?</phrase></para>
+    <para><phrase>Comment rendre l'ouverture session <acronym>iSCSI</acronym>
+    automatique lors de l'initialisation du système
+    <wordasword>Initiator</wordasword>&nbsp;?</phrase></para>
 
-	<para>Rechercher dans la liste des fichiers du paquet
+	<para>Recherchez dans la liste des fichiers du paquet
 	<application>open-iscsi</application> les éléments relatifs à la
-	configuration système. Éditer le fichier de configuration principal de
+	configuration système. Éditez le fichier de configuration principal de
 	façon à rendre automatique le lancement du service.</para>
 	</question>
 	<answer>
@@ -1841,13 +1840,8 @@ Logout of [sid: 2, target:
 	nécessairement dans le répertoire <filename
 	class='directory'>/etc/</filename>.</para>
 
-<screen><prompt>$</prompt> dpkg -L open-iscsi | grep '/etc/'
-/etc/default
-/etc/default/open-iscsi
-/etc/init.d
-/etc/init.d/iscsid
-/etc/init.d/open-iscsi
-/etc/iscsi
+<screen>dpkg -L open-iscsi | grep '/etc/iscsi'</screen>
+<screen>/etc/iscsi
 <emphasis>/etc/iscsi/iscsid.conf</emphasis></screen>
 
 	<para>Le fichier <filename>/etc/iscsi/iscsid.conf</filename> contient
@@ -1866,27 +1860,50 @@ Logout of [sid: 2, target:
 	<para>Attention ! Après édition du fichier
 	<filename>/etc/iscsi/iscsid.conf</filename>, la valeur
 	<option>automatic</option> n'est appliquée que pour les nouvelles
-	opérations de découverte et d'ouversture de session.</para>
+	opérations de découverte et d'ouverture de session.</para>
 </warning>
 
-	<para>Pour rendre ce l'ouverture de session automatique au démarrage du
-	système, il faut clore les sessions en cours et effacer les informations
-	de découverte.</para>
+<screen>sudo sed -i 's/^node.startup = manual/node.startup = automatic/' /etc/iscsi/iscsid.conf</screen>
+<screen>sudo systemctl restart open-iscsi.service
+systemctl status open-iscsi.service</screen>
 
-	<para>Voici un exemple qui donne la séquence des opérations.</para>
+<screen>● open-iscsi.service - Login to default iSCSI targets
+     Loaded: loaded (/usr/lib/systemd/system/open-iscsi.service; enabled; preset: enabled)
+     Active: active (exited) since Sun 2025-08-24 14:31:42 CEST; 7s ago
+ Invocation: cc7d753b5ecc4235990e6fb658c2ef07
+       Docs: man:iscsiadm(8)
+             man:iscsid(8)
+    Process: 7471 ExecStart=/usr/sbin/iscsiadm -m node <emphasis>--loginall=automatic</emphasis> (code=exited, status=21)
+    Process: 7472 ExecStart=/usr/lib/open-iscsi/activate-storage.sh (code=exited, status=0/SUCCESS)
+   Main PID: 7472 (code=exited, status=0/SUCCESS)
+   Mem peak: 2M
+        CPU: 51ms
 
-<screen><prompt>$</prompt> sudo iscsiadm -m node -U all
-<prompt>$</prompt> sudo iscsiadm -m node --op=delete
-<prompt>$</prompt> sudo iscsiadm -m discovery \
-	--type sendtargets \
-	--portal=[2001:678:3fc:171:baad:caff:fefe:5]
-<prompt>$</prompt> sudo iscsiadm -m node \
-	-T iqn.2003-01.org.linux-iscsi.target-vm.x8664:sn.bc4899490660 \
-	-p [2001:678:3fc:171:baad:caff:fefe:5] \
-	-l
-<prompt>$</prompt> sudo grep \\.startup /etc/iscsi/nodes/iqn.2003-01.org.linux-iscsi.target-vm.x8664\:sn.bc4899490660/2001\:678\:3fc\:171\:baad\:caff\:fefe\:5\,3260\,1/default
-<emphasis>node.startup = automatic</emphasis>
-node.conn[0].startup = manual</screen>
+août 24 14:31:42 initiator systemd[1]: Starting open-iscsi.service - Login to default iSCSI targets...
+août 24 14:31:42 initiator iscsiadm[7471]: <emphasis>iscsiadm: No records found</emphasis>
+août 24 14:31:42 initiator systemd[1]: Finished open-iscsi.service - Login to default iSCSI targets.</screen>
+
+    <para>La copie d'écran ci-dessus montre que l'ouverture de session est
+    automatique au lancement du service
+    <systemitem>open-iscsi.service</systemitem> et qu'en l'état actuel aucun
+    enregistrement de session n'est présent dans la configuration.</para>
+
+    <para>Voici un nouvel exemple d'instructions de découverte puis d'ouverture
+    de session.</para>
+
+<screen>sudo iscsiadm -m discovery \
+    --type sendtargets \
+    --portal=[2001:678:3fc:171:baad:caff:fefe:5]</screen>
+<screen>[2001:678:3fc:171:baad:caff:fefe:5]:3260,1
+    iqn.2003-01.org.linux-iscsi.target.x8664:sn.5fc599ddeef8</screen>
+
+<screen>sudo iscsiadm -m node \
+    -T iqn.2003-01.org.linux-iscsi.target.x8664:sn.5fc599ddeef8 \
+    -p [2001:678:3fc:171:baad:caff:fefe:5] \
+    -l</screen>
+<screen>Login to [iface: default,
+    target: iqn.2003-01.org.linux-iscsi.target.x8664:sn.5fc599ddeef8,
+    portal: 2001:678:3fc:171:baad:caff:fefe:5,3260] <emphasis>successful</emphasis>.</screen>
 	</answer>
 	</qandaentry>
 
@@ -1895,18 +1912,17 @@ node.conn[0].startup = manual</screen>
 	<para><phrase>Comment connaître l'état et la liste d'une session
 	<acronym>iSCSI</acronym> active&nbsp;?</phrase></para>
 
-	<para>Consulter les pages de manuels de la commande de configuration du
+	<para>Consultez les pages de manuels de la commande de configuration du
 	rôle <wordasword>Initiator</wordasword>&nbsp;:
 	<command>iscsiadm</command>.</para>
 	</question>
 	<answer>
-	<para>Il existe un mode <option>session</option> dédié aux manipulations
-	sur les sessions. La commande de test la plus simple est la
-	suivante.</para>
+    <para>Le mode <option>session</option> est dédié aux manipulations sur les
+    sessions. La commande de test la plus simple est la suivante.</para>
 
-<screen><prompt>$</prompt> sudo iscsiadm -m session
-tcp: [1] [2001:678:3fc:171:baad:caff:fefe:5]:3260,1 \
-	iqn.2003-01.org.linux-iscsi.target-vm.x8664:sn.bc4899490660 (non-flash)</screen>
+<screen>sudo iscsiadm -m session</screen>
+<screen>tcp: [1] [2001:678:3fc:171:baad:caff:fefe:5]:3260,1
+    iqn.2003-01.org.linux-iscsi.target.x8664:sn.5fc599ddeef8 (non-flash)</screen>
 
 	<para>Si la liste est vide, il n'y a pas de session
 	<acronym>iSCSI</acronym> active en cours.</para>
@@ -1917,16 +1933,18 @@ tcp: [1] [2001:678:3fc:171:baad:caff:fefe:5]:3260,1 \
 
 	<para>La commande <literal>iscsiadm -m session -P 3</literal> affiche
 	les paramètres sur les interfaces réseau utilisées, etc.</para>
+
+<screen>sudo iscsiadm -m session -P 3</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry xml:id='sysadm-net.iscsi.uuid'>
 	<question>
-	<para><phrase>Comment retrouver un point de montage unique du volume de
-	stockage <acronym>iSCSI</acronym> après réinitialisation du système
-	<wordasword>Initiator</wordasword>&nbsp;?</phrase></para>
+    <para><phrase>Comment retrouver un point de montage unique de l'unité de
+    stockage <acronym>iSCSI</acronym> après réinitialisation du système
+    <wordasword>Initiator</wordasword>&nbsp;?</phrase></para>
 
-	<para>Créer un répertoire de montage et rechercher les options utiles
+	<para>Créez un répertoire de montage et rechercher les options utiles
 	dans les pages de manuels des commandes <command>mount</command>,
 	<command>systemd.mount</command> et <command>blkid</command>. Éditer le
 	fichier <filename>/etc/fstab</filename> en utilisant les options
@@ -1935,9 +1953,9 @@ tcp: [1] [2001:678:3fc:171:baad:caff:fefe:5]:3260,1 \
 	</question>
 	<answer>
 	<para>La création du répertoire destiné au montage du volume de stockage
-	<acronym>iSCSI</acronym> ne pose pas de problème.</para>
+	<acronym>iSCSI</acronym> se fait simplement.</para>
 
-<screen><prompt>$</prompt> sudo mkdir /var/cache/iscsi-vol0</screen>
+<screen>sudo mkdir /var/cache/iscsi-vol0</screen>
 
 	<para>C'est à cette étape que les question de la <xref
 	linkend='sysadm-net.iscsi.storage' /> sont utiles.</para>
@@ -1948,16 +1966,34 @@ tcp: [1] [2001:678:3fc:171:baad:caff:fefe:5]:3260,1 \
 	l'identifiant unique de ce volume avec la commande
 	<command>blkid</command>. Voici un exemple.</para>
 
-<screen><prompt>$</prompt> sudo lsblk /dev/sda1
+<screen>lsblk /dev/sda
 NAME MAJ:MIN RM SIZE RO TYPE MOUNTPOINTS
-sda1   8:1    0  32G  0 part
-<prompt>$</prompt> sudo blkid /dev/sda1
-/dev/sda1: UUID="4df99b8b-0021-44bd-b751-bd180f018200"
-	UUID_SUB="0f2453f9-61b5-49d2-93ff-4aafd3ca0969"
-	BLOCK_SIZE="4096"
-	TYPE="btrfs"
-	PARTLABEL="vol0"
-	PARTUUID="fb154fb0-afc4-4a89-8e67-44b9d5fa8a05"</screen>
+sda    8:0    0  32G  0 disk</screen>
+
+<screen>sudo parted /dev/sda mklabel gpt
+Information: You may need to update /etc/fstab.</screen>
+
+<screen>sudo parted /dev/sda mkpart myOwnPartition ext4 1MiB 100%
+Information: You may need to update /etc/fstab.</screen>
+
+<screen>sudo blkid /dev/sda1
+/dev/sda1: <emphasis>UUID="97049e50-931a-4741-8c87-faf2582c494f"</emphasis>
+    BLOCK_SIZE="4096" TYPE="ext4" PARTLABEL="myOwnPartition"
+    PARTUUID="acc9f840-4b0b-4ffe-86e3-b8c499a90021"</screen>
+
+<screen>sudo mount -U "97049e50-931a-4741-8c87-faf2582c494f" /var/cache/iscsi-vol0/</screen>
+
+<screen>mount mount | grep iscsi
+/dev/sda1 on /var/cache/iscsi-vol0 type ext4 (rw,relatime)</screen>
+
+<screen>sudo touch /var/cache/iscsi-vol0/empyFile.txt</screen>
+
+<screen>sudo ls -l /var/cache/iscsi-vol0/
+total 16
+-rw-r--r-- 1 root root     0 24 août  17:12 <emphasis>empyFile.txt</emphasis>
+drwx------ 2 root root 16384 24 août  17:10 lost+found</screen>
+
+<screen>sudo umount /var/cache/iscsi-vol0</screen>
 	</answer>
 	</qandaentry>
 
@@ -1967,7 +2003,7 @@ sda1   8:1    0  32G  0 part
 	<filename>/etc/fstab</filename> pour assurer le montage du volume de
 	stockage à chaque initialisation du système&nbsp;?</phrase></para>
 
-	<para>Consulter les pages de manuels de la commande
+	<para>Consultez les pages de manuels de la commande
 	<command>mount</command> ainsi que la documentation du paquet
 	<application>open-iscsi</application>.</para>
 	</question>
@@ -1975,11 +2011,9 @@ sda1   8:1    0  32G  0 part
 	<para>Le choix des options à utiliser lors de l'édition du fichier
 	<filename>/etc/fstab</filename> constitue un point très délicat.</para>
 
-<screen>echo "UUID=4df99b8b-0021-44bd-b751-bd180f018200 \
- /var/cache/iscsi-vol0 \
- btrfs \
- _netdev \
- 0   2" | sudo tee -a /etc/fstab</screen>
+<screen>echo "PARTUUID=\"acc9f840-4b0b-4ffe-86e3-b8c499a90021\"\
+/var/cache/iscsi-vol0  ext4  _netdev  0   2" |\
+sudo tee -a /etc/fstab</screen>
 	<itemizedlist>
 	<listitem>
 	<para>Le choix de la valeur <option>UUID</option> se fait à partir du
@@ -1992,7 +2026,7 @@ sda1   8:1    0  32G  0 part
 	</listitem>
 	<listitem>
 	<para>Le système de fichiers utilisé est, là encore, connu&nbsp;:
-	<option>btrfs</option>.</para>
+	<option>ext4</option>.</para>
 	</listitem>
 	<listitem>
 	<para>L'option <option>_netdev</option> spécifie que le système de
@@ -2001,6 +2035,32 @@ sda1   8:1    0  32G  0 part
 	active.</para>
 	</listitem>
 	</itemizedlist>
+
+<screen>sudo mount -a
+mount: (hint) your fstab has been modified, but systemd still uses
+       the old version; use 'systemctl daemon-reload' to reload.</screen>
+
+<screen>mount | grep iscsi
+/dev/sda1 on /var/cache/iscsi-vol0 type ext4 (rw,relatime,stripe=32,_netdev)</screen>
+
+<screen>sudo ls -l /var/cache/iscsi-vol0/
+total 16
+-rw-r--r-- 1 root root     0 24 août  17:12 <emphasis>empyFile.txt</emphasis>
+drwx------ 2 root root 16384 24 août  17:10 lost+found</screen>
+
+    <para>Une fois les tests de validation du montage effectués, on procède au
+    démontage de la partition dans le but de traiter les questions des sections
+    suivantes.</para>
+
+<screen>sudo umount /var/cache/iscsi-vol0/</screen>
+
+<screen>sudo sed -i '/^PARTUUID="acc9f840-4b0b-4ffe-86e3-b8c499a90021".*/d' /etc/fstab</screen>
+
+<screen>cat /etc/fstab</screen>
+<screen>PARTUUID=95ed2e41-f56c-4cc0-a79e-c93a07e93c79 / ext4 rw,discard,errors=remount-ro,x-systemd.growfs 0 1
+PARTUUID=71f5d30c-8e21-4372-81f6-11eb66815669 /boot/efi vfat defaults,umask=077 0 2</screen>
+
+    <para>La table des montages système est revenue à l'état initial.</para>
 	</answer>
 	</qandaentry>
 </qandaset>
@@ -2030,53 +2090,72 @@ sda1   8:1    0  32G  0 part
   <qandaset>
     <qandaentry>
     <question>
-    <para><phrase>Comment régler les paramètres d'authentification
-    <acronym>CHAP</acronym> sur le système <wordasword>Target</wordasword>
-   &nbsp;?</phrase></para>
+    <para><phrase>Quel est l'attribut qui permet d'activer globalement
+    l'authentification avec
+    <application>targetcli</application>&nbsp;?</phrase></para>
 
-    <para>Comme pour les étapes précédentes, toutes les manipulations se font à
-    partir de l'outil <application>targetcli</application>.</para>
+    <para>Recherchez dans la liste des attributs du menu
+    <literal>tpg1</literal> celui qui est relatif à l'authentification.</para>
     </question>
     <answer>
-    <para>Partant d'une nouvelle configuration, on obtient la liste de
-    paramètres suivante dans laquelle aucun contrôle d'accès n'a été
-    défini.</para>
+    <para>Placez vous au niveau <literal>tpg1</literal> du menu de
+    l'application <application>targetcli</application>.</para>
 
-<screen>/iscsi/iqn.20....5208bcd92edd> ls
-o- iqn.2003-01.org.linux-iscsi.target.x8664:sn.5208bcd92edd ..[TPGs: 1]
-  o- tpg1 .......................................[no-gen-acls, no-auth]
-    o- acls ................................................. [ACLs: 0]
-    o- luns ................................................. [LUNs: 1]
-    | o- lun0 ......... [block/blockvol0 (/dev/vdb) (default_tg_pt_gp)]
-    o- portals ........................................... [Portals: 1]
-      o- [::0]:3260 .............................................. [OK]</screen>
+<screen>sudo targetcli</screen>
+<screen>cd /iscsi/iqn.2003-01.org.linux-iscsi.target.x8664:sn.cd547a636fe7/tpg1/</screen>
 
-    <para>On passe à la création d'une entrée de contrôle d'accès basée sur
-    l'identifiant <option>iqn</option> unique du système
-    <wordasword>Initiator</wordasword>.</para>
+    <para>Relevez la valeur de l'attribut <literal>authentication</literal>.</para>
 
-<screen>/iscsi/iqn.20....5208bcd92edd> create iqn.1993-08.org.debian:01:8c6ecf84c11e</screen>
+<screen>get attribute authentication
+<emphasis>authentication=0</emphasis></screen>
 
-<screen>/iscsi/iqn.20....5208bcd92edd> ls
-o- iqn.2003-01.org.linux-iscsi.target.x8664:sn.5208bcd92edd ..[TPGs: 1]
-  o- tpg1 .......................................[no-gen-acls, no-auth]
-    o- acls ..................................................[ACLs: 1]
-    | o- iqn.1993-08.org.debian:01:8c6ecf84c11e .......[Mapped LUNs: 1]
-    |   o- mapped_lun0 .....................[lun0 block/blockvol0 (rw)]
-    o- luns ..................................................[LUNs: 1]
-    | o- lun0 ..........[block/blockvol0 (/dev/vdb) (default_tg_pt_gp)]
-    o- portals ............................................[Portals: 1]
-      o- [::0]:3260 ...............................................[OK]</screen>
+    <para>Changez la valeur de cet attribut pour activer l'authentification au
+    niveau du portail <acronym>iSCSI</acronym>.</para>
 
-    <para>On définit ensuite les paramètres d'authentification pour cette
-    entrée. Comme la méthode <acronym>CHAP</acronym> est symétrique, vous devez
-    déposer de part et d'autre le secret. On fixe ici les paramètres
+<screen>set attribute authentication=1</screen>
+<screen>get attribute authentication
+<emphasis>authentication=1</emphasis></screen>
+    </answer>
+    </qandaentry>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment régler les paramètres d'authentification
+    <acronym>CHAP</acronym> à deux voies pour le portail
+    <acronym>iSCSI</acronym>&nbsp;?</phrase></para>
+
+    <para>Recherchez les paramètres disponibles au niveau de la liste de
+    contrôle d'accès dédiée au rôle <wordasword>Initiator</wordasword>.</para>
+    </question>
+    <answer>
+    <para>Partant de la configuration mise en place dans la <xref
+    linkend='sysadm-net.iscsi.target' />, on ajoute les paramètres
+    d'authentification à la liste de contrôle d'accès existante.</para>
+
+<screen>sudo targetcli</screen>
+
+<screen>cd /iscsi/iqn.2003-01.org.linux-iscsi.target.x8664:sn.cd547a636fe7/tpg1/
+cd acls/iqn.1993-08.org.debian:01:733ea42cb56</screen>
+
+    <para>Définissez les paramètres d'authentification pour cette liste de
+    contrôle d'accès. Comme la méthode <acronym>CHAP</acronym> est symétrique,
+    vous devez déposer de part et d'autre le secret. On fixe ici les paramètres
     <option>userid</option> et <option>password</option>.</para>
 
-<screen>/iscsi/iqn.20...57c35b07/tpg1> acls/iqn.2015-09.org.debian:01:9d11913c78ac/ set auth userid=SAN-lab-initiator
-Parameter userid is now 'SAN-lab-initiator'.
-/iscsi/iqn.20...57c35b07/tpg1> acls/iqn.2015-09.org.debian:01:9d11913c78ac/ set auth password=SAN-lab-initiator-53cr3t
-Parameter password is now 'SAN-lab-initiator-53cr3t'.</screen>
+<screen>set auth userid=SAN-lab-user
+Parameter userid is now <emphasis>'SAN-lab-user'</emphasis>.</screen>
+
+<screen>set auth password=SAN-lab-pwd
+Parameter password is now <emphasis>'SAN-lab-pwd'</emphasis>.</screen>
+
+<screen>set auth mutual_userid=target-user
+Parameter mutual_userid is now <emphasis>'target-user'</emphasis>.</screen>
+
+<screen>set auth mutual_password=target-pwd
+Parameter mutual_password is now <emphasis>'target-pwd'</emphasis>.</screen>
+
+    <para>Les valeurs définies ci-dessus doivent être reportées dans la
+    configuration du service <application>open-iscsi</application> sur le
+    système <wordasword>Initiator</wordasword>.</para>
     </answer>
     </qandaentry>
 
@@ -2084,63 +2163,142 @@ Parameter password is now 'SAN-lab-initiator-53cr3t'.</screen>
     <question>
     <para><phrase>Comment régler les paramètres d'authentification
     <acronym>CHAP</acronym> sur le système <wordasword>Initiator</wordasword>
-   &nbsp;?</phrase></para>
+    &nbsp;?</phrase></para>
 
-    <para>Rechercher dans le fichier de configuration principal du rôle
+    <para>Recherchez dans le fichier de configuration principal du rôle
     <wordasword>Initiator</wordasword> les paramètres relatifs à
     l'authentification.</para>
+
+    <para>Libérez la session existante avant d'ajouter les authentifiants à la
+    configuration du service <application>open-iscsi</application>.</para>
+
+    <para>Effacez l'enregistrement obtenu avec l'instruction de découverte
+    utilisée précédemment.</para>
     </question>
     <answer>
+    <para>Commencez par libérer la session.</para>
+<screen>sudo iscsiadm -m node -U all</screen>
+<screen>Logging out of session [sid: 1,
+    target: iqn.2003-01.org.linux-iscsi.target.x8664:sn.5fc599ddeef8,
+    portal: 2001:678:3fc:171:baad:caff:fefe:5,3260]
+Logout of [sid: 1,
+    target: iqn.2003-01.org.linux-iscsi.target.x8664:sn.5fc599ddeef8,
+    portal: 2001:678:3fc:171:baad:caff:fefe:5,3260] <emphasis>successful</emphasis>.</screen>
+
+    <para>Effacez ensuite l'enregistrement de découverte du portail depuis le
+    rôle <wordasword>Initiator</wordasword>.</para>
+<screen>sudo iscsiadm -m discoverydb \
+    -t sendtargets \
+    -p [2001:678:3fc:171:baad:caff:fefe:5]:3260 \
+    -o <emphasis>delete</emphasis></screen>
+
     <para>Le nom d'utilisateur et le mot de passe sont définis dans le fichier
     <filename>/etc/iscsi/iscsid.conf</filename> du système
     <wordasword>Initiator</wordasword>.</para>
 
-<screen># *************
-# CHAP Settings
+<screen>sudo grep -m1 -A30 CHAP /etc/iscsi/iscsid.conf</screen>
+<screen># CHAP Settings
 # *************
 
 # To enable CHAP authentication set node.session.auth.authmethod
 # to CHAP. The default is None.
-node.session.auth.authmethod = CHAP
+#
+# NOTE: currently this attribute is checked for validity but then
+# ignored, so even if it is set to None, CHAP will be used if the
+# credentials (username/password and possibly username_in/password_in)
+# are set. This behavior is deprecated, and in the future CHAP will
+# not be used if authmethod is set to None.
+#
+<emphasis>#node.session.auth.authmethod = CHAP</emphasis>
+
+# To configure which CHAP algorithms to enable, set
+# node.session.auth.chap_algs to a comma separated list.
+# The algorithms should be listed in order of decreasing
+# preference - in particular, with the most preferred algorithm first.
+# Valid values are MD5, SHA1, SHA256, and SHA3-256.
+# The default is MD5.
+#node.session.auth.chap_algs = SHA3-256,SHA256,SHA1,MD5
 
 # To set a CHAP username and password for initiator
 # authentication by the target(s), uncomment the following lines:
-node.session.auth.username = SAN-lab-initiator
-node.session.auth.password = SAN-lab-initiator-53cr3t</screen>
+<emphasis>#node.session.auth.username = username</emphasis>
+<emphasis>#node.session.auth.password = password</emphasis>
 
-     <para>Le même principe peut être appliqué au mécanisme de découverte en
-      appliquant un couple <wordasword>login/password</wordasword> identique ou
-      non à la suite de ce fichier de configuration.</para>
+# To set a CHAP username and password for target(s)
+# authentication by the initiator, uncomment the following lines:
+<emphasis>#node.session.auth.username_in = username_in</emphasis>
+<emphasis>#node.session.auth.password_in = password_in</emphasis></screen>
+
+    <para>Éditez les lignes du fichiers fichier
+    <filename>/etc/iscsi/iscsid.conf</filename> avec les valeurs définies dans
+    la configuration du rôle <wordasword>Target</wordasword>.</para>
+
+<screen>sudo sed \
+-i 's/^#node.session.auth.authmethod = CHAP/node.session.auth.authmethod = CHAP/' \
+/etc/iscsi/iscsid.conf</screen>
+
+<screen>sudo sed \
+-i 's/^#node.session.auth.username = username/node.session.auth.username = SAN-lab-user/' \
+/etc/iscsi/iscsid.conf</screen>
+
+<screen>sudo sed \
+-i 's/^#node.session.auth.password = password/node.session.auth.password = SAN-lab-pwd/' \
+/etc/iscsi/iscsid.conf</screen>
+
+<screen>sudo sed \
+-i 's/^#node.session.auth.username_in =.*/node.session.auth.username_in = target-user/' \
+/etc/iscsi/iscsid.conf</screen>
+
+<screen>sudo sed \
+-i 's/^#node.session.auth.password_in = .*/node.session.auth.password_in = target-pwd/' \
+/etc/iscsi/iscsid.conf</screen>
+
+    <para>relancez le service <application>open-iscsi</application> pour
+    prendre en compte les modifications effectuées sur la configuration du rôle
+    <wordasword>Initiator</wordasword>.</para>
+
+<screen>sudo systemctl restart open-iscsi.service</screen>
+
+    <para>Lancez une nouvelle découverte du portail
+    <acronym>iSCSI</acronym>.</para>
+
+<screen>sudo iscsiadm -m discovery \
+    --type sendtargets \
+    --portal=[2001:678:3fc:171:baad:caff:fefe:5]</screen>
+
+    <para>Lancez une nouvelle ouverture de session.</para>
+
+<screen>sudo iscsiadm -m node \
+    -T iqn.2003-01.org.linux-iscsi.target.x8664:sn.cd547a636fe7 \
+    -p [2001:678:3fc:171:baad:caff:fefe:5]:3260 \
+    --login</screen>
+
+    <para>Relevez les informations de session.</para>
+
+<screen>sudo iscsiadm -m session
+tcp: [1] [2001:678:3fc:171:baad:caff:fefe:5]:3260,1 \
+    iqn.2003-01.org.linux-iscsi.target.x8664:sn.cd547a636fe7 (non-flash)</screen>
     </answer>
     </qandaentry>
   </qandaset>
 
-  <para>Une fois la configuration en place, on obtient les résultats suivants
-  lors de la validation.</para>
+    <para>Une fois la session établie, une authentification sécurisée est en
+    place entre les rôles <wordasword>Target</wordasword> et
+    <wordasword>Initiator</wordasword>.</para>
 
-  <itemizedlist>
-  <listitem>
-    <para>Découverte du nouveau volume réseau&nbsp;:</para>
+    <para>Cependant, si le mécanisme d'authentification est valide,
+    l'algorithme de chiffrement pose problème. En effet, le protocole
+    <acronym>MD5</acronym> ne garantit pas un niveau de sécurité
+    suffisant.</para>
 
-<screen><prompt>$</prompt> sudo iscsiadm -m discovery --type sendtargets --portal=[2001:db8:feb2:2:b8ad:ff:feca:fe00]:3260
-[2001:db8:feb2:2:b8ad:ff:feca:fe00]:3260,1 iqn.2003-01.org.linux-iscsi.target.i686:sn.f58f71d5ba26
-192.0.2.12:3260,1 iqn.2003-01.org.linux-iscsi.target.i686:sn.f58f71d5ba26
-[2001:db8:feb2:2:b8ad:ff:feca:fe00]:3260,1 <emphasis>iqn.2003-01.org.linux-iscsi.target.i686:sn.8b7457c35b07</emphasis></screen>
-  </listitem>
-  <listitem>
-    <para>Connexion avec authentification <acronym>CHAP</acronym>&nbsp;:</para>
+    <para>Nous devons attendre une nouvelle version de la pile LIO du noyau
+    Linux pour bénéficier de l'algorithme <acronym>SHA3-256</acronym>.</para>
+<screen>sudo iscsiadm -m node -o show | grep -i chap</screen>
+<screen>iface.chap_auth = &lt;empty>
+iface.bidi_chap = &lt;empty>
+node.session.auth.authmethod = CHAP
+<emphasis>node.session.auth.chap_algs = MD5</emphasis></screen>
 
-<screen><prompt>#</prompt> iscsiadm -m node -T <emphasis>iqn.2003-01.org.linux-iscsi.target.i686:sn.8b7457c35b07</emphasis> -p 2001:db8:feb2:2:b8ad:ff:feca:fe00 --login
-Logging in to [iface: default, target: iqn.2003-01.org.linux-iscsi.target.i686:sn.8b7457c35b07, portal: 2001:db8:feb2:2:b8ad:ff:feca:fe00,3260] (multiple)
-Login to [iface: default, target: iqn.2003-01.org.linux-iscsi.target.i686:sn.8b7457c35b07, portal: 2001:db8:feb2:2:b8ad:ff:feca:fe00,3260] successful.</screen>
-  </listitem>
-  <listitem>
-    <para>Affichage de la session active&nbsp;:</para>
-
-<screen><prompt>#</prompt> iscsiadm -m session
-tcp: [4] [2001:db8:feb2:2:b8ad:ff:feca:fe00]:3260,1 <emphasis>iqn.2003-01.org.linux-iscsi.target.i686:sn.8b7457c35b07</emphasis> (non-flash)</screen>
-  </listitem>
-  </itemizedlist>
 </sect1>
 
 <sect1 xml:id='sysadm-net.iscsi.raid1'>
