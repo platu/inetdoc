@@ -602,7 +602,7 @@ nvme0n1     259:1    0   120G  0 disk
     <listitem>
     <para>Enfin, partitionnez et formatez le volume logique
     <acronym>LVM</acronym> pour pouvoir suivre les manipulations à partir de la
-    <xref linkend='sysadm-net.iscsi.lvm-snapshot' />.</para>
+    <xref linkend='sysadm-net.iscsi.lvm' />.</para>
     </listitem>
 	</itemizedlist>
 
@@ -1040,14 +1040,14 @@ Disk Flags:</screen>
 </sect1>
 
 <sect1 xml:id='sysadm-net.iscsi.target'>
-	<title>Configuration du rôle Target</title>
+	<title>Configurer le rôle Target</title>
 
     <para>Dans cette partie, les manipulations préparent le système auquel on a
     attribué le rôle <wordasword>Target</wordasword> à l'aide de l'outil
     <application>targetcli-fb</application>.</para>
 
 <sect2 xml:id='sysadm-net.iscsi.target.install'>
-	<title>Installation de l'outil de paramétrage du rôle target</title>
+	<title>Installer l'outil de paramétrage du rôle target</title>
 
 	<qandaset defaultlabel='number'>
 	<qandaentry>
@@ -1072,7 +1072,7 @@ targetcli-fb/testing,now 1:2.1.53-1.3 all [installé]
 </sect2>
 
 <sect2 xml:id='sysadm-net.iscsi.target.config'>
-	<title>Configuration du rôle target</title>
+	<title>Configurer les ressources et le portail du rôle target</title>
 
 	<para>La technologie <acronym>iSCSI</acronym> dispose d'un schéma de
 	nommage propre défini dans le document standard &url.rfc3721;. Le format
@@ -2075,7 +2075,7 @@ PARTUUID=71f5d30c-8e21-4372-81f6-11eb66815669 /boot/efi vfat defaults,umask=077 
 
 
 <sect1 xml:id='sysadm-net.iscsi.auth'>
-  <title>Configuration de l'authentification CHAP</title>
+  <title>Configurer l'authentification CHAP</title>
 
   <para>Dans cette partie, on suppose que tous les tests précédents ont été
   effectués avec succès et que les échanges entre les systèmes
@@ -2140,7 +2140,10 @@ PARTUUID=71f5d30c-8e21-4372-81f6-11eb66815669 /boot/efi vfat defaults,umask=077 
 <screen>sudo targetcli</screen>
 
 <screen>cd /iscsi/iqn.2003-01.org.linux-iscsi.target.x8664:sn.cd547a636fe7/tpg1/
-cd acls/iqn.1993-08.org.debian:01:733ea42cb56</screen>
+cd acls/<emphasis>iqn.1993-08.org.debian:01:733ea42cb56</emphasis></screen>
+
+    <para>L'identifiant <acronym>IQN</acronym> de la copie d'écran ci-dessus
+    est celui du rôle <wordasword>Initiator</wordasword>.</para>
 
     <para>Définissez les paramètres d'authentification pour cette liste de
     contrôle d'accès. Comme la méthode <acronym>CHAP</acronym> est symétrique,
@@ -2308,7 +2311,7 @@ node.session.auth.authmethod = CHAP
 </sect1>
 
 <sect1 xml:id='sysadm-net.iscsi.raid1'>
-  <title>Configuration d'une unité logique RAID&nbsp;1</title>
+  <title>Créer un tableau RAID&nbsp;1</title>
 
   <para>Dans cette partie, vous allez créer une unité logique
   <acronym>RAID&nbsp;1</acronym> composée d'un de disque local et d'un disque
@@ -2320,7 +2323,7 @@ node.session.auth.authmethod = CHAP
   dupliquée sur le réseau de stockage <acronym>iSCSI</acronym>.</para>
 
   <sect2 xml:id='sysadm-net.iscsi.raid1.config'>
-    <title>Sélection du paquet et création de l'unité RAID&nbsp;1</title>
+    <title>Créer l'unité de disque RAID&nbsp;1</title>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
@@ -2342,14 +2345,16 @@ p   mdadm   - outil d'administration d'ensembles RAID</screen>
 
 <screen>sudo apt install mdadm</screen>
 
-      <para>Une fois le paquet installé, listez son
-      contenu et identifez les commandes utilisateur.</para>
+    <para>Une fois le paquet installé, listez son contenu et identifiez les
+    commandes utilisateur.</para>
 
 <screen>dpkg -L mdadm | grep bin</screen>
 <screen>/usr/sbin
 /usr/sbin/mdadm
 /usr/sbin/mdmon</screen>
-      </answer>
+
+    <para>La commande recherchée est <command>mdadm</command>.</para>
+    </answer>
     </qandaentry>
 
     <qandaentry>
@@ -2361,25 +2366,46 @@ p   mdadm   - outil d'administration d'ensembles RAID</screen>
       <para>Exécutez cette commande et relevez les messages obtenus.</para>
     </question>
     <answer>
+    <para>Affichez la liste des périphériques connus et identifiez les deux
+    unités de disque qui vont constituer le tableau
+    <acronym>RAID&nbsp;1</acronym>.</para>
+
+<screen>lsblk</screen>
+<screen>NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+<emphasis>sda           8:0    0    32G  0 disk</emphasis>
+sr0          11:0    1  1024M  0 rom
+vda         254:0    0   366K  0 disk
+nvme0n1     259:1    0   120G  0 disk
+├─nvme0n1p1 259:4    0     3M  0 part
+├─nvme0n1p2 259:5    0   124M  0 part /boot/efi
+└─nvme0n1p3 259:6    0 119,9G  0 part /
+<emphasis>nvme1n1     259:3    0    32G  0 disk</emphasis></screen>
+
+    <para>À titre préventif, nettoyez les <wordasword>superblocks</wordasword>
+    des deux périphériques. Ces opérations sont utiles en cas d'erreurs sur la
+    création d'un tableau <acronym>RAID</acronym>.</para>
+
+<screen>sudo mdadm --zero-superblock /dev/sda
+sudo mdadm --zero-superblock /dev/nvme1n1</screen>
+
     <para>Après s'être assuré qu'aucune table de partition n'existe sur les
     deux unités constituant le tableau, on obtient le résultat suivant.</para>
 
-<screen><prompt>$</prompt> sudo mdadm --create /dev/md0 --level=raid1 --raid-devices=2 /dev/sda /dev/vdb
-mdadm: Note: this array has metadata at the start and
-    may not be suitable as a boot device.  If you plan to
-    store '/boot' on this device please ensure that
-    your boot-loader understands md/v1.x metadata, or use
-    --metadata=0.90
-Continue creating array? y
-mdadm: Defaulting to version 1.2 metadata
-mdadm: array /dev/md0 started.</screen>
+<screen>sudo mdadm --create /dev/md0 \
+    --metadata=1 \
+    --level=raid1 \
+    --raid-devices=2 \
+    <emphasis>/dev/sda</emphasis> <emphasis>/dev/nvme1n1</emphasis>
+To optimalize recovery speed, it is recommended to enable write-indent bitmap, do you want to enable it now? [y/N]? <emphasis>y</emphasis></screen>
+<screen>mdadm: array /dev/md0 started.</screen>
     </answer>
     </qandaentry>
   </qandaset>
   </sect2>
 
   <sect2 xml:id='sysadm-net.iscsi.raid1.manage'>
-    <title>Manipulations sur l'unité de disque RAID&nbsp;1</title>
+    <title>Afficher les propriétés du tableau RAID&nbsp;1 et rendre sa
+    configuration permanente</title>
 
   <qandaset defaultlabel='number'>
     <qandaentry>
@@ -2387,19 +2413,23 @@ mdadm: array /dev/md0 started.</screen>
       <para><phrase>Comment connaître l'état de l'unité logique
       <acronym>RAID&nbsp;1</acronym>&nbsp;?</phrase></para>
 
-      <para>Effectuer une recherche dans le système de fichiers virtuel
+      <para>Recherchez dans le système de fichiers virtuel
       <filename class='directory'>/proc/</filename>.</para>
     </question>
     <answer>
       <para>Exemple du tableau créé lors l'exécution de la commande de la
       question précédente.</para>
 
-<screen><prompt>$</prompt> cat /proc/mdstat
-Personalities : [raid1]
-md0 : active raid1 vdb[1] sda[0]
-      33537920 blocks super 1.2 [2/2] [UU]
+<screen>cat /proc/mdstat</screen>
+<screen>Personalities : [raid0] [raid1] [raid4] [raid5] [raid6] [raid10]
+md0 : active raid1 nvme1n1[1] sda[0]
+      33520640 blocks super 1.2 [2/2] <emphasis>[UU]</emphasis>
+      bitmap: 0/1 pages [0KB], 65536KB chunk
 
 unused devices: &lt;none></screen>
+
+    <para>Les deux marqueurs <literal>UU</literal> indiquent que les deux
+    unités de stockage du tableau sont <wordasword>Up</wordasword>.</para>
     </answer>
     </qandaentry>
     <qandaentry>
@@ -2407,14 +2437,14 @@ unused devices: &lt;none></screen>
       <para><phrase>Comment afficher la liste des propriétés de l'unité logique
       <acronym>RAID&nbsp;1</acronym>&nbsp;?</phrase></para>
 
-      <para>Effectuer une recherche dans les options de la commande
-      d'administration.</para>
+    <para>Recherchez dans les options de la commande d'administration
+    <command>mdadm</command>.</para>
     </question>
     <answer>
-<screen><prompt>$</prompt> sudo mdadm --detail /dev/md0
-/dev/md0:
+<screen>sudo mdadm --detail <emphasis>/dev/md0</emphasis></screen>
+<screen>/dev/md0:
            Version : 1.2
-     Creation Time : Sat Sep  3 18:07:32 2022
+     Creation Time : Sun Aug 31 08:48:01 2025
         Raid Level : raid1
         Array Size : 33520640 (31.97 GiB 34.33 GB)
      Used Dev Size : 33520640 (31.97 GiB 34.33 GB)
@@ -2422,111 +2452,191 @@ unused devices: &lt;none></screen>
      Total Devices : 2
        Persistence : Superblock is persistent
 
-       Update Time : Sat Sep  3 18:09:18 2022
-             State : clean, resyncing
+     Intent Bitmap : Internal
+
+       Update Time : Sun Aug 31 08:50:49 2025
+             State : clean
     Active Devices : 2
    Working Devices : 2
     Failed Devices : 0
      Spare Devices : 0
 
-Consistency Policy : resync
-
-     Resync Status : 65% complete
+Consistency Policy : bitmap
 
               Name : initiator:0  (local to host initiator)
-              UUID : e3da1d56:9df89f79:866d5607:eeb2beff
-            Events : 11
+              UUID : b194fed7:429ef21c:1e3a9890:d2963f45
+            Events : 33
 
     Number   Major   Minor   RaidDevice State
-       0       8        0        0      active sync   /dev/sda
-       1     254       16        1      active sync   /dev/vdb/</screen>
+       0       8        0        0      active sync   <emphasis>/dev/sda</emphasis>
+       1     259        3        1      active sync   <emphasis>/dev/nvme1n1</emphasis></screen>
     </answer>
     </qandaentry>
     <qandaentry>
     <question>
-      <para><phrase>Comment rendre la configuration du tableau
-      <acronym>RAID&nbsp;1</acronym> permanente au niveau système&nbsp;?</phrase></para>
+    <para><phrase>Comment rendre la configuration du tableau
+    <acronym>RAID&nbsp;1</acronym> permanente au niveau
+    système&nbsp;?</phrase></para>
 
-      <para>Effectuer une recherche dans les options de la commande
-      d'administration.</para>
+    <para>Recherchez à nouveau dans les options de la commande d'administration
+    <command>mdadm</command> l'option qui permet d'afficher les
+    caractéristiques du tableau <acronym>RAID&nbsp;1</acronym>. Utilisez le
+    résultat de cette même commande pour créer le fichier de configuration
+    système permanent.</para>
     </question>
     <answer>
-      <para>C'est le fichier <filename>/etc/mdadm/mdadm.conf</filename> qui
-      contient les directives de configuration. On ajoute en fin de ce fichier
-      la définition du tableau créé plus haut.</para>
+    <para>Relativement à la question précédente, on ajoute l'option
+    <option>--scan</option> à l'affichage détaillé.</para>
 
-<screen><prompt>$</prompt> sudo mdadm --detail --scan | sudo tee -a /etc/mdadm/mdadm.conf</screen>
+<screen> sudo mdadm --detail --scan</screen>
+<screen>ARRAY /dev/md0 metadata=1.2 UUID=b194fed7:429ef21c:1e3a9890:d2963f45</screen>
+
+    <para>C'est le fichier <filename>/etc/mdadm/mdadm.conf</filename> qui sert
+    à conserver l'identifiant unique du tableau <acronym>RAID&nbsp;1</acronym>
+    déjà créé. Écrivez le résultat de la commande d'identification dans ce
+    fichier.</para>
+
+<screen>sudo mdadm --detail --scan | sudo tee /etc/mdadm/mdadm.conf</screen>
+
+    <para>Ajoutez une adresse mail de destination pour les messages du service
+    de surveillance du tableau <acronym>RAID</acronym> logiciel au fichier de
+    configuration.</para>
+
+<screen>echo "MAILADDR etu@localhost" | sudo tee -a /etc/mdadm/mdadm.conf</screen>
+
+    <para>Enfin, mettez à jour l'<wordasword>initramfs</wordasword> afin que
+    les scripts de démarrage prennent en compte la nouvelle
+    configuration&nbsp;:</para>
+
+<screen>sudo update-initramfs -u</screen>
     </answer>
     </qandaentry>
-  </qandaset>
-  </sect2>
+    </qandaset>
+
+    <para>La configuration du tableau <acronym>RAID&nbsp;1</acronym> est
+    maintenant complète et reproductible à chaque redémarrage du système
+    <wordasword>Initiator</wordasword>.</para>
+
+    </sect2>
 </sect1>
 
-<sect1 xml:id='sysadm-net.iscsi.lvm-snapshot'>
-  <title>Configuration d'un volume logique et de sa sauvegarde</title>
+<sect1 xml:id='sysadm-net.iscsi.lvm'>
+    <title>Configurer la gestion de volume logique LVM</title>
 
-  <para>L'objectif de cette partie est de créer un mécanisme de sauvegarde
-  réseau automatisé en s'appuyant sur la notion de «prise de vue» ou
-  <wordasword>snapshot</wordasword> proposée par le gestionnaire de volume
-  logique <acronym>LVM</acronym>. Dans un instantané, on ne stocke que les
-  différences relativement au volume logique original.</para>
+    <para>L'objectif de cette partie est de mettre en place un mécanisme de
+    sauvegarde réseau automatisé, en s'appuyant sur la notion de «&nbsp;prise
+    de vue&nbsp;» ou <wordasword>snapshot</wordasword> proposée par le
+    gestionnaire de volume logique <acronym>LVM</acronym>. Dans un instantané,
+    seules les différences par rapport au volume logique original sont
+    stockées.</para>
 
-  <qandaset>
+
+    <sect2 xml:id='sysadm-net.iscsi.lvm.setup'>
+    <title>Créer les 3 types d'objets du gestionnaire LVM</title>
+
+    <para>L'utilisation de la gestion de volumes logiques sur les systèmes
+    GNU/Linux impose 3types d'objets.</para>
+
+    <itemizedlist>
+    <listitem>
+    <para>Volume physique ou <wordasword>physical volume</wordasword>
+    (<acronym>PV</acronym>). C'est un disque dur ou une partition préparée pour
+    être utilisée par LVM.</para>
+    </listitem>
+    <listitem>
+    <para>Groupe de volumes ou <wordasword>volume group</wordasword>
+    (<acronym>VG</acronym>). Il regroupe plusieurs volumes physiques pour
+    fournir un espace de stockage commun.</para>
+    </listitem>
+    <listitem>
+    <para>Volume logique ou <wordasword>logical volume</wordasword>
+    (<acronym>LV</acronym>). Ce sont des partitions virtuelles créées à
+    l'intérieur d'un groupe de volumes et utilisées comme partitions classiques
+    par le système.</para>
+    </listitem>
+    </itemizedlist>
+    <qandaset>
     <qandaentry>
     <question>
-	  <para><phrase>Quel est le paquet associé à la gestion de volume logique
-	  <acronym>LVM</acronym>&nbsp;?</phrase></para>
+    <para><phrase>Quel est le paquet associé à la gestion de volume logique
+    <acronym>LVM</acronym>&nbsp;?</phrase></para>
 
-	  <para>Rechercher et installer le paquet qui permet de créer et gérer des
-	  volumes physiques, logiques ainsi que des groupes.</para>
+    <para>Recherchez et installez le paquet qui contient les outils qui
+    permettent de créer et gérer des volumes physiques, des groupes de volumes
+    ainsi que des volumes logiques.</para>
     </question>
     <answer>
-	  <para>En anglais, on parle de <wordasword>Logical Volume
-	  Manager</wordasword> ou <acronym>LVM</acronym>. On cherche donc un paquet
-	  avec la chaîne 'lvm'.</para>
+    <para>En anglais, on parle de <wordasword>Logical Volume
+    Manager</wordasword> ou <acronym>LVM</acronym>. On cherche donc un paquet
+    avec la chaîne 'lvm'.</para>
 
-<screen><prompt>$</prompt> aptitude search ^lvm
-p   lvm2           - gestionnaire de volumes logiques de Linux
-p   lvm2-dbusd     - démon D-Bus pour LVM2
-p   lvm2-lockd     - démon de verrouillage pour LVM</screen>
+<screen>apt search --names-only ^lvm</screen>
+<screen><emphasis>lvm2</emphasis>/testing 2.03.31-2 amd64
+  gestionnaire de volumes logiques de Linux
 
-<screen><prompt>$</prompt> sudo apt install lvm2</screen>
+lvm2-dbusd/testing 2.03.31-2 all
+  démon D-Bus pour LVM2
+
+lvm2-lockd/testing 2.03.31-2 amd64
+  démon de verrouillage pour LVM</screen>
+
+<screen>sudo apt -y install lvm2</screen>
     </answer>
     </qandaentry>
 
 	<qandaentry>
 	<question>
-	  <para><phrase>Comment créer un volume physique associé au tableau RAID&nbsp;1
-	  précédemment créé&nbsp;?</phrase></para>
+    <para><phrase>Comment créer un volume physique associé au tableau
+    <acronym>RAID&nbsp;1</acronym> précédemment créé&nbsp;?</phrase></para>
 
-      <para>Rechercher dans la liste des outils ceux qui correspondent à la
-      gestion de volume physique (PV).</para>
+    <para>Recherchez dans la liste des outils fournis avec le paquet
+    <systemitem>lvm2</systemitem> ceux qui correspondent à la gestion de volume
+    physique.</para>
 	</question>
 	<answer>
-	  <para>L'instruction de recherche habituelle est de la forme&nbsp;:</para>
+    <para>En anglais, on parle de <wordasword>physical volume</wordasword> et
+    le nom des commandes associées commencent par la chaîne 'pv'.</para>
 
-<screen><prompt>$</prompt> dpkg -L lvm2 | grep bin</screen>
+    <para>Commencez par lister toutes les commandes contenues dans le paquet
+    <systemitem>lvm2</systemitem>.</para>
 
-	  <para>Ce sont les outils dont le nom commence par 'pv' qui servent à
-	  manipuler les volumes physiques.</para>
+<screen>dpkg -L lvm2 | grep bin</screen>
 
-<screen><prompt>$</prompt> sudo pvcreate --help</screen>
+    <para>Réduisez cette liste en utilisant la chaîne 'pv' comme filtre.</para>
 
-	  <para>Création du volume physique.</para>
+<screen>dpkg -L lvm2 | grep bin | grep pv</screen>
+<screen>/usr/sbin/pvchange
+/usr/sbin/pvck
+/usr/sbin/pvcreate
+/usr/sbin/pvdisplay
+/usr/sbin/pvmove
+/usr/sbin/pvremove
+/usr/sbin/pvresize
+/usr/sbin/pvs
+/usr/sbin/pvscan</screen>
 
-<screen><prompt>$</prompt> sudo pvcreate /dev/md0
-  Physical volume "/dev/md0" successfully created.</screen>
+    <para>Affichez la liste des option de la commande
+    <command>pvcreate</command> pour connaître les options possibles.</para>
 
-	  <para>Affichage résumé de l'état du volume physique.</para>
+<screen>sudo pvcreate --help</screen>
 
-<screen><prompt>$</prompt> sudo pvs
-  PV         VG Fmt  Attr PSize   PFree
+    <para>Créez le volume physique à partir du nom de périphérique du tableau
+    <acronym>RAID&nbsp;1</acronym>.</para>
+
+<screen>sudo pvcreate /dev/md0</screen>
+<screen>  Physical volume "/dev/md0" successfully created.</screen>
+
+    <para>Affichez le résumé de l'état du volume physique avec la commande
+    <command>pvs</command>.</para>
+
+<screen>sudo pvs</screen>
+<screen>  PV         VG Fmt  Attr PSize   PFree
   /dev/md0      lvm2 ---  &lt;31,97g &lt;31,97g</screen>
 
-	  <para>Affichage détaillé de l'état du volume physique.</para>
+    <para>Affichez aussi les détails sur l'état de cevolume physique.</para>
 
-<screen><prompt>$</prompt> sudo pvdisplay
-  "/dev/md0" is a new physical volume of "&lt;31,97 GiB"
+<screen>sudo pvdisplay</screen>
+<screen>  "/dev/md0" is a new physical volume of "&lt;31,97 GiB"
   --- NEW Physical volume ---
   PV Name               /dev/md0
   VG Name
@@ -2536,41 +2646,45 @@ p   lvm2-lockd     - démon de verrouillage pour LVM</screen>
   Total PE              0
   Free PE               0
   Allocated PE          0
-  PV UUID               vUlk3p-dzZJ-MyLZ-hMcU-P9dH-oQuB-2lptum</screen>
+  PV UUID               dh1YTs-eI6O-rpMY-1FQz-E5rS-FAN0-r6n3dt</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-      <para><phrase>Comment créer un groupe de volumes contenant le tableau
-      RAID&nbsp;1&nbsp;?</phrase></para>
+    <para><phrase>Comment créer un groupe de volumes contenant uniquement le
+    tableau <acronym>RAID&nbsp;1</acronym>&nbsp;?</phrase></para>
 
-      <para>Rechercher dans la liste des outils ceux qui correspondent à la
-      gestion de groupes de volumes (VG).</para>
+    <para>Recherchez dans la liste des outils ceux qui correspondent à la
+    gestion de groupes de volumes en suivant la même démarche que dans la
+    question précédente avec la chaîne 'vg'.</para>
 	</question>
 	<answer>
-      <para>À partir du résultat de la commande de recherche de la question
-      précédente, relevez le fait que ce sont les outils dont le nom commence
-      par 'vg' qui servent à manipuler les groupes de volumes.</para>
+    <para>La syntaxe de la commande de recherche est&nbsp;:</para>
 
-<screen><prompt>$</prompt> sudo vgcreate --help</screen>
+<screen>dpkg -L lvm2 | grep bin | grep vg</screen>
 
-      <para>Création du groupe de volumes avec un unique volume
-      physique.</para>
+    <para>À partir de liste produite par cette commande identifiez la commande
+    <command>vgcreate</command> qui sert à créer des groupes de volumes.</para>
 
-<screen><prompt>$</prompt> sudo vgcreate lab-vg /dev/md0
-  Volume group "lab-vg" successfully created</screen>
+<screen>sudo vgcreate --help</screen>
 
-	  <para>Affichage résumé de l'état du volume physique.</para>
+    <para>Créez le groupe de volumes avec l'unique volume physique à
+    disposition.</para>
 
-<screen><prompt>$</prompt> sudo vgs
-  VG         #PV #LV #SN Attr   VSize  VFree
+<screen>sudo vgcreate lab-vg /dev/md0</screen>
+<screen>  Volume group "lab-vg" successfully created</screen>
+
+    <para>Affichez résumé de l'état du groupe de volumes.</para>
+
+<screen>sudo vgs</screen>
+<screen>  VG     #PV #LV #SN Attr   VSize  VFree
   lab-vg   1   0   0 wz--n- 31,96g 31,96g</screen>
 
-	  <para>Affichage détaillé de l'état du volume physique.</para>
+    <para>Affichez aussi les détails de l'état du groupe de volumes.</para>
 
-<screen><prompt>$</prompt> sudo vgdisplay
-  --- Volume group ---
+<screen>sudo vgdisplay</screen>
+<screen>  --- Volume group ---
   VG Name               lab-vg
   System ID
   Format                lvm2
@@ -2589,50 +2703,49 @@ p   lvm2-lockd     - démon de verrouillage pour LVM</screen>
   Total PE              8183
   Alloc PE / Size       0 / 0
   Free  PE / Size       8183 / 31,96 GiB
-  VG UUID               KIq2zb-emxQ-JiT0-6wAk-tPlO-MmrN-wxzkLl</screen>
-	</answer>
-	</qandaentry>
+  VG UUID               Q37sG9-3cDW-75BC-f7ca-VtEI-nVPx-TOLBJz</screen>
+    </answer>
+    </qandaentry>
 
 	<qandaentry>
 	<question>
-	  <para><phrase>Comment créer un volume logique à l'intérieur du groupe
-	  contenant le tableau <acronym>RAID&nbsp;1</acronym>&nbsp;?</phrase></para>
+    <para><phrase>Comment créer un volume logique qui occupe 16GB de l'espace
+    du groupe contenant le tableau
+    <acronym>RAID&nbsp;1</acronym>&nbsp;?</phrase></para>
 
-      <para>Rechercher dans la liste des outils ceux qui correspondant à la
-      gestion des volumes logiques (LV).</para>
-
-	  <para>Dans cet exemple, nous allons créer un volume logique de 16Go pour
-	  une capacité de 32Go. En situation réelle, il faudrait remplacer les
-	  gigaoctets par des téraoctets.</para>
+    <para>Reprenez la même démarche que dans les deux questions précédentes
+    pour identifier les commandes qui débutent par la chaîne 'lv'.</para>
 	</question>
 	<answer>
-	  <para>Toujours à partir du résultat de la commande de recherche des deux
-	  questions précédentes, relevez que ce sont les outils dont le nom
-	  commence par 'lv' qui servent à manipuler les volumes logiques.</para>
+    <para>Identifiez la commande <command>lvcreate</command> à partir de la
+    liste produite par la recherche des outils relatifs à la gestion de volumes
+    logiques.</para>
 
-<screen><prompt>$</prompt> sudo lvcreate --help</screen>
+    <para>Affichez aussi les options disponibles avec cette commande.</para>
 
-	  <para>Création du volume logique de 16Go.</para>
+<screen>sudo lvcreate --help</screen>
 
-<screen><prompt>$</prompt> sudo lvcreate --size 16Go lab-vg
-  Logical volume "lvol0" created.</screen>
+    <para>Créez un volume logique de 16GB.</para>
 
-	  <para>Affichage résumé de l'état du volume logique.</para>
+<screen>sudo lvcreate --size 16GB lab-vg</screen>
+<screen>  Logical volume "lvol0" created.</screen>
 
-<screen><prompt>$</prompt> sudo lvs
-  LV    VG         Attr       LSize  Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+    <para>Affichez le résumé de l'état du nouveau volume logique.</para>
+
+<screen>sudo lvs</screen>
+<screen>  LV    VG     Attr       LSize  Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
   lvol0 lab-vg -wi-a----- 16,00g</screen>
 
-	  <para>Affichage détaillé de l'état du volume logique.</para>
+    <para>Affichez aussi les détails sur ce volume logique.</para>
 
-<screen><prompt>$</prompt> sudo lvdisplay
-  --- Logical volume ---
+<screen>sudo lvdisplay</screen>
+<screen>  --- Logical volume ---
   LV Path                /dev/lab-vg/lvol0
   LV Name                lvol0
   VG Name                lab-vg
-  LV UUID                8UFwye-RMgA-hzY4-8nnv-h7nK-09GA-Ff2AT2
+  LV UUID                gpSv0b-5Qbi-wgSm-MTA0-sJNm-CeNp-stbjVy
   LV Write Access        read/write
-  LV Creation host, time initiator, 2022-09-05 14:27:28 +0200
+  LV Creation host, time initiator, 2025-08-31 10:17:23 +0200
   LV Status              available
   # open                 0
   LV Size                16,00 GiB
@@ -2640,31 +2753,32 @@ p   lvm2-lockd     - démon de verrouillage pour LVM</screen>
   Segments               1
   Allocation             inherit
   Read ahead sectors     auto
-  - currently set to     256
+  - currently set to     512
   Block device           252:0</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	  <para><phrase>Comment créer un système de fichiers sur le nouveau volume
-	  logique&nbsp;?</phrase></para>
+    <para><phrase>Comment formater un système de fichiers sur le nouveau volume
+    logique&nbsp;?</phrase></para>
 
-	  <para>Reprendre les traitements de la <xref
-	  linkend='sysadm-net.iscsi.storage' /> avec le nom du volume logique
-	  obtenu à la question précédente.</para>
+    <para>Reprenez les traitements de la <xref
+    linkend='sysadm-net.iscsi.storage' /> avec le nom du volume logique obtenu
+    à la question précédente.</para>
 	</question>
 	<answer>
-	  <para>Formatage du système de fichiers.</para>
+    <para>Formatez le volume logique avec un système de fichiers
+    <systemitem>ext4</systemitem>.</para>
 
-<screen><prompt>$</prompt> sudo mkfs.ext4 /dev/lab-vg/lvol0
-mke2fs 1.46.5 (30-Dec-2021)
+<screen>sudo mkfs.ext4 /dev/lab-vg/lvol0</screen>
+<screen>mke2fs 1.47.2 (1-Jan-2025)
 Discarding device blocks: done
 Creating filesystem with 4194304 4k blocks and 1048576 inodes
-Filesystem UUID: d94a59f2-7c67-4be7-9643-d646d1dbe2a4
+Filesystem UUID: 949e01dd-d119-4737-bfa9-c51b3b62ee86
 Superblock backups stored on blocks:
-        32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208,
-        4096000
+	32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208,
+	4096000
 
 Allocating group tables: done
 Writing inode tables: done
@@ -2672,99 +2786,170 @@ Creating journal (32768 blocks): done
 Writing superblocks and filesystem accounting information: done</screen>
 	</answer>
 	</qandaentry>
+    </qandaset>
+    </sect2>
 
+    <sect2 xml:id='sysadm-net.iscsi.lvm.mount'>
+    <title>Monter et utiliser la nouvelle partition LVM</title>
+
+    <qandaset>
 	<qandaentry>
 	<question>
-	  <para><phrase>Comment monter et accéder au nouveau système de
-	  fichiers&nbsp;?</phrase></para>
+    <para><phrase>Comment monter et accéder au nouveau système de
+    fichiers&nbsp;?</phrase></para>
 
-	  <para>Créer un sous dossier au niveau <filename
-	  class='directory'>/mnt</filename> et monter le nouveau système de
-	  fichiers manuellement.</para>
+    <para>Créez un sous dossier au niveau <filename
+    class='directory'>/mnt</filename> et montez le nouveau système de fichiers
+    manuellement.</para>
 	</question>
 	<answer>
-	  <para>Exemple de résultats attendus.</para>
+    <para>Créez le dossier <filename
+    class='directory'>/mnt/lvol0</filename>.</para>
 
-<screen><prompt>$</prompt> sudo mkdir /mnt/lvol0
+<screen>sudo mkdir /mnt/lvol0</screen>
 
-<prompt>$</prompt> sudo mount /dev/lab-vg/lvol0 /mnt/lvol0/
+    <para>Montez le nouveau volume logique sur ce dossier.</para>
 
-<prompt>$</prompt> mount | grep lvol0
-/dev/mapper/lab--vg-lvol0 on /mnt/lvol0 type ext4 (rw,relatime)</screen>
+<screen>sudo mount /dev/lab-vg/lvol0 /mnt/lvol0/</screen>
 
-	  <para>Une fois le système de fichiers monté, il est possible de créer des
-	  dossiers et des fichiers avec les permissions adaptées. Voici un exemple
-	  avec une attribution de dossier à l'utilisateur normal
-	  <systemitem>etu</systemitem>.</para>
+    <para>Vérifiez que le montage est bien présent dans la liste des montages
+    connus du système.</para>
 
-<screen><prompt>$</prompt> sudo mkdir /mnt/lvol0/etu-files
-<prompt>$</prompt> sudo chown etu.etu /mnt/lvol0/etu-files
-<prompt>$</prompt> touch /mnt/lvol0/etu-files/my-first-file</screen>
+<screen>mount | grep lvol0</screen>
+<screen>/dev/mapper/lab--vg-lvol0 on /mnt/lvol0 type ext4 (rw,relatime,stripe=32)</screen>
 	</answer>
 	</qandaentry>
 
+    <qandaentry>
+    <question>
+    <para><phrase>Comment rendre le montage permanent&nbsp;?</phrase></para>
+
+    <para>Retrouvez dans les questions de la <xref
+    linkend='sysadm-net.iscsi.storage' />, celle relative à l'utilisation du
+    fichier système <filename>/etc/fstab</filename>.</para>
+    </question>
+    <answer>
+    <para>Affichez l'identifiant de la partition <acronym>LVM</acronym> et
+    composez la ligne à ajouter à la fin du fichier
+    <filename>/etc/fstab</filename>.</para>
+
+<screen>uuid=$(sudo blkid -s UUID -o value /dev/mapper/lab--vg-lvol0)
+echo "UUID=$uuid /mnt/lvol0 ext4 defaults,nofail 0 2" | sudo tee -a /etc/fastab</screen>
+
+<screen>UUID=949e01dd-d119-4737-bfa9-c51b3b62ee86 /mnt/lvol0 ext4 defaults,nofail 0 2</screen>
+
+    <para>L'option <option>nofail</option> a été ajoutée pour traiter le cas où
+    le volume n’est pas toujours disponible</para>
+
+    <para>Vérifiez la validité des entrées du fichier des montages système
+    <filename>/etc/fstab</filename>.</para>
+
+<screen>sudo mount -a</screen>
+
+    <para>Le résultat de cette dernière commande ne doit produire aucun
+    message.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment créer et analyser une arborescence de fichiers
+    utilisateur dans le nouveau montage&nbsp;?</phrase></para>
+
+    <para>Créez un dossier <filename class='directory'>etu-files</filename> au
+    niveau <filename class='directory'>/mnt/lvol0</filename> et désignez
+    l'utilisateur normal <systemitem>etu</systemitem> comme propriétaire du
+    dossier</para>
+
+    <para>Créez ensuite un fichier vide de 32KB dans ce dossier.</para>
+    </question>
+    <answer>
+<screen>sudo mkdir /mnt/lvol0/etu-files
+sudo chown etu:etu /mnt/lvol0/etu-files</screen>
+
+<screen>dd if=/dev/zero of=/mnt/lvol0/etu-files/my-first-file bs=4k count=8
+ls -lAh /mnt/lvol0/etu-files/my-first-file</screen>
+
+<screen>8+0 enregistrements lus
+8+0 enregistrements écrits
+32768 octets (33 kB, 32 KiB) copiés, 0,000149365 s, 219 MB/s
+-rw-rw-r-- 1 etu etu 32K 31 août  16:25 /mnt/lvol0/etu-files/my-first-file</screen>
+    </answer>
+    </qandaentry>
+
 	<qandaentry>
 	<question>
-	  <para><phrase>Comment visualiser l'état global des systèmes de fichiers
-	  et des montages en cours&nbsp;?</phrase></para>
+    <para><phrase>Comment visualiser l'état global des systèmes de fichiers et
+    des montages en cours&nbsp;?</phrase></para>
 
-	  <para>Utiliser les commandes usuelles telles que <command>df</command> et
-	  <command>lsblk</command>.</para>
+    <para>Utiliser les commandes usuelles telles que <command>df</command> et
+    <command>lsblk</command>.</para>
 	</question>
 	<answer>
-	  <para>Exemple de résultat attendu.</para>
+    <para>Lancez les commandes et relevez les résultats pour le montage du
+    volume logique <acronym>LVM</acronym>.</para>
 
-<screen><prompt>$</prompt> df -hT
-Sys. de fichiers          Type     Taille Utilisé Dispo Uti% Monté sur
-udev                      devtmpfs   463M       0  463M   0% /dev
-tmpfs                     tmpfs       97M    700K   97M   1% /run
-/dev/vda2                 ext4       117G    2,0G  109G   2% /
-tmpfs                     tmpfs      484M       0  484M   0% /dev/shm
-tmpfs                     tmpfs      5,0M       0  5,0M   0% /run/lock
-/dev/vda1                 vfat       511M    3,5M  508M   1% /boot/efi
-tmpfs                     tmpfs       97M       0   97M   0% /run/user/1000
-/dev/mapper/lab--vg-lvol0 ext4        16G     28K   15G   1% /mnt/lvol0</screen>
+<screen>df -hT | grep mnt</screen>
+<screen>/dev/mapper/lab--vg-lvol0 ext4        <emphasis>16G    2,1M   15G   1% /mnt/lvol0</emphasis></screen>
 
-<screen><prompt>$</prompt> lsblk
-NAME              MAJ:MIN RM   SIZE RO TYPE  MOUNTPOINTS
-sda                 8:0    0    32G  0 disk
-sdb                 8:16   0    32G  0 disk
+<screen>lsblk | grep -B2 mnt</screen>
+<screen>sda                 8:0    0    32G  0 disk
 └─md0               9:0    0    32G  0 raid1
   └─lab--vg-lvol0 252:0    0    16G  0 lvm   /mnt/lvol0
-sr0                11:0    1  1024M  0 rom
-vda               254:0    0   120G  0 disk
-├─vda1            254:1    0   512M  0 part  /boot/efi
-├─vda2            254:2    0 118,5G  0 part  /
-└─vda3            254:3    0   977M  0 part  [SWAP]
-vdb               254:16   0    32G  0 disk
+--
+nvme1n1           259:6    0    32G  0 disk
 └─md0               9:0    0    32G  0 raid1
   └─lab--vg-lvol0 252:0    0    16G  0 lvm   /mnt/lvol0</screen>
 
-	  <para>Cette dernière commande illustre bien l'état de la réplication
-	  <acronym>RAID&nbsp;1</acronym> en plus de l'utilisation du volume
-	  logique.</para>
+    <para>Les résultats de cette dernière commande illustrent bien l'état de la
+    réplication <acronym>RAID&nbsp;1</acronym> en plus de l'utilisation du
+    volume logique.</para>
 	</answer>
 	</qandaentry>
+    </qandaset>
+    </sect2>
 
+    <sect2 xml:id='sysadm-net.iscsi.lvm.snapshot'>
+    <title>Utiliser les <wordasword>snapshots</wordasword> LVM</title>
+
+    <qandaset>
 	<qandaentry>
 	<question>
-	  <para><phrase>Comment créer deux instantanés du volume
-	  logique avec des jeux de fichiers différents&nbsp;?</phrase></para>
+    <para><phrase>Comment créer deux instantanés du volume logique avec des
+    jeux de fichiers différents&nbsp;?</phrase></para>
 
-	  <para>Après avoir créé une série de fichiers, recherchez les options de
-	  la commande <command>lvcreate</command> qui permettent de créer la
-	  première prise de vue (<wordasword>snapshot</wordasword>).</para>
-	</question>
-	<answer>
-	  <para>Création de 10 fichiers vides.</para>
+    <orderedlist>
+    <listitem>
+    <para>Créez une première série de fichiers vides avec une boucle.</para>
+    </listitem>
+    <listitem>
+    <para>Créez un premier instantané (<wordasword>snapshot</wordasword>.</para>
+    </listitem>
+    <listitem>
+    <para>Créez une seconde série de fichiers vides avec une nouvelle boucle.</para>
+    </listitem>
+    <listitem>
+    <para>Créez un second instantané.</para>
+    </listitem>
+    <listitem>
+    <para>Affichez la liste des volumes logiques.</para>
+    </listitem>
+    </orderedlist>
 
-<screen><prompt>$</prompt> for i in {1..10}
+    <para>Recherchez dans les options de la commande
+    <command>lvcreate</command> celles spécifiques aux
+    <wordasword>snapshots</wordasword>.</para>
+    </question>
+    <answer>
+    <para>Créez la première série de 10 fichiers vides.</para>
+
+<screen>for i in {1..10}
 do
 	touch /mnt/lvol0/etu-files/first-$(printf "%02d" $i)-file
-done
+done</screen>
 
-<prompt>$</prompt> ls -1 /mnt/lvol0/etu-files/
-first-01-file
+<screen>ls -1 /mnt/lvol0/etu-files/</screen>
+<screen>first-01-file
 first-02-file
 first-03-file
 first-04-file
@@ -2776,20 +2961,21 @@ first-09-file
 first-10-file
 my-first-file</screen>
 
-	  <para>Première capture instantanée du système de fichiers.</para>
+    <para>Créez le premier instantané avec le nom
+    <option>first-snap</option>.</para>
 
-<screen><prompt>$</prompt> sudo lvcreate --snapshot --name first-snap -L 500M /dev/lab-vg/lvol0
-  Logical volume "first-snap" created.</screen>
+<screen>sudo lvcreate --snapshot --name first-snap -L 500M /dev/lab-vg/lvol0</screen>
+<screen>  Logical volume "first-snap" created.</screen>
 
-	  <para>Création de 10 nouveaux fichiers vides.</para>
+    <para>Créez la seconde série de 10 nouveaux fichiers vides.</para>
 
-<screen><prompt>$</prompt> for i in {1..10}
+<screen>for i in {1..10}
 do
     touch /mnt/lvol0/etu-files/second-$(printf "%02d" $i)-file
-done
+done</screen>
 
-<prompt>$</prompt> ls -1 /mnt/lvol0/etu-files/
-first-01-file
+<screen>ls -1 /mnt/lvol0/etu-files/</screen>
+<screen>first-01-file
 first-02-file
 first-03-file
 first-04-file
@@ -2811,15 +2997,16 @@ second-08-file
 second-09-file
 second-10-file</screen>
 
-	  <para>Seconde capture instantanée du système de fichiers.</para>
+    <para>Créez le second instantané avec le nom
+    <option>second-snap</option>.</para>
 
-<screen><prompt>$</prompt> sudo lvcreate --snapshot --name second-snap -L 500M /dev/lab-vg/lvol0
-  Logical volume "second-snap" created.</screen>
+<screen>sudo lvcreate --snapshot --name second-snap -L 500M /dev/lab-vg/lvol0</screen>
+<screen>  Logical volume "second-snap" created</screen>
 
-	  <para>État du volume logique.</para>
+    <para>Affichez la liste résumée des volumes logiques.</para>
 
-<screen><prompt>$</prompt> sudo lvs
-LV          VG     Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+<screen>sudo lvs</screen>
+<screen>  LV          VG     Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
   first-snap  lab-vg swi-a-s--- 500,00m      lvol0  0,01
   lvol0       lab-vg owi-aos---  16,00g
   second-snap lab-vg swi-a-s--- 500,00m      lvol0  0,01</screen>
@@ -2828,52 +3015,128 @@ LV          VG     Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Syn
 
 	<qandaentry>
 	<question>
-	  <para><phrase>Comment tester la restauration du système de fichiers à
-	  partir des instantanés&nbsp;?</phrase></para>
+    <para><phrase>Comment tester la restauration du système de fichiers à
+    partir des instantanés&nbsp;?</phrase></para>
 
-	  <para>Après avoir supprimé tous les fichiers du dossier <filename
-	  class='directory'>/mnt/lvol0/etu-files/</filename>, restaurez le
-	  contenu des deux prises de vues dans l'ordre.</para>
+    <para>Supprimez tous les fichiers du dossier <filename
+    class='directory'>/mnt/lvol0/etu-files/</filename> pour simuler la perte
+    des données de l'utilisateur.</para>
+
+    <para>Restaurez le contenu du premier instantané pour simuler le retour à
+    une étape antérieure du système de fichiers en cas d'erreur sur la
+    modification des données de l'utilisateur.</para>
+
+    <para>Restaurez le contenu du second instantané pour simuler la
+    restauration totale des données depuis la dernière prise de vue.</para>
+
+    <para>Recherchez dans les options de la commande
+    <command>lvchange</command> celles relatives à l'activation et la
+    désactivation d'un volume logique.</para>
 	</question>
 	<answer>
-	  <para>Supprimez des fichiers du répertoire de travail.</para>
+    <para>Supprimez des fichiers du dossier
+    <filename>/mnt/lvol0/etu-files/</filename>.</para>
 
-<screen><prompt>$</prompt> rm /mnt/lvol0/etu-files/*</screen>
+<screen>rm /mnt/lvol0/etu-files/*</screen>
+<screen>ls -1 /mnt/lvol0/etu-files/</screen>
 
-	  <para>Restaurez à partir du premier instantané.</para>
+    <para>Le résultat de la dernière commande ne produit aucun affichage. Les
+    données de l'utilisateur sont donc perdues.</para>
 
-<screen><prompt>$</prompt> sudo lvconvert --merge /dev/lab-vg/first-snap
-  Delaying merge since origin is open.
+    <para>Lancez la restauration à partir du premier instantané.</para>
+
+<screen>sudo lvconvert --merge /dev/lab-vg/first-snap</screen>
+<screen>  Delaying merge since origin is open.
   Merging of snapshot lab-vg/first-snap will occur on next activation of lab-vg/lvol0.</screen>
 
-	  <para>Pour que la restauration soit effective, il est nécessaire de
-	  désactiver/réactiver le volume logique à l'aide de la commande
-	  <command>lvchange</command>.</para>
+    <para>Désactivez puis réactivez le volume logique à l'aide de la commande
+    <command>lvchange</command> pour que la restauration soit effective.</para>
 
-<screen><prompt>$</prompt> sudo lvchange --activate n lab-vg/lvol0
-  Logical volume lab-vg/lvol0 is used by another device.</screen>
+    <orderedlist>
+    <listitem>
+    <para>Tentez de désactiver directement le volume logique.</para>
 
-	  <para>Aïe&nbsp;! Le volume logique est en cours d'utilisation. On doit
-	  donc démonter le système de fichiers et tester à nouveau.</para>
+<screen>sudo lvchange --activate n lab-vg/lvol0</screen>
+<screen>  Logical volume <emphasis>lab-vg/lvol0 contains a filesystem in use</emphasis>.</screen>
+    </listitem>
+    <listitem>
+    <para>Le volume logique est en cours d'utilisation. Démontez le système de
+    fichiers.</para>
 
-<screen><prompt>$</prompt> sudo umount /mnt/lvol0
-<prompt>$</prompt> sudo lvchange --activate n lab-vg/lvol0</screen>
+<screen>sudo umount /mnt/lvol0</screen>
+    </listitem>
+    <listitem>
+    <para>Lancez à nouveau la désactivation du volume.</para>
 
-	  <para>Cette fois ci, le volume est enfin désactivé. On peut le
-	  réactiver.</para>
+<screen>sudo lvchange --activate n lab-vg/lvol0</screen>
 
-<screen><prompt>$</prompt> sudo lvchange --activate y lab-vg/lvol0</screen>
+    <para>Cette fois ci, le volume est désactivé. Confirmez le résultat avec la
+    commande <command>lvdisplay</command>.</para>
 
-<screen><prompt>$</prompt> sudo lvscan
-  ACTIVE   Original '/dev/lab-vg/lvol0' [16,00 GiB] inherit
+<screen>sudo lvdisplay /dev/lab-vg/lvol0</screen>
+<screen>  --- Logical volume ---
+  LV Path                /dev/lab-vg/lvol0
+  LV Name                lvol0
+  VG Name                lab-vg
+  LV UUID                gpSv0b-5Qbi-wgSm-MTA0-sJNm-CeNp-stbjVy
+  LV Write Access        read/write
+  LV Creation host, time initiator, 2025-08-31 10:17:23 +0200
+  LV snapshot status     source of
+                         first-snap [INACTIVE]
+                         second-snap [INACTIVE]
+  <emphasis>LV Status              NOT available</emphasis>
+  LV Size                16,00 GiB
+  Current LE             4096
+  Segments               1
+  Allocation             inherit
+  Read ahead sectors     auto</screen>
+    </listitem>
+    <listitem>
+    <para>Réactivez ce même volume logique.</para>
+
+<screen>sudo lvchange --activate y lab-vg/lvol0</screen>
+
+    <para>La réactivation est un succès. Confirmez le avec les commandes
+    <command>lvdisplay</command> ou <command>lvscan</command>.</para>
+
+<screen>sudo lvdisplay /dev/lab-vg/lvol0</screen>
+<screen>  --- Logical volume ---
+  LV Path                /dev/lab-vg/lvol0
+  LV Name                lvol0
+  VG Name                lab-vg
+  LV UUID                gpSv0b-5Qbi-wgSm-MTA0-sJNm-CeNp-stbjVy
+  LV Write Access        read/write
+  LV Creation host, time initiator, 2025-08-31 10:17:23 +0200
+  LV snapshot status     source of
+                         second-snap [active]
+  <emphasis>LV Status              available</emphasis>
+  # open                 0
+  LV Size                16,00 GiB
+  Current LE             4096
+  Segments               1
+  Allocation             inherit
+  Read ahead sectors     auto
+  - currently set to     512
+  Block device           252:2</screen>
+
+<screen>sudo lvscan</screen>
+<screen>  ACTIVE   Original '/dev/lab-vg/lvol0' [16,00 GiB] inherit
   ACTIVE   Snapshot '/dev/lab-vg/second-snap' [500,00 MiB] inherit</screen>
+    </listitem>
+    <listitem>
+    <para>Remontez le système de fichiers à l'aide de la commande
+    <command>mount</command>.</para>
 
-	<para>La partition est bien disponible et on a retrouvé la liste des
-	fichiers du premier instantané.</para>
+<screen>sudo mount /dev/lab-vg/lvol0 /mnt/lvol0/</screen>
+    </listitem>
+    </orderedlist>
 
-<screen><prompt>$</prompt> sudo mount /dev/lab-vg/lvol0 /mnt/lvol0/
+    <para>Listez le contenu du dossier <filename
+    class='directory'>/mnt/lvol0/etu-files/</filename> pour confirmer le retour
+    du système de fichiers au moment du premier
+    <wordasword>snapshot</wordasword>.</para>
 
-<prompt>$</prompt> ls -1 /mnt/lvol0/etu-files/
+<screen>ls -1 /mnt/lvol0/etu-files/
 first-01-file
 first-02-file
 first-03-file
@@ -2886,12 +3149,59 @@ first-09-file
 first-10-file
 my-first-file</screen>
 
-	  <para>Pour restaurer le contenu du second instantané, reprenez
-	  les mêmes opérations à partir de la commande
-	  <command>lvconvert</command>.</para>
-	</answer>
-	</qandaentry>
-  </qandaset>
+    <para>Pour restaurer le contenu du second instantané, reprenez les mêmes
+    opérations à partir de la commande <command>lvconvert</command>.</para>
+
+    <para>Lancez la suite de commandes précédentes pour avec le second
+    <wordasword>snapshot</wordasword>.</para>
+
+<screen>sudo lvconvert --merge /dev/lab-vg/second-snap
+sudo umount /mnt/lvol0
+sudo lvchange --activate n lab-vg/lvol0
+sudo lvchange --activate y lab-vg/lvol0
+sudo mount /dev/lab-vg/lvol0 /mnt/lvol0/</screen>
+
+    <para>Listez le contenu du système de fichiers restauré.</para>
+
+<screen>ls -1 /mnt/lvol0/etu-files/</screen>
+<screen>first-01-file
+first-02-file
+first-03-file
+first-04-file
+first-05-file
+first-06-file
+first-07-file
+first-08-file
+first-09-file
+first-10-file
+my-first-file
+second-01-file
+second-02-file
+second-03-file
+second-04-file
+second-05-file
+second-06-file
+second-07-file
+second-08-file
+second-09-file
+second-10-file</screen>
+
+    <para>La liste affichée ci-dessus montre que le système de fichiers est
+    revenu au moment de la seconde prise de vue.</para>
+    </answer>
+    </qandaentry>
+    </qandaset>
+
+    <para>Ces manipulations illustrent une partie de la flexibilité offerte par
+    la gestion de volumes logiques <acronym>LVM</acronym>. L'utilisation des
+    instantanés (<wordasword>snapshots</wordasword>) met en évidence la
+    capacité d'adaptation du système, qui permet de sauvegarder et de restaurer
+    les données instantanément et sans interruption de service. Seules les
+    différences par rapport au volume original sont stockées, ce qui permet
+    d'optimiser l'espace disque. <acronym>LVM</acronym> s'impose comme un outil
+    indispensable pour les environnements qui requièrent une haute
+    disponibilité et une gestion fine des ressources de stockage.</para>
+    </sect2>
 </sect1>
 
 <sect1 xml:id='sysadm-net.iscsi.raid-rebuild'>
