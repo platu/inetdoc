@@ -19,14 +19,14 @@ XML_FILES = \
 	legal.xml \
 	inetdoc.urls.xml \
 	$(OUTPUT)/chapter-sysadm-net.iscsi.xml \
-	$(OUTPUT)/chapter-sysadm-net.nfs.qa.xml \
+	$(OUTPUT)/chapter-sysadm-net.nfs.xml \
 	$(OUTPUT)/chapter-sysadm-net.ldap.qa.xml \
 	$(OUTPUT)/chapter-sysadm-net.autofs-ldap-nfs.qa.xml \
 	$(wildcard images/*)
 
 CHAPTER_FILES = \
 	../sysadm-net.iscsi/sysadm-net.iscsi.xml \
-	../sysadm-net.nfs.qa/sysadm-net.nfs.qa.xml \
+	../sysadm-net.nfs/sysadm-net.nfs.xml \
 	../sysadm-net.ldap.qa/sysadm-net.ldap.qa.xml \
 	../sysadm-net.autofs-ldap-nfs.qa/sysadm-net.autofs-ldap-nfs.qa.xml \
 

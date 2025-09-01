@@ -12,7 +12,7 @@ SUBDIRS = \
 	config.interface.wlan \
 	intro.analyse \
 	sysadm-net.iscsi \
-	sysadm-net.nfs.qa \
+	sysadm-net.nfs \
 	sysadm-net.ldap.qa \
 	sysadm-net.autofs-ldap-nfs.qa \
 	sysadm-net.nis.qa \
@@ -41,7 +41,7 @@ XML_FILES = \
 	config.interface.wlan/$(ABSTRACT_FILE) \
 	intro.analyse/$(ABSTRACT_FILE) \
 	sysadm-net.iscsi/$(ABSTRACT_FILE) \
-	sysadm-net.nfs.qa/$(ABSTRACT_FILE) \
+	sysadm-net.nfs/$(ABSTRACT_FILE) \
 	sysadm-net.ldap.qa/$(ABSTRACT_FILE) \
 	sysadm-net.autofs-ldap-nfs.qa/$(ABSTRACT_FILE) \
 	sysadm-net.nis.qa/$(ABSTRACT_FILE) \

@@ -14,7 +14,7 @@ SYMLINKS = \
 	$(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
-	sysadm-net.nfs.qa.xml \
+	sysadm-net.nfs.xml \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.xml \

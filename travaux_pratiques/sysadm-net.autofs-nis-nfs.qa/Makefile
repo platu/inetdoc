@@ -13,9 +13,9 @@ SYMLINKS = \
 XML_FILES = \
 	sysadm-net.autofs-nis-nfs.qa.xml \
 	../sysadm-net.nis.qa/sysadm-net.nis.qa.xml \
-	../sysadm-net.nfs.qa/sysadm-net.nfs.qa.xml \
-        author.xml \
-        legal.xml \
+	../sysadm-net.nfs/sysadm-net.nfs.xml \
+    author.xml \
+    legal.xml \
 	inetdoc.urls.xml \
 
 all: qandasets $(PROCESS)
@@ -37,6 +37,6 @@ $(OUTPUT)/qandaset-nis-client-libc.xml: ../sysadm-net.nis.qa/sysadm-net.nis.qa.x
 	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
 	sed "/<qandaset.* xml:id='sysadm-net.nis.client-libc'>/,/<\/qandaset/!d" $< > $@
 
-$(OUTPUT)/qandaset-nfs-common-package.xml: ../sysadm-net.nfs.qa/sysadm-net.nfs.qa.xml
+$(OUTPUT)/qandaset-nfs-common-package.xml: ../sysadm-net.nfs/sysadm-net.nfs.xml
 	@if [ ! -d $(OUTPUT) ]; then mkdir $(OUTPUT); fi
 	sed "/<qandaset.* xml:id='sysadm-net.nfs.common-package'>/,/<\/qandaset/!d" $< > $@
