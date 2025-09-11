@@ -881,6 +881,11 @@ up into multiple documents.
     <!-- Format Variable Lists as Blocks (prevents horizontal overflow) -->
     <xsl:param name="variablelist.as.blocks" select="1" />
 
+    <!-- Variable list margin properties -->
+    <xsl:attribute-set name="variablelist.properties">
+      <xsl:attribute name="margin-left">1em</xsl:attribute>
+    </xsl:attribute-set>
+
     <!-- Qandas -->
     <xsl:attribute-set name="qanda.title.properties">
       <xsl:attribute name="font-family">
@@ -941,4 +946,3 @@ up into multiple documents.
 		<xsl:apply-templates select="exsl:node-set($new.element)/foo/*"/>
 	</xsl:template>
 </xsl:stylesheet>
-
