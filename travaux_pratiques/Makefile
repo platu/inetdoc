@@ -13,10 +13,8 @@ SUBDIRS = \
 	intro.analyse \
 	sysadm-net.iscsi \
 	sysadm-net.nfs \
-	sysadm-net.ldap.qa \
-	sysadm-net.autofs-ldap-nfs.qa \
-	sysadm-net.nis.qa \
-	sysadm-net.autofs-nis-nfs.qa \
+	sysadm-net.ldap \
+	sysadm-net.autofs-ldap-nfs \
 	sysadm-net.dns.qa \
 	sysadm-net.set \
 	interco_01.inter-vlan-iaas \
@@ -26,7 +24,7 @@ SUBDIRS = \
 	interco_05.ospf \
 	interco_06.synthese \
     interco.set \
-	interco.ospf-bird.qa
+	interco.ospf-bird
 
 # Type(s) de traitement
 PROCESS = subdirs symlink xml2xhtml xml2pdf
@@ -42,10 +40,8 @@ XML_FILES = \
 	intro.analyse/$(ABSTRACT_FILE) \
 	sysadm-net.iscsi/$(ABSTRACT_FILE) \
 	sysadm-net.nfs/$(ABSTRACT_FILE) \
-	sysadm-net.ldap.qa/$(ABSTRACT_FILE) \
-	sysadm-net.autofs-ldap-nfs.qa/$(ABSTRACT_FILE) \
-	sysadm-net.nis.qa/$(ABSTRACT_FILE) \
-	sysadm-net.autofs-nis-nfs.qa/$(ABSTRACT_FILE) \
+	sysadm-net.ldap/$(ABSTRACT_FILE) \
+	sysadm-net.autofs-ldap-nfs/$(ABSTRACT_FILE) \
 	sysadm-net.dns.qa/$(ABSTRACT_FILE) \
 	interco_01.inter-vlan-iaas/$(ABSTRACT_FILE) \
 	interco_02.pppoe/$(ABSTRACT_FILE) \
@@ -53,7 +49,7 @@ XML_FILES = \
 	interco_04.netfilter/$(ABSTRACT_FILE) \
 	interco_05.ospf/$(ABSTRACT_FILE) \
 	interco_06.synthese/$(ABSTRACT_FILE) \
-	interco.ospf-bird.qa/$(ABSTRACT_FILE) \
+	interco.ospf-bird/$(ABSTRACT_FILE) \
 	$(wildcard images/*.png)
 
 all: $(PROCESS)

@@ -8,27 +8,27 @@ SUBDIRS = images
 PROCESS = subdirs symlink xml2xhtml xml2pdf
 
 SYMLINKS = \
-        $(MAIN_DIR)/common/author.xml \
-        $(MAIN_DIR)/common/legal.xml \
-        $(MAIN_DIR)/common/rfc.urls.xml \
-        $(MAIN_DIR)/common/inetdoc.urls.xml
+    $(MAIN_DIR)/common/author.xml \
+    $(MAIN_DIR)/common/legal.xml \
+    $(MAIN_DIR)/common/rfc.urls.xml \
+    $(MAIN_DIR)/common/inetdoc.urls.xml
 
 XML_FILES = \
-	sysadm-net.set.xml \
-	author.xml \
-	legal.xml \
-	inetdoc.urls.xml \
-	$(OUTPUT)/chapter-sysadm-net.iscsi.xml \
-	$(OUTPUT)/chapter-sysadm-net.nfs.xml \
-	$(OUTPUT)/chapter-sysadm-net.ldap.qa.xml \
-	$(OUTPUT)/chapter-sysadm-net.autofs-ldap-nfs.qa.xml \
-	$(wildcard images/*)
+    sysadm-net.set.xml \
+    author.xml \
+    legal.xml \
+    inetdoc.urls.xml \
+    $(OUTPUT)/chapter-sysadm-net.iscsi.xml \
+    $(OUTPUT)/chapter-sysadm-net.nfs.xml \
+    $(OUTPUT)/chapter-sysadm-net.ldap.xml \
+    $(OUTPUT)/chapter-sysadm-net.autofs-ldap-nfs.xml \
+    $(wildcard images/*)
 
 CHAPTER_FILES = \
-	../sysadm-net.iscsi/sysadm-net.iscsi.xml \
-	../sysadm-net.nfs/sysadm-net.nfs.xml \
-	../sysadm-net.ldap.qa/sysadm-net.ldap.qa.xml \
-	../sysadm-net.autofs-ldap-nfs.qa/sysadm-net.autofs-ldap-nfs.qa.xml \
+    ../sysadm-net.iscsi/sysadm-net.iscsi.xml \
+    ../sysadm-net.nfs/sysadm-net.nfs.xml \
+    ../sysadm-net.ldap/sysadm-net.ldap.xml \
+    ../sysadm-net.autofs-ldap-nfs/sysadm-net.autofs-ldap-nfs.xml \
 
 .PHONY: all $(PROCESS)
 
