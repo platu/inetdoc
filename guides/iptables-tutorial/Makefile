@@ -5,7 +5,10 @@ endif
 # Type(s) de traitement
 PROCESS = xml2xhtml xml2pdf
 
-XML_FILES = iptables-tutorial.xml $(wildcard images/*.png chapters/*.xml scripts/*)
+XML_FILES = \
+    iptables-tutorial.xml \
+    bookinfo.xml \
+    $(wildcard images/*.png chapters/*.xml appendices/*.xml licensing/*.xml scripts/*)
 
 all: $(PROCESS)
 
