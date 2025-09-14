@@ -10,14 +10,14 @@ PROCESS = subdirs symlink xml2xhtml xml2pdf
 SYMLINKS = \
 	$(MAIN_DIR)/common/author.xml \
 	$(MAIN_DIR)/common/legal.xml \
-	$(MAIN_DIR)/common/inetdoc.urls.xml \
-	$(MAIN_DIR)/common/rfc.urls.xml
+	$(MAIN_DIR)/common/inetdoc.urls.ent \
+	$(MAIN_DIR)/common/rfc.urls.ent
 
 XML_FILES = \
 	pppoe.xml \
 	author.xml \
 	legal.xml \
-	inetdoc.urls.xml \
+	inetdoc.urls.ent \
 	$(wildcard images/*)
 
 all: $(PROCESS)

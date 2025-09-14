@@ -10,14 +10,15 @@ PROCESS = subdirs symlink xml2xhtml xml2pdf
 SYMLINKS = \
     $(MAIN_DIR)/common/author.xml \
     $(MAIN_DIR)/common/legal.xml \
-    $(MAIN_DIR)/common/rfc.urls.xml \
-    $(MAIN_DIR)/common/inetdoc.urls.xml
+    $(MAIN_DIR)/common/rfc.urls.ent \
+    $(MAIN_DIR)/common/inetdoc.urls.ent
 
 XML_FILES = \
 	interco.set.xml \
 	author.xml \
 	legal.xml \
-	inetdoc.urls.xml \
+	inetdoc.urls.ent \
+    rfc.urls.ent \
 	$(OUTPUT)/chapter-inter-vlan-iaas.xml \
 	$(OUTPUT)/chapter-pppoe.xml \
 	$(OUTPUT)/chapter-hub-and-spoke.xml \

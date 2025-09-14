@@ -10,14 +10,14 @@ PROCESS = subdirs symlink xml2xhtml xml2pdf
 SYMLINKS = \
     $(MAIN_DIR)/common/author.xml \
     $(MAIN_DIR)/common/legal.xml \
-    $(MAIN_DIR)/common/rfc.urls.xml \
-    $(MAIN_DIR)/common/inetdoc.urls.xml
+    $(MAIN_DIR)/common/rfc.urls.ent \
+    $(MAIN_DIR)/common/inetdoc.urls.ent
 
 XML_FILES = \
     sysadm-net.set.xml \
     author.xml \
     legal.xml \
-    inetdoc.urls.xml \
+    inetdoc.urls.ent \
     $(OUTPUT)/chapter-sysadm-net.iscsi.xml \
     $(OUTPUT)/chapter-sysadm-net.nfs.xml \
     $(OUTPUT)/chapter-sysadm-net.ldap.xml \

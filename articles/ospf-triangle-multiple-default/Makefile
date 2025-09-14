@@ -6,17 +6,17 @@ endif
 PROCESS = symlink xml2xhtml xml2pdf
 
 SYMLINKS = \
-        $(MAIN_DIR)/common/author.xml \
-        $(MAIN_DIR)/common/legal.xml \
-        $(MAIN_DIR)/common/inetdoc.urls.xml \
-        $(MAIN_DIR)/common/rfc.urls.xml
+    $(MAIN_DIR)/common/author.xml \
+    $(MAIN_DIR)/common/legal.xml \
+    $(MAIN_DIR)/common/inetdoc.urls.ent \
+    $(MAIN_DIR)/common/rfc.urls.ent
 
 XML_FILES = \
-	ospf-triangle-multiple-default.xml \
-	author.xml \
-	legal.xml \
-	inetdoc.urls.xml \
-	rfc.urls.xml
+    ospf-triangle-multiple-default.xml \
+    author.xml \
+    legal.xml \
+    inetdoc.urls.ent \
+    rfc.urls.ent
 
 all: $(PROCESS)
 

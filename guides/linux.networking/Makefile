@@ -12,13 +12,13 @@ PROCESS = subdirs symlink xml2xhtml xml2pdf
 SYMLINKS = \
         $(MAIN_DIR)/common/authorgroup.xml \
         $(MAIN_DIR)/common/legalgroup.xml \
-        $(MAIN_DIR)/common/inetdoc.urls.xml
+        $(MAIN_DIR)/common/inetdoc.urls.ent
 
 XML_FILES = \
 	linux.networking.xml \
         authorgroup.xml \
         legalgroup.xml \
-	inetdoc.urls.xml
+	inetdoc.urls.ent
 
 all: $(PROCESS)
 

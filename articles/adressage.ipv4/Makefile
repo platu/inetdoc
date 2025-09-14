@@ -12,14 +12,14 @@ PROCESS = subdirs symlink xml2xhtml xml2pdf
 SYMLINKS = \
 	$(MAIN_DIR)/common/author.xml \
 	$(MAIN_DIR)/common/legal.xml \
-	$(MAIN_DIR)/common/inetdoc.urls.xml \
-	$(MAIN_DIR)/common/rfc.urls.xml
+	$(MAIN_DIR)/common/inetdoc.urls.ent \
+	$(MAIN_DIR)/common/rfc.urls.ent
 
 XML_FILES = \
 	adressage.ipv4.xml \
 	author.xml \
 	legal.xml \
-	inetdoc.urls.xml \
+	inetdoc.urls.ent \
 	rfc.urls.xml \
 	$(wildcard images/*.odg)
 

@@ -30,7 +30,7 @@ SUBDIRS = \
 PROCESS = subdirs symlink xml2xhtml xml2pdf
 
 SYMLINKS = \
-	$(MAIN_DIR)/common/inetdoc.urls.xml
+	$(MAIN_DIR)/common/inetdoc.urls.ent
 
 XML_FILES = \
 	biblio-travaux_pratiques.xml \
