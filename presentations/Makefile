@@ -6,7 +6,6 @@ ABSTRACT_FILE = transform_output/abstract.xml
 
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
-	os-arch-hints \
 	sysadm-base-1 \
 	sysadm-base-2 \
 	sysadm-base-3 \
