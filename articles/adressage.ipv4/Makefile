@@ -20,7 +20,7 @@ XML_FILES = \
 	author.xml \
 	legal.xml \
 	inetdoc.urls.ent \
-	rfc.urls.xml \
+	rfc.urls.ent \
 	$(wildcard images/*.odg)
 
 all: $(PROCESS)
