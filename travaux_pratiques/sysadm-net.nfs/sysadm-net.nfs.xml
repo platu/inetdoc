@@ -1163,20 +1163,39 @@ Is the information correct? [Y/n]</screen>
     <para>Recherchez comment utiliser la commande <command>su</command> ou
     <command>login</command> pour prendre l'identité du nouvel
     utilisateur.</para>
-
-	<para>Pour réaliser cette capture, il faut synchroniser les opérations
-	entre les systèmes client et serveur. On commence par le lancement du
-	l'analyseur réseau puis on visualise le contenu du fichier.</para>
 	</question>
 	<answer>
-	<para>Côté serveur <acronym>NFS</acronym>, on créé le fichier texte puis on
-	lance la capture réseau.</para>
+    <para>Utilisez l'une des deux commandes suivantes pour prendre l'identité
+    de l'utilisateur <systemitem>etu-nfs</systemitem>.</para>
 
-<screen><prompt>etu@server-nfs:~$</prompt> su - etu-nfs
-Mot de passe :
-<prompt>etu-nfs@server-nfs:~$</prompt> echo "This file is mine" > textfile
-<prompt>etu-nfs@server-nfs:~$</prompt> exit
-déconnexion</screen>
+    <itemizedlist>
+    <listitem>
+    <para><userinput>sudo login</userinput></para>
+    </listitem>
+    <listitem>
+    <para><userinput>su - etu-nfs</userinput></para>
+    </listitem>
+    </itemizedlist>
+
+    <para>Prenez l'identité de l'utilisateur
+    <systemitem>etu-nfs</systemitem>.</para>
+
+<screen>su - etu-nfs</screen>
+<screen>Mot de passe :</screen>
+<screen>id</screen>
+<screen>uid=1002(etu-nfs) gid=1002(etu-nfs) groupes=1002(etu-nfs),100(users)</screen>
+
+    <para>Vérifiez que le chemin du répertoire utilisateur est correct.</para>
+
+<screen>pwd</screen>
+<screen>/ahome/etu-nfs</screen>
+
+    <para>Créez un fichier texte dans le répertoire utilisateur et affichez son
+    masque de permissions.</para>
+
+<screen>echo "This file is mine" > myTextFile</screen>
+<screen>ls -lAh myTextFile</screen>
+<screen>-rw-rw-r-- 1 etu-nfs etu-nfs 18 15 sept. 15:00 myTextFile</screen>
 	</answer>
 	</qandaentry>
     </qandaset>
@@ -1184,80 +1203,97 @@ déconnexion</screen>
 </sect1>
 
 <sect1 xml:id='sysadm-net.nfs.client'>
-	<title>Configuration du client NFS</title>
+	<title>Configurer le client NFS</title>
 
-	<para>Le rôle du client est d'intégrer un accès au système de fichiers d'un
-	hôte distant dans son arborescence locale. On parle de «montage
-	<acronym>NFS</acronym>». Dans un premier temps, on teste les opérations de
-	montage manuel. Bien sûr, ces tests ne peuvent aboutir que si une
-	arborescence à été exportée par un serveur.</para>
+    <para>Le rôle du client est d'intégrer un accès au système de fichiers d'un
+    hôte distant dans son arborescence locale. On parle de «&nbsp;montage
+    NFS&nbsp;». Dans un premier temps, on teste les opérations de montage
+    manuel. Ces tests ne peuvent bien sûr aboutir que si une arborescence a été
+    exportée par un serveur.</para>
 
-	<para>Ensuite, on teste les opérations de montage automatisées ou
-	<emphasis>automontage</emphasis>. Si le serveur <acronym>NFS</acronym>
-	n'est pas encore disponible au moment des tests de montage manuel, il faut
-	préparer les fichiers de configuration du service d'automontage.</para>
+    <para>Ensuite, on teste les opérations de montage automatisées, ou
+    <emphasis>automontage</emphasis> avec le service
+    <systemitem>autofs</systemitem>.</para>
+
+<warning>
+    <para>Attention ! Les montages manuels et les automontages ne sont pas
+    compatibles Assurez-vous d'avoir libéré tous les montages statiques avant
+    de démarrer le service <systemitem>autofs</systemitem>.</para>
+</warning>
 
 <sect2 xml:id='sysadm-net.nfs.client.manual'>
-	<title>Opérations manuelles de (montage|démontage) NFS</title>
+	<title>Tester les montages/démontages manuels NFS</title>
 
-<qandaset defaultlabel='number'>
+    <qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
-	<para><phrase>Quelle est la commande qui permet de tester la disponibilité
-	du service de montage <acronym>NFS</acronym> sur un hôte
-	distant&nbsp;?</phrase></para>
+    <para><phrase>Quelle est la commande qui permet de tester la disponibilité
+    du service de montage <acronym>NFS</acronym> sur un client
+    distant&nbsp;?</phrase></para>
 
-	<para>Reprendre l'utilisation de la commande qui donne les listes des
-	procédures distantes disponibles. Elle a été identifiée dans la section
-	précédente.</para>
+    <para>Reprenez la commande qui affiche les listes des procédures distantes
+    disponibles. Elle a été utilisée dans la section <xref
+    linkend='sysadm-net.nfs.common' />.</para>
 	</question>
 	<answer>
-	<para>Relativement aux résultats de la section précédente, la liste des
-	services accessibles via <acronym>RPC</acronym> sur le serveur
-	<acronym>NFS</acronym> s'est étoffée et le service de montage
-	<acronym>NFS</acronym> apparaît clairement.</para>
+    <para>Affichez la liste des procédures disponibles sur le serveur depuis le
+    client NFS.</para>
 
-	<para>Voici un exemple de résultat utilisant l'adresse
-	<acronym>IP</acronym> du serveur <acronym>NFS</acronym>.</para>
-
-<screen>rpcinfo -s fe80::baad:caff:fefe:3
-   program version(s) netid(s)                         service     owner
+<screen>rpcinfo -s fe80::baad:caff:fefe:5</screen>
+<screen>   program version(s) netid(s)                         service     owner
     100000  2,3,4     local,udp,tcp,udp6,tcp6          portmapper  superuser
+    100024  1         tcp6,udp6,tcp,udp                status      104
     100005  3,2,1     tcp6,udp6,tcp,udp                <emphasis>mountd</emphasis>      superuser
-    100003  4,3       udp6,tcp6,udp,tcp                nfs         superuser
-    100227  3         udp6,tcp6,udp,tcp                -           superuser
+    100003  4,3       tcp6,tcp                         nfs         superuser
+    100227  3         tcp6,tcp                         nfs_acl     superuser
     100021  4,3,1     tcp6,udp6,tcp,udp                nlockmgr    superuser</screen>
+
+    <para>Relativement aux résultats obtenus dans la section <xref
+    linkend='sysadm-net.nfs.common' />, la liste des services accessibles via
+    <acronym>RPC</acronym> sur le serveur <acronym>NFS</acronym> s'est étoffée
+    et le service de montage <systemitem>mountd</systemitem> apparaît
+    clairement.</para>
 	</answer>
 	</qandaentry>
 
 	<qandaentry xml:id='sysadm-net.nfs.client.manual.exports'>
 	<question>
-	<para><phrase>Quelle est la commande qui permet d'identifier l'arborescence
-	disponible à l'exportation depuis le serveur
-	<acronym>NFS</acronym>&nbsp;?</phrase></para>
+    <para><phrase>Quelle est la commande qui permet d'afficher l'arborescence
+    disponible à l'exportation depuis le serveur
+    <acronym>NFS</acronym>&nbsp;?</phrase></para>
 
-	<para>Rechercher dans la liste des commandes du paquet de service
-	<acronym>NFS</acronym> commun au client et au serveur.</para>
+    <para>Recherchez la commande dans la liste des commandes du paquet de
+    service <acronym>NFS</acronym> commun au client et au serveur.</para>
+
+    <para>Recherchez l'option de cette commande qui affiche la liste des
+    exportations.</para>
 	</question>
 	<answer>
-	<para>Dans la liste des commandes fournies avec le paquet
-	<systemitem>nfs-common</systemitem>, on trouve un programme appelé
-	<command>showmount</command>. Après consultation des pages de manuels, on
-	relève l'option <option>-e</option> qui permet de consulter l'arborescence
-	exportée par un serveur depuis un client. Voici un exemple
-	d'exécution.</para>
+    <para>Affichez la liste des commandes du paquet
+    <systemitem>nfs-common</systemitem> et identifiez celles qui sont relatives
+    aux montages.</para>
 
-<screen>sudo showmount -e fe80::baad:caff:fefe:3
-Export list for fe80::baad:caff:fefe:3:
-/home/exports/home 2001:678:3fc:1f5::/64,192.168.51.192/27
-/home/exports      2001:678:3fc:1f5::/64,192.168.51.192/27</screen>
+<screen>dpkg -L nfs-common | egrep 'bin.*mount'</screen>
+<screen>/usr/sbin/mount.nfs
+/usr/sbin/mountstats
+/usr/sbin/<emphasis>showmount</emphasis>
+/usr/sbin/mount.nfs4
+/usr/sbin/umount.nfs
+/usr/sbin/umount.nfs4</screen>
 
-	<para>Les résultats de la copie d'écran ci-dessus supposent que le serveur
-	<acronym>NFS</acronym> ait déjà été configurer pour exporter le dossier
-	<filename class='directory'>home</filename>.</para>
+    <para>Recherchez dans les pages de manuels de la commande
+    <command>showmount</command>, l'option qui permet d'obtenir la liste des
+    exportations.</para>
 
-	<para>La commande <command>showmount</command> ne produit aucun résultat si
-	le serveur <acronym>NFS</acronym> n'est pas configuré.</para>
+<screen>sudo showmount <emphasis>-e</emphasis> fe80::baad:caff:fefe:5
+Export list for fe80::baad:caff:fefe:5:
+/home/exports/home 2001:678:3fc:65::/64,172.28.101.0/24
+/home/exports      2001:678:3fc:65::/64,172.28.101.0/24</screen>
+
+    <para>Les résultats affichés par la commande <command>showmount</command>
+    avec l'option <option>-e</option> supposent que le serveur
+    <acronym>NFS</acronym> a déjà été configuré pour exporter le dossier
+    <filename class='directory'>/home</filename>.</para>
 	</answer>
 	</qandaentry>
 
@@ -1268,35 +1304,34 @@ Export list for fe80::baad:caff:fefe:3:
 	commande est-elle exclusivement liée au protocole
 	<acronym>NFS</acronym>&nbsp;?</phrase></para>
 
-	<para>Après avoir consulté le support &url.nfs.howto;, interroger la base
-	de données des paquets, rechercher dans le contenus des paquets et
-	consulter les pages de manuels.</para>
+    <para>consultez le support &url.nfs.howto;, interrogez la base de données
+    des paquets et recherchez dans les listes de fichiers fournis avec de
+    paquet choisi.</para>
 	</question>
 	<answer>
-	<para>La documentation indique que c'est la commande
-	<command>mount</command> qui nous intéresse. On effectue ensuite les
-	recherches avec le gestionnaire de paquets.</para>
+    <para>Recherchez les exemples d'utilisation de la commande
+    <command>mount</command> dans la documentation &url.nfs.howto;.</para>
 
-<screen>apt search ^mount$
-En train de trier... Fait
-Recherche en texte intégral... Fait
-mount/testing,now 2.37.2-1 amd64  [installé]
-  tools for mounting and manipulating filesystems</screen>
+    <para>Recherchez ensuite cette commande dans la liste des noms de paquets
+    de la distribution.</para>
 
-<screen>dpkg -L mount | grep bin
-/bin
-<emphasis>/bin/mount</emphasis>
-/bin/umount
-/sbin
-/sbin/losetup
-/sbin/swapoff
-/sbin/swapon</screen>
+<screen>apt search --names-only ^mount$</screen>
+<screen>mount/testing,now 2.41.1-3 amd64 [installé]
+  outils pour monter et manipuler des systèmes de fichiers</screen>
 
-	<para>La commande appartient au paquet du même nom. La consultation des
-	pages de manuels <userinput><prompt>$</prompt> man mount</userinput> montre
-	que cette commande n'est pas réservée au seul protocole
-	<acronym>NFS</acronym> mais à l'ensemble des opérations de montage pour
-	tous les systèmes de fichiers utilisables.</para>
+    <para>Le paquet est déjà installé. Listez les commandes liées au
+    montage.</para>
+
+<screen>dpkg -L mount | grep 'bin.*mount'</screen>
+<screen><emphasis>/usr/bin/mount</emphasis>
+/usr/bin/umount</screen>
+
+    <para>Consultez les pages de manuels de la commande&nbsp;:
+    <userinput>man mount</userinput>.</para>
+
+    <para>La commande <command>mount</command> traite l'ensemble des opérations
+    de montage pour tous les systèmes de fichiers disponibles sur le système,
+    dont NFS.</para>
 	</answer>
 	</qandaentry>
 
