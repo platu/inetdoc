@@ -1060,6 +1060,10 @@ sept. 15 08:56:44 srvr systemd[1]: Finished nfs-server.service - NFS server and 
     <para>Recherchez, dans les pages de manuels de la commande
     <command>mount</command>, les informations sur l'option
     <option>bind</option>.</para>
+
+    <para>Complétez le fichier système qui contient la liste des montages
+    statiques et activez le nouveau montage du nouveau dossier <filename
+    class='directory'>/ahome</filename>.</para>
     </question>
     <answer>
 	<para>Dans le cadre de ces travaux pratiques, les répertoires
@@ -1100,6 +1104,10 @@ EOF</screen>
 PARTUUID=71f5d30c-8e21-4372-81f6-11eb66815669 /boot/efi vfat defaults,umask=077 0 2
 
 <emphasis>/home/exports/home     /ahome  none    defaults,bind    0    0</emphasis></screen>
+
+    <para>Activez le nouveau point de montage.</para>
+
+<screen>sudo mount -a</screen>
 	</answer>
 	</qandaentry>
     </qandaset>
@@ -1113,7 +1121,7 @@ PARTUUID=71f5d30c-8e21-4372-81f6-11eb66815669 /boot/efi vfat defaults,umask=077 
     serveur ainsi qu'un fichier lui appartenant. L'objectif est de préparer
     l'analyse de la correspondance entre les valeurs <option>UID</option> et
     <option>GID</option> entre le client et le serveur NFS. Voir <xref
-    linkend='sysadm-net.nfs.perm'/>.</para>
+    linkend='sysadm-net.nfs.idmapd'/>.</para>
 
     <qandaset>
 	<qandaentry>
@@ -1151,7 +1159,7 @@ Is the information correct? [Y/n]</screen>
 
     <para>Les valeurs numériques des identifiants
     <systemitem>uid/gid</systemitem> jouent un rôle important dans la suite des
-    manipulations. Voir <xref linkend='sysadm-net.nfs.perm'/>.</para>
+    manipulations. Voir <xref linkend='sysadm-net.nfs.idmapd'/>.</para>
 	</answer>
 	</qandaentry>
 
@@ -1196,6 +1204,9 @@ Is the information correct? [Y/n]</screen>
 <screen>echo "This file is mine" > myTextFile</screen>
 <screen>ls -lAh myTextFile</screen>
 <screen>-rw-rw-r-- 1 etu-nfs etu-nfs 18 15 sept. 15:00 myTextFile</screen>
+
+    <para>Vous pouvez revenir à l'identité précédente en quittant la session
+    avec la commande <command>exit</command>.</para>
 	</answer>
 	</qandaentry>
     </qandaset>
@@ -1595,7 +1606,7 @@ Is the information correct? [Y/n]</screen>
 
 	<para>Les identifiants numériques <systemitem>UID/GID</systemitem> jouent
 	un rôle important dans la suite des manipulations. Voir <xref
-	linkend='sysadm-net.nfs.perm'/>.</para>
+	linkend='sysadm-net.nfs.idmapd'/>.</para>
 </sect2>
 
 <sect2 xml:id='sysadm-net.nfs.client.autofs'>
@@ -1767,183 +1778,460 @@ sept. 16 15:35:47 clnt systemd[1]: Started autofs.service - Automounts filesyste
 	<systemitem>etu-nfs</systemitem> ait la capacité à écrire dans son
 	répertoire personnel&nbsp;?</phrase></para>
 
-	<para>Rechercher les attributs d'un compte utilisateur qui correspondent
+	<para>Recherchez les attributs d'un compte utilisateur qui correspondent
 	aux propriétés des objets d'un système de fichiers au sens général.</para>
 	</question>
 	<answer>
-	<para>Les identifiants numériques <systemitem>uid/gid</systemitem> doivent
-	nécessairement être identiques sur le client et le serveur
-	<acronym>NFS</acronym>. Toute la gestion des droits sur le système de
-	fichiers est conditionnée par ces valeurs.</para>
+
+<screen>getent passwd etu-nfs</screen>
+<screen>etu-nfs:x:1002:1002:Etudiant NFS,,,:/ahome/etu-nfs:/bin/bash</screen>
+
+    <para>Les identifiants numériques <systemitem>UID/GID</systemitem> doivent
+    nécessairement être identiques sur le client et le serveur
+    <acronym>NFS</acronym>. Toute la gestion des droits sur le système de
+    fichiers en dépend.</para>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment prendre l'identité de l'utilisateur
-	<systemitem>etu-nfs</systemitem> pour tester la validité du
-	montage&nbsp;?</phrase></para>
+    <para><phrase>Comment valider le fonctionnement du service de montage
+    dynamique des répertoires utilisateurs&nbsp;?</phrase></para>
 
-	<para>Cette validation suppose que l'utilisateur puisse atteindre son
-	répertoire et que l'on visualise l'automontage avec les commandes
-	<command>mount</command> et <command>df</command>.</para>
+    <para>Recherchez le moyen d'ouvrir une session avec l'identité de l'utilisateur
+    <systemitem>etu-nfs</systemitem> pour utiliser son répertoire <filename
+    class='directory'>/ahome/etu-nfs/</filename>.</para>
+
+    <para>Vérifiez que le montage <acronym>NFS</acronym> est bien utilisé avec
+    les commandes <command>mount</command> et <command>df</command> par
+    exemple.</para>
 	</question>
 	<answer>
-	<para>C'est la commande <command>su</command> qui permet de «changer
-	d'identité» sur le système. On l'utilise donc pour prendre l'identité de
-	l'utilisateur dont le répertoire est situé sur le serveur
-	<acronym>NFS</acronym>. Pour que l'opération de montage automatique ait
-	lieu, il suffit de se placer dans ce répertoire.</para>
+    <para>Comme lors du test effectué côté serveur, utilisez l'une des deux
+    commandes suivantes pour prendre l'identité de l'utilisateur
+    <systemitem>etu-nfs</systemitem>.</para>
 
-<screen><prompt>etu@client-nfs:~$</prompt> <emphasis>su - etu-nfs</emphasis>
-<prompt>etu-nfs@client-nfs:~$</prompt> pwd
-/ahome/etu-nfs
-<prompt>etu-nfs@:client-nfs~$</prompt> df -HT
-Sys. de fichiers                                  Type     Taille Utilisé Dispo Uti% Monté sur
-udev                                              devtmpfs   495M       0  495M   0% /dev
-tmpfs                                             tmpfs      103M    680k  102M   1% /run
-/dev/vda1                                         ext4        72G    2,4G   66G   4% /
-tmpfs                                             tmpfs      512M       0  512M   0% /dev/shm
-tmpfs                                             tmpfs      5,3M       0  5,3M   0% /run/lock
-tmpfs                                             tmpfs      103M       0  103M   0% /run/user/1000
-<emphasis>[2001:678:3fc:1f5:baad:caff:fefe:3]:/home/etu-nfs nfs4        72G    2,4G   66G   4% /ahome/etu-nfs</emphasis></screen>
+    <itemizedlist>
+    <listitem>
+    <para><userinput>sudo login</userinput></para>
+    </listitem>
+    <listitem>
+    <para><userinput>su - etu-nfs</userinput></para>
+    </listitem>
+    </itemizedlist>
 
-<screen><prompt>etu-nfs@client-nfs:~$</prompt> mount | grep nfs
-<emphasis>[2001:678:3fc:1f5:baad:caff:fefe:3]:/home/etu-nfs on /ahome/etu-nfs type nfs4</emphasis>
-	(rw,relatime,vers=4.2,rsize=131072,wsize=131072,namlen=255,hard,proto=tcp6,
-	timeo=600,retrans=2,sec=sys,clientaddr=2001:678:3fc:1f5:baad:caff:fefe:2,
-	local_lock=none,addr=2001:678:3fc:1f5:baad:caff:fefe:3)</screen>
+    <para>Prenez l'identité de l'utilisateur
+    <systemitem>etu-nfs</systemitem>.</para>
 
-	<para>Bien sûr, ces manipulations ne sont possibles que si la <link
-	linkend='sysadm-net.nfs.server'>configuration du serveur</link> est
-	effective.</para>
+<screen>su - etu-nfs</screen>
+<screen>Mot de passe :
+etu-nfs@clnt:~$</screen>
+
+    <para>Vérifiez que le répertoire courant est bien celui de
+    l'utilisateur.</para>
+
+<screen>pwd
+/ahome/etu-nfs</screen>
+
+    <para>Affichez les propriétés du montage <acronym>NFS</acronym>.</para>
+
+<screen>mount | grep nfs</screen>
+<screen>nfs-server:/home/etu-nfs on /ahome/etu-nfs type nfs4 (rw,relatime,vers=4.2,rsize=131072,wsize=131072,
+    namlen=255,hard,fatal_neterrors=none,proto=tcp6,timeo=600,retrans=2,sec=sys,
+    clientaddr=2001:678:3fc:65:baad:caff:fefe:6,local_lock=none,addr=2001:678:3fc:65:baad:caff:fefe:5)</screen>
+
+    <para>Affichez les informations sur l'espace de stockage disponible.</para>
+
+<screen>df -hT | grep nfs</screen>
+<screen>nfs-server:/home/etu-nfs nfs4       118G    3,3G  109G   3% /ahome/etu-nfs</screen>
 	</answer>
 	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Réaliser une capture réseau lors de l'exécution des commandes
-	et relever les numéros de ports caractéristiques de ces transactions.
-	Est-il possible de retrouver les informations échangées dans les données de
-	capture&nbsp;?</phrase></para>
-
-	</question>
-	</qandaentry>
-</qandaset>
+    </qandaset>
 </sect2>
 </sect1>
 
-<sect1 xml:id='sysadm-net.nfs.perm'>
-	<title>Gestion des droits sur le système de fichiers NFS</title>
+<sect1 xml:id='sysadm-net.nfs.idmapd'>
+	<title>Gérer les droits sur le système de fichiers NFS</title>
 
-	<para>Le contrôle les droits sur les objets de l'arborescence exportée par
-	le serveur <acronym>NFS</acronym> est limité au masque de permissions de
-	ces objets. Il est donc important de faire correspondre les identifiants
-	<option>uid</option> et <option>gid</option> entre le client et le
-	serveur.</para>
+    <para>C'est le démon <systemitem>idmapd</systemitem> qui est utilisé avec
+    <acronym>NFSv4.2</acronym> pour traduire les identifiants d'utilisateurs et
+    de groupes entre serveurs et clients. À la différence des versions
+    précédentes, <acronym>NFSv4</acronym> utilise des noms symboliques (du type
+    user@domaine) plutôt que des <systemitem>UID/GID</systemitem> numériques.
+    Ce démon assure donc la cohérence des permissions en associant correctement
+    ces identités aux comptes locaux. Sans lui, les droits d'accès pourraient
+    être incohérents, ce qui entraînerait des problèmes de sécurité et
+    d'utilisation.</para>
 
-	<para>Les manipulations suivantes sont à réaliser en «concertation» entre
-	les administrateurs des postes client et serveur. Le compte utilisateur
-	<systemitem>etu-nfs</systemitem> doit avoir été créé sur le <link
-	linkend='sysadm-net.nfs.server.user'>serveur</link> et sur le <link
-	linkend='sysadm-net.nfs.client.auto.user'>client</link>.</para>
+    <para>De plus, un compte utilisateur <systemitem>etu-nfs</systemitem> avec
+    les mêmes identifiants <systemitem>UID/GID</systemitem> existe sur le
+    serveur et le client.</para>
 
-<note>
-	<para>Ces manipulations se font sans système de gestion centralisé de
-	l'authentification. L'utilisation d'un annuaire <acronym>LDAP</acronym>
-	pour fournir une base de comptes utilisateurs fait l'objet d'un support de
-	travaux pratiques qui vient après celui-ci. Ce support se concentre sur le
-	volet système de fichiers réseau.</para>
-</note>
+<sect2 xml:id='sysadm-net.nfs.idmapd.hosts'>
+	<title>Ajouter une résolution de noms d'hôtes basique</title>
 
-<qandaset defaultlabel='number'>
+    <para>Comme le démon <systemitem>idmapd</systemitem> utilise un nom de
+    domaine, nous devons compléter la configuration du serveur et du client
+    <acronym>NFS</acronym> pour avancer dans les tests.</para>
+
+    <para>Le nom de domaine choisi pour ces manipulations est&nbsp;:
+    <systemitem>lab.local</systemitem>.</para>
+
+    <qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
-	<para><phrase>Quelles sont les valeurs numériques des identifiants
-	<option>uid</option> et <option>gid</option> du compte utilisateur
-	<systemitem>etu-nfs</systemitem> sur le client et sur le serveur
-	<acronym>NFS</acronym>&nbsp;?</phrase></para>
+    <para><phrase>Comment compléter la configuration du client et du serveur
+    <acronym>NFS</acronym> pour obtenir une résolution local de nom
+    d'hôtes&nbsp;?</phrase></para>
 
-	<para>Si les valeurs différent entre le client et le serveur, il faut
-	détruire ces comptes utilisateurs et reprendre les options de la commande
-	<command>adduser</command> pour fournir ces valeurs de façon
-	explicite.</para>
+    <para>Consultez les pages de manuels de la table de recherche statique des
+    noms d'hôtes&nbsp;: <userinput>man hosts</userinput>.</para>
+
+    <para>Codez un script qui ajoute les enregistrements du client et du
+    serveur dans le fichier <filename>/etc/hosts</filename>.</para>
 	</question>
 	<answer>
-	<para>L'extrait du résultat de l'instruction <userinput><prompt>$</prompt>
-	sudo adduser --help</userinput> ci-dessous montre les options
-	utiles.</para>
+    <para>En consultant les pages de manuels vous obtenez le format des deux
+    enregistrements à insérer dans le fichier
+    <filename>/etc/hosts</filename>.</para>
 
-<screen>adduser [--home DIR] [--shell SHELL] [--no-create-home] <emphasis>[--uid ID]</emphasis>
-[--firstuid ID] [--lastuid ID] [--gecos GECOS] [--ingroup GROUP | <emphasis>--gid ID</emphasis>]
-[--disabled-password] [--disabled-login] USER
-   Ajoute un utilisateur normal</screen>
+<screen>[IP address] [name] [name].[domain]</screen>
 
-	<para>Reprendre la <link linkend='sysadm-net.nfs.client.auto.user'>question
-	sur la création d'un compte utilisateur local</link> dont le répertoire est
-	situé sur le serveur <acronym>NFS</acronym>.</para>
+    <para>Créez un script qui ajoute les deux enregistrements du client et du
+    serveur <acronym>NFS</acronym> en utilisant vos propres adresses.</para>
+
+<screen><![CDATA[cat << 'EOF' > update-hosts.sh
+#!/bin/bash
+
+DOMAIN="lab.local"
+HOSTS_FILE="/etc/hosts"
+CLIENT_IP="2001:678:3fc:65:baad:caff:fefe:6"
+CLIENT_NAME="nfs-client"
+SERVER_IP="2001:678:3fc:65:baad:caff:fefe:5"
+SERVER_NAME="nfs-server"
+
+# Remove client previous record
+if grep -q "${CLIENT_IP}" "${HOSTS_FILE}"; then
+    sed -i "/${CLIENT_IP}.*/d" "${HOSTS_FILE}"
+fi
+
+echo "${CLIENT_IP} ${CLIENT_NAME} ${CLIENT_NAME}.${DOMAIN}" >> "${HOSTS_FILE}"
+
+# Remove server previous record
+if grep -q "${SERVER_IP}" "${HOSTS_FILE}"; then
+    sed -i "/${SERVER_IP}.*/d" "${HOSTS_FILE}"
+fi
+
+echo "${SERVER_IP} ${SERVER_NAME} ${SERVER_NAME}.${DOMAIN}" >> "${HOSTS_FILE}"
+
+exit 0
+EOF
+
+sudo bash update-hosts.sh]]></screen>
+
+    <para>Exécutez ce code sur les deux hôtes client et serveur
+    <acronym>NFS</acronym>.</para>
+
+    <para>Vérifiez que la résolution des noms d'hôtes est fonctionnelle.</para>
+
+<screen>for h in nfs-client nfs-server; do
+    ping -qc3 $h
+done</screen>
+<screen>PING nfs-client (2001:678:3fc:65:baad:caff:fefe:6) 56 data bytes
+
+--- nfs-client ping statistics ---
+3 packets transmitted, 3 received, <emphasis>0% packet loss</emphasis>, time 2027ms
+rtt min/avg/max/mdev = 0.478/5.423/15.125/6.860 ms
+PING nfs-server (2001:678:3fc:65:baad:caff:fefe:5) 56 data bytes
+
+--- nfs-server ping statistics ---
+3 packets transmitted, 3 received, <emphasis>0% packet loss</emphasis>, time 2043ms
+rtt min/avg/max/mdev = 0.031/0.048/0.058/0.012 ms</screen>
 	</answer>
 	</qandaentry>
 
+    <qandaentry>
+    <question>
+    <para><phrase>Comment compléter la configuration du démon
+    <systemitem>idmapd</systemitem> pour utiliser le nom de domaine
+    défini&nbsp;?</phrase></para>
+
+    <para>Consultez les pages de manuels du démon (<userinput>man
+    idmapd</userinput>) et identifiez le fichier de configuration à
+    éditer.</para>
+
+    <para>Ajoutez le nom de domaine <systemitem>lab.local</systemitem> dans le
+    fichier de configuration et redémarrez le service sur le serveur
+    <acronym>NFS</acronym>.</para>
+    </question>
+    <answer>
+    <para>Le fichier de configuration à éditer est&nbsp;:
+    <filename>/etc/idmapd.conf</filename>.</para>
+
+    <para>Éditez le fichier en ajoutant le nom de domaine. Voici un
+    exemple&nbsp;:</para>
+
+<screen>[General]
+
+Verbosity = 1
+# set your own domain here, if it differs from FQDN minus hostname
+# Domain = localdomain
+Domain = lab.local
+
+[Mapping]
+
+Nobody-User = nobody
+Nobody-Group = nogroup</screen>
+
+    <para>Redémarrez le service sur le serveur <acronym>NFS</acronym>.</para>
+
+<screen>sudo systemctl restart nfs-idmapd.service</screen>
+<screen>systemctl status nfs-idmapd.service</screen>
+<screen>● nfs-idmapd.service - NFSv4 ID-name mapping service
+     Loaded: loaded (/usr/lib/systemd/system/nfs-idmapd.service; static)
+     Active: <emphasis>active (running)</emphasis> since Thu 2025-09-18 09:04:52 CEST; 8s ago
+ Invocation: b4c5fa9d86c94d58a5599d5bffa839ce
+       Docs: man:idmapd(8)
+    Process: 3574 ExecStart=/usr/sbin/rpc.idmapd (code=exited, status=0/SUCCESS)
+   Main PID: 3576 (rpc.idmapd)
+      Tasks: 1 (limit: 973)
+     Memory: 512K (peak: 2M)
+        CPU: 16ms
+     CGroup: /system.slice/nfs-idmapd.service
+             └─3576 /usr/sbin/rpc.idmapd
+
+sept. 18 09:04:52 srvr systemd[1]: Starting nfs-idmapd.service - NFSv4 ID-name mapping service...
+sept. 18 09:04:52 srvr rpc.idmapd[3576]: Setting log level to 1
+sept. 18 09:04:52 srvr rpc.idmapd[3576]: <emphasis>libnfsidmap: using domain: lab.local</emphasis>
+sept. 18 09:04:52 srvr rpc.idmapd[3576]: libnfsidmap: Realms list: 'LAB.LOCAL'
+sept. 18 09:04:52 srvr rpc.idmapd[3576]: libnfsidmap: loaded plugin /usr/lib/x86_64-linux-gnu/libnfsidmap/nsswitch.so for method nsswitch
+sept. 18 09:04:52 srvr systemd[1]: Started nfs-idmapd.service - NFSv4 ID-name mapping service.</screen>
+    </answer>
+    </qandaentry>
+    </qandaset>
+</sect2>
+
+<sect2 xml:id='sysadm-net.nfs.idmapd.tests'>
+    <title>Tester les identifiants et les échanges entre le serveur et le
+    client NFS</title>
+
+    <qandaset defaultlabel='number'>
 	<qandaentry>
 	<question>
-	<para><phrase>Sur quel poste peut on créer des fichiers et des répertoires
-	avec des masques de permissions ayant d'autres valeurs <option>uid</option>
-	et <option>gid</option> que celles de l'utilisateur
-	<systemitem>etu-nfs</systemitem>&nbsp;? Quelles sont les options des
-	commandes <command>chmod</command> et <command>chown</command> à utiliser
-	pour réaliser ces opérations&nbsp;?</phrase></para>
+    <para><phrase>Comment créer des objets avec des valeurs
+    <systemitem>UID/GID</systemitem> différentes de celles du compte
+    <systemitem>etu-nfs</systemitem> dans son répertoire
+    utilisateur&nbsp;?</phrase></para>
 
-	<para>Utiliser les pages de manuels des commandes.</para>
+    <para>Créez des fichiers dans le répertoire utilisateur du compte
+    <systemitem>etu-nfs</systemitem> sur le serveur et testez l'accès à ces
+    mêmes fichiers sur le client.</para>
+
+    <para>Utilisez la commande <command>chown</command> pour attribuer les
+    valeurs <systemitem>UID/GID</systemitem>.</para>
 	</question>
 	<answer>
-	<para>C'est sur le serveur que le super utilisateur a la possibilité de
-	créer n'importe quel objet avec n'importe quel propriétaire dans la mesure
-	où le système de fichiers est local et non réseau.</para>
+    <para>Placez vous côté serveur pour créer deux fichiers textes distincts.
+    Le premier doit appartenir au compte <systemitem>etu-nfs</systemitem> et le
+    second doit avoir des identifiants qui ne correspondent à aucun compte
+    existant.</para>
 
-<screen><prompt>etu@server-nfs:~$</prompt> sudo touch /ahome/etu-nfs/ThisOneIsMine
-<prompt>etu@server-nfs:~$</prompt> sudo chown etu-nfs.etu-nfs /ahome/etu-nfs/ThisOneIsMine
-<prompt>etu@server-nfs:~$</prompt> sudo touch /ahome/etu-nfs/ThisOneIs-NOT-Mine
-<prompt>etu@server-nfs:~$</prompt> sudo chown 2000.2000 /ahome/etu-nfs/ThisOneIs-NOT-Mine
-<prompt>etu@server-nfs:~$</prompt> sudo ls -lh /ahome/etu-nfs/
-total 4,0K
--rw-r--r-- 1 etu-nfs etu-nfs 18 29 août  16:15 textfile
--rw-r--r-- 1 etu-nfs etu-nfs  0 29 août  18:32 ThisOneIsMine
--rw-r--r-- 1    2000    2000  0 29 août  18:33 ThisOneIs-NOT-Mine</screen>
+    <orderedlist>
+    <listitem>
+    <para>Créez le fichier dont <systemitem>etu-nfs</systemitem> est
+    propriétaire.</para>
+
+<screen>echo "This file belongs to etu-nfs" | sudo tee /ahome/etu-nfs/ThisOneIsMine
+sudo chown etu-nfs:etu-nfs /ahome/etu-nfs/ThisOneIsMine</screen>
+    </listitem>
+    <listitem>
+    <para>Créez le fichier avec des identifiants
+    &laquo;&nbsp;inconnus&nbsp;&raquo;.</para>
+
+<screen>echo "This file belongs to no-one" | sudo tee /ahome/etu-nfs/ThisOneIs-NOT-Mine
+sudo chown 2000:2000 /ahome/etu-nfs/ThisOneIs-NOT-Mine</screen>
+    </listitem>
+    </orderedlist>
+
+    <para>Affichez la liste des objets contenus dans le répertoire utilisateur
+    du compte <systemitem>etu-nfs</systemitem>.</para>
+
+<screen>sudo ls -lh /ahome/etu-nfs/</screen>
+<screen>total 12K
+-rw-rw-r-- 1 etu-nfs etu-nfs 18 15 sept. 15:00 myTextFile
+-rw-r--r-- 1 etu-nfs etu-nfs 29 18 sept. 14:19 ThisOneIsMine
+-rw-r--r-- 1    2000    2000 28 18 sept. 14:25 ThisOneIs-NOT-Mine</screen>
+
+    <para>Le fait que les valeurs <systemitem>UID/GID</systemitem>
+    <literal>2000</literal> apparaissent sous forme numérique prouve qu'aucune
+    identité connue du système n'est associée.</para>
 
 	<para>Côté client, les objets créés sont biens visibles et la vue réseau du
 	système de fichiers <acronym>NFS</acronym> passe par une correspondance des
 	propriétaires.</para>
 
-<screen><prompt>etu-nfs@client-nfs:~$</prompt> id
-uid=1001(etu-nfs) gid=1001(etu-nfs) groupes=1001(etu-nfs)
-<prompt>etu-nfs@client-nfs:~$</prompt> ls -lh
-total 4,0K
--rw-r--r-- 1 etu-nfs etu-nfs 18 29 août  16:15 textfile
--rw-r--r-- 1 etu-nfs etu-nfs  0 29 août  18:32 ThisOneIsMine
--rw-r--r-- 1    2000    2000  0 29 août  18:33 ThisOneIs-NOT-Mine</screen>
+    <para>Placez vous maintenant côté client <acronym>NFS</acronym> et prenez
+    l'identité <systemitem>etu-nfs</systemitem>.</para>
 
-	<para>Côté client <acronym>NFS</acronym>, les valeurs des identifiants
-	<option>uid</option> et <option>gid</option> sont correctement restitués et
-	l'utilisateur n'a que le droit de lecture sur le fichier
-	<filename>ThisOneIs-NOT-Mine</filename>.</para>
+    <para>Vérifiez que le répertoire courant est celui de l'utilisateur
+    <systemitem>etu-nfs</systemitem> et que les identifiants courants
+    correspondent bien à cette identité.</para>
+
+<screen>pwd</screen>
+<screen>/ahome/etu-nfs</screen>
+
+<screen>id</screen>
+<screen>uid=1002(etu-nfs) gid=1002(etu-nfs) groupes=1002(etu-nfs),100(users)</screen>
+
+    <para>Affichez la liste des objets présents dans ce répertoire et vérifiez
+    qu'elle est identique à celle obtenue sur le serveur.</para>
+
+<screen>ls -lh</screen>
+<screen>total 12K
+-rw-rw-r-- 1 etu-nfs etu-nfs 18 15 sept. 15:00 myTextFile
+-rw-r--r-- 1 etu-nfs etu-nfs 29 18 sept. 14:19 ThisOneIsMine
+-rw-r--r-- 1    2000    2000 28 18 sept. 14:25 ThisOneIs-NOT-Mine</screen>
+
+    <para>Testez l'affichage et la modification du contenu des deux fichiers
+    créés précédemment.</para>
+
+    <orderedlist>
+    <listitem>
+    <para>Affichez et modifiez le premier fichier.</para>
+
+<screen>cat ThisOneIsMine</screen>
+<screen>This file belongs to etu-nfs</screen>
+
+    <para>Ce fichier appartient bien à <systemitem>etu-nfs</systemitem> et
+    cette identité a tous les droits sur cet objet.</para>
+
+<screen>echo "ID etu-nfs owns it" >> ThisOneIsMine</screen>
+<screen>cat ThisOneIsMine</screen>
+<screen>This file belongs to etu-nfs
+ID etu-nfs owns it</screen>
+
+    <para>L'écriture dans le fichier s'est faite avec succès.</para>
+    </listitem>
+    <listitem>
+    <para>Essayez d(afficher et de modifier le second fichier.</para>
+
+<screen>cat ThisOneIs-NOT-Mine</screen>
+<screen>This file belongs to no-one</screen>
+
+    <para>L'affichage fonctionne puisque la lecture (bit 'r' le plus à droite
+    du masque des permissions) est autorisée pour tout le monde.</para>
+
+<screen>echo "ID etu-nfs is trying to edit this file" >>ThisOneIs-NOT-Mine
+-bash: ThisOneIs-NOT-Mine: Permission non accordée</screen>
+
+    <para>L'écriture échoue puisque seul l'utilisateur avec l'identifiant
+    <literal>2000</literal> a le droit d'écriture.</para>
+    </listitem>
+    </orderedlist>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quel est le service qui assure la conformité des identifiants
-	entre serveur et client <acronym>NFS</acronym>&nbsp;?</phrase></para>
+    <para><phrase>Comment Réaliser une capture de trafic réseau côté serveur
+    pendant que l'utilisateur génère un fichier texte assez volumineux dans son
+    répertoire utilisateur&nbsp;?</phrase></para>
 
-	<para>Reprendre la liste des service <acronym>RPC</acronym> actifs sur les
-	deux systèmes.</para>
+    <orderedlist>
+    <listitem>
+    <para>Lancez la capture de trafic côté serveur avec
+    <command>tshark</command> en suivant la même méthode que lors des questions
+    précédentes.</para>
+    </listitem>
+    <listitem>
+    <para>Lancez une commande de création d'un fichier texte dans le répertoire
+    utilisateur <filename class='directory'>/ahome/etu-nfs/</filename> côté
+    client.</para>
+    </listitem>
+    <listitem>
+    <para>Recherchez la syntaxe de la commande <command>tshark</command> qui
+    permet d'extraire la charge utile de la capture de trafic
+    <acronym>NFS</acronym>.</para>
+    </listitem>
+    <listitem>
+    <para>Affichez le résultat de l'extraction de cette charge utile côté
+    serveur.</para>
+    </listitem>
+    </orderedlist>
 	</question>
-	<answer>
-	<para>Le démon <systemitem class='daemon'>rpc.idmapd</systemitem> est
-	fourni avec le paquet <systemitem>nfs-common</systemitem>.</para>
-	</answer>
+    <answer>
+    <para>Commencez par lancer la capture de trafic côté serveur.</para>
+
+<screen>tshark -i enp0s1 -f "host 2001:678:3fc:65:baad:caff:fefe:6" -w nfs-payload.pcap</screen>
+
+    <para>Passez côté client et lancer une commande de création de fichier
+    texte.</para>
+
+<screen>man man > man.txt</screen>
+
+    <para>Revenez côté serveur et arrêtez la capture de trafic avec
+    <keycap>Crtl+C</keycap>.</para>
+
+    <para>Listez les trames capturées dans le fichier
+    <filename>nfs-payload.pcap</filename>.</para>
+
+<screen>tshark -r nfs-cat.pcap -Y nfs</screen>
+<screen>tshark -r nfs-cat.pcap -Y nfs
+    1 0.000000000 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 NFS 242 V4 Call ACCESS FH: 0xb51c8f4e, [Check: RD MD XT XE]
+    2 0.000290656 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 NFS 194 V4 Reply (Call In 1) ACCESS, [Access Denied: XE], [Allowed: RD MD XT]
+    4 0.001205086 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 NFS 250 V4 Call GETATTR FH: 0xb51c8f4e
+    5 0.001456394 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 NFS 286 V4 Reply (Call In 4) GETATTR
+    7 7.527683269 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 NFS 378 V4 Call OPEN DH: 0x8854dd26/man.txt
+    8 7.529921152 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 NFS 450 V4 Reply (Call In 7) OPEN StateID: 0x0bf9
+   10 7.578515596 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 NFS 250 V4 Call GETATTR FH: 0x8854dd26
+   11 7.578658561 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 NFS 330 V4 Reply (Call In 10) GETATTR
+   13 7.591854994 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 NFS 338 V4 Call OPEN DH: 0x8854dd26/fr.tmac
+   14 7.591993162 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 NFS 186 V4 Reply (Call In 13) OPEN Status: NFS4ERR_NOENT
+   15 7.593573743 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 NFS 342 V4 Call OPEN DH: 0x8854dd26/trans.tmac
+   16 7.593714256 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 NFS 186 V4 Reply (Call In 15) OPEN Status: NFS4ERR_NOENT
+   17 7.594754074 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 NFS 342 V4 Call OPEN DH: 0x8854dd26/latin9.tmac
+   18 7.594834919 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 NFS 186 V4 Reply (Call In 17) OPEN Status: NFS4ERR_NOENT
+   19 7.596065068 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 NFS 342 V4 Call OPEN DH: 0x8854dd26/hyphen.fr
+   20 7.596201636 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 NFS 186 V4 Reply (Call In 19) OPEN Status: NFS4ERR_NOENT
+   25 7.624835600 <emphasis>2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 NFS 10842 V4 Call WRITE StateID: 0x0e54 Offset: 0 Len: 39113</emphasis>
+   27 7.628251090 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 NFS 274 V4 Reply (Call In 25) WRITE
+   28 7.630402438 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 NFS 274 V4 Call CLOSE StateID: 0x0bf9
+   29 7.630513322 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 NFS 266 V4 Reply (Call In 28) CLOSE</screen>
+
+    <para>Dans l'exemple ci-dessus, on repère l'écriture d'un nombre d'octets
+    assez important sur la trame numéro 25.</para>
+
+    <para>Procédez à l'extraction de la charge utile contenue dans le fichier de capture.</para>
+
+<screen>tshark -r nfs-cat.pcap -Y nfs -T fields -e nfs.data |\
+    tr -d '\n:' |\
+    xxd -r -ps > out.bin</screen>
+
+    <para>Affichez les premières ligne du fichier d'extraction
+    <filename>out.bin</filename>.</para>
+
+<screen>head -n 10 out.bin</screen>
+<screen>MAN(1)                 Utilitaires de l'afficheur des pages de manuel      MAN(1)
+
+NOM
+       man - Interface de consultation des manuels de référence du système
+
+SYNOPSIS
+       man [options de man] [[section] page ...] ...
+       man -k [options d'apropos] expression_rationnelle ...
+       man -K [options de man] [section] term ...
+       man -f [options de whatis] page ...</screen>
+
+    <para>C'est la catastrophe&nbsp;! Le trafic <acronym>NFS</acronym> entre le
+    serveur et le client circule en clair sur le réseau et il vraiment très
+    facile de l'intercepter.</para>
+    </answer>
 	</qandaentry>
-</qandaset>
+    </qandaset>
+
+    <para>Il est temps de passer à la sécurisation des échanges entre le
+    serveur <acronym>NFS</acronym> et ses clients.</para>
+    </sect2>
 </sect1>
 
 <sect1 xml:id='sysadm-net.nfs.refdocs'>

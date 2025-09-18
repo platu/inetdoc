@@ -33,7 +33,9 @@
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:xlink="http://www.w3.org/1999/xlink"
   xmlns:fo="http://www.w3.org/1999/XSL/Format"
-  xmlns:d="http://docbook.org/ns/docbook" exclude-result-prefixes="d">
+  xmlns:exsl="http://exslt.org/common"
+  extension-element-prefixes="exsl"
+  xmlns:d="http://docbook.org/ns/docbook" exclude-result-prefixes="d exsl">
 
 <xsl:import href="&db_xsl_path;/fo/docbook.xsl"/>
 <xsl:import href="&db_xsl_path;/fo/highlight.xsl"/>
@@ -73,7 +75,24 @@
       <xsl:text>Q</xsl:text>
       <xsl:number level="any" count="d:qandaentry" format="1"/>
     </xsl:template>
-	 <xsl:param name="qandadiv.autolabel" select="0"/>
+
+    <!-- Séparateur entre question et réponse : version list-item correcte -->
+    <xsl:template match="d:answer">
+      <xsl:variable name="id">
+        <xsl:call-template name="object.id"/>
+      </xsl:variable>
+      <fo:list-item id="{$id}">
+        <fo:list-item-label end-indent="label-end()">
+          <fo:block/> <!-- pas de label pour la réponse -->
+        </fo:list-item-label>
+        <fo:list-item-body start-indent="body-start()">
+          <fo:block border-top="0.5pt solid #333">
+            <xsl:apply-templates/>
+          </fo:block>
+        </fo:list-item-body>
+      </fo:list-item>
+    </xsl:template>
+    <xsl:param name="qandadiv.autolabel" select="0"/>
 
     <!-- automated index generation -->
     <xsl:param name="generate.index" select="1"/>
@@ -945,4 +964,21 @@ up into multiple documents.
 	</xsl:variable>
 		<xsl:apply-templates select="exsl:node-set($new.element)/foo/*"/>
 	</xsl:template>
+
+    <!-- Normalisation des liens relatifs (remplace le sed du Makefile) -->
+    <xsl:template match="d:link[@role='relative']">
+      <xsl:variable name="href">
+        <xsl:choose>
+          <xsl:when test="starts-with(@xlink:href,'http://') or starts-with(@xlink:href,'https://')">
+            <xsl:value-of select="@xlink:href"/>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:value-of select="concat($site.base, @xlink:href)"/>
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:variable>
+      <fo:basic-link xlink:href="{$href}">
+        <xsl:apply-templates/>
+      </fo:basic-link>
+    </xsl:template>
 </xsl:stylesheet>
