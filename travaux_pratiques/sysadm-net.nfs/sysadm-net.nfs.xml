@@ -445,7 +445,7 @@
 	<qandaentry>
 	<question>
     <para><phrase>Quel est le paquet qui fournit le service de gestion des
-    appels de procédure distants RPC&nbsp;?.</phrase></para>
+    appels de procédure distants RPC&nbsp;?</phrase></para>
 
     <para>Recherchez les noms de paquets qui contiennent la chaîne
     'rpc'. Installez le paquet identifié.</para>
@@ -872,26 +872,32 @@ tcp   LISTEN 0      4096            [::]:111           [::]:*    users:(("rpcbin
     <filename>/etc/exports</filename>&nbsp;:</para>
 
     <para>Ajoutez les instructions d'exportation du dossier à destination de
-    votre réseau <acronym>IPv4</acronym>.</para>
-
-<screen>cat &lt;&lt; EOF | sudo tee -a /etc/exports
-
-/home/exports           <emphasis>172.28.101.0/24</emphasis>(rw,sync,fsid=0,crossmnt,no_subtree_check)
-/home/exports/home      <emphasis>172.28.101.0/24</emphasis>(rw,sync,no_subtree_check)
-EOF</screen>
-
-    <para>Ajoutez aussi les instructions d'exportation du dossier à destination
-    de votre réseau <acronym>IPv6</acronym>.</para>
-
-<screen>cat &lt;&lt; EOF | sudo tee -a /etc/exports
-
-/home/exports           <emphasis>2001:678:3fc:65::/64</emphasis>(rw,sync,fsid=0,crossmnt,no_subtree_check)
-/home/exports/home      <emphasis>2001:678:3fc:65::/64</emphasis>(rw,sync,no_subtree_check)
-EOF</screen>
+    vos réseaux <acronym>IPv4</acronym> et <acronym>IPv6</acronym> dans un
+    script.</para>
 
     <para>Les adresses des réseaux <acronym>IPv4</acronym> et
     <acronym>IPv6</acronym> doivent bien sûr être adaptées à votre plan
     d'adressage.</para>
+
+<screen><![CDATA[#!/bin/bash
+
+IPV4_NETWORK=172.28.101.0/24
+IPV6_NETWORK=2001:678:3fc:65::/64
+
+cat << EOF > /etc/exports
+/home/exports           ${IPV4_NETWORK}(rw,sync,fsid=0,crossmnt,no_subtree_check)
+/home/exports/home      ${IPV4_NETWORK}(rw,sync,no_subtree_check)
+
+/home/exports           ${IPV6_NETWORK}(rw,sync,fsid=0,crossmnt,no_subtree_check)
+/home/exports/home      ${IPV6_NETWORK}(rw,sync,no_subtree_check)
+EOF]]></screen>
+
+    <para>Si le code du script ci-dessus est enregistré dans un fichier appelé
+    <filename>basic-nfs-exports.sh</filename>, on peut lancer la création du
+    nouveau fichier <filename>/etc/exports</filename> avec l'instruction
+    suivante&nbsp;:</para>
+
+<screen>sudo bash basic-nfs-exports.sh</screen>
 
 	<para>Les options entre parenthèses sont documentées dans les pages de
 	manuels <systemitem>exports</systemitem>&nbsp;: <userinput>man 5
@@ -2234,13 +2240,429 @@ SYNOPSIS
     </sect2>
 </sect1>
 
+<sect1 xml:id='sysadm-net.nfs.sec'>
+	<title>Sécuriser les transactions NFS</title>
+
+    <para>L'objectif des manipulations de cette section est d'offrir un niveau
+    de protection élevé contre les tentatives d'interception de trafic et
+    d'usurpation d'identité dans les échanges entre le serveur
+    <acronym>NFS</acronym> et son client de test.</para>
+
+    <para>La représentation graphique de la <xref
+    linkend='sysadm-net.nfs.protocol' /> fait apparaître plusieurs briques de
+    sécurité intégrées au protocole <acronym>NFSv4.2</acronym>. Nous devons
+    choisir celles qui permettent d'atteindre un niveau de sécurité
+    satisfaisant.</para>
+
+    <sect2 xml:id='sysadm-net.nfs.sec.func'>
+        <title>Choisir les outils de sécurisation</title>
+
+    <para>Pour respecter les bonnes pratiques, nous devons utiliser le
+    protocole <application>Kerberos V5</application>, qui permet d'établir une
+    authentification mutuelle entre un client et un serveur avant la
+    transmission des données du système de fichiers partagé.</para>
+
+    <para>La configuration de <application>Kerberos V5</application> avec
+    <acronym>NFSv4.2</acronym> nécessite&nbsp;:</para>
+    <itemizedlist>
+    <listitem>
+    <para>Un serveur <acronym>KDC</acronym> (<wordasword>Key Distribution
+    Center</wordasword>) correctement configuré.</para>
+    </listitem>
+    <listitem>
+    <para>Des certificats et principaux de service appropriés pour le serveur
+    <acronym>NFS</acronym>, le client et les utilisateurs.</para>
+    </listitem>
+    <listitem>
+    <para>Une synchronisation temporelle précise entre tous les systèmes.</para>
+    </listitem>
+    </itemizedlist>
+
+    <para>Les pages de manuel (<userinput>man 5 exports</userinput>) détaillent
+    les paramètres de l'option <option>sec=</option>, suivie d'une liste de
+    types de sécurité délimités par des deux-points. Cette option limite
+    l'exportation aux clients utilisant ces types. Les types de sécurité
+    disponibles sont les suivants&nbsp;:</para>
+
+    <variablelist>
+    <varlistentry>
+    <term>sys</term>
+    <listitem>
+    <para>C'est cette valeur par défaut, sans sécurité cryptographique, qui a
+    été utilisée pour toutes les manipulations des sections précédentes.
+    L'interception du trafic avec l'outil <command>tshark</command> a révélé
+    que les données contenues dans les échanges <acronym>NFS</acronym>
+    pouvaient être lues par un tiers.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry>
+    <term>krb5</term>
+    <listitem>
+    <para>À ce niveau, seule l'authentification est assurée. La vérification
+    cryptographique de l'identité des utilisateurs empêche toute
+    usurpation.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry>
+    <term>krb5i</term>
+    <listitem>
+    <para>Cette option ajoute le contrôle d'intégrité à l'authentification. On
+    s'assure ainsi que les données échangées n'ont pas été modifiées pendant
+    leur transit.</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry>
+    <term>krb5p</term>
+    <listitem>
+    <para>Il s'agit du niveau de sécurité le plus élevé, car il allie
+    authentification, intégrité et confidentialité, garantissant ainsi que les
+    données échangées restent secrètes.</para>
+    </listitem>
+    </varlistentry>
+    </variablelist>
+
+    <para>Pour la négociation du type de sécurité entre le serveur et les
+    clients, l'ordre est important&nbsp;: les types préférés doivent être
+    listés en premier.</para>
+
+    <para>Le choix retenu pour la configuration à mettre en place est&nbsp;:
+    <option>sec=krb5p</option>.</para>
+
+    <para>L'API <acronym>GSS-API</acronym>, via le
+    <wordasword>framework</wordasword> <acronym>RPCSEC_GSS</acronym>, fournit
+    une abstraction des mécanismes de sécurité en offrant la possibilité
+    d'utiliser différents protocoles (Kerberos, SPKM) via une interface
+    unifiée. Elle permet également de négocier de manière transparente les
+    capacités de sécurité entre le client et le serveur.</para>
+
+    <para>Nous n'avons pas de choix de configuration à faire pour cette brique
+    de la pile du protocole <acronym>NFSv4.2</acronym>.</para>
+
+    <para>L'utilisation de TLS sur RPC (<wordasword>RPC-over-TLS</wordasword>
+    selon la RFC 9289) en complément de <application>Kerberos</application>
+    apporte des avantages considérables, avec une protection indépendante au
+    niveau de la couche de transport&nbsp;:</para>
+
+    <itemizedlist>
+    <listitem>
+    <para>Le chiffrement au niveau de la couche transport protège tous les
+    protocoles qui utilisent <acronym>RPC</acronym>, dont
+    <application>rpcbind</application>.</para>
+    </listitem>
+    <listitem>
+    <para>La protection contre les attaques de surveillance systématique et
+    continue des flux réseau qui permettent d'exploiter les métadonnées.</para>
+    </listitem>
+    <listitem>
+    <para>Le chiffrement opportuniste permettant la coexistence avec des
+    systèmes non TLS.</para>
+    </listitem>
+    </itemizedlist>
+
+    <para>Pour conclure cette partie, on aboutit à la répartition des rôles
+    suivante&nbsp;:</para>
+
+    <variablelist>
+    <varlistentry>
+        <term>TLS</term>
+        <listitem>
+        <para>Authentification des hôtes et chiffrement des appels
+        <acronym>RPC</acronym> dans la couche transport.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Kerberos</term>
+        <listitem>
+        <para>Authentification des utilisateurs, chiffrement et contrôle
+        d'accès des transactions <acronym>NFS</acronym>.</para>
+        </listitem>
+    </varlistentry>
+    </variablelist>
+
+    <para>Cette séparation permet de mettre en place une architecture de
+    sécurité en profondeur plus robuste.</para>
+    </sect2>
+
+    <sect2 xml:id='sysadm-net.nfs.sec.conf'>
+        <title>Modifier les configurations du serveur et du client</title>
+
+    <para>Avant d'aborder la mise en place des outils de sécurité, commençons
+    par adapter les configurations de l'exportation par le serveur et du
+    service <application>autofs</application> du client.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+    <para><phrase>Quelles sont les modifications à apporter au fichier
+    <filename>/etc/exports</filename> du serveur <acronym>NFS</acronym> pour
+    activer les fonctions de sécurité choisies&nbsp;?</phrase></para>
+
+    <para>Recherchez dans les pages de manuel les options à ajouter.</para>
+	</question>
+	<answer>
+    <para>Consultez le manuel avec&nbsp;: <userinput>man 5 exports</userinput>
+    et identifiez les paramètres utiles relativement aux choix retenus.</para>
+
+    <para>Créez un nouveau script de génération du fichier
+    <filename>/etc/exports</filename>.</para>
+
+<screen><![CDATA[#!/bin/bash
+
+IPV4_NETWORK=172.28.101.0/24
+IPV6_NETWORK=2001:678:3fc:65::/64
+
+cat << EOF > /etc/exports
+/home/exports           ${IPV4_NETWORK}(rw,sync,fsid=0,crossmnt,no_subtree_check,sec=krb5p,xprtsec=tls:mtls)
+/home/exports/home      ${IPV4_NETWORK}(rw,sync,no_subtree_check,sec=krb5p,xprtsec=tls:mtls)
+
+/home/exports           ${IPV6_NETWORK}(rw,sync,fsid=0,crossmnt,no_subtree_check,sec=krb5p,xprtsec=tls:mtls)
+/home/exports/home      ${IPV6_NETWORK}(rw,sync,no_subtree_check,sec=krb5p,xprtsec=tls:mtls)
+EOF]]></screen>
+
+    <para>Relativement à la configuration initiale, les deux options ajoutées
+    sont&nbsp;:</para>
+
+    <itemizedlist>
+    <listitem>
+    <para>sec=krb5p</para>
+    </listitem>
+    <listitem>
+    <para>xprtsec=tls:mtls</para>
+    </listitem>
+    </itemizedlist>
+
+    <para>Si le code du script ci-dessus est enregistré dans un fichier appelé
+    <filename>secure-nfs-exports.sh</filename>, on peut lancer la création du
+    nouveau fichier <filename>/etc/exports</filename>.</para>
+
+    <para>Créez une copie de sauvegarde de la version actuelle du fichier
+    <filename>/etc/exports</filename>.</para>
+
+<screen>sudo cp /etc/exports /etc/exports.backup</screen>
+
+    <para>Générez la nouvelle version du fichier de configuration de
+    l'exportation.</para>
+
+<screen>sudo bash secure-nfs-exports.sh</screen>
+
+    <para>Redémarrez le service pour que la nouvelle configuration soit prise
+    en charge.</para>
+
+<screen>sudo systemctl restart nfs-server</screen>
+
+    <para>Vérifiez que le service est bien actif et sans erreur de
+    configuration.</para>
+
+<screen>systemctl status nfs-server</screen>
+    </answer>
+    </qandaentry>
+    <qandaentry>
+    <question>
+    <para><phrase>Quelles sont les modifications à apporter aux fichiers de
+    configuration du service <application>autofs</application> du client
+    <acronym>NFS</acronym> pour activer les fonctions de sécurité
+    choisies&nbsp;?</phrase></para>
+
+    <para>Recherchez dans les pages de manuel les options à ajouter.</para>
+    </question>
+    <answer>
+    <para>Consultez les pages des manuels du service
+    <application>autofs</application>. Par exemple&nbsp;: <userinput>man 5
+    autofs</userinput>.</para>
+
+    <para>Comme l'objectif est de reproduire le jeu d'options du serveur, on
+    doit retrouver les mêmes éléments que dans la question précédente.</para>
+
+    <para>Créez une copie de sauvegarde des fichiers actuels.</para>
+
+<screen>sudo cp /etc/auto.master.d/ahome.autofs /etc/auto.master.d/ahome.autofs.backup</screen>
+
+<screen>sudo cp /etc/auto.home /etc/auto.home.backup</screen>
+
+    <para>Créez les nouvelles version de ces fichiers.</para>
+
+<screen>echo "/ahome  /etc/auto.home --timeout=300" | \
+    sudo tee /etc/auto.master.d/ahome.autofs</screen>
+
+<screen>echo "*    -fstype=nfs4,hard,sec=krb5p,xprtsec=mtls,nosuid,nodev,_netdev    nfs-server.lab.local:/home/&amp;" | \
+    sudo tee /etc/auto.home</screen>
+
+    <para>On retrouve les mêmes options que sur le serveur auxquelles on a
+    ajouté les paramètres suivants.</para>
+
+    <itemizedlist>
+    <listitem>
+    <para><option>sec=krb5p</option>&nbsp;: version Kerberos présentée dans la
+    section précédente.</para>
+    </listitem>
+    <listitem>
+    <para><option>xprtsec=mtls</option>&nbsp;: authentification
+    <acronym>TLS</acronym> mutuelle.</para>
+    </listitem>
+    <listitem>
+    <para><option>nosuid</option>&nbsp;: désactive l'interprétation des bits
+    <systemitem>SUID/SGID</systemitem>.</para>
+    </listitem>
+    <listitem>
+    <para><option>nodev</option>&nbsp;: ignore les fichiers de
+    périphériques.</para>
+    </listitem>
+    <listitem>
+    <para><option>_netdev</option>&nbsp;: signale à
+    <systemitem>systemd</systemitem> que le montage doit attendre que le réseau
+    soit disponible.</para>
+    </listitem>
+    </itemizedlist>
+
+    <para>Redémarrez le service pour que la nouvelle configuration soit prise
+    en charge.</para>
+
+<screen>sudo systemctl restart autofs</screen>
+
+    <para>Vérifiez que le service est bien actif et sans erreur de
+    configuration.</para>
+
+<screen>systemctl status autofs</screen>
+    </answer>
+    </qandaentry>
+    </qandaset>
+    </sect2>
+
+    <sect2 xml:id='sysadm-net.nfs.sec.krb5'>
+        <title>Installer et configurer Kerberos</title>
+
+    <para>Maintenant que les options d'exportation et de montage dynamiques
+    doivent utiliser <application>Kerberos</application>, il faut configurer le
+    serveur <acronym>KDC</acronym> et son client.  Les rôles serveur et client
+    sont conservés&nbsp;: le serveur <acronym>NFS</acronym> est également le
+    serveur <acronym>KDC</acronym>.</para>
+
+	<qandaset defaultlabel='number'>
+	<qandaentry>
+	<question>
+    <para><phrase>Quels sont les paquets à installer pour configurer le serveur
+    <acronym>KDC</acronym>&nbsp;?</phrase></para>
+
+    <para>Recherchez la liste des paquets dont le nom débute par
+    <literal>krb5</literal>.</para>
+    </question>
+    <answer>
+    <para>Lancez la recherche avec le gestionnaire de paquets.</para>
+
+<screen>apt search --names-only ^krb5</screen>
+
+    <para>On obtient ainsi une liste d'une vingtaine de paquets. Affichez les
+    informations de chaque paquet pour décider s'il faut le retenir dans le
+    contexte d'un serveur <acronym>KDC</acronym>.</para>
+
+<screen>apt show krb5-kdc | grep -A5 "This package"</screen>
+
+<screen> This package contains the Kerberos key server (KDC).  The KDC manages all
+ authentication credentials for a Kerberos realm, holds the master keys
+ for the realm, and responds to authentication requests.  This package
+ should be installed on both master and slave KDCs.</screen>
+
+    <para>Répétez cette opération pour les autres paquets de la liste.</para>
+
+    <para>Installez les paquets suivants&nbsp;:</para>
+
+<screen>sudo apt install krb5-kdc krb5-admin-server krb5-user</screen>
+
+    <para>Lors de l'installation de ces paquets, une série de questions
+    apparaît. Voici ce qu'il faut saisir pour rester conforme au contexte de
+    ces manipulations.</para>
+
+    <itemizedlist>
+    <listitem>
+    <para><literal>Default Kerberos version 5 realm</literal>&nbsp;:
+    <emphasis>LAB.LOCAL</emphasis></para>
+    </listitem>
+    <listitem>
+    <para><literal>Kerberos servers for your realm</literal>&nbsp;:
+    <emphasis>nfs-server.lab.local</emphasis></para>
+    </listitem>
+    <listitem>
+    <para><literal>Administrative server for your Kerberos
+    realm</literal>&nbsp;: <emphasis>nfs-server.lab.local</emphasis></para>
+    </listitem>
+    </itemizedlist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment créer et définir le mot de passe d'administration du
+    nouveau royaume Kerberos&nbsp;?</phrase></para>
+
+    <para>Lancez une recherche dans les pages de manuels.</para>
+
+    <para>recherchez les options de la commande <command>openssl</command> qui
+    permettent de générer un mot de passe suffisamment solide.</para>
+    </question>
+    <answer>
+    <para>Lancez une recherche par mot clé dans les pages de manuels.</para>
+
+<screen>man -k kerberos | grep realm</screen>
+<screen>krb5_newrealm (8)    - Create a new Kerberos Realm</screen>
+
+<screen>man krb5_newrealm</screen>
+
+    <para>Générez le mot de passe de l'administrateur Kerberos.</para>
+
+<screen>openssl rand -base64 8 > krb-admin.password</screen>
+<screen>chmod 600 krb-admin.password</screen>
+<screen>cat krb-admin.password</screen>
+
+    <para>Copiez le mot de passe et Lancez la commande
+    <command>krb5_newrealm</command></para>
+
+<screen>sudo sudo krb5_newrealm</screen>
+<screen>This script should be run on the master KDC/admin server to initialize
+a Kerberos realm.  It will ask you to type in a master key password.
+This password will be used to generate a key that is stored in
+/etc/krb5kdc/stash.  You should try to remember this password, but it
+is much more important that it be a strong password than that it be
+remembered.  However, if you lose the password and /etc/krb5kdc/stash,
+you cannot decrypt your Kerberos database.
+Initializing database '/var/lib/krb5kdc/principal' for realm 'LAB.LOCAL',
+master key name 'K/M@LAB.LOCAL'
+You will be prompted for the database Master Password.
+It is important that you NOT FORGET this password.</screen>
+<screen>Enter KDC database master key: <emphasis>Collez le mot de passe</emphasis></screen>
+<screen>Re-enter KDC database master key to verify: <emphasis>Collez le mot de passe à nouveau</emphasis></screen>
+<screen>Now that your realm is set up you may wish to create an administrative
+principal using the addprinc subcommand of the kadmin.local program.
+Then, this principal can be added to /etc/krb5kdc/kadm5.acl so that
+you can use the kadmin program on other computers.  Kerberos admin
+principals usually belong to a single user and end in /admin.  For
+example, if jruser is a Kerberos administrator, then in addition to
+the normal jruser principal, a jruser/admin principal should be
+created.
+
+Don't forget to set up DNS information so your clients can find your
+KDC and admin servers.  Doing so is documented in the administration
+guide.</screen>
+
+    <para>Redémarrez le service <application>Kerberos</application>.</para>
+
+<screen>sudo systemctl restart krb5-kdc</screen>
+
+    <para>Vérifiez l'état du service.</para>
+
+<screen>systemctl status krb5-kdc</screen>
+    </answer>
+    </qandaentry>
+
+    </qandaset>
+    </sect2>
+</sect1>
+
 <sect1 xml:id='sysadm-net.nfs.refdocs'>
 	<title>Documents de référence</title>
 
 <variablelist>
 	<varlistentry xml:id='sysadm-net.nfs.fs'>
-	<term><citetitle>Systèmes de fichiers réseau&nbsp;: NFS &amp;
-	CIFS</citetitle></term>
+    <term><citetitle>Systèmes de fichiers réseau</citetitle></term>
 	<listitem>
 	<para>&url.net-fs;&nbsp;: présentation des modes de fonctionnement des
 	systèmes de fichiers réseau <acronym>NFS</acronym> &amp;
