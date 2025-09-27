@@ -187,19 +187,19 @@
 	<!-- Glossary properties -->
 	<xsl:param name="glossentry.show.acronym">yes</xsl:param>
 
-	<!-- Variable list properties - add CSS class for styling -->
-	<xsl:template match="d:variablelist">
-		<div class="variablelist" style="margin-left: 1em;">
-			<xsl:call-template name="common.html.attributes"/>
-			<xsl:call-template name="id.attribute"/>
-			<xsl:call-template name="anchor"/>
-			<xsl:if test="d:title|d:info/d:title">
-				<xsl:call-template name="formal.object.heading"/>
-			</xsl:if>
-			<dl>
-				<xsl:apply-templates select="d:varlistentry"/>
-			</dl>
-		</div>
-	</xsl:template>
+  <!-- Variable list properties - add CSS class for styling -->
+  <xsl:template match="d:variablelist">
+	<div class="variablelist" style="margin-left: 1em;">
+		<xsl:call-template name="common.html.attributes"/>
+		<xsl:call-template name="id.attribute"/>
+		<xsl:call-template name="anchor"/>
+		<xsl:if test="d:title|d:info/d:title">
+			<xsl:call-template name="formal.object.heading"/>
+	</xsl:if>
+		<dl>
+		<xsl:apply-templates select="d:varlistentry"/>
+		</dl>
+	</div>
+  </xsl:template>
 
 </xsl:stylesheet>

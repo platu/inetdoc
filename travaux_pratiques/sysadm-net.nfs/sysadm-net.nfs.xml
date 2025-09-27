@@ -2284,42 +2284,30 @@ SYNOPSIS
     l'exportation aux clients utilisant ces types. Les types de sécurité
     disponibles sont les suivants&nbsp;:</para>
 
-    <variablelist>
-    <varlistentry>
-    <term>sys</term>
+    <itemizedlist>
     <listitem>
-    <para>C'est cette valeur par défaut, sans sécurité cryptographique, qui a
-    été utilisée pour toutes les manipulations des sections précédentes.
-    L'interception du trafic avec l'outil <command>tshark</command> a révélé
-    que les données contenues dans les échanges <acronym>NFS</acronym>
-    pouvaient être lues par un tiers.</para>
+    <para><option>sys</option>&nbsp;: c'est cette valeur par défaut, sans
+    sécurité cryptographique, qui a été utilisée pour toutes les manipulations
+    des sections précédentes.  L'interception du trafic avec l'outil
+    <command>tshark</command> a révélé que les données contenues dans les
+    échanges <acronym>NFS</acronym> pouvaient être lues par un tiers.</para>
     </listitem>
-    </varlistentry>
-    <varlistentry>
-    <term>krb5</term>
     <listitem>
-    <para>À ce niveau, seule l'authentification est assurée. La vérification
-    cryptographique de l'identité des utilisateurs empêche toute
-    usurpation.</para>
+    <para><option>krb5</option>&nbsp;: à ce niveau, seule l'authentification
+    est assurée. La vérification cryptographique de l'identité des utilisateurs
+    empêche toute usurpation.</para>
     </listitem>
-    </varlistentry>
-    <varlistentry>
-    <term>krb5i</term>
     <listitem>
-    <para>Cette option ajoute le contrôle d'intégrité à l'authentification. On
-    s'assure ainsi que les données échangées n'ont pas été modifiées pendant
-    leur transit.</para>
+    <para><option>krb5i</option>&nbsp;: cette option ajoute le contrôle
+    d'intégrité à l'authentification. On s'assure ainsi que les données
+    échangées n'ont pas été modifiées pendant leur transit.</para>
     </listitem>
-    </varlistentry>
-    <varlistentry>
-    <term>krb5p</term>
     <listitem>
-    <para>Il s'agit du niveau de sécurité le plus élevé, car il allie
-    authentification, intégrité et confidentialité, garantissant ainsi que les
-    données échangées restent secrètes.</para>
+    <para><option>krb5p</option>&nbsp;: il s'agit du niveau de sécurité le plus
+    élevé, car il allie authentification, intégrité et confidentialité,
+    garantissant ainsi que les données échangées restent secrètes.</para>
     </listitem>
-    </varlistentry>
-    </variablelist>
+    </itemizedlist>
 
     <para>Pour la négociation du type de sécurité entre le serveur et les
     clients, l'ordre est important&nbsp;: les types préférés doivent être
@@ -2653,6 +2641,259 @@ guide.</screen>
     </answer>
     </qandaentry>
 
+    <qandaentry>
+    <question>
+    <para><phrase>Comment créer le fichier de configuration utilisé par les
+    outils <application>Kerberos</application>&nbsp;?</phrase></para>
+
+    <para>Consultez le fichier <filename>/etc/krb5.conf</filename> installé
+    avec les paquets <application>Kerberos</application> et adaptez le au
+    contexte de ces travaux pratiques en précisant les choix effectués.</para>
+
+    <para>Recherchez des informations sur les jeux d'algorithmes de
+    cryptographie recommandés pour NFSv4.2</para>
+    </question>
+    <answer>
+    <para>Remplacez le modèle de fichier <filename>/etc/krb5.conf</filename>
+    par votre propre fichier.</para>
+
+<screen>cat &lt;&lt; EOF | sudo tee /etc/krb5.conf
+[libdefaults]
+        default_realm = LAB.LOCAL
+        kdc_timesync = 1
+        ccache_type = 4
+        forwardable = true
+        proxiable = true
+        rdns = false
+        allow_weak_crypto = false
+        default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+        default_tgs_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+        permitted_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+
+[realms]
+        LAB.LOCAL = {
+                kdc = nfs-server.lab.local
+                admin_server = nfs-server.lab.local
+                default_domain = lab.local
+        }
+
+[domain_realm]
+    .lab.local = LAB.LOCAL
+    lab.local = LAB.LOCAL
+EOF</screen>
+
+    <para>Expliquez le choix des différents paramètres.</para>
+
+    <variablelist>
+    <varlistentry>
+        <term>Section [libdefaults]</term>
+        <listitem>
+    <itemizedlist>
+    <listitem>
+    <para><option>default_realm&nbsp;=&nbsp;LAB.LOCAL</option>&nbsp;: spécifie
+    le domaine <application>Kerberos</application> par défaut pour les
+    authentifications.</para>
+    </listitem>
+    <listitem>
+    <para><option>kdc_timesync&nbsp;=&nbsp;1</option>&nbsp;: active la
+    synchronisation d'horloge avec le <acronym>KDC</acronym>, ce qui est
+    essentiel pour éviter l'échec des tickets.</para>
+    </listitem>
+    <listitem>
+    <para><option>ccache_type = 4</option>&nbsp;: définit le format du cache de
+    tickets (KEYRING est recommandé avec Linux pour plus de sécurité et pour la
+    gestion des sessions par utilisateur).</para>
+    </listitem>
+    <listitem>
+    <para><option>forwardable = true</option> / <option>proxiable =
+    true</option>&nbsp;: autorise la délégation de tickets si nécessaire, par
+    exemple pour qu’un serveur NFS puisse agir pour le compte d’un
+    utilisateur.</para>
+    </listitem>
+    <listitem>
+    <para><option>rdns = false</option>&nbsp;: désactive la résolution inverse
+    DNS des hôtes lors de l'utilisation de
+    <application>Kerberos</application>.</para>
+    </listitem>
+    <listitem>
+    <para><option>allow_weak_crypto = false</option>&nbsp;: interdit les
+    algorithmes obsolètes (DES, RC4).</para>
+    </listitem>
+    <listitem>
+    <para><option>default_tkt_enctypes</option> /
+    <option>default_tgs_enctypes</option> /
+    <option>permitted_enctypes</option>&nbsp;: restreint
+    <application>Kerberos</application> aux suites robustes
+    <acronym>AES-256</acronym> et <acronym>AES-128</acronym> (conforme aux
+    recommandations actuelles de sécurité).</para>
+    </listitem>
+    </itemizedlist>
+        </listitem>
+    </varlistentry>
+
+    <varlistentry>
+        <term>Section [realms]</term>
+        <listitem>
+    <para><emphasis>LAB.LOCAL</emphasis> est défini comme le <wordasword>realm
+    Kerberos</wordasword> principal.</para>
+    <itemizedlist>
+    <listitem>
+    <para><option>kdc = nfs-server.lab.local</option>&nbsp;: désigne le serveur
+    qui distribue les tickets <application>Kerberos</application>
+    (<acronym>KDC</acronym>).</para>
+    </listitem>
+    <listitem>
+    <para><option>admin_server = nfs-server.lab.local</option>&nbsp;: désigne
+    le gestionnaire des identités <application>Kerberos</application>
+    (kadmin).</para>
+    </listitem>
+    <listitem>
+    <para><option>default_domain = lab.local</option>&nbsp;: associe ce domaine
+    DNS au <wordasword>realm Kerberos</wordasword>.</para>
+    </listitem>
+    </itemizedlist>
+        </listitem>
+    </varlistentry>
+
+    <varlistentry>
+        <term>Section [domain_realm]</term>
+        <listitem>
+    <itemizedlist>
+    <listitem>
+    <para>Associe le suffixe DNS <emphasis>.lab.local</emphasis> et le domaine
+    <emphasis>lab.local</emphasis> au <wordasword>realm</wordasword> Kerberos
+    <emphasis>LAB.LOCAL</emphasis>.</para>
+    </listitem>
+    <listitem>
+    <para>Cela permet aux clients de résoudre automatiquement vers le bon
+    <wordasword>realm</wordasword> sans configuration explicite pour chaque
+    hôte.</para>
+    </listitem>
+    </itemizedlist>
+        </listitem>
+    </varlistentry>
+    </variablelist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Quelle est la définition d'un
+    <systemitem>principal</systemitem>
+    <application>Kerberos</application>&nbsp;?</phrase></para>
+
+    <para>Recherchez les informations sur la notion de
+    <systemitem>principal</systemitem>.</para>
+
+    <para><phrase>Quelles sont les commandes qui permettent d'administrer la
+    base <application>Kerberos</application>&nbsp;?</phrase></para>
+
+    <para>Recherchez dans les paquets installés les commandes qui correspondent
+    à <command>kadmin</command>.</para>
+    </question>
+    <answer>
+    <para>Un <systemitem>principal</systemitem>
+    <application>Kerberos</application> est une identité unique utilisée pour
+    l'authentification sécurisée au sein d'un domaine. Il est généralement
+    composé d'un nom d'utilisateur ou de service, d'une instance optionnelle et
+    d'un royaume (<wordasword>realm</wordasword>).  Cette combinaison,
+    enregistrée dans la base de données <application>Kerberos</application>,
+    permet d'associer des clés de chiffrement à l'identité et de garantir qu'un
+    utilisateur, un service ou un hôte dispose d'une entité distincte pour
+    établir des communications sécurisées.</para>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment créer le <systemitem>principal</systemitem> pour
+    administrer le domaine <application>Kerberos</application> à
+    distance&nbsp;?</phrase></para>
+
+    <para>Recherchez les informations sur le <systemitem>principal</systemitem>
+    <systemitem>admin/admin</systemitem>.</para>
+    </question>
+    <answer>
+    <para>Créez le principal à partir du serveur <acronym>KDC</acronym>.</para>
+
+<screen>sudo kadmin.local -q "addprinc admin/admin"</screen>
+
+    <para>Entrez un mot de passe sécurisé. Cette commande ajoute le principal
+    <systemitem>admin/admin@LAB.LOCAL</systemitem> à la base
+    <application>Kerberos</application>.</para>
+
+    <para>Vérifiez la présence de ce nouveau principal.</para>
+
+<screen>sudo kadmin.local -q "listprincs"</screen>
+<screen>K/M@LAB.LOCAL
+kadmin/admin@LAB.LOCAL</screen>
+
+    <para>Décommentez ou ajoutez la ligne suivante dans le fichier
+    <filename>/etc/krb5kdc/kadm5.acl</filename>.</para>
+
+<screen> sudo grep -v ^# /etc/krb5kdc/kadm5.acl</screen>
+<screen>*/admin *</screen>
+
+    <para>Redémarrez le service d'administration
+    <application>Kerberos</application>.</para>
+
+<screen>sudo systemctl restart krb5-admin-server</screen>
+
+    <para>Testez l'accès au service d'administration
+    <application>Kerberos</application> depuis le client <acronym>NFS</acronym>
+    pour valider l'accès à distance.</para>
+
+<screen>sudo kadmin -p kadmin/admin -q "listprincs"</screen>
+<screen>Authenticating as principal kadmin/admin with password.
+Password for kadmin/admin@LAB.LOCAL:</screen>
+
+<screen>K/M@LAB.LOCAL
+kadmin/admin@LAB.LOCAL</screen>
+
+    <para>Il est possible de renouveler ou changer le mot de passe depuis le
+    serveur <acronym>KDC</acronym> à l'aide de la commande
+    suivante&nbsp;:</para>
+
+<screen>sudo kadmin.local -q "cpw kadmin/admin"</screen>
+<screen>Authenticating as principal root/admin@LAB.LOCAL with password.
+Enter password for principal "kadmin/admin@LAB.LOCAL":
+Re-enter password for principal "kadmin/admin@LAB.LOCAL":
+Password for "kadmin/admin@LAB.LOCAL" changed.</screen>
+
+<screen>sudo kadmin.local -q "listprincs"</screen>
+<screen>K/M@LAB.LOCAL
+kadmin/admin@LAB.LOCAL
+kadmin/changepw@LAB.LOCAL</screen>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+    <para><phrase>Comment créer les <systemitem>principaux</systemitem>
+    <application>Kerberos</application> du serveur, du client et du compte
+    utilisateur de test&nbsp;?</phrase></para>
+
+    <para>Consultez les pages de manuels de la commande
+    <command>kadmin.local</command> fournie avec le paquet
+    <systemitem>krb5-admin-server</systemitem>.</para>
+    </question>
+    <answer>
+    <para>Commencez par définir les principaux à créer&nbsp;:</para>
+    <itemizedlist>
+    <listitem>
+    <para>Serveur&nbsp;:
+    <systemitem>nfs/nfs-server@LAB.LOCAL</systemitem></para>
+    </listitem>
+    <listitem>
+    <para>Client&nbsp;:
+    <systemitem>nfs/nfs-client@LAB.LOCAL</systemitem></para>
+    </listitem>
+    <listitem>
+    <para>Utilisateur&nbsp;: <systemitem>etu-nfs@LAB.LOCAL</systemitem></para>
+    </listitem>
+    </itemizedlist>
+    </answer>
+    </qandaentry>
     </qandaset>
     </sect2>
 </sect1>

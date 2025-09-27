@@ -71,28 +71,48 @@
 
     <xsl:param name="qanda.inherit.numeration" select="0" />
     <xsl:param name="qanda.defaultlabel">number</xsl:param>
+    <xsl:param name="qandadiv.autolabel" select="0"/>
     <xsl:template match="d:question" mode="label.markup">
       <xsl:text>Q</xsl:text>
       <xsl:number level="any" count="d:qandaentry" format="1"/>
     </xsl:template>
 
-    <!-- Séparateur entre question et réponse : version list-item correcte -->
+    <xsl:template match="d:question">
+      <xsl:variable name="id">
+        <xsl:call-template name="object.id"/>
+      </xsl:variable>
+      <fo:list-item id="{$id}">
+        <fo:list-item-label end-indent="label-end()">
+          <fo:block keep-together.within-page="always">
+            <xsl:text>Q</xsl:text>
+            <xsl:number level="any" count="d:qandaentry" format="1"/>
+          </fo:block>
+        </fo:list-item-label>
+        <fo:list-item-body start-indent="body-start()">
+          <fo:block keep-together.within-page="always"
+            border-bottom="0.5pt solid #333"
+            padding-bottom="0.5em">
+            <xsl:apply-templates/>
+          </fo:block>
+        </fo:list-item-body>
+      </fo:list-item>
+    </xsl:template>
+
     <xsl:template match="d:answer">
       <xsl:variable name="id">
         <xsl:call-template name="object.id"/>
       </xsl:variable>
       <fo:list-item id="{$id}">
         <fo:list-item-label end-indent="label-end()">
-          <fo:block/> <!-- pas de label pour la réponse -->
+          <fo:block/>
         </fo:list-item-label>
         <fo:list-item-body start-indent="body-start()">
-          <fo:block border-top="0.5pt solid #333">
+          <fo:block margin-top="0.5em" margin-bottom="0.5em">
             <xsl:apply-templates/>
           </fo:block>
         </fo:list-item-body>
       </fo:list-item>
     </xsl:template>
-    <xsl:param name="qandadiv.autolabel" select="0"/>
 
     <!-- automated index generation -->
     <xsl:param name="generate.index" select="1"/>
@@ -163,6 +183,13 @@
 
     <xsl:template match="d:phrase[@role='red']">
       <fo:inline color="red">
+        <xsl:apply-templates/>
+      </fo:inline>
+    </xsl:template>
+
+    <!-- Style gras pour tous les éléments phrase -->
+    <xsl:template match="d:phrase">
+      <fo:inline font-family="IBMPlexSans-SemiBold">
         <xsl:apply-templates/>
       </fo:inline>
     </xsl:template>
@@ -327,25 +354,33 @@
 
     <!-- More space in the center header for long text -->
     <xsl:attribute-set name="header.content.properties">
-        <xsl:attribute name="font-family">
-            <xsl:value-of select="$body.font.family"/>
-        </xsl:attribute>
-        <xsl:attribute name="margin-left">-5em</xsl:attribute>
-        <xsl:attribute name="margin-right">-5em</xsl:attribute>
+      <xsl:attribute name="font-family">
+        <xsl:value-of select="$body.font.family"/>
+      </xsl:attribute>
+      <xsl:attribute name="margin-left">-5em</xsl:attribute>
+      <xsl:attribute name="margin-right">-5em</xsl:attribute>
     </xsl:attribute-set>
 
 <!--###################################################
                       Custom Footer
     ################################################### -->
 
-    <!-- This footer prints the Title on the left side -->
+    <xsl:attribute-set name="footer.content.properties">
+      <xsl:attribute name="font-family">
+        <xsl:value-of select="$body.font.family"/>
+      </xsl:attribute>
+      <xsl:attribute name="font-size">8pt</xsl:attribute>
+      <xsl:attribute name="margin-top">1em</xsl:attribute>
+    </xsl:attribute-set>
+
+<!-- This footer prints the Title on the left side -->
     <xsl:template name="footer.content">
         <xsl:param name="pageclass" select="''"/>
         <xsl:param name="sequence" select="''"/>
         <xsl:param name="position" select="''"/>
         <xsl:param name="gentext-key" select="''"/>
 
-        <fo:block font-size="8pt">
+        <fo:block>
         <xsl:variable name="Title">
           <xsl:value-of select="//d:title"/>
         </xsl:variable>
@@ -372,10 +407,10 @@
             </xsl:when>
 
             <xsl:when test="$double.sided = 0 and $position='right'">
-			<xsl:text>page </xsl:text>
-            <fo:page-number/>
-			<xsl:text> sur </xsl:text>
-			<fo:page-number-citation-last ref-id="fo_root_element_id"/>
+              <xsl:text>page </xsl:text>
+                <fo:page-number/>
+              <xsl:text> sur </xsl:text>
+              <fo:page-number-citation-last ref-id="fo_root_element_id"/>
             </xsl:when>
 
             <xsl:when test="$double.sided != 0 and $sequence = 'odd' and $position='left'">
@@ -881,42 +916,42 @@ up into multiple documents.
                           Lists
     ################################################### -->
 
-    <!-- more space needed for nested inherited arabic numbered orderedlits -->
-    <xsl:param name="orderedlist.label.width">2em</xsl:param>
+  <!-- more space needed for nested inherited arabic numbered orderedlits -->
+  <xsl:param name="orderedlist.label.width">2em</xsl:param>
 
 <!--###################################################
                           Misc
     ################################################### -->
 
-    <!-- Placement of titles -->
-    <xsl:param name="formal.title.placement">
-        figure after
-        example before
-        equation before
-        table before
-        procedure before
-    </xsl:param>
+  <!-- Placement of titles -->
+  <xsl:param name="formal.title.placement">
+      figure after
+      example before
+      equation before
+      table before
+      procedure before
+  </xsl:param>
 
-    <!-- Format Variable Lists as Blocks (prevents horizontal overflow) -->
-    <xsl:param name="variablelist.as.blocks" select="1" />
+  <!-- Format Variable Lists as Blocks (prevents horizontal overflow) -->
+  <xsl:param name="variablelist.as.blocks" select="1" />
 
-    <!-- Variable list margin properties -->
-    <xsl:attribute-set name="variablelist.properties">
-      <xsl:attribute name="margin-left">1em</xsl:attribute>
-    </xsl:attribute-set>
+  <!-- Variable list margin properties -->
+  <xsl:attribute-set name="variablelist.properties">
+    <xsl:attribute name="margin-left">1em</xsl:attribute>
+  </xsl:attribute-set>
 
-    <!-- Qandas -->
-    <xsl:attribute-set name="qanda.title.properties">
-      <xsl:attribute name="font-family">
-          <xsl:value-of select="$title.font.family"></xsl:value-of>
-      </xsl:attribute>
-      <xsl:attribute name="font-weight">bold</xsl:attribute>
-        <!-- font size is calculated dynamically by qanda.heading template -->
-        <xsl:attribute name="keep-with-next.within-column">always</xsl:attribute>
-        <xsl:attribute name="space-before.minimum">0.1em</xsl:attribute>
-        <xsl:attribute name="space-before.optimum">0.2em</xsl:attribute>
-        <xsl:attribute name="space-before.maximum">0.3em</xsl:attribute>
-    </xsl:attribute-set>
+  <!-- Qandas -->
+  <xsl:attribute-set name="qanda.title.properties">
+    <xsl:attribute name="font-family">
+      <xsl:value-of select="$title.font.family"></xsl:value-of>
+    </xsl:attribute>
+    <xsl:attribute name="font-weight">bold</xsl:attribute>
+    <!-- font size is calculated dynamically by qanda.heading template -->
+    <xsl:attribute name="keep-with-next.within-column">always</xsl:attribute>
+    <xsl:attribute name="space-before.minimum">0.1em</xsl:attribute>
+    <xsl:attribute name="space-before.optimum">0.2em</xsl:attribute>
+    <xsl:attribute name="space-before.maximum">0.3em</xsl:attribute>
+  </xsl:attribute-set>
 
 	<!-- emphasis italic and underline font style -->
 	<xsl:template match="d:emphasis">
@@ -934,17 +969,17 @@ up into multiple documents.
 		</fo:inline>
 	</xsl:template>
 
-    <!-- Glossary properties -->
-    <xsl:param name="glossentry.show.acronym">yes</xsl:param>
+  <!-- Glossary properties -->
+  <xsl:param name="glossentry.show.acronym">yes</xsl:param>
 
-    <xsl:template match="glossterm" mode="glossary.as.list">
+  <xsl:template match="glossterm" mode="glossary.as.list">
     <xsl:variable name="id">
     <xsl:call-template name="object.id"/>
     </xsl:variable>
     <fo:block text-align="left">
     <fo:inline id="{$id}"><xsl:apply-templates/></fo:inline>
     </fo:block>
-    </xsl:template>
+  </xsl:template>
 
 	<!-- link with prefix within PDF files
 		Unfortunately the transformation below doesn't work at all.
@@ -965,20 +1000,34 @@ up into multiple documents.
 		<xsl:apply-templates select="exsl:node-set($new.element)/foo/*"/>
 	</xsl:template>
 
-    <!-- Normalisation des liens relatifs (remplace le sed du Makefile) -->
-    <xsl:template match="d:link[@role='relative']">
-      <xsl:variable name="href">
-        <xsl:choose>
-          <xsl:when test="starts-with(@xlink:href,'http://') or starts-with(@xlink:href,'https://')">
-            <xsl:value-of select="@xlink:href"/>
-          </xsl:when>
-          <xsl:otherwise>
-            <xsl:value-of select="concat($site.base, @xlink:href)"/>
-          </xsl:otherwise>
-        </xsl:choose>
-      </xsl:variable>
-      <fo:basic-link xlink:href="{$href}">
-        <xsl:apply-templates/>
-      </fo:basic-link>
-    </xsl:template>
+  <!-- Normalisation des liens relatifs (remplace le sed du Makefile) -->
+  <xsl:template match="d:link[@role='relative']">
+    <xsl:variable name="href">
+      <xsl:choose>
+        <xsl:when test="starts-with(@xlink:href,'http://') or starts-with(@xlink:href,'https://')">
+          <xsl:value-of select="@xlink:href"/>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="concat($site.base, @xlink:href)"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+    <fo:basic-link xlink:href="{$href}">
+      <xsl:apply-templates/>
+    </fo:basic-link>
+  </xsl:template>
+
+  <!-- Style mono souligné et taille réduite 90% -->
+  <xsl:template match="d:systemitem | d:option | d:filename | d:literal | d:userinput">
+    <fo:inline
+      font-family="{$monospace.font.family}"
+      text-decoration="underline">
+      <xsl:attribute name="font-size">
+        <xsl:value-of select="$body.font.master * 0.9"/>
+        <xsl:text>pt</xsl:text>
+      </xsl:attribute>
+      <xsl:apply-templates/>
+    </fo:inline>
+  </xsl:template>
+
 </xsl:stylesheet>
