@@ -189,7 +189,7 @@
 
     <!-- Style gras pour tous les éléments phrase -->
     <xsl:template match="d:phrase">
-      <fo:inline font-family="IBMPlexSans-SemiBold">
+      <fo:inline font-family="IBMPlexSans-Medium">
         <xsl:apply-templates/>
       </fo:inline>
     </xsl:template>
