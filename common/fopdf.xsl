@@ -189,7 +189,7 @@
 
     <!-- Style gras pour tous les éléments phrase -->
     <xsl:template match="d:phrase">
-      <fo:inline font-family="IBMPlexSans-Medium">
+      <fo:inline font-family="IBMPlexSans-Regular">
         <xsl:apply-templates/>
       </fo:inline>
     </xsl:template>
@@ -516,11 +516,8 @@
       <xsl:attribute name="keep-together.within-column">auto</xsl:attribute>
     </xsl:attribute-set>
 
-	<xsl:attribute-set name="table.properties"
-		use-attribute-sets="formal.object.properties" />
-
-    <!-- The table width should be adapted to the paper size -->
-    <xsl:param name="default.table.width">17.5cm</xsl:param>
+    <xsl:attribute-set name="table.properties"
+      use-attribute-sets="formal.object.properties" />
 
 	<xsl:template name="table.row.properties">
 
