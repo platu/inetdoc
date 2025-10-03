@@ -1442,8 +1442,9 @@ nfs-server:/home on /ahome type nfs4
 	<question>
     <para><phrase>Comment lancer une capture de trafic avec
     <command>tshark</command> sur le serveur avant d'exécuter la commande
-    <command>ls -lAh /ahome</command> sur le client&nbsp;?</phrase> Comment
-    interpréter les informations capturées&nbsp;?</para>
+    <command>ls -lAh /ahome</command> sur le client&nbsp;?</phrase></para>
+
+    <para>Comment interpréter les informations capturées&nbsp;?</para>
 	</question>
 	<answer>
     <orderedlist>
@@ -2140,9 +2141,9 @@ ID etu-nfs owns it</screen>
 	</answer>
 	</qandaentry>
 
-	<qandaentry>
+	<qandaentry xml:id='sysadm-net.nfs.idmapd.tests.capture'>
 	<question>
-    <para><phrase>Comment Réaliser une capture de trafic réseau côté serveur
+    <para><phrase>Comment réaliser une capture de trafic réseau côté serveur
     pendant que l'utilisateur génère un fichier texte assez volumineux dans son
     répertoire utilisateur&nbsp;?</phrase></para>
 
@@ -3480,6 +3481,256 @@ Notice: journal has been rotated since unit was started, output may be incomplet
     transactions <acronym>NFS</acronym> sécurisées.</para>
     </sect2>
 </sect1>
+
+
+<sect1 xml:id='sysadm-net.nfs.final-tests'>
+	<title>Tester la protection des échanges NFS</title>
+
+    <para>Cette section présente les tests de montage et les captures de trafic
+    qui ont été réalisés avant la sécurisation des échanges
+    <acronym>NFS</acronym>. Il s'agit à présent de caractériser les effets du
+    durcissement de la configuration sur l'interception et l'usurpation.</para>
+
+    <sect2 xml:id='sysadm-net.nfs.final-tests.mount'>
+        <title>Identifier les paramètres de sécurité lors de
+        l'automontage</title>
+
+    <para>L'automontage du répertoire utilisateur doit se faire lors de la
+    connexion au compte utilisateur <systemitem>etu-nfs</systemitem> que
+    l'on a créé manuellement sur le serveur et sur le client
+    <acronym>NFS</acronym>.</para>
+
+    <qandaset>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment tester la connexion au compte
+    <systemitem>etu-nfs</systemitem> depuis le serveur&nbsp;?</phrase></para>
+
+    <para>Ouvrir une connexion <acronym>SSH</acronym> sur le client depuis le
+    serveur.</para>
+    </question>
+    <answer>
+<screen>ssh etu-nfs@nfs-client</screen>
+<screen>(etu-nfs@nfs-client) Password:</screen>
+
+    <para>Affichez le répertoire courant pour confirmer qu'il s'agit bien de
+    l'automontage&nbsp;: <filename class='directory'>/ahome/etu-nfs/</filename>.</para>
+
+<screen>pwd</screen>
+<screen>/ahome/etu-nfs</screen>
+
+    <para>Affichez les propriétés du montage <acronym>NFS</acronym> et
+    identifiez les paramètres relatifs à la sécurité.</para>
+
+<screen>mount | grep nfs</screen>
+<screen>nfs-server.lab.local:/home/etu-nfs on /ahome/etu-nfs type nfs4 (rw,nosuid,nodev,noexec,relatime,vers=4.2,
+    rsize=131072,wsize=131072,namlen=255,hard,fatal_neterrors=none,proto=tcp6,timeo=600,retrans=2,
+    <emphasis>sec=krb5p,xprtsec=mtls,</emphasis>
+    clientaddr=2001:678:3fc:65:baad:caff:fefe:6,local_lock=none,addr=2001:678:3fc:65:baad:caff:fefe:5,_netdev)</screen>
+
+    <para>La liste des paramètres est très longue, mais on repère la version
+    <application>Kerberos</application> ainsi que l'utilisation du protocole
+    <acronym>TLS</acronym>.</para>
+    </answer>
+    </qandaentry>
+    </qandaset>
+
+    <para>Nous avons la confirmation que les fonctions de sécurisation des
+    transactions <acronym>NFS</acronym> sont actives.</para>
+    </sect2>
+
+    <sect2 xml:id='sysadm-net.nfs.final-tests.portmap'>
+        <title>Analyser un appel au service portmapper</title>
+
+    <para>Nous reprenons ici la capture du trafic entre le client et le serveur
+    <acronym>NFS</acronym> lors de l'utilisation des commandes qui utilisent le
+    port <systemitem>sunrpc/111</systemitem> comme <command>rpcinfo</command>
+    ou <command>showmount</command>.</para>
+
+    <qandaset>
+	<qandaentry>
+	<question>
+    <para><phrase>Comment lancer une capture de trafic avec
+    <command>tshark</command> sur le serveur avant d'exécuter la commande
+    <command>rpcinfo -s nfs-server</command> sur le
+    client&nbsp;?</phrase></para>
+
+    <para>Est-ce que ces échanges sont sécurisés&nbsp;? Comment interpréter les
+    résultats&nbsp;?</para>
+	</question>
+	<answer>
+    <orderedlist>
+	<listitem>
+    <para>Lancez la capture de trafic côté serveur
+    <acronym>NFS</acronym>.</para>
+
+<screen>tshark -i enp0s1 -f "host 2001:678:3fc:65:baad:caff:fefe:6" -w nfs-sec-rpcinfo.pcap</screen>
+
+    <para>L'adresse d'hôte sélectionnée est celle du client
+    <acronym>NFS</acronym>.</para>
+	</listitem>
+	<listitem>
+    <para>Lancez la requête <acronym>RPC</acronym> au
+    <systemitem>portmapper</systemitem> avec la commande <command>rpcinfo -s
+    nfs-server</command> côté client.</para>
+
+<screen>rpcinfo -s nfs-server</screen>
+<screen>   program version(s) netid(s)                         service     owner
+    100000  2,3,4     local,udp,tcp,udp6,tcp6          portmapper  superuser
+    100024  1         tcp6,udp6,tcp,udp                status      104
+    100005  3,2,1     tcp6,udp6,tcp,udp                mountd      superuser
+    100003  4,3       tcp6,tcp                         nfs         superuser
+    100227  3         tcp6,tcp                         nfs_acl     superuser
+    100021  4,3,1     tcp6,udp6,tcp,udp                nlockmgr    superuser</screen>
+	</listitem>
+	<listitem>
+	<para>Arrêtez la capture côté serveur avec Ctrl+C.</para>
+	</listitem>
+	</orderedlist>
+
+    <para>Affichez la liste des trames capturées.</para>
+
+<screen>tshark -r nfs-sec-rpcinfo.pcap</screen>
+<screen>1 0.000000000 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 94 52846 → 111 [SYN] Seq=0 Win=64800 Len=0 MSS=1440 SACK_PERM TSval=2344535586 TSecr=0 WS=128
+ 2 0.000041863 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TCP 94 111 → 52846 [SYN, ACK] Seq=0 Ack=1 Win=64260 Len=0 MSS=1440 SACK_PERM TSval=1771129017 TSecr=2344535586 WS=128
+ 3 0.000524446 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 86 52846 → 111 [ACK] Seq=1 Ack=1 Win=64896 Len=0 TSval=2344535587 TSecr=1771129017
+ 4 0.000760423 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 Portmap 130 V3 DUMP Call
+ 5 0.000774930 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TCP 86 111 → 52846 [ACK] Seq=1 Ack=45 Win=64256 Len=0 TSval=1771129017 TSecr=2344535587
+ 6 0.001370718 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 Portmap 2554 V3 DUMP Reply (Call In 4)
+ 7 0.001730994 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 86 52846 → 111 [ACK] Seq=45 Ack=2469 Win=69888 Len=0 TSval=2344535588 TSecr=1771129018
+ 8 0.002623609 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 86 52846 → 111 [FIN, ACK] Seq=45 Ack=2469 Win=69888 Len=0 TSval=2344535589 TSecr=1771129018
+ 9 0.002689252 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TCP 86 111 → 52846 [FIN, ACK] Seq=2469 Ack=46 Win=64256 Len=0 TSval=1771129019 TSecr=2344535589
+10 0.002812963 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 86 52846 → 111 [ACK] Seq=46 Ack=2470 Win=69888 Len=0 TSval=2344535589 TSecr=1771129019</screen>
+
+    <para>Les échanges <acronym>RPC</acronym> qui utilisent le port
+    <systemitem>sunrpc/111</systemitem> ne sont pas protégés.</para>
+    </answer>
+    </qandaentry>
+    </qandaset>
+
+    <para>Lorsque <acronym>NFS</acronym> est configuré pour utiliser
+    <acronym>TLS</acronym> via <systemitem>tlshd</systemitem>, tout service
+    s'exécutant derrière <systemitem>tlshd</systemitem>, y compris ceux
+    signalés par <command>rpcinfo</command>, voit son trafic
+    <acronym>RPC</acronym> protégé par <acronym>TLS</acronym>.</para>
+
+    <para>Comme <command>rpcinfo</command> ne peut pas se connecter au point de
+    terminaison <acronym>RPC</acronym> encapsulé dans <acronym>TLS</acronym>,
+    il communique en clair avec les points de terminaison traditionnels non
+    <acronym>TLS</acronym> (comme <systemitem>portmap/rpcbind</systemitem>
+    s'exécutant sans <systemitem>tlshd</systemitem>).</para>
+    </sect2>
+
+    <sect2 xml:id='sysadm-net.nfs.final-tests.man'>
+        <title>Capturer le trafic entre le client et le serveur NFS</title>
+
+    <para>On reprend la même capture de trafic que celle réalisée lors de la
+    question <xref linkend='sysadm-net.nfs.idmapd.tests.capture' />.</para>
+
+    <qandaset>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment réaliser une capture de trafic réseau côté serveur
+    pendant que l'utilisateur génère un fichier texte dans son répertoire
+    utilisateur&nbsp;?</phrase></para>
+
+    <orderedlist>
+    <listitem>
+    <para>Capturez le trafic côté serveur avec
+    <command>tshark</command>.</para>
+    </listitem>
+    <listitem>
+    <para>Créez un fichier texte dans le répertoire utilisateur <filename
+    class='directory'>/ahome/etu-nfs/</filename> côté client.</para>
+    </listitem>
+    <listitem>
+    <para>Affichez un extrait de charge utile présent dans le fichier de
+    capture côté serveur.</para>
+    </listitem>
+    </orderedlist>
+    </question>
+    <answer>
+    <orderedlist>
+    <listitem>
+    <para>Capturez le trafic avec la même syntaxe pour la commande
+    <command>tshark</command>. Changez simplement le nom du fichier de
+    capture.</para>
+
+<screen>tshark -i enp0s1 -f "host 2001:678:3fc:65:baad:caff:fefe:6" -w nfs-sec-man.pcap</screen>
+    </listitem>
+    <listitem>
+    <para>Lancez la même commande de génération de fichier texte côté
+    client NFS avec l'identité <systemitem>etu-nfs</systemitem> depuis son
+    répertoire utilisateur.</para>
+
+<screen>man man > man.txt</screen>
+    </listitem>
+    <listitem>
+    <para>Revenez côté serveur et arrêtez la capture de trafic avec Crtl+C.</para>
+    <para>Listez les trames capturées dans le fichier
+    <filename>nfs-sec-man.pcap</filename> sans le filtre de protocole
+    <option>-Y nfs</option>.</para>
+
+<screen>tshark -r nfs-sec-man.pcap</screen>
+<screen> 1 0.000000000 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TLSv1.2 352 Application Data
+ 2 0.000289635 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TLSv1.2 352 Application Data
+ 3 0.000897117 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 86 673 → 2049 [ACK] Seq=267 Ack=267 Win=537 Len=0 TSval=2347950253 TSecr=1774543683
+ 4 0.001232074 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TLSv1.2 432 Application Data
+ 5 0.001401592 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TLSv1.2 564 Application Data
+ 6 0.001910048 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TLSv1.2 400 Application Data
+ 7 0.004035351 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TLSv1.2 496 Application Data
+ 8 0.046862987 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 86 673 → 2049 [ACK] Seq=927 Ack=1155 Win=537 Len=0 TSval=2347950299 TSecr=1774543686
+ 9 0.079854964 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TLSv1.2 7226
+10 0.079855475 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 7226 673 → 2049 [PSH, ACK] Seq=8067 Ack=1155 Win=537 Len=7140 TSval=2347950331 TSecr=1774543686
+11 0.091014106 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 1514 673 → 2049 [ACK] Seq=15207 Ack=1155 Win=537 Len=1428 TSval=2347950343 TSecr=1774543686
+12 0.123207572 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TCP 86 2049 → 673 [ACK] Seq=1155 Ack=16635 Win=440 Len=0 TSval=1774543806 TSecr=2347950331
+13 0.123638355 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TLSv1.2 14366 Application Data
+14 0.123679943 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TCP 86 2049 → 673 [ACK] Seq=1155 Ack=30915 Win=378 Len=0 TSval=1774543806 TSecr=2347950375
+15 0.123698705 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TLSv1.2 9568 Application Data, Application Data
+16 0.123710890 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TCP 86 2049 → 673 [ACK] Seq=1155 Ack=40397 Win=336 Len=0 TSval=1774543806 TSecr=2347950375
+17 0.126918761 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TLSv1.2 328 Application Data
+18 0.127283594 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 86 673 → 2049 [ACK] Seq=40397 Ack=1397 Win=537 Len=0 TSval=2347950379 TSecr=1774543809
+19 0.129786532 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TLSv1.2 356 Application Data
+20 0.129942990 2001:678:3fc:65:baad:caff:fefe:5 → 2001:678:3fc:65:baad:caff:fefe:6 TLSv1.2 364 Application Data
+21 0.175012780 2001:678:3fc:65:baad:caff:fefe:6 → 2001:678:3fc:65:baad:caff:fefe:5 TCP 86 673 → 2049 [ACK] Seq=40667 Ack=1675 Win=537 Len=0 TSval=2347950427 TSecr=1774543812</screen>
+
+    <para>Dans la liste ci-dessus, on identifie l'utilisation de
+    <acronym>TLS</acronym>, ce qui montre que le trafic entre le client et le
+    serveur <acronym>NFS</acronym> est bien chiffré de bout en bout.</para>
+    </listitem>
+    <listitem>
+    <para>Affichez le contenu d'une trame pour illustrer le fait que les
+    données sont inexploitables.</para>
+
+<screen>tshark -r nfs-sec-man.pcap -Y "frame.number == 5" -T fields -e tls.app_data</screen>
+<screen>7280bc6f255b74b6537ce42fb2f3b47bcf9aca8abc78773362811f90ea13a7b116cb3d7
+838fd32e297d97fec2982fca3795baa78a9b393a1dcd1f145b9ed661c3b9f056b051a85bc21245b
+ba6a1b7ffb2a7dde422618a083417ae408c559be5aaff4c6678293cc0acfa445d02ade4cca010f6
+d4ade9ae63506ad79e379f83538ab22b55646229a29720c009b935712792d17376744ffc2a71d54
+281ffb53966d1f78ac8315e4752a7e5f3f5381e4013afb2d66ee2d8f06eecd572846d8086d07ac7
+9a30db370871a2ab2d1652608613d005333a1d0e2c339135f04da905068bed44372b25a05e6bd78
+dd566e9bd17ddca6608e20758716569407ea044b7342ce39205fd581eaf0b49c79707762aa0af9c
+64fb09e119dcf8a75e6c6f9ee82cbe02b856ffe1baa8b9f02d72e7fc6a5410a5966364bea4a83b6
+f6bb01982a94d9045fab462e42a384575c6d58d1e3666af975cfc42af787287cc625f337bc3ec13
+af09799ade005cac6c9e7af1fea3f3f4b886d1301ef23af9c47e35be1d0f5142c2551cde08ca04b
+1332149c915018a78184b911755640a623345072d060adbf51b6b0cbe6a368d4897ea4c0b4b1d30
+148ae4aef77c44187344b6b67546992681bc5d67a5b0e57ef83ff2249d702d510344eee063b8289
+dac0cd</screen>
+    </listitem>
+    </orderedlist>
+    </answer>
+    </qandaentry>
+    </qandaset>
+
+    <para>Les résultats de cette section illustrent l'efficacité du
+    renforcement de la sécurité <acronym>NFS</acronym>. Grâce à la mise en
+    œuvre de <application>Kerberos</application> et de <acronym>TLS</acronym>,
+    les échanges entre le client et le serveur sont désormais chiffrés et
+    protégés, ce qui réduit considérablement les risques d'interception des
+    données échangées et d'usurpation d'identité.</para>
+    </sect2>
+</sect1>
+
 
 <sect1 xml:id='sysadm-net.nfs.refdocs'>
 	<title>Documents de référence</title>
