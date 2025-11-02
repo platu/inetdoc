@@ -7,6 +7,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 # Liste des répertoires à traiter à partir de ce niveau
 SUBDIRS = \
 	sysadm-c1 \
+	sysadm-c2 \
 	sysadm-base-2 \
 	sysadm-base-3 \
 	sysadm-base-4 \
