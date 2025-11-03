@@ -8,6 +8,7 @@ ABSTRACT_FILE = transform_output/abstract.xml
 SUBDIRS = \
 	sysadm-c1 \
 	sysadm-c2 \
+	sysadm-c3 \
 	sysadm-base-2 \
 	sysadm-base-3 \
 	sysadm-base-4 \
