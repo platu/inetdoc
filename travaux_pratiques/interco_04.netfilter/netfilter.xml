@@ -770,10 +770,11 @@ table inet <emphasis>raw</emphasis> {
     <answer>
     <para>La table <systemitem>raw</systemitem> du système de filtrage Linux
     <systemitem>netfilter</systemitem> est principalement utilisée pour marquer
-    les paquets qui doivent éviter le suivi des connexions. Elle intervient au
-    tout début du traitement des paquets, ce qui permet de traiter certains
-    flux réseau en évitant des opérations qui consomment beaucoup de
-    ressources, comme le suivi des connexions.</para>
+    les paquets qui doivent éviter le suivi des connexions
+    (<wordasword>connection tracking</wordasword>). Elle intervient au tout
+    début du traitement des paquets, ce qui permet de traiter certains flux
+    réseau en évitant des opérations qui consomment beaucoup de ressources,
+    comme le suivi des connexions.</para>
     </answer>
     </qandaentry>
 
@@ -787,11 +788,20 @@ table inet <emphasis>raw</emphasis> {
     manuels de la commande <command>nft</command>.</para>
     </question>
     <answer>
-    <para>La règle <literal>fib saddr . iif oif 0</literal> vérifie si
-    l'adresse source correspond à l'interface entrante selon la
+    <para>La syntaxe «&nbsp;<literal>fib saddr.iif oif 0</literal>&nbsp;»
+    utilisée dans la règle <citetitle>NFTables</citetitle> permet d'effectuer
+    un filtrage basé sur la table de routage. L'option «&nbsp;<literal>oif
+    0</literal>&nbsp;» indique que l'index utilisé pour la sortie est égal à
+    zéro, ce qui signifie qu'aucune interface réseau précise n'est spécifiée
+    pour le test. Cette correspondance permet de vérifier que l'adresse source
+    du paquet est cohérente avec l'interface d’entrée, sans imposer de
+    contrainte sur l'interface de sortie. Elle permet ainsi d'effectuer une
+    vérification du chemin inverse générique.</para>
+
+    <para>L'analyse de la correspondance d'adresse source utilise la
     <acronym>FIB</acronym> (<wordasword>Forwarding Information
-    Base</wordasword>). Cette règle met en œuvre le filtrage du chemin
-    inverse.</para>
+    Base</wordasword>) qui contient l'ensemble des décisions de routage déjà
+    connues.</para>
     </answer>
     </qandaentry>
 
@@ -808,10 +818,16 @@ table inet <emphasis>raw</emphasis> {
     <para>C'est l'option <option>list</option> qui permet l'affichage des
     règles implantées dans les différentes tables.</para>
 
-	<para>Voici un exemple dans le contexte de la maquette sur un routeur
-	<citetitle>Spoke</citetitle>. Un jeu de règles a déjà été inséré dans la
-	table <systemitem>raw</systemitem>. Elle permet de visualiser les compteurs
-	de correspondance qui montrent que la règle a bien été utilisée.</para>
+    <para>De façon générale, il est possible de lister l'ensemble des règles
+    avec la commande suivante&nbsp;:</para>
+
+<screen>sudo nft list ruleset</screen>
+
+    <para>Voici maintenant un exemple dans le contexte de la maquette sur un
+    routeur <citetitle>Spoke</citetitle>. Un jeu de règles a déjà été inséré
+    dans la table <systemitem>raw</systemitem>. Elle permet de visualiser les
+    compteurs de correspondance qui montrent que la règle a bien été
+    utilisée.</para>
 
 <screen>sudo nft list table inet raw</screen>
 
@@ -1062,10 +1078,10 @@ table inet raw {
     # ICMP Rate Limiting Rules
     chain icmpfilter {
         type filter hook prerouting priority raw; policy accept;
-        icmp type echo-request limit rate 5/second burst 5 packets counter packets 0 bytes 0 accept
-        icmp type echo-request counter drop
-        icmpv6 type echo-request limit rate 5/second burst 5 packets counter packets 0 bytes 0 accept
-        icmpv6 type echo-request counter drop
+        iifname "ppp0" icmp type echo-request limit rate 5/second burst 5 packets counter packets 0 bytes 0 accept
+        iifname "ppp0" icmp type echo-request counter drop
+        iifname "ppp0" icmpv6 type echo-request limit rate 5/second burst 5 packets counter packets 0 bytes 0 accept
+        iifname "ppp0" icmpv6 type echo-request counter drop
     }
 }</screen>
 
@@ -1140,10 +1156,10 @@ rtt min/avg/max/mdev = 1.056/1.279/2.034/0.268 ms</screen>
 
     chain icmpfilter {
         type filter hook prerouting priority raw; policy accept;
-        icmp type echo-request limit rate 5/second burst 5 packets <emphasis>counter packets 5378 bytes 150584 accept</emphasis>
-        icmp type echo-request <emphasis>counter packets 90460174 bytes 2532884872 drop</emphasis>
-        icmpv6 type echo-request limit rate 5/second burst 5 packets counter packets 0 bytes 0 accept
-        icmpv6 type echo-request counter drop
+        iifname "ppp0" icmp type echo-request limit rate 5/second burst 5 packets <emphasis>counter packets 5378 bytes 150584 accept</emphasis>
+        iifname "ppp0" icmp type echo-request <emphasis>counter packets 90460174 bytes 2532884872 drop</emphasis>
+        iifname "ppp0" icmpv6 type echo-request limit rate 5/second burst 5 packets counter packets 0 bytes 0 accept
+        iifname "ppp0" icmpv6 type echo-request counter drop
     }
 }</screen>
 	</answer>
@@ -1183,18 +1199,18 @@ rtt min/avg/max/mdev = 0.316/0.845/2.057/0.334 ms, ipg/ewma 13.281/0.931 ms</scr
 <screen>sudo nft list table inet raw</screen>
 
 <screen>table inet raw {
-        chain rpfilter {
-                type filter hook prerouting priority raw; policy accept;
-                iifname "ppp0" fib saddr . iif oif 0 counter packets 0 bytes 0 drop
-        }
+    chain rpfilter {
+        type filter hook prerouting priority raw; policy accept;
+        iifname "ppp0" fib saddr . iif oif 0 counter packets 0 bytes 0 drop
+    }
 
-        chain icmpfilter {
-                type filter hook prerouting priority raw; policy accept;
-                icmp type echo-request limit rate 5/second burst 5 packets counter packets 5378 bytes 150584 accept
-                icmp type echo-request counter packets 90460174 bytes 2532884872 drop
-                icmpv6 type echo-request limit rate 5/second burst 5 packets <emphasis>counter packets 93 bytes 9672 accept</emphasis>
-                icmpv6 type echo-request <emphasis>counter packets 485 bytes 50440 drop</emphasis>
-        }
+    chain icmpfilter {
+        type filter hook prerouting priority raw; policy accept;
+        iifname "ppp0" icmp type echo-request limit rate 5/second burst 5 packets counter packets 5378 bytes 150584 accept
+        iifname "ppp0" icmp type echo-request counter packets 90460174 bytes 2532884872 drop
+        iifname "ppp0" icmpv6 type echo-request limit rate 5/second burst 5 packets <emphasis>counter packets 93 bytes 9672 accept</emphasis>
+        iifname "ppp0" icmpv6 type echo-request <emphasis>counter packets 485 bytes 50440 drop</emphasis>
+    }
 }</screen>
 
     <para>Comme on l'a fait pour le protocole <acronym>IPv4</acronym>, on
@@ -1611,33 +1627,35 @@ ssh: connect to host fe80::c59:5d57:7476:13cc%ppp0 port 2222: <emphasis>Connecti
 <screen>sudo nft list ruleset</screen>
 
 <screen>table inet raw {
-        chain rpfilter {
-                type filter hook prerouting priority raw; policy accept;
-                iifname "ppp0" fib saddr . iif oif 0 counter packets 0 bytes 0 drop
-        }
+    chain rpfilter {
+        type filter hook prerouting priority raw; policy accept;
+        iifname "ppp0" fib saddr . iif oif 0 counter packets 0 bytes 0 drop
+    }
 
-        chain icmpfilter {
-                type filter hook prerouting priority raw; policy accept;
-                icmp type echo-request limit rate 5/second burst 5 packets counter packets 6821 bytes 193228 accept
-                icmp type echo-request counter packets 116414622 bytes 3259609416 drop
-        }
+    chain icmpfilter {
+        type filter hook prerouting priority raw; policy accept;
+        iifname "ppp0" icmp type echo-request limit rate 5/second burst 5 packets counter packets 6821 bytes 193228 accept
+        iifname "ppp0" icmp type echo-request counter packets 116414622 bytes 3259609416 drop
+        iifname "ppp0" icmpv6 type echo-request limit rate 5/second burst 5 packets counter packets 0 bytes 0 accept
+        iifname "ppp0" icmpv6 type echo-request counter drop
+    }
 }
 table inet f2b-table {
-        set addr-set-sshd {
-                type ipv4_addr
-                elements = { 10.44.1.1 }
-        }
+    set addr-set-sshd {
+        type ipv4_addr
+        elements = { 10.44.1.1 }
+    }
 
-        set addr6-set-sshd {
-                type ipv6_addr
-                elements = { fe80::f153:4881:c7c4:f371 }
-        }
+    set addr6-set-sshd {
+        type ipv6_addr
+        elements = { fe80::f153:4881:c7c4:f371 }
+    }
 
-        chain f2b-chain {
-                type filter hook input priority filter - 1; policy accept;
-                tcp dport 2222 ip saddr @addr-set-sshd reject with icmp port-unreachable
-                tcp dport 2222 ip6 saddr @addr6-set-sshd reject with icmpv6 port-unreachable
-        }
+    chain f2b-chain {
+        type filter hook input priority filter - 1; policy accept;
+        tcp dport 2222 ip saddr @addr-set-sshd reject with icmp port-unreachable
+        tcp dport 2222 ip6 saddr @addr6-set-sshd reject with icmpv6 port-unreachable
+    }
 }</screen>
 
     <qandaset defaultlabel='number'>
@@ -1921,15 +1939,15 @@ done</screen>
 <screen>sudo nft list table inet filter</screen>
 
 <screen>table inet filter {
-        chain forward {
-                type filter hook forward priority filter; policy drop;
-                <emphasis>oifname "ppp0" ct state new counter packets 41 bytes 3078 accept</emphasis>
-                ct state established,related accept
-                iifname "ppp0" meta l4proto { icmp, ipv6-icmp } ct state new counter packets 2 bytes 188 accept
-                iifname "ppp0" tcp dport 2222 ct state new counter packets 0 bytes 0 accept
-                iifname "ppp0" meta l4proto { tcp, udp } th dport { 80, 443 } ct state new counter packets 1 bytes 60 accept
-                counter packets 0 bytes 0 comment "count dropped packets"
-        }
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        <emphasis>oifname "ppp0" ct state new counter packets 41 bytes 3078 accept</emphasis>
+        ct state established,related accept
+        iifname "ppp0" meta l4proto { icmp, ipv6-icmp } ct state new counter packets 2 bytes 188 accept
+        iifname "ppp0" tcp dport 2222 ct state new counter packets 0 bytes 0 accept
+        iifname "ppp0" meta l4proto { tcp, udp } th dport { 80, 443 } ct state new counter packets 1 bytes 60 accept
+        counter packets 0 bytes 0 comment "count dropped packets"
+    }
 }</screen>
     </answer>
     </qandaentry>
@@ -1963,15 +1981,15 @@ done</screen>
 <screen>sudo nft list table inet filter</screen>
 
 <screen>table inet filter {
-        chain forward {
-                type filter hook forward priority filter; policy drop;
-                oifname "ppp0" ct state new counter packets 0 bytes 0 accept
-                <emphasis>ct state established,related counter packets 81 bytes 13581 accept</emphasis>
-                iifname "ppp0" meta l4proto { icmp, ipv6-icmp } ct state new counter packets 0 bytes 0 accept
-                iifname "ppp0" tcp dport 2222 ct state new counter packets 0 bytes 0 accept
-                <emphasis>iifname "ppp0" meta l4proto { tcp, udp } th dport { 80, 443 } ct state new counter packets 9 bytes 600 accept</emphasis>
-                counter packets 0 bytes 0 comment "count dropped packets"
-        }
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        oifname "ppp0" ct state new counter packets 0 bytes 0 accept
+        <emphasis>ct state established,related counter packets 81 bytes 13581 accept</emphasis>
+        iifname "ppp0" meta l4proto { icmp, ipv6-icmp } ct state new counter packets 0 bytes 0 accept
+        iifname "ppp0" tcp dport 2222 ct state new counter packets 0 bytes 0 accept
+        <emphasis>iifname "ppp0" meta l4proto { tcp, udp } th dport { 80, 443 } ct state new counter packets 9 bytes 600 accept</emphasis>
+        counter packets 0 bytes 0 comment "count dropped packets"
+    }
 }</screen>
     </answer>
     </qandaentry>
@@ -2093,8 +2111,10 @@ table inet raw {
     # ICMP Rate Limiting Rules
     chain icmpfilter {
         type filter hook prerouting priority raw; policy accept;
-        icmp type echo-request limit rate 5/second burst 5 packets counter accept
-        icmp type echo-request counter drop
+        iifname "ppp0" icmp type echo-request limit rate 5/second burst 5 packets counter accept
+        iifname "ppp0" icmp type echo-request counter drop
+        iifname "ppp0" icmpv6 type echo-request limit rate 5/second burst 5 packets counter packets 0 bytes 0 accept
+        iifname "ppp0" icmpv6 type echo-request counter drop
     }
 }
 
