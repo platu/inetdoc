@@ -22,7 +22,8 @@ XML_FILES = \
     $(OUTPUT)/chapter-sysadm-net.nfs.xml \
     $(OUTPUT)/chapter-sysadm-net.ldap.xml \
     $(OUTPUT)/chapter-sysadm-net.autofs-ldap-nfs.xml \
-    $(wildcard images/*)
+    $(wildcard images/*) \
+    w3centities-f.ent
 
 CHAPTER_FILES = \
     ../sysadm-net.iscsi/sysadm-net.iscsi.xml \
@@ -49,3 +50,5 @@ $(foreach chapter,$(CHAPTER_FILES),$(eval $(call generate-chapter,$(chapter))))
 
 chapters: $(OUTPUT)/chapter-entities.xml $(foreach chapter,$(CHAPTER_FILES),$(OUTPUT)/chapter-$(notdir $(chapter)))
 
+w3centities-f.ent:
+    wget -O $@ https://www.w3.org/TR/xml-entity-names/w3centities-f.ent
