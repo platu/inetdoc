@@ -189,7 +189,7 @@
 
   <!-- Variable list properties - add CSS class for styling -->
   <xsl:template match="d:variablelist">
-	<div class="variablelist" style="margin-left: 1em;">
+	<div class="variablelist">
 		<xsl:call-template name="common.html.attributes"/>
 		<xsl:call-template name="id.attribute"/>
 		<xsl:call-template name="anchor"/>
