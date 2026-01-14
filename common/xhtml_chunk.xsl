@@ -202,4 +202,18 @@
 	</div>
   </xsl:template>
 
+  <!-- Override formalpara to add line break between title and para -->
+  <xsl:template match="d:formalpara">
+    <div class="formalpara">
+      <xsl:call-template name="id.attribute"/>
+      <xsl:call-template name="anchor"/>
+      <p>
+        <strong>
+          <xsl:apply-templates select="d:title/node()"/>
+        </strong>
+      </p>
+      <xsl:apply-templates select="d:para"/>
+    </div>
+  </xsl:template>
+
 </xsl:stylesheet>

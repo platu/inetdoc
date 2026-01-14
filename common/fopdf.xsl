@@ -275,23 +275,24 @@
 	<fo:block>
 		<fo:block background-color="#333" padding="3pt">
 		<fo:block color="#fff" text-align="left"
-		    font-family="IBMPlexSans-SemiBold" font-size="18pt" margin-right="10mm" margin-bottom="5pt">
+		    font-family="IBMPlexSans-Bold" font-weight="bold" font-size="18pt" margin-right="10mm" margin-bottom="5pt">
     		<xsl:value-of select="d:title|d:info/d:title" />
 		</fo:block>
 		<fo:block color="#fff" text-align="left"
-		    font-family="IBMPlexSans-SemiBold" font-size="16pt" margin-right="10mm" margin-bottom="5pt">
+		    font-family="IBMPlexSans-Bold" font-weight="bold" font-size="16pt" margin-right="10mm" margin-bottom="5pt">
     		<xsl:value-of select="d:subtitle|d:info/d:subtitle" />
 		</fo:block>
 
 		<xsl:for-each select="//d:author">
 		<fo:block color="#eee" text-align="right"
-			font-family="IBMPlexSans" font-style="normal" font-size="10pt" margin-right="10mm">
+			font-family="IBMPlexSans-Bold" font-size="10pt"
+			font-weight="bold" margin-right="10mm">
 		<xsl:value-of select="d:personname/d:firstname"/>
 		<xsl:text> </xsl:text>
 		<xsl:value-of select="d:personname/d:surname"/>
 		</fo:block>
 		<fo:block color="#ddd" text-align="right"
-			font-family="IBMPlexSans" font-size="9pt" margin-right="10mm">
+			font-family="IBMPlexSans" font-style="normal" font-size="9pt" margin-right="10mm">
 		<xsl:value-of select="d:affiliation/d:address/d:email"/>
 		</fo:block>
 		</xsl:for-each>
@@ -307,20 +308,21 @@
 
 		<xsl:for-each select="//d:editor">
 		<fo:block color="#eee" text-align="right"
-			font-family="IBMPlexSans" font-size="10pt" margin-right="10mm">
+			font-family="IBMPlexSans-Medium" font-weight="bold" font-size="10pt" margin-right="10mm">
 		<xsl:value-of select="d:personname/d:firstname"/>
 		<xsl:text> </xsl:text>
 		<xsl:value-of select="d:personname/d:surname"/>
 		</fo:block>
 		<fo:block color="#ddd" text-align="right"
-			font-family="IBMPlexSans" font-size="9pt" margin-right="10mm">
+			font-family="IBMPlexSans" font-size="9pt"
+			margin-right="10mm">
 		<xsl:value-of select="d:affiliation/d:address/d:email"/>
 		</fo:block>
 		</xsl:for-each>
 		</fo:block>
 
 	<fo:block color="#fff" background-color="#cc0033" text-align="left"
-		font-size="9pt" font-family="IBMPlexSans-Italic" font-style="italic" padding="3pt"
+		font-family="IBMPlexMono-BoldItalic" font-size="9pt" padding="3pt"
 		  margin-bottom="9pt">
           <xsl:text>https://www.inetdoc.net</xsl:text>
         </fo:block>

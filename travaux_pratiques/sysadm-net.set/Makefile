@@ -22,8 +22,7 @@ XML_FILES = \
     $(OUTPUT)/chapter-sysadm-net.nfs.xml \
     $(OUTPUT)/chapter-sysadm-net.ldap.xml \
     $(OUTPUT)/chapter-sysadm-net.autofs-ldap-nfs.xml \
-    $(wildcard images/*) \
-    w3centities-f.ent
+    $(wildcard images/*)
 
 CHAPTER_FILES = \
     ../sysadm-net.iscsi/sysadm-net.iscsi.xml \
