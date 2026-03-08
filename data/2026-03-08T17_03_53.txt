@@ -5,123 +5,169 @@ DESC: La pression sur les serveurs exposés sur Internet augmente et nft-blackli
 FORMAT: raw
 -----
 BODY:
-<p>Après avoir enfin réussi à migrer d'IPtables à Nftables sur les machines que
-j'exploite, j'ai utilisé le script Shell <strong>nft-blacklist</strong> pendant
-plusieurs mois, tel qu'il est proposé à l'adresse <strong><a
-href="https://github.com/leshniak/nft-blacklist">https://github.com/leshniak/nft-blacklist</a></strong>.</p>
+<p>
+Après avoir enfin réussi à migrer d’<code>iptables</code> vers
+<code>nftables</code> sur les machines que j’exploite, j’ai utilisé pendant
+plusieurs mois le script shell <strong>nft-blacklist</strong> tel qu’il est
+proposé à l’adresse <a
+href="https://github.com/leshniak/nft-blacklist">https://github.com/leshniak/nft-blacklist</a>.
+</p>
 
-<p>Seulement voilà, ce script a commencé à produire des erreurs sur l'une de
-mes passerelles sous Debian/testing. Au lieu de corriger la syntaxe des
-expressions rationnelles et d'utiliser des outils tiers, j'ai décidé d'utiliser
-le module interne <b>ipaddress</b> de Python pour les manipulations d'adresses
-et de réseaux IPv4 et IPv6.</p>
+<p>
+Récemment, ce script a commencé à produire des erreurs sur l’une de
+mes passerelles sous Debian testing. Plutôt que de corriger les expressions
+rationnelles et de multiplier les outils tiers, j’ai choisi de m’appuyer sur le
+module standard <code>ipaddress</code> de Python pour manipuler proprement
+adresses et réseaux IPv4/IPv6.
+</p>
 
-<p>Après quelques heures de travail assisté par l'IA, j'ai le plaisir de vous
-présenter un fork en Python entièrement réécrit et optimisé de l'outil
-<b>nft-blacklist</b>. Ce code Python doit gérer de manière rapide et robuste les
-listes noires d'adresses IP pour le pare-feu <b>Nftables</b>.</p>
+<p>
+Après quelques heures de travail assisté par l’IA, j’ai le plaisir de vous
+présenter un fork en Python, entièrement réécrit et optimisé, de l’outil
+<code>nft-blacklist</code>. Ce code a pour objectif de gérer rapidement et de
+manière robuste des listes noires de grande taille d’adresses IP pour un
+pare-feu basé sur <code>nftables</code>.
+</p>
 
-<h4>Pourquoi un Fork ? Genèse de la réécriture</h4>
+<h3>Pourquoi un fork&#160;? Genèse de la réécriture</h3>
 
-<p>Face à la croissance du nombre de tentatives d'attaques automatisées, les
-outils comme <b>fail2ban</b> utilisés seuls ne suffisent plus. Il devient alors
-nécessaire de gérer plus finement les performances et les ressources sur les
-serveurs de production. C'est pourquoi j'ai décidé de réécrire l'intégralité du
-script en Python 3, avec un fichier de configuration au format <b>TOML</b>.
-J'ai essayé d'apporter des améliorations en termes de performances, de
-robustesse et de qualité de code.</p>
+<p>
+Avec la multiplication des tentatives d’attaques automatisées, des outils comme
+<code>fail2ban</code> utilisés seuls ne suffisent plus. Il devient nécessaire
+de mieux contrôler les performances et l’utilisation des ressources sur les
+serveurs exposés à Internet (VPS, passerelles, serveurs d’applications, etc.).
+</p>
+
+<p>
+C’est dans ce contexte que j’ai réécrit l’intégralité du script en
+Python&#160;3, en m’appuyant sur un fichier de configuration au format TOML.
+L’objectif est triple&#160;: améliorer les performances, renforcer la
+robustesse et rendre le code plus simple à maintenir.
+</p>
 
 <p>Voici le workflow synthétique du nouveau script&#160;:</p>
 
 <a href="https://inetdoc.net/images/nft-blacklist.png"><img alt="Workflow
-nft-blacklist" src="https://inetdoc.net/images/nft-blacklist.png" width="50%"
+nft-blacklist" src="https://inetdoc.net/images/nft-blacklist.png" width="70%"
 class="center-img"/></a>
 
-<h4>Les Principales Optimisations</h4>
+<h3>Principales optimisations du fork Python</h3>
 
-<p>Le fork, disponible à l'adresse <strong><a
-href="https://github.com/platu/nft-blacklist">https://github.com/platu/nft-blacklist</a></strong>,
-se distingue par plusieurs optimisations clés par rapport à la version shell
-originale&#160;:</p>
+<p>
+Le fork, disponible à l’adresse
+<a href="https://github.com/platu/nft-blacklist">https://github.com/platu/nft-blacklist</a>,
+se distingue par plusieurs optimisations clés par rapport au script shell initial.
+</p>
 
-<ol>
-<li>Parallélisation des téléchargements<br/>
-<ul>
-<li><b>Script shell initial</b><br/>
-Les listes de sources sont téléchargées de manière séquentielle, une par une.
-Si une seule source est lente, tout le processus attend.</li>
-<li><b>Fork Python</b><br />
-Grâce au module <b>concurrent.futures</b>, le script télécharge toutes les
-listes noires en parallèle. De plus, l'utilisation d'une
-<b>requests.Session()</b> unique permet de réutiliser les connexions TCP/TLS
-(<i>connection pooling</i>), ce qui réduit le temps d'attente lié au réseau,
-particulièrement sur de longues listes. On doit ainsi obtenir une accélération
-d'un facteur 10x à 50x sur cette phase !</li>
-</ul>
-</li>
-<li>Validation robuste des adresses<br/>
-<ul>
-<li><b>Script shell initial</b><br/>
-L'analyse repose sur des regex et des outils comme <tt>awk</tt> ou
-<tt>grep</tt>, qui peuvent être fragiles et sensibles aux changements de format
-de fichier. La validation des IP est basique.</li>
-<li><b>Fork Python</b><br/>
-L'utilisation de la bibliothèque standard <b>ipaddress</b> garantit un
-<i>parsing</i> et une validation stricte. Chaque ligne est vérifiée pour
-correspondre à une adresse IP ou un réseau valide, et toutes les lignes vides
-ou les commentaires sont ignorés de façon propre.</li>
-</ul>
-</li>
-<li>Consolidation et Déduplication des Listes<br/>
-<ul>
-<li><b>Script shell initial</b><br/>
-Les doublons sont souvent gérés avec un simple `sort | uniq`. Il n'y a pas de
-consolidation native des réseaux (par exemple, fusionner `1.2.3.0/24` et
-`1.2.3.4/32` qui se chevauchent).</li>
-<li><b>Fork Python</b><br/>
-Le script élimine instantanément tous les doublons d’adresses à l'aide d'un
-<b>set()</b> Python performant. Mais surtout, il utilise
-<b>ipaddress.collapse_addresses()</b> pour fusionner et consolider les réseaux
-redondants. Cela génère un jeu de règles <tt>nftables</tt> beaucoup plus
-compact.</li>
-</ul>
-</li>
-<li>Application atomique et performances<br/>
-<ul>
-<li><b>Script shell initial</b><br/>
-De nombreux scripts shell appliquent les règles élément par élément, ou créent
-des fichiers temporaires pour chaque lot. En cas d'erreur "<i>File exists</i>",
-ils peuvent entrer dans un mode <i>fallback</i> excessivement lent.</li>
-<li><b>Fork Python</b><br/>
-Le script génère un fichier de configuration complet et optimisé en mémoire RAM
-(via stdin), puis l'applique en <b>une seule transaction atomique</b> à l'aide
-de la commande <tt>nft -f</tt>. Cela garantit qu'en cas de succès, le
-changement est instantané et complet, et qu'en cas d'erreur, votre pare-feu
-reste dans un état cohérent. Le mode <i>fallback</i> a été entièrement réécrit
-pour n'entrer en action que sur les blocs défaillants, accélérant cette phase
-de 5 minutes à quelques secondes !</li>
-</ul>
-</li>
-<li>Code propre, typage et journalisation<br/>
-<ul>
-<li><b>Script shell initial</b><br/>
-Les scripts shell complexes peuvent devenir difficiles à lire et à maintenir,
-avec des one-liners <tt>sed</tt>/<tt>awk</tt> difficiles à lire.</li>
-<li><b>Fork Python</b><br/>
-Le code est écrit en Python typé (Type Hinting) pour la robustesse, et utilise
-le module <b>logging</b> standard pour une intégration propre avec le journal
-système et un diagnostic plus facile en cas de problème.</li>
-</ul>
-</li>
-</ol>
+<h4>1. Parallélisation des téléchargements</h4>
 
-<h4>Conclusion</h4>
+<p>
+<strong>Script shell initial&#160;:</strong> les listes de sources sont téléchargées
+séquentiellement, l’une après l’autre. Si une seule source est lente, tout le
+processus est ralenti.
+</p>
 
-<p>Ce fork Python de `nft-blacklist` est une évolution majeure du projet
-initial. Il est plus rapide, plus robuste et génère des règles <b>nftables</b>
-beaucoup plus optimisées pour préserver les ressources de votre serveur.</p>
+<p>
+<strong>Fork Python&#160;:</strong> grâce au module <code>concurrent.futures</code>,
+le script télécharge toutes les listes noires en parallèle. L’utilisation d’une
+unique <code>requests.Session()</code> permet en outre de réutiliser les
+connexions TCP/TLS (<em>connection pooling</em>), ce qui réduit fortement le
+temps passé en I/O réseau, surtout avec de longues listes. On peut ainsi
+obtenir un gain de performance de l’ordre de 10x à 50x sur cette phase.
+</p>
 
-<p>N'hésitez pas à tester ce nouvel outil et à me faire part de vos retours sur
-le dépôt GitHub : <strong><a
-href="https://github.com/platu/nft-blacklist">https://github.com/platu/nft-blacklist</a></strong></p>
+<h4>2. Validation robuste des adresses</h4>
+
+<p>
+<strong>Script shell initial&#160;:</strong> l’analyse repose sur des expressions
+régulières et des outils comme <code>awk</code> ou <code>grep</code>, sensibles
+aux variations de format des fichiers. La validation des adresses IP reste
+assez basique.
+</p>
+
+<p>
+<strong>Fork Python&#160;:</strong> le module standard <code>ipaddress</code> assure
+une analyse et une validation strictes. Chaque ligne est interprétée comme
+adresse ou réseau IPv4/IPv6, et seules les entrées valides sont conservées.
+Les lignes vides et les commentaires sont filtrés proprement, ce qui évite les
+mauvaises surprises.
+</p>
+
+<h4>3. Consolidation et déduplication des listes</h4>
+
+<p>
+<strong>Script shell initial&#160;:</strong> les doublons sont généralement éliminés
+via un simple <code>sort | uniq</code>.  Il n’y a pas de consolidation native
+des réseaux (par exemple fusionner <code>1.2.3.0/24</code> et
+<code>1.2.3.4/32</code> qui se chevauchent).
+</p>
+
+<p>
+<strong>Fork Python&#160;:</strong> le script déduplique instantanément toutes les
+adresses à l’aide d’un <code>set()</code> Python performant. Surtout, il
+utilise <code>ipaddress.collapse_addresses()</code> pour fusionner et
+consolider les réseaux redondants. Le résultat est un jeu de règles
+<code>nftables</code> beaucoup plus compact, qui consomme moins de mémoire et
+réduit le nombre de comparaisons effectuées par le pare-feu.
+</p>
+
+<h4>4. Application atomique et rapidité</h4>
+
+<p>
+<strong>Script shell initial&#160;:</strong> beaucoup de scripts shell appliquent
+les règles élément par élément, ou génèrent de multiples fichiers temporaires.
+En cas d’erreur de type <code>File exists</code>, ils basculent dans un mode de
+secours (<em>fallback</em>) souvent très lent.
+</p>
+
+<p>
+<strong>Fork Python&#160;:</strong> le script génère en mémoire (via
+<code>stdin</code>) un fichier de configuration complet et optimisé, puis
+l’applique en une seule transaction atomique avec la commande <code>nft
+-f</code>. En cas de succès, la mise à jour du pare-feu est instantanée et
+cohérente. En cas d’erreur, l’état précédent est préservé. Le mode de secours a
+été réécrit pour ne traiter que les blocs défaillants, faisant passer cette
+phase de plusieurs minutes à quelques secondes.
+</p>
+
+<h4>5. Code propre, typage et journalisation</h4>
+
+<p>
+<strong>Script shell initial&#160;:</strong> un script shell qui grossit peut
+rapidement devenir difficile à lire et à faire évoluer, avec des lignes mêlant
+<code>sed</code>, <code>awk</code> et substitutions diverses.
+</p>
+
+<p>
+<strong>Fork Python&#160;:</strong> le code est écrit en Python typé (type hints)
+afin de faciliter la relecture et la détection d’erreurs. Il s’appuie sur le
+module standard <code>logging</code> pour s’intégrer proprement avec le journal
+système et offrir un diagnostic clair en cas de problème.
+</p>
+
+<h3>Prérequis et intégration</h3>
+
+<p>
+Le script cible principalement les environnements GNU/Linux disposant de
+<code>nftables</code> (par exemple Debian/Ubuntu récentes) et d’un
+Python&#160;3 à jour. Un exemple de fichier de configuration TOML est fourni
+dans le dépôt Git, afin de faciliter l’intégration avec votre propre jeu de
+règles.
+</p>
+
+<h3>Conclusion</h3>
+
+<p>
+Ce fork Python de <code>nft-blacklist</code> constitue une évolution importante
+du projet initial. Il est plus rapide, plus robuste et génère des règles
+<code>nftables</code> nettement plus optimisées, ce qui contribue à préserver
+les ressources de votre serveur tout en améliorant votre surface de défense.
+</p>
+
+<p>
+N’hésitez pas à tester ce nouvel outil et à me faire part de vos retours sur le
+dépôt GitHub&#160;: <a
+href="https://github.com/platu/nft-blacklist">https://github.com/platu/nft-blacklist</a>.
+</p>
+
 END-----
