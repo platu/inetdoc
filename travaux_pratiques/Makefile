@@ -15,7 +15,7 @@ SUBDIRS = \
 	sysadm-net.nfs \
 	sysadm-net.ldap \
 	sysadm-net.autofs-ldap-nfs \
-	sysadm-net.dns.qa \
+	sysadm-net.dns \
 	sysadm-net.set \
 	interco_01.inter-vlan-iaas \
 	interco_02.pppoe \
@@ -42,7 +42,7 @@ XML_FILES = \
 	sysadm-net.nfs/$(ABSTRACT_FILE) \
 	sysadm-net.ldap/$(ABSTRACT_FILE) \
 	sysadm-net.autofs-ldap-nfs/$(ABSTRACT_FILE) \
-	sysadm-net.dns.qa/$(ABSTRACT_FILE) \
+	sysadm-net.dns/$(ABSTRACT_FILE) \
 	interco_01.inter-vlan-iaas/$(ABSTRACT_FILE) \
 	interco_02.pppoe/$(ABSTRACT_FILE) \
 	interco_03.hub-and-spoke/$(ABSTRACT_FILE) \

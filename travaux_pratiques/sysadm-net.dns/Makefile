@@ -6,14 +6,14 @@ endif
 PROCESS = symlink xml2xhtml xml2pdf
 
 SYMLINKS = \
-        $(MAIN_DIR)/common/author.xml \
-        $(MAIN_DIR)/common/legal.xml \
-        $(MAIN_DIR)/common/inetdoc.urls.ent
+    $(MAIN_DIR)/common/author.xml \
+    $(MAIN_DIR)/common/legal.xml \
+    $(MAIN_DIR)/common/inetdoc.urls.ent
 
 XML_FILES = \
-	sysadm-net.dns.qa.xml \
-        author.xml \
-        legal.xml \
+	sysadm-net.dns.xml \
+    author.xml \
+    legal.xml \
 	inetdoc.urls.ent
 
 all: $(PROCESS)
