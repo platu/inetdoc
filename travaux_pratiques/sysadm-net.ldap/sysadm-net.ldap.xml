@@ -5,10 +5,6 @@
 <!ENTITY author		SYSTEM "author.xml">
 <!ENTITY legal		SYSTEM "legal.xml">
 
-<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
-	"file:/usr/local/share/w3centities-f.ent">
-%w3centities-f;
-
 <!ENTITY url.openldap
     '<link xmlns="http://docbook.org/ns/docbook"
      xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -41,6 +37,10 @@
 
 <!ENTITY % inetdoc_urls SYSTEM 'inetdoc.urls.ent'>
 %inetdoc_urls;
+
+<!ENTITY % w3centities-f PUBLIC "-//W3C//ENTITIES Combined Set//EN//XML"
+	"file:/usr/local/share/w3centities-f.ent">
+%w3centities-f;
 ]>
 
 <article xmlns="http://docbook.org/ns/docbook" version="5.2"
@@ -60,22 +60,27 @@
 	<tbody>
 	<row>
 	<entry valign='top'>
-	<para>Dans ce support de travaux pratiques, on explore le service
-	d'annuaire <acronym>LDAP</acronym>. On présente succinctement les éléments
-	constitutifs d'un annuaire puis on étudie la configuration d'un service
-	d'annuaire basé sur le logiciel <application>OpenLDAP</application>.
-	Ensuite, on étudie la configuration de l'accès aux entrées de l'annuaire
-	depuis un poste client. Les informations délivrées par l'annuaire sont les
-	propriétés de comptes utilisateurs stockées dans la classe d'objet
-	<literal>posixAccount</literal>.</para>
+    <para>Ce support de travaux pratiques aborde la mise en œuvre d’un annuaire
+    <acronym>LDAP</acronym> avec le logiciel
+    <application>OpenLDAP</application>. Il décrit l’installation et la
+    configuration du démon <systemitem>slapd</systemitem>, la composition d’un
+    annuaire à partir de fichiers <acronym>LDIF</acronym>, l’accès distant
+    depuis un client par l’intermédiaire du mécanisme <wordasword>Name Service
+    Switch</wordasword>, l’exposition de l’annuaire au travers d’un service web
+    ainsi que la sécurisation complète des échanges. Cette sécurisation repose
+    sur deux briques complémentaires : l’intégration de l’annuaire au royaume
+    Kerberos pour l’authentification forte des liaisons <acronym>LDAP</acronym>
+    via <acronym>SASL/GSSAPI</acronym> et la protection des échanges entre
+    clients et serveur par le protocole <wordasword>Transport Layer
+    Security</wordasword> (<acronym>TLS</acronym>).</para>
 	</entry>
 	<entry>
 	<inlinemediaobject>
 	<imageobject role='html'>
-	<imagedata fileref='images/thumb011.png' format='PNG' width='220px' scalefit='1'/>
+	<imagedata fileref='images/LDAP-tree.png' format='PNG' width='320px' scalefit='1'/>
 	</imageobject>
 	<imageobject role='fo'>
-	<imagedata fileref='images/ldap-tree.png' format='PNG' width='4.5cm' scalefit='1'/>
+	<imagedata fileref='images/LDAP-tree.png' format='PNG' width='5cm' scalefit='1'/>
 	</imageobject>
 	</inlinemediaobject>
 	</entry>
@@ -112,177 +117,470 @@
 	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
 </sect1>
 
-<sect1 xml:id='sysadm-net.ldap.definition'>
-	<title>Principes d'un annuaire LDAP</title>
+<?custom-pagebreak?>
+<sect1 xml:id='sysadm-net.ldap.objectives'>
+	<title>Objectifs</title>
 
-	<para>Dans l'histoire des systèmes Unix, les services de
-	<emphasis>nommage</emphasis> ont connu de nombreuses évolutions avec le
-	développement de l'Internet et des volumes d'informations à
-	partager.</para>
+    <para>Après avoir réalisé les manipulations proposées dans ce support, vous
+    serez en mesure de&nbsp;:</para>
 
-	<para>Au début des années 80, un premier service baptisé
-	<wordasword>Network Information Service</wordasword>
-	(<acronym>NIS</acronym>) a vu le jour. Ce service est une méthode de
-	distribution de la base de données des utilisateurs, de fichiers de
-	configuration, d'authentification et d'autres données entre les hôtes d'un
-	réseau local. Le logiciel <acronym>NIS</acronym> développé par
-	<trademark>Sun Microsystems</trademark> fonctionne sur le mode
-	Client/Serveur à partir d'une base de données «à plat» (<wordasword>flat
-	bindery base</wordasword>). Son utilisation est étudiée dans le support de
-	travaux pratiques &url.sysadm-net.nis;. Avec un service
-	<acronym>NIS</acronym>, il n'est pas possible de constituer des groupes
-	logiques ayant des attributs propres. Cette limitation est rapidement
-	devenue critique avec l'augmentation du nombres des utilisateurs et des
-	clients.</para>
+    <variablelist>
+    <varlistentry>
+        <term>Décrire les principes d’un annuaire LDAP</term>
+        <listitem>
+        <para>Comprendre la notion d’arbre d’information ou de
+        <wordasword>Directory Information Tree</wordasword>
+        (<acronym>DIT</acronym>), la composition d’une entrée à partir de
+        classes d’objets et de schémas, le format d’échange
+        <acronym>LDIF</acronym> et les opérations d’interrogation et de
+        modification de la base.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Configurer un service d’annuaire OpenLDAP</term>
+        <listitem>
+        <para>Installer le démon <application>slapd</application>, analyser sa
+        configuration dynamique stockée dans le <acronym>DIT</acronym>
+        <literal>cn=config</literal>, réinitialiser la base de l’annuaire pour
+        adopter un nouveau contexte de nommage et y composer une arborescence
+        de comptes utilisateurs à l’aide de fichiers
+        <acronym>LDIF</acronym>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Configurer un système client avec un accès transparent à
+        l’annuaire</term>
+        <listitem>
+        <para>Mettre en œuvre le mécanisme <wordasword>Name Service
+        Switch</wordasword> en s’appuyant sur les paquets
+        <systemitem>libnss-ldapd</systemitem> et
+        <systemitem>libpam-ldapd</systemitem> afin que les comptes
+        utilisateurs publiés dans l’annuaire soient utilisables comme s’ils
+        étaient déclarés localement.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Exposer l’annuaire à travers un service Web</term>
+        <listitem>
+        <para>Installer et paramétrer le service White Pages du projet
+        <citetitle>LDAP Tool Box</citetitle> pour proposer un trombinoscope des
+        comptes publiés.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Sécuriser l’authentification LDAP avec Kerberos et chiffrer les
+        échanges avec TLS</term>
+        <listitem>
+        <para>Mettre en place un royaume Kerberos local, créer le principal de
+        service de l’annuaire, l’enregistrer dans un keytab dédié à slapd, puis
+        configurer l’authentification SASL/GSSAPI afin que les connexions à
+        l’annuaire reposent sur une authentification forte par tickets
+        Kerberos.</para>
 
-	<para>D'autres services plus complets tels que <acronym>NIS+</acronym> ou
-	<citetitle>kerberos</citetitle> qui n'assure que la partie authentification
-	ont été développés par la suite. Depuis quelques années, les annuaires
-	<acronym>LDAP</acronym> ou <wordasword>Lightweight Directory Access
-	Protocol</wordasword> se sont imposés comme étant l'outil d'échange
-	universel des paramètres utilisateurs.</para>
+        <para>Mettre en place une autorité de certification locale, générer les
+        certificats X.509 du serveur, puis configurer le démon slapd pour
+        activer StartTLS sur le port 389/tcp et le service ldaps:// sur le port
+        636/tcp.</para>
+        </listitem>
+    </varlistentry>
+    </variablelist>
+</sect1>
 
-	<para>Pour définir ce qu'est le service <acronym>LDAP</acronym>, on peut
-	retenir les caractéristiques suivantes.</para>
+<?custom-pagebreak?>
+<sect1 xml:id='sysadm-net.ldap.plan'>
+	<title>Topologie, scénario et plan d'adressage</title>
+
+	<bridgehead xml:id='sysadm-net.ldap.logical-topology'
+	renderas='sect2'>Topologie logique</bridgehead>
+
+	<para>Les manipulations présentées dans ce support utilisent un domaine de
+	diffusion unique (<acronym>VLAN</acronym>) dans lequel on trouve au moins
+	deux systèmes virtuels ou physiques avec deux rôles distincts.</para>
 
 	<itemizedlist>
 	<listitem>
-	<para>Un service de publication d'annuaire</para>
+        <para>Le système serveur héberge le démon
+        <systemitem>slapd</systemitem>, le centre de distribution de clés
+        Kerberos (<acronym>KDC</acronym>) et l'autorité de certification
+        locale.</para>
 	</listitem>
 	<listitem>
-	<para>Un protocole d'accès aux annuaires de type X.500 ou
-	<wordasword>Lightweight Directory Access Protocol</wordasword></para>
-	</listitem>
-	<listitem>
-	<para>Un dépôt de données basées sur des attributs ou un «genre» de base de
-	données</para>
-	</listitem>
-	<listitem>
-	<para>Un logiciel optimisé pour les recherches avancées et les lectures</para>
-	</listitem>
-	<listitem>
-	<para>Une implémentation client/serveur</para>
-	</listitem>
-	<listitem>
-	<para>Un mécanisme extensible de schémas de description de classes d'objets</para>
+        <para>Le système client interroge l'annuaire et présente les comptes au
+        système d’exploitation par l’intermédiaire de <acronym>NSS</acronym> et
+        de <acronym>PAM</acronym>.</para>
 	</listitem>
 	</itemizedlist>
 
-	<para>Les entrées (<wordasword>Directory Service Entry</wordasword>) d'un
-	annuaire <acronym>LDAP</acronym> sont distribuées suivant une arborescence
-	(<wordasword>Directory Information Tree</wordasword>) hiérarchisée que l'on
-	peut voir comme un système de fichiers avec ses répertoires et ses
-	fichiers.  Au sommet de l'arborescence on trouve un nom de racine
-	(<wordasword>Domain Component</wordasword>) ou suffixe.</para>
+<mediaobject role="center">
+	<imageobject role='fo'>
+    <imagedata fileref='images/LDAP-topology.png' align='center' format='PNG'
+    contentwidth='15cm' width='15.5cm'/>
+	</imageobject>
+	<imageobject role='html'>
+    <imagedata fileref='images/LDAP-topology.png' align='center' format='PNG'
+    contentwidth='700px' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie logique</phrase>
+	</textobject>
+	<caption>
+	<para><link xmlns="http://docbook.org/ns/docbook"
+	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/LDAP-topology.png'>Topologie
+	logique - vue complète</link></para>
+	</caption>
+</mediaobject>
 
-	<mediaobject>
+	<bridgehead xml:id='sysadm-net.ldap.scenario'
+	renderas='sect2'>Scénario</bridgehead>
+
+    <para>Les manipulations présentées dans ce document illustrent le
+    fonctionnement d'un annuaire <acronym>LDAP</acronym>. Le séquencement des
+    opérations est donné dans le tableau ci-dessous. Après le traitement des
+    parties communes, les deux systèmes jouent un rôle distinct.</para>
+
+	<table frame='all' pgwide='1'>
+	<title>Attribution des rôles LDAP</title>
+	<tgroup cols='2' align='left' colsep='1' rowsep='1'>
+	<colspec colnum='1' colname='c1' colwidth='1*'/>
+	<colspec colnum='2' colname='c2' colwidth='1*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333"&nbsp;?>
+		<?dbfo color="#fff"&nbsp;?>
+	<entry>Client</entry>
+	<entry>Serveur</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+    <entry>—</entry>
+    <entry>Installez le paquet <systemitem>slapd</systemitem>, analysez la
+    configuration <code>cn=config</code>, réinitialisez la base et composez le
+    nouvel annuaire.</entry>
+	</row>
+    <row>
+    <entry>Installez les outils LDAP, interrogez l'annuaire à distance.</entry>
+    <entry>Activez la journalisation des transactions et publiez les comptes
+    utilisateurs.</entry>
+    </row>
+    <row>
+    <entry>Configurez <systemitem>libnss-ldapd</systemitem> et
+    <systemitem>libpam-ldapd</systemitem> pour l'accès transparent.</entry>
+    <entry>Validez la connexion <command>getent passwd</command> depuis le
+    client.</entry>
+    </row>
+    <row>
+    <entry>—</entry>
+    <entry>Installez le service web <emphasis>White Pages</emphasis> et
+    utilisez les attributs <code>jpegPhoto</code>.</entry>
+    </row>
+    <row>
+    <entry>Installez <systemitem>libsasl2-modules-gssapi-mit</systemitem> et
+    <systemitem>krb5-user</systemitem> pour l'authentification
+    Kerberos.</entry>
+    <entry>Installez le KDC, créez le royaume <code>LAB.LOCAL</code>, créez les
+    principaux et le keytab dédié à <systemitem>slapd</systemitem>. Activez
+    <acronym>SASL/GSSAPI</acronym>.</entry>
+    </row>
+    <row>
+    <entry>Importez l'autorité de certification locale et validez les liaisons
+    <code>ldaps://</code> et <emphasis>StartTLS</emphasis>.</entry>
+    <entry>Générez les certificats, déposez-les dans <code>/etc/ssl/</code> et
+    activez <code>olcTLS*</code> dans la configuration dynamique du démon
+    <systemitem>slapd</systemitem>.</entry>
+    </row>
+	</tbody>
+	</tgroup>
+	</table>
+
+<?custom-pagebreak?>
+	<bridgehead xml:id='sysadm-net.ldap.addressing'
+	renderas='sect2'>Plan d'adressage</bridgehead>
+
+    <para>Le tableau ci-dessous correspond au plan d’adressage de la maquette
+    qui a servi à traiter les questions des sections suivantes. Lors des
+    séances de travaux pratiques, un plan d’adressage spécifique est fourni à
+    chaque binôme d’étudiants. Il faut se référer au document
+    &url.infra.moodle;.</para>
+
+	<table xml:id='sysadm-net.ldap.mockup-addressing' frame='all' pgwide='1'>
+        <title>Plan d'adressage de la maquette «&nbsp;Introduction aux
+        annuaires LDAP avec OpenLDAP&nbsp;»</title>
+	<tgroup cols='5'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='3*'/>
+	<colspec colnum='3' colwidth='1*'/>
+	<colspec colnum='4' colwidth='4*'/>
+	<colspec colnum='5' colwidth='1*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333"&nbsp;?>
+		<?dbfo color="#fff"&nbsp;?>
+		<entry>Rôle</entry>
+		<entry>Nom</entry>
+		<entry>VLAN</entry>
+		<entry>Adresses IP</entry>
+		<entry>Interface tap</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+		<entry>Client</entry>
+        <entry><systemitem>ldap-client.lab.local</systemitem></entry>
+		<entry>101</entry>
+		<entry>
+		<systemitem class='ipaddress'>172.28.101.4/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:65:baad:caff:fefe:4/64</systemitem>
+		</entry>
+		<entry>4</entry>
+	</row>
+	<row>
+		<entry>Serveur</entry>
+        <entry><systemitem>ldap-server.lab.local</systemitem></entry>
+		<entry>101</entry>
+		<entry>
+		<systemitem class='ipaddress'>172.28.101.3/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:65:baad:caff:fefe:3/64</systemitem>
+		</entry>
+		<entry>3</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</table>
+
+    <para>Le nom de domaine DNS <code>lab.local</code> correspond au royaume
+    Kerberos <code>LAB.LOCAL</code> et au contexte de nommage
+    <acronym>LDAP</acronym> <code>dc=lab,dc=local</code>.  Cette correspondance
+    est essentielle à la fois pour la résolution automatique du
+    <wordasword>realm</wordasword> Kerberos et pour la cohérence des
+    identifiants distinctifs <acronym>LDAP</acronym> avec les noms
+    <acronym>DNS</acronym>.</para>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='sysadm-net.ldap.definition'>
+	<title>Principes d'un annuaire LDAP</title>
+
+	<bridgehead xml:id='sysadm-net.ldap.definition.history'
+    renderas='sect2'>Des services de nommage Unix aux annuaires
+    LDAP</bridgehead>
+
+    <para>Dans l'histoire des systèmes Unix, les services de nommage ont connu
+    de nombreuses évolutions au rythme du développement de l'Internet et de la
+    croissance des volumes d'informations à partager entre hôtes.</para>
+
+    <para>Au début des années 80, un premier service baptisé
+    <wordasword>Network Information Service</wordasword>
+    (<acronym>NIS</acronym>) a vu le jour. Développé par Sun Microsystems™, ce
+    service met en œuvre une méthode de distribution de la base de données des
+    utilisateurs, des fichiers de configuration, d'authentification et d'autres
+    données entre les hôtes d'un réseau local. Il fonctionne sur le mode
+    client/serveur à partir d'une base de données «&nbsp;à plat&nbsp;»
+    (<wordasword>flat bindery base</wordasword>). Avec <acronym>NIS</acronym>,
+    il n'est pas possible de constituer des groupes logiques dotés d'attributs
+    propres. Cette limitation est rapidement devenue critique avec
+    l'augmentation du nombre d'utilisateurs et de clients.</para>
+
+    <para>Depuis de nombreuses années, les annuaires <acronym>LDAP</acronym>
+    (<wordasword>Lightweight Directory Access Protocol</wordasword>) se
+    sont imposés comme l'outil d'échange universel des paramètres
+    utilisateurs. Ils s'appuient sur le modèle X.500 hérité des
+    télécommunications, mais débarrassé du protocole de transport
+    <acronym>OSI</acronym> au profit de TCP/IP.</para>
+
+	<bridgehead xml:id='sysadm-net.ldap.definition.features'
+    renderas='sect2'>Caractéristiques du service LDAP</bridgehead>
+
+	<para>Pour définir ce qu'est le service <acronym>LDAP</acronym>, on peut
+	retenir les caractéristiques suivantes&nbsp;:</para>
+
+	<itemizedlist>
+	<listitem>
+	    <para>Un service de publication d'annuaire.</para>
+	</listitem>
+	<listitem>
+        <para>Un protocole d'accès aux annuaires de type X.500, le
+        <wordasword>Lightweight Directory Access Protocol</wordasword>.</para>
+	</listitem>
+	<listitem>
+        <para>Un dépôt de données fondé sur des attributs typés, à mi-chemin
+        entre une base de données et un système de fichiers
+        hiérarchique.</para>
+	</listitem>
+	<listitem>
+        <para>Un logiciel optimisé pour les recherches avancées et les
+        opérations de lecture fréquentes, au détriment des écritures.</para>
+	</listitem>
+	<listitem>
+        <para>Une implémentation client/serveur normalisée par l'IETF (RFC 4510
+        et suivantes).</para>
+	</listitem>
+	<listitem>
+        <para>Un mécanisme extensible de schémas pour la description des
+        classes d'objets et de leurs attributs.</para>
+	</listitem>
+    <listitem>
+        <para>Un format d'échange textuel standardisé, le
+        <acronym>LDIF</acronym> (<wordasword>LDAP Data Interchange
+        Format</wordasword>, RFC 2849), qui permet l'export, l'import et la
+        sauvegarde des entrées.</para>
+    </listitem>
+	</itemizedlist>
+
+	<bridgehead xml:id='sysadm-net.ldap.definition.tree'
+    renderas='sect2'>Arborescence et nommage des entrées</bridgehead>
+
+    <para>Les entrées (<wordasword>Directory Service Entry</wordasword>) d'un
+    annuaire <acronym>LDAP</acronym> sont distribuées suivant une arborescence
+    hiérarchisée, le <wordasword>Directory Information Tree</wordasword>
+    (<acronym>DIT</acronym>), que l'on peut comparer à un système de fichiers
+    avec ses répertoires et ses fichiers. Au sommet de l'arborescence se trouve
+    un suffixe ou contexte de nommage, généralement exprimé sous forme de
+    <wordasword>Domain Component</wordasword> (<code>dc=</code>) calqué sur le
+    nom DNS de l'organisation.</para>
+
+	<mediaobject role="center">
 	<imageobject role="html">
-	<imagedata fileref='images/ldap-tree.png' format='PNG' width='480px'/>
+	<imagedata fileref='images/LDAP-tree.png' align='center' format='PNG' width='480px'/>
 	</imageobject>
 	<imageobject role="fo-fop">
-	<imagedata fileref='images/ldap-tree.png' format='PNG' width='15cm'/>
+	<imagedata fileref='images/LDAP-tree.png' align='center' format='PNG' width='15cm'/>
 	</imageobject>
 	<textobject>
 	<phrase>Arborescence LDAP élémentaire</phrase>
 	</textobject>
 	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook" xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/ldap-tree.png'>
-	Arborescence LDAP élémentaire - vue complète</link></para>
+    <para><link xmlns="http://docbook.org/ns/docbook"
+    xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/LDAP-tree.png'>
+    Arborescence LDAP élémentaire - vue complète</link></para>
 	</caption>
 	</mediaobject>
 
-	<para>L'adresse d'une entrée de l'annuaire <acronym>LDAP</acronym> est
-	appelée : <emphasis><wordasword>distinguished name</wordasword></emphasis>
-	ou <acronym>dn</acronym>. En reprenant l'exemple d'arborescence ci-dessus,
-	les adresses des différentes entrées sont notées comme suit.</para>
+    <para>L'adresse d'une entrée de l'annuaire <acronym>LDAP</acronym> est
+    appelée <emphasis><wordasword>distinguished name</wordasword></emphasis>
+    (<acronym>DN</acronym>). Elle est construite par concaténation, de la
+    feuille vers la racine, des <wordasword>relative distinguished
+    names</wordasword> (<acronym>RDN</acronym>) rencontrés sur le chemin. En
+    reprenant l'exemple d'arborescence ci-dessus, les adresses des différentes
+    entrées s'écrivent ainsi&nbsp;:</para>
 
 	<itemizedlist>
 	<listitem>
-	<para><literal>dn: dc=lab,dc=stri</literal></para>
+	<para><literal>dn: dc=lab,dc=local</literal></para>
 	</listitem>
 	<listitem>
-	<para><literal>dn: ou=lab1,dc=lab,dc=stri</literal></para>
-	<para><literal>dn: ou=lab2,dc=lab,dc=stri</literal></para>
+	<para><literal>dn: ou=lab1,dc=lab,dc=local</literal></para>
+	<para><literal>dn: ou=lab2,dc=lab,dc=local</literal></para>
 	</listitem>
 	<listitem>
-	<para><literal>dn: cn=etu1,ou=lab1,dc=lab,dc=stri</literal></para>
-	<para><literal>dn: cn=etu2,ou=lab1,dc=lab,dc=stri</literal></para>
-	<para><literal>dn: cn=etu3,ou=lab2,dc=lab,dc=stri</literal></para>
-	<para><literal>dn: cn=etu4,ou=lab2,dc=lab,dc=stri</literal></para>
+	<para><literal>dn: cn=etu1,ou=lab1,dc=lab,dc=local</literal></para>
+	<para><literal>dn: cn=etu2,ou=lab1,dc=lab,dc=local</literal></para>
+	<para><literal>dn: cn=etu3,ou=lab2,dc=lab,dc=local</literal></para>
+	<para><literal>dn: cn=etu4,ou=lab2,dc=lab,dc=local</literal></para>
 	</listitem>
 	</itemizedlist>
 
-	<para>L'adresse de chaque entrée appartient à une classe d'objet
-	(<wordasword>ObjectClass</wordasword>) spécifiée dans un schéma
-	(<wordasword>schema</wordasword>). En reprenant les mêmes exemples
-	d'entrées, on peut associer les classes d'objets correspondantes.</para>
+    <note>
+        <title>Note sur la cohérence des noms.</title>
+        <para>Le contexte de nommage <code>dc=lab,dc=local</code> choisi pour
+        ce support est volontairement aligné sur le nom de domaine
+        <acronym>DNS</acronym> <code>lab.local</code> et sur le royaume
+        Kerberos <code>LAB.LOCAL</code>. Cette correspondance n'est pas une
+        simple convention d'écriture&nbsp;: elle conditionne la résolution
+        automatique du <wordasword>realm</wordasword> Kerberos, le bon
+        fonctionnement de <acronym>SASL/GSSAPI</acronym> ainsi que la
+        validation des certificats X.509 utilisés par
+        <acronym>TLS</acronym>.</para>
+    </note>
 
-	<informaltable frame='all'>
+
+	<bridgehead xml:id='sysadm-net.ldap.definition.classes'
+    renderas='sect2'>Classes d'objets et schémas</bridgehead>
+
+    <para>Chaque entrée appartient à une ou plusieurs classes d'objets
+    (<wordasword>objectClass</wordasword>) spécifiées dans un schéma
+    (<wordasword>schema</wordasword>). En reprenant les mêmes exemples
+    d'entrées, on peut associer les classes d'objets
+    correspondantes&nbsp;:</para>
+
+	<table frame='all'>
+        <title>Exemple de correspondances entre objets et classes</title>
 	<tgroup cols='2' colsep='1' rowsep='1'>
 	<thead>
 	<row>
-	<entry><wordasword>entry</wordasword></entry>
-	<entry><wordasword>objectclass</wordasword></entry>
+		<?dbfo bgcolor="#333"&nbsp;?>
+		<?dbfo color="#fff"&nbsp;?>
+	    <entry align='center'><wordasword>entry</wordasword></entry>
+	    <entry align='center'><wordasword>objectclass</wordasword></entry>
 	</row>
 	</thead>
 	<tbody>
 	<row>
 	<entry>
-	<para><literal>o: lab.stri</literal></para>
-	<para><literal>dc: lab</literal></para>
-	<para><literal>dc: stri</literal></para>
+    	<para><literal>o: lab.stri</literal></para>
+    	<para><literal>dc: lab</literal></para>
+    	<para><literal>dc: stri</literal></para>
 	</entry>
 	<entry>
-	<para><literal>organisation</literal></para>
-	<para><literal>dcObject</literal></para>
-	<para><literal>dcObject</literal></para>
+    	<para><literal>organisation</literal></para>
+    	<para><literal>dcObject</literal></para>
+    	<para><literal>dcObject</literal></para>
 	</entry>
 	</row>
 	<row>
     <entry>
-	<para><literal>ou: lab1</literal></para>
+    	<para><literal>ou: lab1</literal></para>
 	</entry>
 	<entry>
-	<para><literal>organisationalUnit</literal></para>
+    	<para><literal>organisationalUnit</literal></para>
 	</entry>
 	</row>
 	<row>
 	<entry>
-	<para><literal>cn: etu1</literal></para>
-	<para><literal>sn: etu1</literal></para>
+    	<para><literal>cn: etu1</literal></para>
+    	<para><literal>sn: etu1</literal></para>
 	</entry>
 	<entry>
-	<para><literal>inetOrgPerson</literal></para>
+    	<para><literal>inetOrgPerson</literal></para>
 	</entry>
 	</row>
 	</tbody>
 	</tgroup>
-	</informaltable>
+	</table>
 
-	<para>Un schéma peut être vu comme un ensemble de règles qui décrivent la
-	nature des données stockées. C'est un outil qui aide à maintenir la
-	cohérence, la qualité et qui évite la duplication des données dans
-	l'annuaire. Les attributs des classes d'objets déterminent les règles qui
-	doivent être appliquées à une entrée. Un schéma contient les éléments
-	suivants.</para>
+    <para>Un schéma peut être vu comme un ensemble de règles qui décrivent la
+    nature des données stockées. C'est l'outil qui aide à maintenir la
+    cohérence et la qualité des informations et qui évite la duplication des
+    données dans l'annuaire. Les attributs des classes d'objets déterminent les
+    règles à appliquer à chaque entrée. Un schéma comporte typiquement les
+    éléments suivants&nbsp;:</para>
 
 	<itemizedlist>
 	<listitem>
-	<para>Les attributs requis</para>
+        <para>Les attributs requis (<wordasword>MUST</wordasword>).</para>
 	</listitem>
 	<listitem>
-	<para>Les attributs autorisés</para>
+        <para>Les attributs autorisés (<wordasword>MAY</wordasword>).</para>
 	</listitem>
 	<listitem>
-	<para>Les règles de comparaison des attributs</para>
+        <para>Les règles de comparaison (<wordasword>matching
+        rules</wordasword>) appliquées aux attributs.</para>
 	</listitem>
 	<listitem>
-	<para>Les valeurs limites qu'un attribut peut recevoir</para>
+        <para>Les types de syntaxe et les valeurs limites qu'un attribut peut
+        recevoir.</para>
 	</listitem>
 	<listitem>
-	<para>Les restrictions sur les informations qui peuvent être enregistrées</para>
+        <para>Les restrictions sur les informations qui peuvent être
+        enregistrées</para>
 	</listitem>
 	</itemizedlist>
+
+    <para>Avec <application>OpenLDAP</application>, ces schémas sont chargés
+    dynamiquement dans le sous-arbre de configuration
+    <code>cn=schema,cn=config</code>, ce qui permet d'ajouter ou de mettre à
+    jour des classes d'objets sans redémarrer le démon
+    <systemitem>slapd</systemitem>.</para>
 </sect1>
 
 <sect1 xml:id='sysadm-net.ldap.srvr'>
