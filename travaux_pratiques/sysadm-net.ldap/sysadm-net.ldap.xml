@@ -757,18 +757,19 @@
 <sect1 xml:id='sysadm-net.ldap.srvr'>
 	<title>Installer et configurer le serveur LDAP</title>
 
-	<para>Avant d'aborder la configuration du service <acronym>LDAP</acronym>,
-	il faut passer par les étapes rituelles de sélection et d'installation des
-	paquets contenant les outils logiciels du service. Ensuite, il faut
-	identifier les processus, les numéros de ports ouverts et les fichiers de
-	configuration à éditer.</para>
+    <para>Dans cette partie, vous allez installer les paquets
+    <application>OpenLDAP</application>, vérifier l’état du service puis
+    préparer le terrain pour une configuration propre du serveur
+    <acronym>LDAP</acronym>.</para>
 
 <sect2 xml:id='sysadm-net.ldap.srvr.install'>
 	<title>Installer le service LDAP</title>
 
-<qandaset defaultlabel='number'>
-	<qandadiv xml:id='sysadm-net.ldap.srvr.q1'>
+    <para>Cette section vous guide pas à pas pour identifier les paquets Debian
+    liés à <acronym>LDAP</acronym>, réaliser une installation non interactive
+    de slapd, puis interpréter l’état du service obtenu.</para>
 
+<qandaset defaultlabel='number'>
 	<qandaentry xml:id='sysadm-net.ldap.srvr.q1-package'>
 	<question>
 	<para><phrase>Quels sont les paquets Debian relatifs au service
@@ -817,7 +818,14 @@ serveur OpenLDAP (slapd)</screen>
 	<systemitem>ldap-utils</systemitem> et
 	<systemitem>slapd</systemitem>.</para>
 
-<screen><![CDATA[# Non-interactive installation of slapd
+    <para>Créez le script <filename>01-slapd-install.sh</filename> avec le code
+    ci-dessous&nbsp;:</para>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Non-interactive installation of slapd
 export DEBIAN_FRONTEND=noninteractive
 
 # Silent empty configuration of slapd
@@ -826,8 +834,12 @@ slapd slapd/no_configuration boolean true
 EOF
 
 # Install slapd and ldap-utils
-sudo apt-get update -qq
-sudo apt-get install -y --no-install-recommends slapd ldap-utils]]></screen>
+apt-get update -qq
+apt-get install -y --no-install-recommends slapd ldap-utils]]></programlisting>
+
+    <para>Lancez le code avec les droits d'administration système.</para>
+
+<screen>sudo bash 01-slapd-install.sh</screen>
 	</answer>
 	</qandaentry>
 
@@ -876,11 +888,28 @@ mai 09 09:55:20 ldap-srvr systemd[1]: Failed to start slapd.service - OpenLDAP S
 
     <para>Cette situation est normale dans la mesure où vous avez procédé à une
     installation silencieuse du serveur <application>OpenLDAP</application>
-    sans application du configuration initiale.</para>
+    sans application d'une configuration initiale.</para>
 	</answer>
 	</qandaentry>
+</qandaset>
 
-    <qandaentry>
+    <para>L’échec observé au démarrage de <systemitem>slapd</systemitem>
+        confirme qu’aucune configuration n’a encore été fournie&nbsp;: c’est le
+        point de départ attendu pour construire ensuite une configuration
+        cohérente via un fichier <acronym>LDIF</acronym> de bootstrap.</para>
+</sect2>
+
+<sect2 xml:id='sysadm-net.ldap.srvr.config'>
+	<title>Configurer le service LDAP</title>
+
+    <para>Dans cette section, vous allez générer une configuration minimale de
+    la base <code>cn=config</code> à l’aide d’un fichier
+    <acronym>LDIF</acronym>, afin de rendre le démon
+    <systemitem>slapd</systemitem> opérationnel avec un domaine défini
+    <code>lab.local</code> et un compte administrateur dédié.</para>
+
+<qandaset defaultlabel='number'>
+    <qandaentry xml:id='sysadm-net.ldap.srvr.service-no-config.config'>
     <question>
     <para><phrase>Comment générer une configuration minimale pour lancer
     correctement le service&nbsp;?</phrase></para>
@@ -921,9 +950,14 @@ mai 09 09:55:20 ldap-srvr systemd[1]: Failed to start slapd.service - OpenLDAP S
     </listitem>
     </itemizedlist>
 
-    <para>Voici un exemple pour la liste des instructions demandées.</para>
+    <para>Créez le script <filename>02-prepare-bootstrap-ldif.sh</filename>
+    avec le code ci-dessous&nbsp;:</para>
 
-<screen><![CDATA[readonly DOMAIN="lab.local"
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly DOMAIN="lab.local"
 readonly SLAPD_CONFIG_DIR="/etc/ldap/slapd.d"
 readonly SLAPD_DATA_DIR="/var/lib/ldap"
 
@@ -940,6 +974,7 @@ ROOTPW_HASH="$(sudo slappasswd -s "${ADMIN_PASS}")"
 SUFFIX="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
 
 # 4. Create the LDIF file for bootstrap configuration
+rm -f "${HOME}/bootstrap-config.ldif"
 cat <<EOF >"${HOME}/bootstrap-config.ldif"
 dn: cn=config
 objectClass: olcGlobal
@@ -984,9 +1019,16 @@ olcDbMaxSize: 1073741824
 olcSuffix: ${SUFFIX}
 olcRootDN: cn=admin,${SUFFIX}
 olcRootPW: ${ROOTPW_HASH}
+olcLastMod: TRUE
+olcDbCheckpoint: 512 30
+olcAccess: {0}to attrs=userPassword by self write by anonymous auth by * none
+olcAccess: {1}to attrs=shadowLastChange by self write by * read
+olcAccess: {2}to * by * read
 olcDbIndex: objectClass eq
 olcDbIndex: uid eq
 olcDbIndex: cn,sn,mail eq,sub
+olcDbIndex: uidNumber,gidNumber eq
+olcDbIndex: member,memberUid eq
 EOF
 
 # 5. Create directories if they don't exist
@@ -1000,9 +1042,16 @@ sudo chown -R openldap:openldap "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
 
 # 8. Resume packaging tasks and restart
 sudo dpkg --configure --pending
-sudo systemctl restart slapd]]></screen>
+sudo systemctl restart slapd]]></programlisting>
 
-    <para>Ces instructions méritent quelques explications.</para>
+    <para>Lancez le script avec les droits d'administration système.</para>
+
+<screen>sudo bash sudo bash 02-prepare-bootstrap-ldif.sh</screen>
+
+    <para>Les instructions de configuration de l'annuaire
+    <acronym>LDAP</acronym> méritent des explications. Voir <xref
+    linkend='sysadm-net.ldap.srvr.config'
+    />.</para>
     </answer>
     </qandaentry>
 
@@ -1087,28 +1136,50 @@ sudo systemctl restart slapd]]></screen>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment identifier le ou les numéros de ports ouverts par le
-	service installé&nbsp;?</phrase></para>
+    <para><phrase>Quel est l'état du service <acronym>LDAP</acronym> et comment
+    identifier le ou les numéros de ports ouverts en
+    écoute&nbsp;?</phrase></para>
 
-	<para>Utiliser une commande d'affichage de la liste des ports ouverts sur
-	le système.</para>
+    <para>Commencez par reprendre la question précédente <xref
+    linkend="sysadm-net.ldap.srvr.service-no-config.status" /> et vérifiez que
+    le service est actif.</para>
+
+    <para>Utilisez les commandes <command>ss</command> ou
+    <command>lsof</command> pour afficher la liste des ports ouverts par le
+    service <acronym>LDAP</acronym>.</para>
 	</question>
-	<answer>
-	<para>Voici deux exemples usuels.</para>
+    <answer>
+    <para>Maintenant que la configuration minimale avec la définition du
+    domaine de travaux pratiques est en place, le service
+    <systemitem>slapd</systemitem> est actif.</para>
 
-<screen>sudo lsof -i | grep l[d]ap</screen>
+<screen>systemctl status slapd</screen>
 
-<screen>slapd   1699 openldap    8u  IPv4  19101      0t0  TCP *:ldap (LISTEN)
-slapd   1699 openldap    9u  IPv6  19102      0t0  TCP *:ldap (LISTEN)</screen>
+<screen><![CDATA[systemctl status slapd.service
+● slapd.service - OpenLDAP Server Daemon
+     Loaded: loaded (/usr/lib/systemd/system/slapd.service; enabled; preset: enabled)
+     Active: active (running) since Sun 2026-05-10 09:01:59 CEST; 15min ago
+ Invocation: 6a61af75f66c4347aa716857b7a9bc3d
+       Docs: man:slapd
+             man:slapd-config
+             man:slapd-mdb
+   Main PID: 1064 (slapd)
+      Tasks: 2 (limit: 974)
+     Memory: 10.6M (peak: 10.6M)
+        CPU: 36ms
+     CGroup: /system.slice/slapd.service
+             └─1064 /usr/sbin/slapd -d0 -h "ldap:/// ldapi:///" -u openldap -g openldap
 
-<screen>ss -tau | grep l[d]ap</screen>
+mai 10 09:01:59 ldap-srvr systemd[1]: Starting slapd.service - OpenLDAP Server Daemon...
+mai 10 09:01:59 ldap-srvr slapd[1064]: @(#) $OpenLDAP: slapd 2.6.10+dfsg-1+b2 (Apr 29 2026 10:11:22) $
+                                               Debian OpenLDAP Maintainers <pkg-openldap-devel@lists.alioth.debian.org>
+mai 10 09:01:59 ldap-srvr slapd[1064]: slapd starting
+mai 10 09:01:59 ldap-srvr systemd[1]: Started slapd.service - OpenLDAP Server Daemon.]]></screen>
 
-<screen>tcp   LISTEN 0      2048        0.0.0.0:ldap             0.0.0.0:*
-tcp   LISTEN 0      2048           [::]:ldap                [::]:*</screen>
-
-	<para>Les numéros de port enregistrés pour le service
-	<acronym>LDAP</acronym> sont disponibles dans le fichier
-	<filename>/etc/services</filename>.</para>
+    <para>Pour afficher le numéro de port ouvert en écoute par le service
+    <acronym>LDAP</acronym>, commencez par rechercher la correspondance entre
+    le protocole et son numéro enregistré. Tous les numéros de port enregistrés
+    sont disponibles dans le fichier <filename>/etc/services</filename>.</para>
 
 <screen>grep ldap /etc/services</screen>
 
@@ -1117,58 +1188,391 @@ ldap            389/udp
 ldaps           636/tcp        # LDAP over SSL
 ldaps           636/udp</screen>
 
-	<para>Relativement au indications données par les commandes
-	<command>lsof</command> et <command>ss</command>, c'est le numéro de port
-	389 qui est ouvert en écoute lors de l'installation du paquet
-	<systemitem>slapd</systemitem>.</para>
+    <para>Avec la liste des numéros de ports, affichez les services en
+    écoute.</para>
+
+<screen>ss -autn 'sport = :389'</screen>
+
+<screen>Netid      State      Recv-Q     Send-Q     Local Address:Port    Peer Address:Port
+tcp        LISTEN     0          2048             0.0.0.0:389          0.0.0.0:*
+tcp        LISTEN     0          2048                [::]:389             [::]:*</screen>
+
+    <para>L'affichage montre que le service <acronym>LDAP</acronym> est en
+    écoute uniquement sur le port <code>tcp/389</code>.</para>
+
+    <para>La syntaxe équivalente de la commande <command>lsof</command> est la
+    suivante&nbsp;:</para>
+
+<screen>sudo lsof -i tcp:389</screen>
+
+<screen>COMMAND  PID     USER FD   TYPE DEVICE SIZE/OFF NODE NAME
+slapd   1064 openldap 7u  IPv4  11359      0t0  TCP *:ldap (LISTEN)
+slapd   1064 openldap 8u  IPv6  11360      0t0  TCP *:ldap (LISTEN)</screen>
 
 	<para>Par défaut l'accès <acronym>TLS</acronym> au service n'est pas
 	activé.</para>
 	</answer>
 	</qandaentry>
-	</qandadiv>
 </qandaset>
+
+    <para>Une fois le script exécuté, l’annuaire <acronym>LDAP</acronym>
+    dispose d’une configuration initiale dynamique, stockée dans
+    <code>cn=config</code>. La section suivante vous aidera à analyser en
+    détail cette configuration et à comprendre le rôle de chaque bloc
+    <acronym>LDIF</acronym>.</para>
 </sect2>
 
-<sect2 xml:id='sysadm-net.ldap.srvr.config'>
-	<title>Analyse de la configuration du service LDAP</title>
+<sect2 xml:id='sysadm-net.ldap.srvr.analysis'>
+    <title>Analyser la configuration du service LDAP</title>
 
-	<para>Les versions actuelles du logiciel <citetitle>OpenLDAP</citetitle>
-	utilisent un mode de configuration basé sur un <wordasword>Directory
-	Information Tree</wordasword> ou <acronym>DIT</acronym> propre.  Cette
-	arborescence de configuration est pointée par le nom
-	<option>cn=config</option>. Elle est utilisée pour configurer dynamiquement
-	le démon <systemitem>slapd</systemitem>, modifier les définitions de
-	schéma, les index, les listes de contrôle d'accès <acronym>ACLs</acronym>,
-	etc. Ce mode de configuration présente un avantage déterminant lorsque l'on
-	exploite des annuaires volumineux&nbsp;: toutes les opérations se font sans
-	interruption de service.</para>
+    <para>Le logiciel <citetitle>OpenLDAP</citetitle> utilise un mode de
+    configuration basé sur un <wordasword>Directory Information
+    Tree</wordasword> ou <acronym>DIT</acronym> propre appelé
+    <code>cn=config</code>. Cette base de données indépendante est utilisée
+    pour configurer dynamiquement le démon <systemitem>slapd</systemitem>,
+    modifier les définitions de schéma, les index, les listes de contrôle
+    d'accès <acronym>ACLs</acronym>, etc. Ce mode de configuration présente un
+    avantage déterminant lorsque l'on exploite des annuaires volumineux&nbsp;:
+    toutes les opérations se font sans interruption de service.</para>
+
+    <para>Le fichier <acronym>LDIF</acronym> de bootstrap utilisé dans la
+    question <xref linkend='sysadm-net.ldap.srvr.service-no-config.config' /> a
+    servi à composer cette configuration de la façon suivante&nbsp;:</para>
+
+    <variablelist>
+    <varlistentry>
+        <term>Configuration globale</term>
+        <listitem>
+<screen>dn: cn=config
+objectClass: olcGlobal
+cn: config
+olcArgsFile: /var/run/slapd/slapd.args
+olcPidFile: /var/run/slapd/slapd.pid
+olcLogLevel: none
+olcToolThreads: 1</screen>
+
+        <itemizedlist>
+        <listitem>
+            <para><code>dn: cn=config</code>&nbsp;: entrée racine de la
+            configuration.</para>
+        </listitem>
+        <listitem>
+            <para>Fichiers PID et arguments pour le daemon.</para>
+        </listitem>
+        <listitem>
+            <para><code>olcLogLevel: none</code>&nbsp;: niveau de
+            journalisation (aucun log LDAP spécifique ici).</para>
+        </listitem>
+        <listitem>
+            <para><code>olcToolThreads</code>&nbsp;: nombre de threads utilisés
+            par certains utilitaires.</para>
+        </listitem>
+        </itemizedlist>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Conteneur des schémas et inclusion des schémas standard</term>
+        <listitem>
+<screen>dn: cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: schema
+
+include: file:///etc/ldap/schema/core.ldif
+include: file:///etc/ldap/schema/cosine.ldif
+include: file:///etc/ldap/schema/nis.ldif
+include: file:///etc/ldap/schema/inetorgperson.ldif</screen>
+
+        <itemizedlist>
+        <listitem>
+            <para><code>cn=schema,cn=config</code>&nbsp;: conteneur pour les
+            schémas.</para>
+        </listitem>
+        <listitem>
+            <para>Les directives include permettent d’inclure les schémas
+            <acronym>LDIF</acronym> fournis par le paquet Debian (core, cosine,
+            nis, inetorgperson).</para>
+        </listitem>
+        <listitem>
+            <para>Ces schémas définissent les classes d’objets et attributs de
+            base qui seront disponibles dans l’annuaire.</para>
+        </listitem>
+        </itemizedlist>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Chargement du module back_mdb</term>
+        <listitem>
+<screen>dn: cn=module{0},cn=config
+objectClass: olcModuleList
+cn: module{0}
+olcModulePath: /usr/lib/ldap
+olcModuleLoad: back_mdb</screen>
+
+        <itemizedlist>
+        <listitem>
+            <para>On déclare un module list
+            (<code>olcModuleList</code>).</para>
+        </listitem>
+        <listitem>
+            <para><code>olcModuleLoad: back_mdb</code> charge le backend mdb,
+            utilisé pour stocker les données <acronym>LDAP</acronym>.</para>
+
+            <para>Sans ce module, la base mdb déclarée plus loin ne pourrait
+            pas fonctionner.</para>
+        </listitem>
+        </itemizedlist>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Base frontend</term>
+        <listitem>
+<screen>dn: olcDatabase={-1}frontend,cn=config
+objectClass: olcDatabaseConfig
+objectClass: olcFrontendConfig
+olcDatabase: {-1}frontend
+olcAccess: {0}to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth manage by * none</screen>
+
+        <itemizedlist>
+        <listitem>
+            <para>La base frontend est une couche spéciale qui s’applique
+            globalement à toutes les bases.</para>
+        </listitem>
+        <listitem>
+            <para>La directive <code>olcAccess</code> définit une règle
+            d’accès&nbsp;: ici, les accès de gestion sont autorisés à
+            l'utilisateur <systemitem>root</systemitem> via l’authentification
+            <code>peercred</code> (socket UNIX), et refusés aux autres
+            (<code>by * none</code>).</para>
+        </listitem>
+        </itemizedlist>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Base config (accès à <code>cn=config</code>)</term>
+        <listitem>
+<screen>dn: olcDatabase={0}config,cn=config
+objectClass: olcDatabaseConfig
+olcDatabase: {0}config
+olcAccess: {0}to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth manage by * none</screen>
+
+        <itemizedlist>
+        <listitem>
+            <para>Cette entrée contrôle les accès à la base de configuration
+            <code>cn=config</code>.</para>
+        </listitem>
+        <listitem>
+            <para>Même logique d’accès que pour frontend&nbsp;: uniquement
+            <systemitem>root</systemitem> via <code>peercred</code>.</para>
+        </listitem>
+        </itemizedlist>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Base de données principale <systemitem>mdb</systemitem></term>
+        <listitem>
+<screen>dn: olcDatabase={1}mdb,cn=config
+objectClass: olcDatabaseConfig
+objectClass: olcMdbConfig
+olcDatabase: {1}mdb
+olcDbDirectory: ${SLAPD_DATA_DIR}
+olcDbMaxSize: 1073741824
+olcSuffix: ${SUFFIX}
+olcRootDN: cn=admin,${SUFFIX}
+olcRootPW: ${ROOTPW_HASH}
+olcDbIndex: objectClass eq
+olcDbIndex: uid eq
+olcDbIndex: cn,sn,mail eq,sub</screen>
+
+        <para>Après expansion des variables&nbsp;:</para>
+
+        <itemizedlist>
+        <listitem>
+            <para><code>olcDbDirectory: /var/lib/ldap</code>&nbsp;:
+            répertoire des données.</para>
+        </listitem>
+        <listitem>
+            <para><code>olcSuffix: dc=lab,dc=local</code>&nbsp;: racine de
+            l’annuaire.</para>
+        </listitem>
+        <listitem>
+            <para><code>olcRootDN: cn=admin,dc=lab,dc=local</code>&nbsp;:
+            <acronym>DN</acronym> de l’administrateur de cette base.</para>
+        </listitem>
+        <listitem>
+            <para><code>olcRootPW: {SSHA}…</code>&nbsp;: hash du mot de
+            passe admin.</para>
+        </listitem>
+        <listitem>
+            <para><code>olcDbMaxSize</code>&nbsp;: taille maximum de la
+            base mdb.</para>
+        </listitem>
+        <listitem>
+            <para><code>olcDbIndex</code>&nbsp;: index
+            <acronym>LDAP</acronym> pour améliorer les performances de
+            recherche.</para>
+        </listitem>
+        </itemizedlist>
+
+        <para>Cette entrée définit la base de données principale que vous
+        utiliserez pour créer des entrées (utilisateurs, groupes, etc.).</para>
+        </listitem>
+        </varlistentry>
+    </variablelist>
 
 <qandaset defaultlabel='number'>
-	<qandadiv xml:id='sysadm-net.ldap.srvr.q2'>
+	<qandadiv xml:id='sysadm-net.ldap.srvr.config-analysis'>
 
-	<para>Les documents fournis avec le paquet <systemitem>slapd</systemitem>
-	contiennent des informations indispensables à l'analyse du fonctionnement
-	du service.</para>
+    <para>Les documents fournis avec le paquet <systemitem>slapd</systemitem>
+        contiennent des informations indispensables à l'analyse du
+        fonctionnement du service. Ces documents sont placés dans le répertoire
+        <filename class='directory'>/usr/share/doc/slapd/</filename>. Le
+        fichier <filename>README.Debian.gz</filename> contient un exemple
+        d'instruction de consultation de la configuration du service.</para>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quel est le mode de gestion de la configuration du service du
-	paquet de la distribution Debian GNU/Linux&nbsp;?</phrase></para>
+    <para><phrase>Comment afficher l'état courant de la base de configuration
+    de l'annuaire <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
-	<para>Consulter les fichiers de documentation fournis avec le paquet
+	<para>Consultez les fichiers de documentation fournis avec le paquet
 	<systemitem>slapd</systemitem>.</para>
 	</question>
 	<answer>
-	<para>Les documents relatifs au paquet <systemitem>slapd</systemitem> sont
-	situés dans le répertoire <filename
-	class='directory'>/usr/share/doc/slapd/</filename>. Le fichier
-	<filename>README.Debian.gz</filename> contient un exemple d'instruction de
-	consultation de la configuration du service.</para>
 
 <screen>sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config"</screen>
+
+     <itemizedlist>
+     <listitem>
+         <para>La commande <command>ldapsearch</command> appartient au paquet
+         <systemitem>ldap-utils</systemitem>.</para>
+    </listitem>
+    <listitem>
+        <para>L'option <option>-Y EXTRENAL</option> indique le mécanisme SASL à
+        utiliser pour l’authentification.</para>
+    </listitem>
+    <listitem>
+        <para><option>EXTERNAL</option> signifie que l’identité est fournie par
+        le canal de transport (ici, les credentials Unix sur le socket local),
+        et non par un DN/mot de passe.</para>
+    </listitem>
+    <listitem>
+        <para>Combiné avec <command>sudo</command> et <code>ldapi:///</code>,
+        cela permet de se connecter comme administrateur de la configuration
+        sans fournir un <acronym>DN</acronym> ou un mot de passe.</para>
+    </listitem>
+    <listitem>
+        <para>L'option <option>-H ldapi:///</option> spécifie l’URI du serveur
+        LDAP à contacter en utilisant un socket Unix (local au système
+        serveur).</para>
+    </listitem>
+    <listitem>
+        <para>L'option <option>-b "cn=config"</option> définit la base de
+        recherche (base <acronym>DN</acronym>). Ici <code>cn=config</code>
+        cible la base de configuration dynamique d’OpenLDAP, qui contient
+        toutes les entrées de configuration (olcGlobal, olcDatabase, olcSchema,
+        etc.).</para>
+    </listitem>
+    </itemizedlist>
 	</answer>
 	</qandaentry>
+
+    <qandaentry>
+    <question>
+        <para><phrase>En analysant les paramètres de la base de données de
+        l'annuaire (<code>olcDatabase={1}mdb,cn=config</code>), quels sont les
+        attributs qui appliquent directement le principe de moindre
+        privilège&nbsp;?</phrase></para>
+
+        <para>Comment justifiez-vous leur configuration&nbsp;?</para>
+
+        <para>L'application du principe de moindre privilège repose sur les
+        règles de contrôle d'accès définies par les attributs
+        <code>olcAccess</code> (<wordasword>Access Control Lists</wordasword>
+        ou <acronym>ACL</acronym>).</para>
+    </question>
+    <answer>
+<screen>sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config" \
+    olcDatabase={1}mdb | grep ^olcAccess</screen>
+
+<screen>SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+<emphasis>olcAccess: {0}to attrs=userPassword by self write by anonymous auth by * none</emphasis>
+<emphasis>olcAccess: {1}to attrs=shadowLastChange by self write by * read</emphasis>
+<emphasis>olcAccess: {2}to * by * read</emphasis></screen>
+
+    <para>Concentrez vous sur les trois dernières lignes du résultat de la
+    requête numérotées 0, 1 et 2.</para>
+
+    <variablelist>
+    <varlistentry>
+        <term>Protection stricte des données d'authentification (Règle {0})</term>
+        <listitem>
+        <itemizedlist>
+        <listitem>
+            <para>L'attribut <code>userPassword</code>, qui contient
+            l'empreinte hachée du mot de passe, fait l'objet d'une restriction
+            maximale.</para>
+        </listitem>
+        <listitem>
+            <para><code>by self write</code>&nbsp;: Seul le propriétaire du
+            compte (ainsi que l'administrateur global) possède le droit de
+            modifier son propre mot de passe.</para>
+        </listitem>
+        <listitem>
+            <para><code>by anonymous auth</code>&nbsp;: Les utilisateurs non
+            authentifiés (anonymes) reçoivent uniquement la permission de
+            comparer une empreinte pour la phase de connexion
+            (<option>bind</option>), mais ne peuvent en aucun cas lire la
+            valeur.</para>
+        </listitem>
+        <listitem>
+            <para><code>by * none</code>&nbsp;: Tout autre accès (lecture,
+            recherche) est strictement bloqué pour le reste des utilisateurs,
+            empêchant ainsi l'extraction de la base de mots de passe pour des
+            attaques par force brute hors ligne.</para>
+        </listitem>
+        </itemizedlist>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Gestion de l'expiration des mots de passe (Règle {1})</term>
+        <listitem>
+        <itemizedlist>
+        <listitem>
+            <para><code>by self write</code>&nbsp;: Lorsqu'un utilisateur
+            modifie son mot de passe, le système ne met pas seulement à jour
+            l'attribut <code>userPassword</code>. Il doit également
+            réinitialiser le compteur de date dans
+            <code>shadowLastChange</code>.</para>
+        </listitem>
+        <listitem>
+            <para><code>by * read</code>&nbsp;: Les systèmes clients qui
+            interrogent l'annuaire doivent pouvoir lire cette information pour
+            déterminer si le compte de l'utilisateur est expiré ou s'il faut le
+            forcer à changer son mot de passe dès sa connexion.</para>
+        </listitem>
+        </itemizedlist>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Accès standard aux données publiques (Règle {2})</term>
+        <listitem>
+            <para><code>to * by * read</code>&nbsp;: Une fois les attributs
+            sensibles verrouillés par les règles précédentes, le reste des
+            données de l'annuaire (noms, prénoms, identifiants POSIX
+            <code>uidNumber</code>/<code>gidNumber</code>) est laissé en
+            lecture seule pour tout le monde.</para>
+        </listitem>
+    </varlistentry>
+    </variablelist>
+
+    <para>Le principe du moindre privilège est respecté car chaque entité
+    (utilisateur anonyme, utilisateur connecté ou système tiers) ne dispose que
+    des droits strictement nécessaires à son fonctionnement (s'authentifier ou
+    consulter un carnet d'adresses), sans exposer les données critiques.</para>
+    </answer>
+    </qandaentry>
 
 	<qandaentry>
 	<question>
@@ -1176,41 +1580,42 @@ ldaps           636/udp</screen>
 	(<wordasword>backend</wordasword>) proposé dans l'annuaire de
 	configuration&nbsp;?</phrase></para>
 
-	<para>Reprendre la commande préconisée en réponse à la question précédente
-	en utilisant le type de base de donnée comme filtre.</para>
+    <para>Utilisez à nouveau la commande de la question précédente et
+    recherchez le type de base de donnée à l'aide d'un filtre.</para>
 	</question>
 	<answer>
 
 <screen>sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config" \
   olcDatabase={1}mdb</screen>
 
-<screen>SASL/EXTERNAL authentication started
+<screen><![CDATA[SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
 # extended LDIF
 #
 # LDAPv3
-# base &lt;cn=config> with scope subtree
+# base <cn=config> with scope subtree
 # filter: olcDatabase={1}mdb
 # requesting: ALL
 #
 
 # {1}mdb, config
-<emphasis>dn: olcDatabase={1}mdb,cn=config</emphasis>
+dn: olcDatabase={1}mdb,cn=config
 objectClass: olcDatabaseConfig
 objectClass: olcMdbConfig
-<emphasis>olcDatabase: {1}mdb</emphasis>
-<emphasis>olcDbDirectory: /var/lib/ldap</emphasis>
-olcSuffix: dc=nodomain
+olcDatabase: {1}mdb
+olcDbDirectory: /var/lib/ldap
+olcSuffix: dc=lab,dc=local
 olcAccess: {0}to attrs=userPassword by self write by anonymous auth by * none
 olcAccess: {1}to attrs=shadowLastChange by self write by * read
 olcAccess: {2}to * by * read
 olcLastMod: TRUE
-olcRootDN: cn=admin,dc=nodomain
-olcRootPW: {SSHA}y3201Tkxe0HgfQOhLxiVJ3wwI8+dnQwK
+olcRootDN: cn=admin,dc=lab,dc=local
+olcRootPW: {SSHA}gTHYntBlt2RItNA4UmSC2QqlsbqzTZ8y
 olcDbCheckpoint: 512 30
 olcDbIndex: objectClass eq
-olcDbIndex: cn,uid eq
+olcDbIndex: uid eq
+olcDbIndex: cn,sn,mail eq,sub
 olcDbIndex: uidNumber,gidNumber eq
 olcDbIndex: member,memberUid eq
 olcDbMaxSize: 1073741824
@@ -1220,23 +1625,24 @@ search: 2
 result: 0 Success
 
 # numResponses: 2
-# numEntries: 1</screen>
+# numEntries: 1]]></screen>
 
-	<para>Par définition, un annuaire <acronym>LDAP</acronym> est une base de
-	données optimisée en lecture. Du point de vue implémentation, les entrées
-	sont stockées sous forme «binaire» et indexées à l'aide d'un gestionnaire
-	de base de données. Le gestionnaire d'arrière plan proposé par défaut est
-	<option>mdb</option>. Il s'agit d'une variante actualisée du gestionnaire
-	<wordasword>Berkeley DB transactional backend</wordasword>.</para>
+    <para>Par définition, un annuaire <acronym>LDAP</acronym> est une base de
+    données optimisée pour la lecture. D'un point de vue implémentation, les
+    entrées sont stockées sous forme «&nbsp;binaire&nbsp;» et indexées à l'aide
+    d'un gestionnaire de base de données. Le gestionnaire d'arrière-plan
+    proposé par défaut est <option>mdb</option>. Il s'agit d'une variante
+    moderne du gestionnaire <wordasword>Berkeley DB transactional
+    backend</wordasword>.</para>
 	</answer>
 	</qandaentry>
 
-	<qandaentry xml:id='sysadm-net.ldap.srvr.q2-suffix'>
+	<qandaentry xml:id='sysadm-net.ldap.srvr.olcSuffix'>
 	<question>
 	<para><phrase>Comment identifier le nom de l'annuaire fourni par défaut
 	avec le paquet <systemitem>slapd</systemitem>&nbsp;?</phrase></para>
 
-	<para>Rechercher la clé <literal>olcSuffix</literal> dans la configuration
+	<para>Recherchez la clé <literal>olcSuffix</literal> dans la configuration
 	de l'annuaire.</para>
 	</question>
 	<answer>
@@ -1247,17 +1653,20 @@ result: 0 Success
 <screen>SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
-<emphasis>olcSuffix: dc=nodomain</emphasis></screen>
+<emphasis>olcSuffix: dc=lab,dc=local</emphasis></screen>
 	</answer>
 	</qandaentry>
 
-	<qandaentry xml:id='sysadm-net.ldap.srvr.q2-schema'>
+	<qandaentry xml:id='sysadm-net.ldap.srvr.schema'>
 	<question>
-	<para><phrase>Quels sont les <wordasword>schemas</wordasword> actifs avec
-	la configuration courante du paquet
-	<systemitem>slapd</systemitem>&nbsp;?</phrase></para>
+    <para><phrase>Quels sont les référentiels ou
+    <wordasword>schemas</wordasword> actifs avec la configuration courante du
+    paquet <systemitem>slapd</systemitem>&nbsp;?</phrase></para>
 
-	<para>Rechercher la clé <literal>olcSchemaConfig</literal> dans la
+    <para>Quel est le rôle de chacun des référentiels inclus dans la
+    configuration&nbsp;?</para>
+
+	<para>Recherchez la clé <code>olcSchemaConfig</code> dans la
 	configuration de l'annuaire.</para>
 	</question>
 	<answer>
@@ -1275,6 +1684,61 @@ cn: schema
 cn: {1}cosine
 cn: {2}nis
 cn: {3}inetorgperson</emphasis></screen>
+
+    <para>Voici quelques éléments sur les quatre schémas actuellement chargés&nbsp;:</para>
+
+    <variablelist>
+    <varlistentry>
+        <term>🧱 {0}core&nbsp;: Le socle</term>
+        <listitem>
+            <para>C'est le schéma fondamental d'OpenLDAP (spécifié par les RFC
+            du standard LDAPv3). Il définit les classes de base de la structure
+            de l'annuaire comme <code>organization</code>,
+            <code>organizationalUnit</code>, <code>dcObject</code> (les
+            composants de domaine dc), ainsi que la classe basique
+            <code>person</code> (qui impose juste un nom <code>sn</code> et un
+            nom commun <code>cn</code>).</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>🏢 {1}cosine&nbsp;: L'extension administrative</term>
+        <listitem>
+            <para>Ce schéma, issu des standards X.500, permet d'enrichir les
+            objets avec des données d'entreprise. Il ajoute des attributs très
+            utiles pour la gestion administrative (numéro de bureau, titre, nom
+            du gestionnaire), et constitue surtout un prérequis indispensable
+            au schéma suivant.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>🐧 {2}nis&nbsp;: Le référentiel Linux / POSIX</term>
+        <listitem>
+            <para>C'est le schéma le plus important pour votre scénario
+            d'intégration système. <acronym>NIS</acronym> ou
+            (<wordasword>Network Information Service</wordasword>) apporte la
+            compatibilité avec les systèmes UNIX/Linux. Il définit les classes
+            <code>posixAccount</code> et <code>posixGroup</code>. Celles-ci
+            apportent les attributs indispensables à l'authentification système
+            via <acronym>NSS/PAM</acronym>&nbsp;: <code>uidNumber</code>
+            (identifiant utilisateur), <code>gidNumber</code> (identifiant de
+            groupe), <code>homeDirectory</code> (répertoire personnel) et
+            <code>loginShell</code> (interpréteur de commandes).</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>👤 {3}inetorgperson&nbsp;: Le standard pour les applications</term>
+        <listitem>
+            <para>C'est la classe d'objet la plus utilisée au monde pour
+            représenter des utilisateurs dans les services Web. Elle hérite de
+            la classe <code>person</code> et ajoute des attributs de
+            communication modernes comme <code>mail</code>,
+            <code>givenName</code> (prénom), <code>mobile</code> ou
+            <code>employeeNumber</code>. C'est le référentiel par défaut de la
+            majorité des applications Web (comme le service de trombinoscope de
+            ce document) pour l'authentification.</para>
+        </listitem>
+    </varlistentry>
+    </variablelist>
 	</answer>
 	</qandaentry>
 
@@ -1284,7 +1748,7 @@ cn: {3}inetorgperson</emphasis></screen>
 	l'installation du paquet
 	<systemitem>slapd</systemitem>&nbsp;?</phrase></para>
 
-	<para>Rechercher la clé <literal>olcDbDirectory</literal> dans la
+	<para>Recherchez la clé <literal>olcDbDirectory</literal> dans la
 	configuration de l'annuaire.</para>
 	</question>
 	<answer>
@@ -1297,269 +1761,35 @@ SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
 <emphasis>olcDbDirectory: /var/lib/ldap</emphasis></screen>
 
-	<para>C'est dans le répertoire <filename
-	class='directory'>/var/lib/ldap</filename> que sont stockées les fichiers
-	des bases <wordasword>Berkeley DB</wordasword>.</para>
+    <para>Les fichiers des bases <wordasword>Berkeley DB</wordasword> sont
+    stockés dans le répertoire <filename
+    class='directory'>/var/lib/ldap</filename>.</para>
 
-<screen>ls -lAh /var/lib/ldap/</screen>
+<screen>sudo ls -lAh /var/lib/ldap/</screen>
 
-<screen>total 40K
--rw------- 1 openldap openldap  36K  2 sept. 18:22 data.mdb
--rw------- 1 openldap openldap 8,0K  2 sept. 18:22 lock.mdb</screen>
+<screen>total 48K
+-rw------- 1 openldap openldap  44K 10 mai   15:29 data.mdb
+-rw------- 1 openldap openldap 8,0K 10 mai   15:50 lock.mdb</screen>
 	</answer>
 	</qandaentry>
 	</qandadiv>
 </qandaset>
+
+    <para>En maîtrisant la lecture de ces entrées de la base de configuration
+    <code>cn=config</code>, vous êtes désormais en mesure de relier chaque
+    paramètre du fichier <acronym>LDIF</acronym> au comportement effectif du
+    service <systemitem>slapd</systemitem>, et de poursuivre l’analyse à l’aide
+    des outils en ligne de commande comme <command>ldapsearch</command>.</para>
 </sect2>
+</sect1>
 
-<sect2 xml:id='sysadm-net.ldap.srvr.init'>
-	<title>Réinitialisation de la base de l'annuaire LDAP</title>
+<sect1 xml:id='sysadm-net.ldap.srvr.build'>
+	<title>Composer un nouvel annuaire LDAP</title>
 
-<qandaset defaultlabel='number'>
-	<qandadiv xml:id='sysadm-net.ldap.srvr.q3'>
-
-	<para>L'installation du paquet <systemitem>slapd</systemitem> implique
-	l'installation d'un annuaire minimal avec une base associée. Ce mode
-	opératoire est nécessaire, ne serait-ce que pour accéder à la configuration
-	du service et tester la validité de l'installation.  Après avoir traité les
-	questions ci-dessus, on sait que l'installation est fonctionnelle. On peut
-	donc passer à l'initialisation de notre propre annuaire.</para>
-
-<note>
-	<para>Les manipulations proposées dans cette section permettent de
-	reprendre à zéro la configuration d'un annuaire <acronym>LDAP</acronym>. Il
-	peut être utile de revenir à cette étape en cas de «doute» sur l'intégrité
-	de l'annuaire lors du traitement des questions des sections
-	suivantes.</para>
-</note>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Comment arrêter le service
-	<acronym>LDAP</acronym>&nbsp;?</phrase></para>
-
-	<para>Utiliser les scripts fournis avec le gestionnaire de lancement des
-	processus système.</para>
-	</question>
-	<answer>
-	<para>Chaque processus système dispose d'un script de gestion de son
-	lancement, arrêt (et|ou) redémarrage. Avec le gestionnaire
-	<application>systemd</application>, il faut faire une recherche dans la
-	liste des services. Une fois le service identifié, on l'arrête avec la
-	commande <command>systemctl</command>.</para>
-
-<screen>systemctl status slapd</screen>
-
-<screen>● slapd.service - LSB: OpenLDAP standalone server (Lightweight Directory Access Protocol)
-     Loaded: loaded (/etc/init.d/slapd; generated)
-    Drop-In: /usr/lib/systemd/system/slapd.service.d
-             └─slapd-remain-after-exit.conf
-     <emphasis>Active: active (running)</emphasis> since Sat 2023-09-02 18:22:14 CEST; 21min ago
-       Docs: man:systemd-sysv-generator(8)
-    Process: 1693 ExecStart=/etc/init.d/slapd start (code=exited, status=0/SUCCESS)
-      Tasks: 4 (limit: 1084)
-     Memory: 7.4M
-        CPU: 59ms
-     CGroup: /system.slice/slapd.service
-             └─1699 /usr/sbin/slapd -h "ldap:/// ldapi:///" -g openldap -u openldap -F /etc/ldap/slapd.d
-
-sept. 02 18:22:14 ldap-server systemd[1]: Starting slapd.service - LSB: OpenLDAP standalone server (Lightweight Directory Access Protocol)...
-sept. 02 18:22:14 ldap-server slapd[1698]: @(#) $OpenLDAP: slapd 2.5.13+dfsg-5 (Feb  8 2023 01:56:12) $
-                                                   Debian OpenLDAP Maintainers &lt;pkg-openldap-devel@lists.alioth.debian.org>
-sept. 02 18:22:14 ldap-server slapd[1699]: slapd starting
-sept. 02 18:22:14 ldap-server slapd[1693]: Starting OpenLDAP: slapd.
-sept. 02 18:22:14 ldap-server systemd[1]: Started slapd.service - LSB: OpenLDAP standalone server (Lightweight Directory Access Protocol).</screen>
-
-	<para>Instruction d'arrêt du service&nbsp;:</para>
-
-<screen>sudo systemctl stop slapd</screen>
-
-	<para>On peut exécuter à nouveau la commande <command>systemctl status
-	slapd</command> pour confirmer que le service est bien stoppé et
-	inactif.</para>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Quels sont les éléments à supprimer pour pouvoir installer
-	une nouvelle configuration et une nouvelle base
-	<acronym>LDAP</acronym>&nbsp;?</phrase></para>
-
-	<para>Utiliser le résultat de la question sur la <link
-	linkend='sysadm-net.ldap.srvr.q2-base'>localisation des bases</link> et la
-	documentation fournie avec le paquet <systemitem>slapd</systemitem>.</para>
-	</question>
-	<answer>
-    <para>À partir des réponses aux questions ci-dessus, on sait que c'est le
-    répertoire <filename class='directory'>/var/lib/ldap/</filename> qui
-    contient les bases de données du service. La lecture du fichier de
-    documentation du paquet avec la commande <userinput>zless
-    /usr/share/doc/slapd/README.Debian.gz</userinput> indique que les fichiers
-    de configuration sont situés dans le répertoire <filename
-    class='directory'>/etc/ldap/slapd.d/</filename>.</para>
-
-	<para>On supprime donc tous ces fichiers et répertoires.</para>
-
-<screen>sudo rm -rf /var/lib/ldap/* /etc/ldap/slapd.d</screen>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Comment reprendre à zéro la configuration du paquet
-	<systemitem>slapd</systemitem>&nbsp;?</phrase></para>
-
-	<para>Utiliser l'outil du gestionnaire de paquets <citetitle>Debian
-	GNU/Linux</citetitle> qui permet la modification des paramètres de
-	configuration d'un service à l'aide de menus
-	<systemitem>debconf</systemitem>.</para>
-	</question>
-	<answer>
-	<para>C'est la commande <command>dpkg-reconfigure</command> qui sert à
-	réviser les paramètres de configuration d'un paquet. Voici une copie des
-	écrans proposés avec le paquet <systemitem>slapd</systemitem>.</para>
-
-<screen>sudo dpkg-reconfigure slapd</screen>
-
-<screen>  Creating initial configuration... done.
-  Creating LDAP directory... done.</screen>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/slapd1.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/slapd1.png' format='PNG'  width='10cm'/>
-	</imageobject>
-	<textobject>
-	<phrase>Copie d'écran dpkg-reconfigure slapd</phrase>
-	</textobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/slapd1.png'>
-	Copie d'écran dpkg-reconfigure slapd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/slapd2.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/slapd2.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<textobject>
-	<phrase>Copie d'écran dpkg-reconfigure slapd</phrase>
-	</textobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/slapd2.png'>
-	Copie d'écran dpkg-reconfigure slapd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/slapd3.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/slapd3.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<textobject>
-	<phrase>Copie d'écran dpkg-reconfigure slapd</phrase>
-	</textobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/slapd3.png'>
-	Copie d'écran dpkg-reconfigure slapd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/slapd4.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/slapd4.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<textobject>
-	<phrase>Copie d'écran dpkg-reconfigure slapd</phrase>
-	</textobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/slapd4.png'>
-	Copie d'écran dpkg-reconfigure slapd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/slapd5.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/slapd5.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<textobject>
-	<phrase>Copie d'écran dpkg-reconfigure slapd</phrase>
-	</textobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/slapd5.png'>
-	Copie d'écran dpkg-reconfigure slapd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/slapd6.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/slapd6.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<textobject>
-	<phrase>Copie d'écran dpkg-reconfigure slapd</phrase>
-	</textobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/slapd6.png'>
-	Copie d'écran dpkg-reconfigure slapd - vue complète</link></para>
-	</caption>
-</mediaobject>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Comment valider la nouvelle configuration du paquet
-	<systemitem>slapd</systemitem>&nbsp;?</phrase></para>
-
-	<para>Reprendre la question sur le <link
-	linkend='sysadm-net.ldap.srvr.q2-suffix'>nom distinctif</link> de
-	l'annuaire.</para>
-	</question>
-	<answer>
-<screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "cn=config" \
-  olcSuffix | grep ^olcSuffix</screen>
-
-<screen>SASL/EXTERNAL authentication started
-SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
-SASL SSF: 0
-olcSuffix: <emphasis>dc=lab,dc=stri</emphasis></screen>
-	</answer>
-	</qandaentry>
-	</qandadiv>
-</qandaset>
-</sect2>
-
-<sect2 xml:id='sysadm-net.ldap.srvr.build'>
-	<title>Composition d'un nouvel annuaire LDAP</title>
-
-	<para>Une fois que les fichiers de configuration et de base de données du
-	nouvel annuaire sont en place, on peut passer à l'ajout de nouvelles
-	entrées dans cet annuaire. Comme le fil conducteur de cette série de
-	travaux pratiques est la gestion d'une base de comptes utilisateurs, on
-	doit ajouter les objets suivants.</para>
+    <para>Une fois que la configuration du nouvel annuaire est en place, vous
+    pouvez passer à l'ajout de nouvelles entrées dans cet annuaire. Comme le
+    fil conducteur de cette série de travaux pratiques est la gestion d'une
+    base de comptes utilisateurs, on doit ajouter les objets suivants.</para>
 
 	<itemizedlist>
 	<listitem>
@@ -1571,17 +1801,6 @@ olcSuffix: <emphasis>dc=lab,dc=stri</emphasis></screen>
 	deux enfants</para>
 	</listitem>
 	</itemizedlist>
-
-	<para>Toutes les manipulations sur les objets de l'annuaire utilisent un
-	format de fichier texte particulier baptisé <acronym>LDIF</acronym> pour
-	<wordasword>LDAP Data Interchange Format</wordasword>. C'est un format de
-	représentation des données contenues dans un annuaire particulièrement
-	utile pour les opérations de sauvegarde et de restauration en
-	volume.</para>
-
-	<para>Du point de vue formatage, chaque enregistrement doit être séparé du
-	suivant par une ligne vide et chaque attribut d'un enregistrement apparaît
-	sur une ligne sous la forme «nomAttribut: valeur».</para>
 
 <qandaset defaultlabel='number'>
 	<qandadiv xml:id='sysadm-net.ldap.srvr.q4'>
@@ -2007,7 +2226,6 @@ adding new entry "uid=luke,ou=people,dc=lab,dc=stri"</screen>
 	</qandaentry>
 	</qandadiv>
 </qandaset>
-</sect2>
 </sect1>
 
 <sect1 xml:id='sysadm-net.ldap.clnt'>
