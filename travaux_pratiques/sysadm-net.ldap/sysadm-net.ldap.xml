@@ -950,7 +950,7 @@ mai 09 09:55:20 ldap-srvr systemd[1]: Failed to start slapd.service - OpenLDAP S
     </listitem>
     </itemizedlist>
 
-    <para>Créez le script <filename>02-prepare-bootstrap-ldif.sh</filename>
+    <para>Créez le script <filename>prepare-apply-bootstrap-ldif.sh</filename>
     avec le code ci-dessous&nbsp;:</para>
 
 <programlisting><![CDATA[#!/usr/bin/env bash
@@ -958,25 +958,18 @@ mai 09 09:55:20 ldap-srvr systemd[1]: Failed to start slapd.service - OpenLDAP S
 set -euo pipefail
 
 readonly DOMAIN="lab.local"
+readonly SUFFIX="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
 readonly SLAPD_CONFIG_DIR="/etc/ldap/slapd.d"
 readonly SLAPD_DATA_DIR="/var/lib/ldap"
 
-readonly LDAP_ADMIN_PW_FILE="${HOME}/.ldap_admin_pass"
 readonly LDAP_BOOTSTRAP_FILE="${HOME}/bootstrap-config.ldif"
 
-# 1. Generate admin password
-rm -f "${LDAP_ADMIN_PW_FILE}"
 ADMIN_PASS=$(openssl rand -base64 16)
-echo "${ADMIN_PASS}" >"${LDAP_ADMIN_PW_FILE}"
-chmod 600 "${LDAP_ADMIN_PW_FILE}"
+rm -f "${HOME}"/.ldap_admin_pass
+echo -n "${ADMIN_PASS}" | tee "${HOME}"/.ldap_admin_pass >/dev/null
+chmod 400 "${HOME}"/.ldap_admin_pass
+ROOT_HASH="$(sudo slappasswd -s "${ADMIN_PASS}")"
 
-# 2. Generate SSHA hash for olcRootPW
-ROOTPW_HASH="$(sudo slappasswd -s "${ADMIN_PASS}")"
-
-# 3. Convert domain to DN: dc=lab,dc=local
-SUFFIX="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
-
-# 4. Create the LDIF file for bootstrap configuration
 rm -f "${LDAP_BOOTSTRAP_FILE}"
 cat <<EOF >"${LDAP_BOOTSTRAP_FILE}"
 dn: cn=config
@@ -1021,7 +1014,7 @@ olcDbDirectory: ${SLAPD_DATA_DIR}
 olcDbMaxSize: 1073741824
 olcSuffix: ${SUFFIX}
 olcRootDN: cn=admin,${SUFFIX}
-olcRootPW: ${ROOTPW_HASH}
+olcRootPW: ${ROOT_HASH}
 olcLastMod: TRUE
 olcDbCheckpoint: 512 30
 olcAccess: {0}to attrs=userPassword by self write by anonymous auth by * none
@@ -1034,24 +1027,23 @@ olcDbIndex: uidNumber,gidNumber eq
 olcDbIndex: member,memberUid eq
 EOF
 
-# 5. Create directories if they don't exist
-mkdir -p "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
+# Create directories if they don't exist
+sudo mkdir -p "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
 
-# 6. Import the LDIF file to initialize the LDAP server configuration
-slapadd -F "${SLAPD_CONFIG_DIR}" -n0 -l "${LDAP_BOOTSTRAP_FILE}"
+# Import the LDIF file to initialize the LDAP server configuration
+sudo slapadd -F "${SLAPD_CONFIG_DIR}" -n0 -l "${LDAP_BOOTSTRAP_FILE}"
 
-# 7. Set proper permissions for the LDAP data and configuration directories
-chown -R openldap:openldap "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
+# Set proper permissions for the LDAP data and configuration directories
+sudo chown -R openldap:openldap "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
 
-# 8. Resume packaging tasks and restart
-dpkg --configure --pending
-systemctl restart slapd
-
+# Resume packaging tasks and restart
+sudo dpkg --configure --pending
+sudo systemctl restart slapd
 ]]></programlisting>
 
     <para>Lancez le script avec les droits d'administration système.</para>
 
-<screen>sudo bash sudo bash 02-prepare-bootstrap-ldif.sh</screen>
+<screen>bash prepare-apply-bootstrap-ldif.sh</screen>
 
     <para>Les instructions de configuration de l'annuaire
     <acronym>LDAP</acronym> méritent des explications. Voir <xref
@@ -1158,7 +1150,7 @@ systemctl restart slapd
     domaine de travaux pratiques est en place, le service
     <systemitem>slapd</systemitem> est actif.</para>
 
-<screen>systemctl status slapd</screen>
+<screen>systemctl status slapd.service</screen>
 
 <screen><![CDATA[systemctl status slapd.service
 ● slapd.service - OpenLDAP Server Daemon
@@ -1375,7 +1367,7 @@ olcAccess: {0}to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external,c
     <varlistentry>
         <term>Base de données principale <systemitem>mdb</systemitem></term>
         <listitem>
-<screen>dn: olcDatabase={1}mdb,cn=config
+<screen><![CDATA[dn: olcDatabase={1}mdb,cn=config
 objectClass: olcDatabaseConfig
 objectClass: olcMdbConfig
 olcDatabase: {1}mdb
@@ -1383,68 +1375,68 @@ olcDbDirectory: ${SLAPD_DATA_DIR}
 olcDbMaxSize: 1073741824
 olcSuffix: ${SUFFIX}
 olcRootDN: cn=admin,${SUFFIX}
-olcRootPW: ${ROOTPW_HASH}
+olcRootPW: ${ROOT_HASH}
 olcDbIndex: objectClass eq
 olcDbIndex: uid eq
-olcDbIndex: cn,sn,mail eq,sub</screen>
+olcDbIndex: cn,sn,mail eq,sub]]></screen>
 
-        <para>Après expansion des variables&nbsp;:</para>
+    <para>Après expansion des variables&nbsp;:</para>
 
-        <itemizedlist>
-        <listitem>
-            <para><code>olcDbDirectory: /var/lib/ldap</code>&nbsp;:
-            répertoire des données.</para>
-        </listitem>
-        <listitem>
-            <para><code>olcSuffix: dc=lab,dc=local</code>&nbsp;: racine de
-            l’annuaire.</para>
-        </listitem>
-        <listitem>
-            <para><code>olcRootDN: cn=admin,dc=lab,dc=local</code>&nbsp;:
-            <acronym>DN</acronym> de l’administrateur de cette base.</para>
-        </listitem>
-        <listitem>
-            <para><code>olcRootPW: {SSHA}…</code>&nbsp;: hash du mot de
-            passe admin.</para>
-        </listitem>
-        <listitem>
-            <para><code>olcDbMaxSize</code>&nbsp;: taille maximum de la
-            base mdb.</para>
-        </listitem>
-        <listitem>
-            <para><code>olcDbIndex</code>&nbsp;: index
-            <acronym>LDAP</acronym> pour améliorer les performances de
-            recherche.</para>
-        </listitem>
-        </itemizedlist>
+    <itemizedlist>
+    <listitem>
+        <para><code>olcDbDirectory: /var/lib/ldap</code>&nbsp;:
+        répertoire des données.</para>
+    </listitem>
+    <listitem>
+        <para><code>olcSuffix: dc=lab,dc=local</code>&nbsp;: racine de
+        l’annuaire.</para>
+    </listitem>
+    <listitem>
+        <para><code>olcRootDN: cn=admin,dc=lab,dc=local</code>&nbsp;:
+        <acronym>DN</acronym> de l’administrateur de cette base.</para>
+    </listitem>
+    <listitem>
+        <para><code>olcRootPW: ${ROOT_HASH}</code>&nbsp;: Condensat du mot de
+        passe de l'administrateur de l'annuaire.</para>
+    </listitem>
+    <listitem>
+        <para><code>olcDbMaxSize</code>&nbsp;: taille maximum de la
+        base mdb.</para>
+    </listitem>
+    <listitem>
+        <para><code>olcDbIndex</code>&nbsp;: index
+        <acronym>LDAP</acronym> pour améliorer les performances de
+        recherche.</para>
+    </listitem>
+    </itemizedlist>
 
-        <para>Cette entrée définit la base de données principale que vous
-        utiliserez pour créer des entrées (utilisateurs, groupes, etc.).</para>
-        </listitem>
-        </varlistentry>
-    </variablelist>
+    <para>Cette entrée définit la base de données principale que vous
+    utiliserez pour créer des entrées (utilisateurs, groupes, etc.).</para>
+    </listitem>
+    </varlistentry>
+</variablelist>
 
 <qandaset defaultlabel='number'>
-	<qandadiv xml:id='sysadm-net.ldap.srvr.config-analysis'>
+<qandadiv xml:id='sysadm-net.ldap.srvr.config-analysis'>
 
     <para>Les documents fournis avec le paquet <systemitem>slapd</systemitem>
-        contiennent des informations indispensables à l'analyse du
-        fonctionnement du service. Ces documents sont placés dans le répertoire
-        <filename class='directory'>/usr/share/doc/slapd/</filename>. Le
-        fichier <filename>README.Debian.gz</filename> contient un exemple
-        d'instruction de consultation de la configuration du service.</para>
+    contiennent des informations indispensables à l'analyse du
+    fonctionnement du service. Ces documents sont placés dans le répertoire
+    <filename class='directory'>/usr/share/doc/slapd/</filename>. Le
+    fichier <filename>README.Debian.gz</filename> contient un exemple
+    d'instruction de consultation de la configuration du service.</para>
 
-	<qandaentry>
-	<question>
+    <qandaentry>
+    <question>
     <para><phrase>Comment afficher l'état courant de la base de configuration
     de l'annuaire <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
-	<para>Consultez les fichiers de documentation fournis avec le paquet
-	<systemitem>slapd</systemitem>.</para>
-	</question>
-	<answer>
+    <para>Consultez les fichiers de documentation fournis avec le paquet
+    <systemitem>slapd</systemitem>.</para>
+    </question>
+    <answer>
 
-<screen>sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config"</screen>
+    <screen>sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config"</screen>
 
      <itemizedlist>
      <listitem>
@@ -1478,8 +1470,8 @@ olcDbIndex: cn,sn,mail eq,sub</screen>
         etc.).</para>
     </listitem>
     </itemizedlist>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
     <qandaentry>
     <question>
@@ -1497,7 +1489,7 @@ olcDbIndex: cn,sn,mail eq,sub</screen>
     </question>
     <answer>
 <screen>sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config" \
-    olcDatabase={1}mdb | grep ^olcAccess</screen>
+olcDatabase={1}mdb | grep ^olcAccess</screen>
 
 <screen>SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
@@ -1579,19 +1571,19 @@ SASL SSF: 0
     </answer>
     </qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Quel est le gestionnaire de base de données
-	(<wordasword>backend</wordasword>) proposé dans l'annuaire de
-	configuration&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+    <para><phrase>Quel est le gestionnaire de base de données
+    (<wordasword>backend</wordasword>) proposé dans l'annuaire de
+    configuration&nbsp;?</phrase></para>
 
     <para>Utilisez à nouveau la commande de la question précédente et
     recherchez le type de base de donnée à l'aide d'un filtre.</para>
-	</question>
-	<answer>
+    </question>
+    <answer>
 
 <screen>sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config" \
-  olcDatabase={1}mdb</screen>
+olcDatabase={1}mdb</screen>
 
 <screen><![CDATA[SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
@@ -1616,7 +1608,7 @@ olcAccess: {1}to attrs=shadowLastChange by self write by * read
 olcAccess: {2}to * by * read
 olcLastMod: TRUE
 olcRootDN: cn=admin,dc=lab,dc=local
-olcRootPW: {SSHA}gTHYntBlt2RItNA4UmSC2QqlsbqzTZ8y
+olcRootPW: {SSHA}aBoIgnkSEp2qyvA9TEv0fOlpR4ywQ+ej
 olcDbCheckpoint: 512 30
 olcDbIndex: objectClass eq
 olcDbIndex: uid eq
@@ -1639,31 +1631,31 @@ result: 0 Success
     proposé par défaut est <option>mdb</option>. Il s'agit d'une variante
     moderne du gestionnaire <wordasword>Berkeley DB transactional
     backend</wordasword>.</para>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry xml:id='sysadm-net.ldap.srvr.olcSuffix'>
-	<question>
-	<para><phrase>Comment identifier le nom de l'annuaire fourni par défaut
-	avec le paquet <systemitem>slapd</systemitem>&nbsp;?</phrase></para>
+    <qandaentry xml:id='sysadm-net.ldap.srvr.olcSuffix'>
+    <question>
+    <para><phrase>Comment identifier le nom de l'annuaire fourni par défaut
+    avec le paquet <systemitem>slapd</systemitem>&nbsp;?</phrase></para>
 
-	<para>Recherchez la clé <literal>olcSuffix</literal> dans la configuration
-	de l'annuaire.</para>
-	</question>
-	<answer>
+    <para>Recherchez la clé <literal>olcSuffix</literal> dans la configuration
+    de l'annuaire.</para>
+    </question>
+    <answer>
 
 <screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "cn=config" \
-  olcSuffix | grep ^olcSuffix</screen>
+olcSuffix | grep ^olcSuffix</screen>
 
 <screen>SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
 <emphasis>olcSuffix: dc=lab,dc=local</emphasis></screen>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry xml:id='sysadm-net.ldap.srvr.schema'>
-	<question>
+    <qandaentry xml:id='sysadm-net.ldap.srvr.schema'>
+    <question>
     <para><phrase>Quels sont les référentiels ou
     <wordasword>schemas</wordasword> actifs avec la configuration courante du
     paquet <systemitem>slapd</systemitem>&nbsp;?</phrase></para>
@@ -1671,13 +1663,13 @@ SASL SSF: 0
     <para>Quel est le rôle de chacun des référentiels inclus dans la
     configuration&nbsp;?</para>
 
-	<para>Recherchez la clé <code>olcSchemaConfig</code> dans la
-	configuration de l'annuaire.</para>
-	</question>
-	<answer>
+    <para>Recherchez la clé <code>olcSchemaConfig</code> dans la
+    configuration de l'annuaire.</para>
+    </question>
+    <answer>
 
 <screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "cn=config" \
-  olcSchemaConfig | grep ^cn</screen>
+olcSchemaConfig | grep ^cn</screen>
 
 <screen>SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
@@ -1690,7 +1682,8 @@ cn: {1}cosine
 cn: {2}nis
 cn: {3}inetorgperson</emphasis></screen>
 
-    <para>Voici quelques éléments sur les quatre schémas actuellement chargés&nbsp;:</para>
+    <para>Voici quelques éléments sur les quatre schémas actuellement
+    chargés&nbsp;:</para>
 
     <variablelist>
     <varlistentry>
@@ -1744,22 +1737,22 @@ cn: {3}inetorgperson</emphasis></screen>
         </listitem>
     </varlistentry>
     </variablelist>
-	</answer>
-	</qandaentry>
+    </answer>
+    </qandaentry>
 
-	<qandaentry xml:id='sysadm-net.ldap.srvr.q2-base'>
-	<question>
-	<para><phrase>Où sont stockées les bases définies par défaut lors de
-	l'installation du paquet
-	<systemitem>slapd</systemitem>&nbsp;?</phrase></para>
+    <qandaentry xml:id='sysadm-net.ldap.srvr.q2-base'>
+    <question>
+    <para><phrase>Où sont stockées les bases définies par défaut lors de
+    l'installation du paquet
+    <systemitem>slapd</systemitem>&nbsp;?</phrase></para>
 
-	<para>Recherchez la clé <literal>olcDbDirectory</literal> dans la
-	configuration de l'annuaire.</para>
-	</question>
-	<answer>
+    <para>Recherchez la clé <literal>olcDbDirectory</literal> dans la
+    configuration de l'annuaire.</para>
+    </question>
+    <answer>
 
 <screen>sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config" \
-  olcDbDirectory | grep ^olcDbDirectory</screen>
+olcDbDirectory | grep ^olcDbDirectory</screen>
 
 <screen>SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
@@ -1775,10 +1768,10 @@ SASL SSF: 0
 <screen>total 48K
 -rw------- 1 openldap openldap  44K 10 mai   15:29 data.mdb
 -rw------- 1 openldap openldap 8,0K 10 mai   15:50 lock.mdb</screen>
-	</answer>
-	</qandaentry>
-	</qandadiv>
-</qandaset>
+    </answer>
+    </qandaentry>
+    </qandadiv>
+    </qandaset>
 
     <para>En maîtrisant la lecture de ces entrées de la base de configuration
     <code>cn=config</code>, vous êtes désormais en mesure de relier chaque
@@ -1789,162 +1782,193 @@ SASL SSF: 0
 </sect1>
 
 <sect1 xml:id='sysadm-net.ldap.srvr.build'>
-	<title>Composer un nouvel annuaire LDAP</title>
+<title>Composer un nouvel annuaire LDAP</title>
 
     <para>Une fois la configuration du nouvel annuaire terminée, vous pouvez
     ajouter de nouvelles entrées. Comme le fil conducteur de cette série de
     travaux pratiques est la gestion d'une base de comptes utilisateurs, vous
     devez ajouter les objets suivants&nbsp;:</para>
 
-	<itemizedlist>
-	<listitem>
-    <para>Deux unités organisationnelles&nbsp;: <code>people</code> et
-    <code>groups</code>.</para>
-	</listitem>
-	<listitem>
-    <para>Quatre comptes utilisateurs&nbsp;: papa et maman Skywalker ainsi que
-    leurs deux enfants.</para>
-	</listitem>
-	</itemizedlist>
+    <itemizedlist>
+    <listitem>
+        <para><emphasis>Les branches</emphasis>&nbsp;: Deux unités
+        organisationnelles (<code>people</code> et <code>groups</code>).</para>
+    </listitem>
+    <listitem>
+        <para><emphasis>Les feuilles</emphasis>&nbsp;: Quatre comptes
+        utilisateurs (papa et maman Skywalker ainsi que leurs deux
+        enfants).</para>
+    </listitem>
+    </itemizedlist>
 
 <qandaset defaultlabel='number'>
-	<qandadiv xml:id='sysadm-net.ldap.srvr.build.tree'>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Comment visualiser la liste des entrées du domaine dans
-	l'annuaire <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+<qandadiv xml:id='sysadm-net.ldap.srvr.build.tree'>
+    <qandaentry>
+    <question>
+    <para><phrase>Comment visualiser la liste des entrées du domaine dans
+    l'annuaire <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
     <para>Consultez les pages de manuel de la commande
     <command>ldapsearch</command> pour obtenir des informations sur les
     méthodes d'authentification, la base de données dans laquelle la recherche
     est effectuée et le nom distinctif utilisé pour se connecter à
     l'annuaire.</para>
-	</question>
-	<answer>
+    </question>
+    <answer>
     <para>La commande <command>ldapsearch</command> propose plusieurs modes
     d'authentification qui influent sur la liste des attributs affichés pour
-    une même entrée. Dans notre exemple, ce sont les mots de passe qui peuvent
-    ne pas apparaître ou apparaître sous différentes formes.</para>
+    une même entrée.</para>
 
-	<itemizedlist>
-	<listitem>
-	<para>L'option <option>-x</option> évite le recours à la méthode
-	<acronym>SASL</acronym> pour l'authentification.</para>
+    <variablelist>
+    <varlistentry>
+        <term>Méthode 1&nbsp;: L'authentification système (SASL/EXTERNAL)</term>
+        <listitem>
+        <para>C'est le comportement par défaut sous Debian, que vous avez déjà
+        configuré dans votre script bootstrap.</para>
 
-<screen>sudo ldapsearch -LLL -x -H ldap:/// -b "dc=lab,dc=stri" \
-  -D cn=admin,dc=lab,dc=stri -W</screen>
+        <para>Puisque vous êtes sur le serveur lui-même, vous n'avez pas besoin
+        du mot de passe pour effectuer des tâches administratives via la socket
+        Unix locale (<code>ldapi:///</code>) avec les privilèges root. Le noyau
+        Linux certifie au serveur <acronym>LDAP</acronym> qu'il s'agit bien de
+        l'utilisateur root (<systemitem>UID 0</systemitem>), ce qui permet à
+        <application>OpenLDAP</application> de lui accorder automatiquement les
+        droits d'administration.</para>
 
-<screen>Enter LDAP Password:
-dn: dc=lab,dc=stri
-objectClass: top
-objectClass: dcObject
-objectClass: organization
-o: lab.stri
-dc: lab</screen>
-	</listitem>
-
-	<listitem>
-	<para>L'option <option>-Y EXTERNAL</option> utilise la méthode
-	<acronym>SASL</acronym> du même nom.</para>
-
-<screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "dc=lab,dc=stri" \
-  -D cn=admin,dc=lab,dc=stri -W</screen>
-
-<screen>Enter LDAP Password:
-SASL/EXTERNAL authentication started
-SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
-SASL SSF: 0
-dn: dc=lab,dc=stri
-objectClass: top
-objectClass: dcObject
-objectClass: organization
-o: lab.stri
-dc: lab</screen>
-	</listitem>
-
-	<listitem>
-	<para>L'option <option>-LLL</option> désactive l'affichage des commentaires
-	et de la version <acronym>LDIF</acronym> utilisée dans la réponse.</para>
-	</listitem>
-
-	<listitem>
-	<para>L'option <option>-b</option> désigne le point de départ de la
-	recherche.</para>
-	</listitem>
-
-	<listitem>
-	<para>L'option <option>-D</option> désigne le nom distinctif de connexion à
-	l'annuaire.</para>
-	</listitem>
-
-	<listitem>
-	<para>L'option <option>-W</option> provoque l'affichage de l'invite de
-	demande du mot passe correspondant au nom distinctif utilisé.</para>
-	</listitem>
-	</itemizedlist>
-	</answer>
-	</qandaentry>
-
-	<qandaentry xml:id='sysadm-net.ldap.srvr.q4-LogLevel'>
-	<question>
-	<para><phrase>Comment activer la journalisation des manipulations sur les
-	entrées de l'annuaire <acronym>LDAP</acronym>&nbsp;?</phrase></para>
-
-	<para>Rechercher l'entrée relative au niveau de journalisation dans le
-	<acronym>DIT</acronym> et modifier sa valeur de façon à obtenir un état
-	dans les journaux système à chaque opération sur l'annuaire.</para>
-
-	<para>La modification de l'entrée du <acronym>DIT</acronym> doit se faire à
-	l'aide d'un fichier <acronym>LDIF</acronym> approprié.</para>
-	</question>
-	<answer>
-	<para>L'entrée à rechercher dans le <acronym>DIT</acronym> est baptisée
-	<option>olcLogLevel</option>.</para>
-
-<screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "cn=config" \
-  olcLogLevel | grep ^olcLogLevel</screen>
+<screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "dc=lab,dc=local"</screen>
 
 <screen>SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
-olcLogLevel: none</screen>
+No such object (32)</screen>
 
-	<para>on se propose de remplacer la valeur <option>none</option> par
-	<option>stats</option> de façon à journaliser les connexions, les
-	opérations et les résultats. Voici une copie du fichier
-	<acronym>LDIF</acronym> permettant de réaliser cette modification.</para>
+        <itemizedlist>
+        <listitem>
+            <para>Le résultat <code>No such object (32)</code> montre que
+            l'annuaire est vide à ce stade.</para>
+        </listitem>
+        <listitem>
+            <para>L'option <option>-LLL</option> désactive l'affichage des
+            commentaires et de la version <acronym>LDIF</acronym> utilisée dans
+            la réponse.</para>
+        </listitem>
+        <listitem>
+            <para>L'option <option>-b</option> désigne le point de départ de la
+            recherche.</para>
+        </listitem>
+        </itemizedlist>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term>Méthode 2&nbsp;: Lecture directe du fichier de secret</term>
+        <listitem>
+        <para>Pour l'authentification classique par mot de passe (Simple Bind
+        avec l'option <option>-D</option>) via le réseau local
+        (<acronym>TCP/389</acronym>) ou pour simuler le comportement d'une
+        application tierce, vous pouvez utiliser l'option <option>-y</option>
+        fournie par tous les outils <application>OpenLDAP</application>.</para>
 
-	<para>On commence par créer un dossier dédié aux fichiers
-	<acronym>LDIF</acronym>.</para>
+        <para>Cette option demande au client de lire le mot de passe
+        directement depuis un fichier. Puisque vous êtes le propriétaire du
+        fichier d'origine, vous pouvez le lire directement.</para>
 
-<screen>mkdir -p $HOME/ldif &amp;&amp; cd $HOME/ldif</screen>
+<screen>ldapsearch -LLL -x -H ldap://localhost \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y ~/.ldap_admin_pass \
+    -b "dc=lab,dc=local</screen>
 
-	<para>Ensuite on peut créer le fichier <acronym>LDIF</acronym> de
-	modification de la journalisation du service
-	<acronym>LDAP</acronym>.</para>
+<screen>No such object (32)</screen>
 
-<screen>cat > setolcLogLevel2stats.ldif &lt;&lt; EOF
+        <itemizedlist>
+        <listitem>
+            <para>Le résultat <code>No such object (32)</code> montre que
+            l'annuaire est aussi vide à ce stade.</para>
+        </listitem>
+        <listitem>
+            <para>L'option <option>-LLL</option> désactive l'affichage des
+            commentaires et de la version <acronym>LDIF</acronym> utilisée dans
+            la réponse.</para>
+        </listitem>
+        <listitem>
+            <para>L'option <option>-D</option> spécifie le
+            <wordasword>Distinguished Name</wordasword> (<acronym>DN</acronym>)
+            de l'administrateur.</para>
+        </listitem>
+        <listitem>
+            <para>L'option <option>-y</option> va chercher le mot de passe en
+            clair dans le fichier de sauvegarde créé lors de la configuration
+            initiale de l'annuaire.</para>
+        </listitem>
+        </itemizedlist>
+        </listitem>
+    </varlistentry>
+    </variablelist>
+
+    <important>
+        <para>Vous devez utiliser l'une ou l'autre des deux méthodes présentées
+        ici pour vérifier la présence et la validité des attributs stockés dans
+        l'annuaire <acronym>LDAP</acronym>, et pour traiter les questions à
+        venir.</para>
+    </important>
+    </answer>
+    </qandaentry>
+
+    <qandaentry xml:id='sysadm-net.ldap.srvr.olcLogLevel'>
+    <question>
+        <para><phrase>Comment activer la journalisation des manipulations sur les
+        entrées de l'annuaire <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+
+        <para>Cette question revient sur l'arbre de configuration
+        <code>cn=config</code>.</para>
+
+        <para>Recherchez l'entrée relative au niveau de journalisation dans le
+        <acronym>DIT</acronym> et modifier sa valeur de façon à obtenir des
+        messages dans les journaux système à chaque opération sur
+        l'annuaire.</para>
+
+        <para>La modification de l'entrée du <acronym>DIT</acronym> doit se
+        faire à l'aide d'un fichier <acronym>LDIF</acronym> avec la nouvelle
+        valeur de l'attribut .</para>
+    </question>
+    <answer>
+        <para>Recherchez la clé <code>olcLogLevel</code> dans la base de
+        configuration <code>cn=config</code>.</para>
+
+<screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "cn=config" \
+olcLogLevel | grep ^olcLogLevel</screen>
+
+<screen>SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+<emphasis>olcLogLevel: none</emphasis></screen>
+
+        <para>Créez le fichier <acronym>LDIF</acronym> qui remplace la valeur
+        <option>none</option> par <option>stats</option> de façon à journaliser
+        les connexions, les opérations et les résultats. Voici un exemple  de
+        fichier&nbsp;:</para>
+
+<screen><![CDATA[cat << EOF > setolcLogLevel2stats.ldif
 # Set olcLogLevel to "stats"
 dn: cn=config
 changetype: modify
 replace: olcLogLevel
 olcLogLevel: stats
-EOF</screen>
+EOF]]></screen>
 
-	<para>On applique ce changement de valeur avec la commande
-	<command>ldapmodify</command> puis on vérifie que l'attribut a bien reçu le
-	paramètre.</para>
+<para>Appliquez cette nouvelle valeur avec la commande
+<command>ldapmodify</command>, puis vérifiez que l'attribut a bien
+changé.</para>
 
-<screen>sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f setolcLogLevel2stats.ldif</screen>
+<screen>sudo ldapmodify -Y EXTERNAL -H ldapi:/// \
+    -f setolcLogLevel2stats.ldif</screen>
 
 <screen>CSASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
 modifying entry "cn=config"</screen>
 
-<screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "cn=config" \
-  olcLogLevel | grep ^olcLogLevel</screen>
+<screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// \
+    -b "cn=config" \
+    olcLogLevel | grep ^olcLogLevel</screen>
 
 <screen>SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
@@ -1954,71 +1978,89 @@ SASL SSF: 0
 	<para>Enfin, on relève les traces de la dernière opération dans les
 	journaux système.</para>
 
-<screen>journalctl -o cat -n 20 -u slapd --grep="conn"
-conn=1009 fd=12 closed
+<screen>journalctl -o cat -n 20 -u slapd --grep="conn"</screen>
+
+<screen>conn=1009 fd=13 closed
 conn=1009 op=2 UNBIND
-conn=1009 op=1 SEARCH RESULT tag=101 err=0 qtime=0.000017 etime=0.000193 nentries=10 text=
+conn=1009 op=1 SEARCH RESULT tag=101 err=0 qtime=0.000018 etime=0.000171 nentries=10 text=
 conn=1009 op=1 SRCH attr=olcLogLevel
 conn=1009 op=1 SRCH base="cn=config" scope=2 deref=0 filter="(objectClass=*)"
-conn=1009 op=0 RESULT tag=97 err=0 qtime=0.000018 etime=0.000107 text=
+conn=1009 op=0 RESULT tag=97 err=0 qtime=0.000028 etime=0.000143 text=
 conn=1009 op=0 BIND dn="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" mech=EXTERNAL bind_ssf=0 ssf=71
 conn=1009 op=0 BIND authcid="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" authzid="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth"
 conn=1009 op=0 BIND dn="" method=163
-conn=1009 fd=12 ACCEPT from PATH=/var/run/slapd/ldapi (PATH=/var/run/slapd/ldapi)
-conn=1008 fd=12 closed
+conn=1009 fd=13 ACCEPT from PATH=/var/run/slapd/ldapi (PATH=/var/run/slapd/ldapi)
+conn=1008 fd=13 closed
 conn=1008 op=2 UNBIND
-conn=1008 op=1 RESULT tag=103 err=0 qtime=0.000021 etime=0.000558 text=</screen>
+conn=1008 op=1 SEARCH RESULT tag=101 err=0 qtime=0.000027 etime=0.000377 nentries=10 text=
+conn=1008 op=1 SRCH attr=olcLogLevel
+conn=1008 op=1 SRCH base="cn=config" scope=2 deref=0 filter="(objectClass=*)"
+conn=1008 op=0 RESULT tag=97 err=0 qtime=0.000029 etime=0.000199 text=
+conn=1008 op=0 BIND dn="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" mech=EXTERNAL bind_ssf=0 ssf=71
+conn=1008 op=0 BIND authcid="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" authzid="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth"
+conn=1008 op=0 BIND dn="" method=163
+conn=1008 fd=13 ACCEPT from PATH=/var/run/slapd/ldapi (PATH=/var/run/slapd/ldapi)</screen>
 
 <note>
-	<para>Dans le contexte des travaux pratiques, le nombre d'entrées de
-	l'annuaire reste très limité et la journalisation n'a pas d'impact
-	mesurable sur les performances du système. Dans un contexte d'exploitation
-	réelle avec un annuaire comprenant au moins une dizaine de milliers
-	d'entrées, la situation est très différente et il faut limiter au maximum
-	le recours à la journalisation des transactions sur l'annuaire.</para>
+    <para>Dans le cadre des travaux pratiques, le nombre d'entrées de
+    l'annuaire reste très limité, et la journalisation n'a pas d'impact
+    mesurable sur les performances du système. En revanche, dans un contexte
+    d'exploitation réelle, avec un annuaire contenant au moins dix mille
+    entrées, la situation est très différente et il est nécessaire de limiter
+    au maximum la journalisation des transactions sur l'annuaire.</para>
 </note>
 
-	<para>Pour ramener la valeur de l'attribut <option>olcLogLevel</option> à
-	<option>none</option>, il suffit de créer un fichier
-	<acronym>LDIF</acronym> avec la directive correspondante.</para>
+    <para>Pour revenir à la valeur initiale de l'attribut
+    <option>olcLogLevel</option>, il suffit de créer un autre fichier
+    <acronym>LDIF</acronym> avec la valeur <code>none</code>.</para>
 
-<screen>cat > setolcLogLevel2none.ldif &lt;&lt; EOF
+<screen><![CDATA[cat << EOF > setolcLogLevel2none.ldif
 # Set olcLogLevel to "none"
 dn: cn=config
 changetype: modify
 replace: olcLogLevel
 olcLogLevel: none
-EOF</screen>
+EOF]]></screen>
       </answer>
     </qandaentry>
 
-	<qandaentry xml:id='sysadm-net.ldap.srvr.q4-ou'>
+	<qandaentry xml:id='sysadm-net.ldap.srvr.o'>
 	<question>
-	<para><phrase>Quelle est la syntaxe du fichier <acronym>LDIF</acronym> qui
-	permet d'ajouter les deux unités organisationnelles
-	(<wordasword>organisational unit</wordasword>)&nbsp;?</phrase></para>
+    <para><phrase>Quelle est la syntaxe du fichier <acronym>LDIF</acronym> qui
+    permet de créer l'arbre et les branches de l'annuaire
+    <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
-	<para>Rechercher un tutoriel <acronym>LDIF</acronym> en ligne donnant un
-	exemple de fichier <acronym>LDIF</acronym> avec une ou plusieurs entrées
-	<option>ou:</option>.</para>
+    <para>Recherchez la synyaxe de définition d'une organisation
+    (<code>o:</code>) et des deux unités organisationnelles (<code>ou:</code>)
+    demandées.</para>
 	</question>
 	<answer>
 	<para>Voici un exemple de fichier <acronym>LDIF</acronym> contenant les
 	déclarations des deux unités organisationnelles à ajouter.</para>
 
-<screen>cat > ou.ldif &lt;&lt; EOF
-dn: ou=people,dc=lab,dc=stri
-objectClass: organizationalUnit
-ou: people
+<screen><![CDATA[cat <<EOF >tree.ldif
+# DIT root (Base DN)
+dn: dc=lab,dc=local
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: Lab Local Organisation
+dc: lab
 
-dn: ou=groups,dc=lab,dc=stri
+# Users branch
+dn: ou=users,dc=lab,dc=local
+objectClass: organizationalUnit
+ou: users
+
+# Groups branch
+dn: ou=groups,dc=lab,dc=local
 objectClass: organizationalUnit
 ou: groups
-EOF</screen>
+EOF]]></screen>
 	</answer>
 	</qandaentry>
 
-	<qandaentry xml:id='sysadm-net.ldap.srvr.q4-ldapadd'>
+	<qandaentry xml:id='sysadm-net.ldap.srvr.ldapadd-o+ou'>
 	<question>
 	<para><phrase>Quelle est la commande à utiliser pour ajouter une ou
 	plusieurs entrées dans l'annuaire&nbsp;?</phrase></para>
