@@ -961,11 +961,14 @@ readonly DOMAIN="lab.local"
 readonly SLAPD_CONFIG_DIR="/etc/ldap/slapd.d"
 readonly SLAPD_DATA_DIR="/var/lib/ldap"
 
+readonly LDAP_ADMIN_PW_FILE="${HOME}/.ldap_admin_pass"
+readonly LDAP_BOOTSTRAP_FILE="${HOME}/bootstrap-config.ldif"
+
 # 1. Generate admin password
-rm -f "${HOME}/.ldap_admin_pass"
+rm -f "${LDAP_ADMIN_PW_FILE}"
 ADMIN_PASS=$(openssl rand -base64 16)
-echo "${ADMIN_PASS}" >"${HOME}/.ldap_admin_pass"
-chmod 400 "${HOME}/.ldap_admin_pass"
+echo "${ADMIN_PASS}" >"${LDAP_ADMIN_PW_FILE}"
+chmod 600 "${LDAP_ADMIN_PW_FILE}"
 
 # 2. Generate SSHA hash for olcRootPW
 ROOTPW_HASH="$(sudo slappasswd -s "${ADMIN_PASS}")"
@@ -974,8 +977,8 @@ ROOTPW_HASH="$(sudo slappasswd -s "${ADMIN_PASS}")"
 SUFFIX="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
 
 # 4. Create the LDIF file for bootstrap configuration
-rm -f "${HOME}/bootstrap-config.ldif"
-cat <<EOF >"${HOME}/bootstrap-config.ldif"
+rm -f "${LDAP_BOOTSTRAP_FILE}"
+cat <<EOF >"${LDAP_BOOTSTRAP_FILE}"
 dn: cn=config
 objectClass: olcGlobal
 cn: config
@@ -1032,17 +1035,19 @@ olcDbIndex: member,memberUid eq
 EOF
 
 # 5. Create directories if they don't exist
-sudo mkdir -p "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
+mkdir -p "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
 
 # 6. Import the LDIF file to initialize the LDAP server configuration
-sudo slapadd -F "${SLAPD_CONFIG_DIR}" -n0 -l "${HOME}/bootstrap-config.ldif"
+slapadd -F "${SLAPD_CONFIG_DIR}" -n0 -l "${LDAP_BOOTSTRAP_FILE}"
 
 # 7. Set proper permissions for the LDAP data and configuration directories
-sudo chown -R openldap:openldap "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
+chown -R openldap:openldap "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
 
 # 8. Resume packaging tasks and restart
-sudo dpkg --configure --pending
-sudo systemctl restart slapd]]></programlisting>
+dpkg --configure --pending
+systemctl restart slapd
+
+]]></programlisting>
 
     <para>Lancez le script avec les droits d'administration système.</para>
 
@@ -1786,41 +1791,41 @@ SASL SSF: 0
 <sect1 xml:id='sysadm-net.ldap.srvr.build'>
 	<title>Composer un nouvel annuaire LDAP</title>
 
-    <para>Une fois que la configuration du nouvel annuaire est en place, vous
-    pouvez passer à l'ajout de nouvelles entrées dans cet annuaire. Comme le
-    fil conducteur de cette série de travaux pratiques est la gestion d'une
-    base de comptes utilisateurs, on doit ajouter les objets suivants.</para>
+    <para>Une fois la configuration du nouvel annuaire terminée, vous pouvez
+    ajouter de nouvelles entrées. Comme le fil conducteur de cette série de
+    travaux pratiques est la gestion d'une base de comptes utilisateurs, vous
+    devez ajouter les objets suivants&nbsp;:</para>
 
 	<itemizedlist>
 	<listitem>
-	<para>Deux unités organisationnelles : <option>people</option> et
-	<option>groups</option>.</para>
+    <para>Deux unités organisationnelles&nbsp;: <code>people</code> et
+    <code>groups</code>.</para>
 	</listitem>
 	<listitem>
-	<para>Quatre compte utilisateurs : papa et maman Skywalker ainsi que leurs
-	deux enfants</para>
+    <para>Quatre comptes utilisateurs&nbsp;: papa et maman Skywalker ainsi que
+    leurs deux enfants.</para>
 	</listitem>
 	</itemizedlist>
 
 <qandaset defaultlabel='number'>
-	<qandadiv xml:id='sysadm-net.ldap.srvr.q4'>
+	<qandadiv xml:id='sysadm-net.ldap.srvr.build.tree'>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Comment visualiser la liste des entrées contenues dans
+	<para><phrase>Comment visualiser la liste des entrées du domaine dans
 	l'annuaire <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
-	<para>Utiliser les pages de manuels de la commande
-	<command>ldapsearch</command> et rechercher les informations sur les
-	méthodes d'authentification, la désignation de la base dans laquelle on
-	effectue la recherche et le nom distinctif utilisé pour se connecter à
-	l'annuaire.</para>
+    <para>Consultez les pages de manuel de la commande
+    <command>ldapsearch</command> pour obtenir des informations sur les
+    méthodes d'authentification, la base de données dans laquelle la recherche
+    est effectuée et le nom distinctif utilisé pour se connecter à
+    l'annuaire.</para>
 	</question>
 	<answer>
-	<para>La commande <command>ldapsearch</command> propose plusieurs modes
-	d'authentification qui influent sur la liste des attributs affichés pour
-	une même entrée. Dans notre exemple, ce sont les mots de passes qui peuvent
-	ne pas apparaître ou apparaître sous différentes formes.</para>
+    <para>La commande <command>ldapsearch</command> propose plusieurs modes
+    d'authentification qui influent sur la liste des attributs affichés pour
+    une même entrée. Dans notre exemple, ce sont les mots de passe qui peuvent
+    ne pas apparaître ou apparaître sous différentes formes.</para>
 
 	<itemizedlist>
 	<listitem>
