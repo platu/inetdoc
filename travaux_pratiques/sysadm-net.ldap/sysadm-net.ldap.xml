@@ -2262,61 +2262,31 @@ deleting entry "dc=lab,dc=local"</screen>
     <para><phrase>Comment générer un mot de passe utilisateur aléatoire et le
     condensat correspondant à insérer dans l'annuaire&nbsp;?</phrase></para>
 
-    <para>Recherchez les options de la commande <command>openssl</command> qui
-    permettent de générer une chaîne de caractères lisibles de 24
+    <para>Recherchez les options de la commande <command>openssl</command>
+    qui permettent de générer une chaîne de caractères lisibles de 24
     caractères.</para>
+
+    <para>Recherchez les options de la commande
+    <command>slappasswd</command> qui permettent d'appliquer le module
+    <emphasis>Argon2</emphasis> au calcul de condensat (ou au hachage) du
+    mot de passe de l'utilisateur.</para>
 	</question>
 	<answer>
-	<para>En effectuant une recherche par mot clé dans les pages de manuels du
-	système, on peut identifier l'outil recherché.</para>
+    <para>Pour créer un mot de passe sécurisé, commencez par générer 28 octets
+    aléatoires en base64. Ensuite, réduisez la sortie à 24 caractères
+    lisibles.</para>
 
-<screen>man -k passwd | grep -i ldap</screen>
+<screen>openssl rand -base64 28 | cut -c -24</screen>
 
-<screen>ldappasswd (1)       - change the password of an LDAP entry
-<emphasis>slappasswd</emphasis> (8)       - OpenLDAP password utility</screen>
+    <para>Utilisez ce secret pour le calcul de condensat avec l'algorithme <emphasis>Argon2</emphasis>.</para>
 
-	<para>On utilise la commande <command>slappasswd</command> pour générer une
-	chaîne chiffrée que l'on insère dans le fichier <acronym>LDIF</acronym> des
-	comptes utilisateurs.</para>
-
-	<para>Prenons l'exemple du mot de passe <literal>V3ry53cr3t</literal>, on
-	obtient le résultat suivant&nbsp;:</para>
-
-<screen>sudo slappasswd</screen>
-
-<screen>New password:
-Re-enter new password:
-{SSHA}rpB4tgcVlh51sPCtpBi+acrS6Ifc1lu0</screen>
+<screen>USER_PASS=$(openssl rand -base64 28 | cut -c -24)
+USER_PASS_HASH=$(sudo slappasswd -o module-load=argon2.la -h "{ARGON2}" -s "${USER_PASS}")
+echo "${USER_PASS_HASH}"
+</screen>
 
 	<para>Dans le contexte de ces travaux pratiques, on attribue le même mot de
 	passe aux quatre comptes utilisateurs.</para>
-
-	<para>Il existe une technique simple pour la génération de mots de passe
-	utilisateurs aléatoires. Une fois le mot de passe généré, il peut être
-	transmis à l'utilisateur final par un «canal de confiance» et implanté dans
-	les attributs de l'annuaire relatifs au compte utilisateur.</para>
-
-	<orderedlist>
-	<listitem>
-	<para>On génère un mot de passe aléatoire que l'on stocke dans un fichier.</para>
-
-<screen>openssl rand -base64 16 | tr -d '=' > user.passwd</screen>
-
-	<para>On obtient par exemple&nbsp;:</para>
-
-<screen>cat user.passwd
-vyJtXX6r73KPzyDYymWjsA</screen>
-	</listitem>
-	<listitem>
-	<para>Utilise ce mot de passe pour générer la chaîne à introduire dans le
-	fichier <acronym>LDIF</acronym> de création d'utilisateur dans
-	l'annuaire.</para>
-
-<screen>sudo slappasswd -v -h "{SSHA}" -s $(cat user.passwd)</screen>
-
-<screen>{SSHA}hFGouu+ytfnH0qPy7y9G0L0Rb6R6slZ4</screen>
-	</listitem>
-	</orderedlist>
 	</answer>
 	</qandaentry>
 
