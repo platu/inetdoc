@@ -983,6 +983,7 @@ olcArgsFile: /var/run/slapd/slapd.args
 olcPidFile: /var/run/slapd/slapd.pid
 olcLogLevel: none
 olcToolThreads: 1
+olcPasswordHash: {ARGON2}
 
 dn: cn=schema,cn=config
 objectClass: olcSchemaConfig
@@ -1025,7 +1026,7 @@ olcDbCheckpoint: 512 30
 olcAccess: {0}to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth manage by * break
 olcAccess: {1}to attrs=userPassword by self write by anonymous auth by * none
 olcAccess: {2}to attrs=shadowLastChange by self write by * read
-olcAccess: {3}to * by * read
+olcAccess: {3}to * by users read by * none
 olcDbIndex: objectClass eq
 olcDbIndex: uid eq
 olcDbIndex: cn,sn,mail eq,sub
@@ -1033,16 +1034,16 @@ olcDbIndex: uidNumber,gidNumber eq
 olcDbIndex: member,memberUid eq
 EOF
 
-# Create directories if they don't exist
+# Create the directories if they do not exist
 sudo mkdir -p "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
 
 # Import the LDIF file to initialize the LDAP server configuration
 sudo slapadd -F "${SLAPD_CONFIG_DIR}" -n0 -l "${LDAP_BOOTSTRAP_FILE}"
 
-# Set proper permissions for the LDAP data and configuration directories
+# Set the correct permissions for the LDAP data and configuration directories
 sudo chown -R openldap:openldap "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
 
-# Resume packaging tasks and restart
+# Resume package configuration and restart
 sudo dpkg --configure --pending
 sudo systemctl restart slapd
 ]]></programlisting>
@@ -1516,16 +1517,18 @@ olcDbIndex: cn,sn,mail eq,sub]]></screen>
     </question>
     <answer>
 <screen>sudo ldapsearch -Y EXTERNAL -H ldapi:/// \
-    -b "cn=config" \
-    olcDatabase={1}mdb | grep ^olcAccess</screen>
+    -b "olcDatabase={1}mdb,cn=config" \
+    olcAccess</screen>
 
 <screen>SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
+dn: olcDatabase={1}mdb,cn=config
 <emphasis>olcAccess: {0}to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external
+ ,cn=auth manage by * break
 olcAccess: {1}to attrs=userPassword by self write by anonymous auth by * none
 olcAccess: {2}to attrs=shadowLastChange by self write by * read
-olcAccess: {3}to * by * read</emphasis></screen>
+olcAccess: {3}to * by users read by * none</emphasis></screen>
 
     <para>Concentrez vous sur les quatre dernières lignes du résultat
     numérotées de 0 à 3.</para>
@@ -1571,11 +1574,9 @@ olcAccess: {3}to * by * read</emphasis></screen>
             modifier son propre mot de passe.</para>
         </listitem>
         <listitem>
-            <para><code>by anonymous auth</code>&nbsp;: Les utilisateurs non
-            authentifiés (anonymes) reçoivent uniquement la permission de
-            comparer une empreinte pour la phase de connexion
-            (<option>bind</option>), mais ne peuvent en aucun cas lire la
-            valeur.</para>
+            <para><code>by anonymous auth</code>&nbsp;: Un utilisateur non
+            authentifié a le droit de soumettre un mot de passe pour tenter de
+            valider son identité.</para>
         </listitem>
         <listitem>
             <para><code>by * none</code>&nbsp;: Tout autre accès (lecture,
@@ -1609,19 +1610,19 @@ olcAccess: {3}to * by * read</emphasis></screen>
     <varlistentry>
         <term>Accès standard aux données publiques (Règle {3})</term>
         <listitem>
-            <para><code>to * by * read</code>&nbsp;: Une fois les attributs
+            <para><code>to * by users read by * none</code>&nbsp;: Une fois les attributs
             sensibles verrouillés par les règles précédentes, le reste des
             données de l'annuaire (noms, prénoms, identifiants POSIX
             <code>uidNumber</code>/<code>gidNumber</code>) est laissé en
-            lecture seule pour tout le monde.</para>
+            lecture seule pour tous les utilisateurs authentifiés.</para>
         </listitem>
     </varlistentry>
     </variablelist>
 
     <para>Le principe du moindre privilège est respecté car chaque entité
-    (utilisateur anonyme, utilisateur connecté ou système tiers) ne dispose que
-    des droits strictement nécessaires à son fonctionnement (s'authentifier ou
-    consulter un carnet d'adresses), sans exposer les données critiques.</para>
+    (utilisateur connecté ou système tiers) ne dispose que des droits
+    strictement nécessaires à son fonctionnement (s'authentifier ou consulter
+    un carnet d'adresses), sans exposer les données critiques.</para>
     </answer>
     </qandaentry>
 
@@ -2285,113 +2286,485 @@ USER_PASS_HASH=$(sudo slappasswd -o module-load=argon2.la -h "{ARGON2}" -s "${US
 echo "${USER_PASS_HASH}"
 </screen>
 
-	<para>Dans le contexte de ces travaux pratiques, on attribue le même mot de
-	passe aux quatre comptes utilisateurs.</para>
+    <para>Dans le contexte de ces travaux pratiques, vous devez attribuer un
+    mot de passe aux quatre membres de la famille Skywalker.</para>
 	</answer>
 	</qandaentry>
 
-	<qandaentry xml:id='sysadm-net.ldap.srvr.q4-posixAccount'>
-	<question>
-	<para><phrase>Quelle est la syntaxe du fichier <acronym>LDIF</acronym> qui
-	permet d'ajouter les quatre utilisateurs avec leurs attributs système :
-	identifiants <systemitem>uid/gid</systemitem>, authentifiants
-	<systemitem>login/passwd</systemitem>, etc&nbsp;?</phrase></para>
+    <qandaentry>
+    <question>
+        <para><phrase>Comment générer un mot de passe distinct pour chaque
+        utilisateur et comment sauvegarder le hachage correspondant dans un
+        fichier <acronym>TOML</acronym> qui servira à la génération
+        <acronym>LDIF</acronym>&nbsp;?</phrase></para>
 
-	<para>Rechercher un tutoriel <acronym>LDIF</acronym> en ligne donnant un
-	exemple de fichier <acronym>LDIF</acronym> avec un exemple de description
-	des attributs d'un compte utilisateur.</para>
-	</question>
-	<answer>
-	<para>Voici un exemple de fichier <acronym>LDIF</acronym> contenant les
-	déclarations des quatre comptes utilisateurs à ajouter.</para>
+        <para>Suivez une démarche en plusieurs étapes&nbsp;:</para>
+        <orderedlist>
+            <listitem>
+                <para>Créez le fichier
+                <filename>skywalkers_nopass.toml</filename> qui contient les
+                attributs utilisateurs et une valeur clé à substituer par le
+                hachage une fois qu'il aura été calculé.</para>
+            </listitem>
+            <listitem>
+                <para>Créez le script
+                <filename>generate_skywalker_passwords.sh</filename> qui génère
+                le mot de passe et le sauve dans un fichier avec des
+                permissions d'accès limités. Le mot de passe de chaque
+                utilisateur est haché et inséré dans le fichier cible
+                <filename>skywalkers.toml</filename>.</para>
+            </listitem>
+            <listitem>
+                <para>Lancez le script
+                <filename>generate_skywalker_passwords.sh</filename> et
+                affichez le contenu du fichier de description
+                <acronym>TOML</acronym>
+                <filename>skywalkers.toml</filename>.</para>
+            </listitem>
+        </orderedlist>
+    </question>
+    <answer>
+        <orderedlist>
+            <listitem>
+                <para>Copiez la description des comptes utilisateurs ci-dessous
+                dans le fichier
+                <filename>skywalkers_nopass.toml</filename>.</para>
 
-<warning>
-    <para>Pensez à adapter les entrées <literal>userPassword</literal> à votre
-    contexte&nbsp;!</para>
-</warning>
+<screen>[global]
+base_dn = "dc=lab,dc=local"
+users_ou = "ou=users"
+groups_ou = "ou=groups"
+start_id = 10000
+default_shell = "/bin/bash"
+default_home_base = "/ahome"
 
-<screen>cat > users.ldif &lt;&lt; EOF
-# Padmé Amidala
-dn: uid=padme,ou=people,dc=lab,dc=stri
+# --- Shared system group
+shared_group_name = "users"
+shared_group_gid = 100
+
+[[users]]
+firstname = "Padme"
+lastname = "Amidala"
+uid = "padme"
+password_hash = "padme_password_hash"
+
+[[users]]
+firstname = "Anakin"
+lastname = "Skywalker"
+uid = "anakin"
+password_hash = "anakin_password_hash"
+
+[[users]]
+firstname = "Leia"
+lastname = "Organa"
+uid = "leia"
+password_hash = "leia_password_hash"
+
+[[users]]
+firstname = "Luke"
+lastname = "Skywalker"
+uid = "luke"
+password_hash = "luke_password_hash"</screen>
+            </listitem>
+            <listitem>
+                <para>Copiez le code exemple de script Bash ci-dessous dans le
+                fichier
+                <filename>generate_skywalker_passwords.sh</filename>.</para>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ ! -f skywalkers_nopass.toml ]]; then
+	echo "skywalkers_nopass.toml file not found. Please create it with the user attributes."
+	exit 1
+fi
+
+cp skywalkers_nopass.toml skywalkers.toml
+
+for user in padme anakin leia luke; do
+	password_file="${HOME}/.ldap_${user}_pass"
+	rm -f "${password_file}"
+	USER_PASS=$(openssl rand -base64 28 | cut -c -24)
+	# Create the password file and set its permissions.
+	printf '%s' "${USER_PASS}" >"${password_file}"
+	chmod 400 "${password_file}"
+	USER_PASS_HASH=$(sudo slappasswd -o module-load=argon2.la -h "{ARGON2}" -s "${USER_PASS}")
+	ESCAPED_USER_PASS_HASH=${USER_PASS_HASH//&/\\&}
+	# Replace each user's placeholder with the generated password hash.
+	sed -i "s|${user}_password_hash|${ESCAPED_USER_PASS_HASH}|g" skywalkers.toml
+done
+]]></programlisting>
+
+                <para>Ce script reprend les instructions de génération de mot
+                de passe et de calcul de condensat de la question
+                précédente.</para>
+
+                <para>Lancez le script
+                <filename>generate_skywalker_passwords.sh</filename>.</para>
+
+<screen>bash generate_skywalker_passwords.sh</screen>
+
+                <para>Prenez l'exemple de l'utilisatrice
+                <systemitem>leia</systemitem>&nbsp;: son mot de passe est
+                stocké dans le fichier <code>${HOME}/.ldap_leia_pass</code> et
+                le condensat a été substitué à la clé
+                <code>leia_password_hash</code>.</para>
+            </listitem>
+            <listitem>
+                <para>Affichez le fichier de description
+                <acronym>TOML</acronym> complété avec le condensat de chaque
+                utilisateur.</para>
+
+<screen>cat skywalkers.toml</screen>
+
+<screen>[global]
+base_dn = "dc=lab,dc=local"
+users_ou = "ou=users"
+groups_ou = "ou=groups"
+start_id = 10000
+default_shell = "/bin/bash"
+default_home_base = "/ahome"
+
+# --- Shared system group
+shared_group_name = "users"
+shared_group_gid = 100
+
+[[users]]
+firstname = "Padme"
+lastname = "Amidala"
+uid = "padme"
+password_hash = "{ARGON2}$argon2id$v=19$m=7168,t=5,p=1$/973ycw..."
+
+[[users]]
+firstname = "Anakin"
+lastname = "Skywalker"
+uid = "anakin"
+password_hash = "{ARGON2}$argon2id$v=19$m=7168,t=5,p=1$/kL62VI..."
+
+[[users]]
+firstname = "Leia"
+lastname = "Organa"
+uid = "leia"
+password_hash = "{ARGON2}$argon2id$v=19$m=7168,t=5,p=1$i+D6mue..."
+
+[[users]]
+firstname = "Luke"
+lastname = "Skywalker"
+uid = "luke"
+password_hash = "{ARGON2}$argon2id$v=19$m=7168,t=5,p=1$hTdclEx..."</screen>
+            </listitem>
+        </orderedlist>
+    </answer>
+    </qandaentry>
+
+    <qandaentry>
+    <question>
+        <para><phrase>Comment coder le script Python qui génère le format
+        <acronym>LDIF</acronym> à partir de la description
+        <acronym>TOML</acronym> des attributs des comptes
+        utilisateurs&nbsp;?</phrase></para>
+
+        <para>À partir de l'exemple de liste d'attributs
+        <acronym>LDAP</acronym> ci-dessous, codez le formatage
+        <acronym>LDIF</acronym> de chaque compte utilisateur.</para>
+
+<screen>dn: uid=luke,ou=users,dc=lab,dc=local
 objectClass: inetOrgPerson
-objectClass: shadowAccount
 objectClass: posixAccount
-cn: Padme
-sn: Padmé Amidala Skywalker
-uid: padme
-uidNumber: 10000
-gidNumber: 10000
-loginShell: /bin/bash
-homeDirectory: /ahome/padme
-userPassword: {SSHA}hFGouu+ytfnH0qPy7y9G0L0Rb6R6slZ4
-gecos: Padme Amidala Skywalker
-
-# Anakin Skywalker
-dn: uid=anakin,ou=people,dc=lab,dc=stri
-objectClass: inetOrgPerson
 objectClass: shadowAccount
-objectClass: posixAccount
-cn: Anakin
-sn: Anakin Skywalker
-uid: anakin
-uidNumber: 10001
-gidNumber: 10001
-loginShell: /bin/bash
-homeDirectory: /ahome/anakin
-userPassword: {SSHA}hFGouu+ytfnH0qPy7y9G0L0Rb6R6slZ4
-gecos: Anakin Skywalker
-
-# Leia Organa Skywalker
-dn: uid=leia,ou=people,dc=lab,dc=stri
-objectClass: inetOrgPerson
-objectClass: shadowAccount
-objectClass: posixAccount
-cn: Leia
-sn: Leia Organa
-uid: leia
-uidNumber: 10002
-gidNumber: 10002
-loginShell: /bin/bash
-homeDirectory: /ahome/leia
-userPassword: {SSHA}hFGouu+ytfnH0qPy7y9G0L0Rb6R6slZ4
-gecos: Leia Organa Skywalker
-
-# Luke Skywalker
-dn: uid=luke,ou=people,dc=lab,dc=stri
-objectClass: inetOrgPerson
-objectClass: shadowAccount
-objectClass: posixAccount
-cn: Luke
-sn: Luke Skywalker
 uid: luke
+cn: Luke Skywalker
+givenName: Luke
+sn: Skywalker
+mail: luke@lab.local
+userPassword: {ARGON2}$argon2id$v=19$m=7168,t=5,p=1$hTdc...
+shadowLastChange: 20586
+loginShell: /bin/bash
 uidNumber: 10003
 gidNumber: 10003
-loginShell: /bin/bash
 homeDirectory: /ahome/luke
-userPassword: {SSHA}hFGouu+ytfnH0qPy7y9G0L0Rb6R6slZ4
-gecos: Luke Skywalker
-EOF</screen>
+gecos: Luke Skywalker</screen>
 
-	<para>Comme dans le cas précédent, on utilise la commande
-	<command>ldapadd</command> en mode d'authentification simple pour insérer
-	les utilisateurs dans l'annuaire.</para>
+        <itemizedlist>
+            <listitem>
+                <para>La valeur de <code>shadowLastChange:</code> définit la
+                date de dernière modification du mot de passe. On initialise
+                cet attribut avec le nombre de jours écoulés depuis le 1er
+                janvier 1970.</para>
+            </listitem>
+            <listitem>
+                <para><code>uidNumber:</code> et <code>gidNumber:</code> sont
+                calculés dynamiquement à partir de la valeur initiale
+                <literal>10000</literal>.</para>
+            </listitem>
+        </itemizedlist>
 
-<screen>sudo ldapadd -cxWD cn=admin,dc=lab,dc=stri -f users.ldif</screen>
+        <para>De plus, il faut aussi créer un groupe privé pour chaque
+        utilisateur avec le <code>gidNumber:</code> calculé.</para>
 
-<screen>Enter LDAP Password:
-adding new entry "uid=padme,ou=people,dc=lab,dc=stri"
+        <para>Codez le script Python
+        <filename>generate_users_ldif.py</filename> qui assemble tous les
+        <acronym>DN</acronym> dans le fichier <acronym>LDIF</acronym>
+        <filename>import_skywalkers.ldif</filename>.</para>
+    </question>
+    <answer>
+        <para>Copiez l'exemple de code ci-dessous dans le fichier
+        <filename>generate_users_ldif.py</filename>.</para>
 
-adding new entry "uid=anakin,ou=people,dc=lab,dc=stri"
+<programlisting><![CDATA[#!/usr/bin/env python3
+import argparse
+import time
+import tomllib
 
-adding new entry "uid=leia,ou=people,dc=lab,dc=stri"
 
-adding new entry "uid=luke,ou=people,dc=lab,dc=stri"</screen>
+def generate_ldif(toml_path, output_path):
+    # 1. Directly read the TOML file
+    with open(toml_path, "rb") as f:
+        data = tomllib.load(f)
 
-	<para>On peut lister à nouveau les entrées contenues dans l'annuaire pour
-	vérifier la présence des utilisateurs.</para>
+    cfg, users = data["global"], data["users"]
+    base_dn = cfg["base_dn"]
+    domain = ".".join(p[3:] for p in base_dn.split(",") if p.startswith("dc="))
+    shadow_day = int(time.time() // 86400)
 
-<screen>sudo ldapsearch -LLL -x -H ldap:/// -b "dc=lab,dc=stri" \
-  -D cn=admin,dc=lab,dc=stri -W</screen>
+    with open(output_path, "w", encoding="utf-8") as ldif:
+        # 2. Generate private groups (UPG)
+        ldif.write("# --- PRIVATE GROUPS (UPG) ---\n")
+        for idx, u in enumerate(users):
+            gid = cfg["start_id"] + idx
+            ldif.write(
+                f"dn: cn={u['uid']},{cfg['groups_ou']},{base_dn}\n"
+                f"objectClass: posixGroup\ncn: {u['uid']}\ngidNumber: {gid}\n\n"
+            )
+
+        # 3. Generate user accounts
+        ldif.write("# --- USER ACCOUNTS ---\n")
+        for idx, u in enumerate(users):
+            uid = cfg["start_id"] + idx
+            full_name = f"{u['firstname']} {u['lastname']}"
+            password_hash = u["password_hash"]
+            ldif.write(
+                f"dn: uid={u['uid']},{cfg['users_ou']},{base_dn}\n"
+                "objectClass: inetOrgPerson\nobjectClass: posixAccount\nobjectClass: shadowAccount\n"
+                f"uid: {u['uid']}\ncn: {full_name}\ngivenName: {u['firstname']}\nsn: {u['lastname']}\n"
+                f"mail: {u['uid']}@{domain}\nuserPassword: {password_hash}\n"
+                f"shadowLastChange: {shadow_day}\nloginShell: {cfg['default_shell']}\n"
+                f"uidNumber: {uid}\ngidNumber: {uid}\n"
+                f"homeDirectory: {cfg['default_home_base']}/{u['uid']}\ngecos: {full_name}\n\n"
+            )
+
+        # 4. Generate the shared system group
+        ldif.write(
+            "# --- SHARED SYSTEM GROUP ---\n"
+            f"dn: cn={cfg['shared_group_name']},{cfg['groups_ou']},{base_dn}\n"
+            f"objectClass: posixGroup\ncn: {cfg['shared_group_name']}\n"
+            f"gidNumber: {cfg['shared_group_gid']}\n"
+        )
+        for u in users:
+            ldif.write(f"memberUid: {u['uid']}\n")
+
+    print(
+        f"Success: generated '{output_path}' with membership in group {cfg['shared_group_name']}."
+    )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Directory LDIF generator.")
+    parser.add_argument("toml", nargs="?", default="skywalkers.toml")
+    parser.add_argument("output", nargs="?", default="import_skywalkers.ldif")
+    args = parser.parse_args()
+    generate_ldif(args.toml, args.output)
+
+]]></programlisting>
+
+        <para>Lancez le script&nbsp;:</para>
+
+<screen>python3 generate_users_ldif.py</screen>
+
+<screen>Success: generated 'import_skywalkers.ldif' with membership in group users.</screen>
+
+        <para>Affichez le contenu du fichier
+        <filename>import_skywalkers.ldif</filename> produit par le code
+        Python.</para>
+
+<screen>cat import_skywalkers.ldif</screen>
+
+<screen># --- PRIVATE GROUPS (UPG) ---
+dn: cn=padme,ou=groups,dc=lab,dc=local
+objectClass: posixGroup
+cn: padme
+gidNumber: 10000
+
+dn: cn=anakin,ou=groups,dc=lab,dc=local
+objectClass: posixGroup
+cn: anakin
+gidNumber: 10001
+
+dn: cn=leia,ou=groups,dc=lab,dc=local
+objectClass: posixGroup
+cn: leia
+gidNumber: 10002
+
+dn: cn=luke,ou=groups,dc=lab,dc=local
+objectClass: posixGroup
+cn: luke
+gidNumber: 10003
+
+# --- USER ACCOUNTS ---
+dn: uid=padme,ou=users,dc=lab,dc=local
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: padme
+cn: Padme Amidala
+givenName: Padme
+sn: Amidala
+mail: padme@lab.local
+userPassword: {ARGON2}$argon2id$v=19$m=7168,t=5,p=1$/973y...
+shadowLastChange: 20586
+loginShell: /bin/bash
+uidNumber: 10000
+gidNumber: 10000
+homeDirectory: /ahome/padme
+gecos: Padme Amidala
+
+...</screen>
+    </answer>
+    </qandaentry>
+
+	<qandaentry>
+	<question>
+        <para><phrase>Comment insérer les nouveaux utilisateurs dans l'annuaire
+        <acronym>LDAP</acronym> et comment tester l'accès d'un utilisateur
+        particulier à l'annuaire&nbsp;?</phrase></para>
+
+        <para>Utilisez la commande <command>ldapadd</command> pour importer les
+        nouvelles &laquo;&nbsp;feuilles&nbsp;&raquo; sur les branches
+        existantes de l'annuaire <acronym>LDAP</acronym>.</para>
+
+        <para>Une fois l'importation faite, utilisez la commande
+        <command>ldapsearch</command> pour afficher la liste des objets de
+        l'annuaire en tant qu'utilisateur membre de la famille
+        Skywalker.</para>
+	</question>
+	<answer>
+        <para>Lancez l'importation du fichier <acronym>LDIF</acronym>
+        <filename>import_skywalkers.ldif</filename>.</para>
+
+<screen>ldapadd -x -H ldap://localhost \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y ~/.ldap_admin_pass \
+    -f import_skywalkers.ldif</screen>
+
+<screen>adding new entry "cn=padme,ou=groups,dc=lab,dc=local"
+
+adding new entry "cn=anakin,ou=groups,dc=lab,dc=local"
+
+adding new entry "cn=leia,ou=groups,dc=lab,dc=local"
+
+adding new entry "cn=luke,ou=groups,dc=lab,dc=local"
+
+adding new entry "uid=padme,ou=users,dc=lab,dc=local"
+
+adding new entry "uid=anakin,ou=users,dc=lab,dc=local"
+
+adding new entry "uid=leia,ou=users,dc=lab,dc=local"
+
+adding new entry "uid=luke,ou=users,dc=lab,dc=local"
+
+adding new entry "cn=users,ou=groups,dc=lab,dc=local"</screen>
+
+        <para>Notez que les entrées ont été ajoutées  dans les unités
+        organisationnelles <code>ou=users</code> et
+        <code>ou=groups</code>.</para>
+
+        <para>Lancez des recherches dans l'annuaire en tant qu'utilisateur
+        <systemitem>luke</systemitem> en précisant l'attribut demandé.</para>
+
+        <itemizedlist>
+            <listitem>
+                <para>Recherchez l'attribut <code>uid:</code>&nbsp;:</para>
+
+<screen>ldapsearch -LLL -x -H ldap://localhost \
+    -D "uid=luke,ou=users,dc=lab,dc=local" \
+    -y .ldap_luke_pass \
+    -b "dc=lab,dc=local" \
+    uid</screen>
+
+<screen>dn: dc=lab,dc=local
+
+dn: ou=users,dc=lab,dc=local
+
+dn: ou=groups,dc=lab,dc=local
+
+dn: cn=padme,ou=groups,dc=lab,dc=local
+
+dn: cn=anakin,ou=groups,dc=lab,dc=local
+
+dn: cn=leia,ou=groups,dc=lab,dc=local
+
+dn: cn=luke,ou=groups,dc=lab,dc=local
+
+dn: uid=padme,ou=users,dc=lab,dc=local
+uid: padme
+
+dn: uid=anakin,ou=users,dc=lab,dc=local
+uid: anakin
+
+dn: uid=leia,ou=users,dc=lab,dc=local
+uid: leia
+
+dn: uid=luke,ou=users,dc=lab,dc=local
+uid: luke
+
+dn: cn=users,ou=groups,dc=lab,dc=local</screen>
+
+                <para>L'utilisateur <systemitem>luke</systemitem> a la capacité
+                à parcourir l'annuaire et afficher les attributs
+                <code>uid:</code> de tous les autres utilisateurs.</para>
+            </listitem>
+            <listitem>
+                <para>Recherchez l'attirbut
+                <code>userPassword:</code>&nbsp;:</para>
+
+<screen>ldapsearch -LLL -x -H ldap://localhost \
+    -D "uid=luke,ou=users,dc=lab,dc=local" \
+    -y .ldap_luke_pass \
+    -b "dc=lab,dc=local" \
+    userPassword</screen>
+
+<screen>dn: dc=lab,dc=local
+
+dn: ou=users,dc=lab,dc=local
+
+dn: ou=groups,dc=lab,dc=local
+
+dn: cn=padme,ou=groups,dc=lab,dc=local
+
+dn: cn=anakin,ou=groups,dc=lab,dc=local
+
+dn: cn=leia,ou=groups,dc=lab,dc=local
+
+dn: cn=luke,ou=groups,dc=lab,dc=local
+
+dn: uid=padme,ou=users,dc=lab,dc=local
+
+dn: uid=anakin,ou=users,dc=lab,dc=local
+
+dn: uid=leia,ou=users,dc=lab,dc=local
+
+dn: uid=luke,ou=users,dc=lab,dc=local
+userPassword:: e0FSR09OMn0kYXJnb24yaWQkdj0xOSRtPTcxNjgsdD01LHA9MSRoVGRjbEV4SXh
+ IOU1uNDFUZityQ3BBJFF1WTYxa2tYVmkzOXR3TFZCUlhGQ0QyaDAxSU5leTdHWkVsaGUwMU13NkE=
+
+dn: cn=users,ou=groups,dc=lab,dc=local</screen>
+
+                <para>L'utilisateur <systemitem>luke</systemitem> a seulement
+                le droit d'afficher le condensat de son propre mot de passe
+                encodé en <literal>base64</literal>.</para>
+            </listitem>
+        </itemizedlist>
 	</answer>
 	</qandaentry>
 </qandaset>
@@ -2399,7 +2772,7 @@ adding new entry "uid=luke,ou=people,dc=lab,dc=stri"</screen>
 </sect1>
 
 <sect1 xml:id='sysadm-net.ldap.clnt'>
-	<title>Configuration de l'accès client au serveur LDAP</title>
+	<title>Configurer l'accès client au serveur LDAP</title>
 
 	<para>Dans cette section, on suppose qu'un annuaire <acronym>LDAP</acronym>
 	existe et qu'il contient des utilisateurs. On se propose de configurer un
@@ -2407,158 +2780,385 @@ adding new entry "uid=luke,ou=people,dc=lab,dc=stri"</screen>
 	les comptes utilisateurs desservis par l'annuaire.</para>
 
 <sect2 xml:id='sysadm-net.ldap.clnt.query'>
-	<title>Interrogation à distance de l'annuaire LDAP</title>
+	<title>Interroger l'annuaire LDAP à distance</title>
 
-	<para>On reprend ici les requêtes de consultation des entrées de l'annuaire
-	vues dans la <xref linkend='sysadm-net.ldap.srvr.build'/>. Cette fois-ci
-	les requêtes sont émises depuis un hôte réseau différent du serveur
-	<acronym>LDAP</acronym>.</para>
+    <para>Dans cette section, vous reprendrez les requêtes de consultation des
+    entrées de l'annuaire présentées dans la <xref
+    linkend='sysadm-net.ldap.srvr.build'/>. Cette fois-ci, les requêtes sont
+    émises depuis un hôte réseau différent du serveur <acronym>LDAP</acronym>.
+    L'utilisation de l'URI <code>ldapi:///</code> n'est donc plus
+    possible.</para>
 
 <qandaset>
 	<qandaentry>
 	<question>
-	<para><phrase>Quel est le paquet qui fournit, entre autres, la commande de
-	consultation des entrées de l'annuaire&nbsp;?</phrase></para>
+        <para><phrase>Quelles sont les conditions à réunir pour interroger
+        l'annuaire <acronym>LDAP</acronym> directement depuis un hôte
+        distant&nbsp;?</phrase></para>
 
-	<para>Interroger la base de données des paquets pour obtenir les
-	informations demandées.</para>
+        <para>Recherchez à nouveau le paquet qui contient la commande
+        <command>ldapsearch</command>.</para>
+
+        <para>Copiez le mot de passe de l'administrateur de l'annuaire depuis
+        le serveur.</para>
+
+        <para>Assemblez l'URL avec les options utilisées dans la section
+        précédentes pour lancer des requêtes analogues.</para>
 	</question>
 	<answer>
+        <para>Installez le paquet <systemitem>ldap-utils</systemitem> qui
+        contient la commande <command>ldapsearch</command>.</para>
+
 <screen>sudo apt -y install ldap-utils</screen>
 
-	<para>Le paquet <systemitem>ldap-utils</systemitem> apparaît à la question
-	sur <link linkend='sysadm-net.ldap.srvr.q1-package'>la liste des paquets
-	relatifs au service</link> <acronym>LDAP</acronym>. Si on recherche les
-	commandes présentes dans la liste des fichiers de ce paquet, on obtient les
-	informations suivantes.</para>
+        <para>Copiez le mot de passe administrateur avec la commande
+        <command>scp</command>.</para>
 
-<screen>dpkg -L ldap-utils | grep "bin/"</screen>
+<screen>scp ldap-srvr:~/.ldap_admin_pass .</screen>
 
-<screen>/usr/bin/ldapcompare
-/usr/bin/ldapdelete
-/usr/bin/ldapexop
-/usr/bin/ldapmodify
-/usr/bin/ldapmodrdn
-/usr/bin/ldappasswd
-/usr/bin/ldapsearch
-/usr/bin/ldapurl
-/usr/bin/ldapwhoami
-/usr/bin/ldapadd</screen>
+<note>
+    <para>Le nom d'hôte <systemitem>ldap-srvr</systemitem> est résolu via
+    multicast <acronym>DNS</acronym> dans le contexte de la maquette de travaux
+    pratiques où le serveur et le client appartiennent au même
+    <acronym>VLAN</acronym>. Dans un conexte différent, utilisez l'adresse IPv6
+    ou IPv4 pour désigner l'hôte à contacter.</para>
+</note>
 
-	<para>Une fois ce paquet installé, il est possible d'utiliser toutes les
-	commandes disponibles pour manipuler les enregistrements de
-	l'annuaire.</para>
+        <para>Lancez une requête au service <acronym>LDAP</acronym>.</para>
+
+<screen>ldapsearch -LLL -H ldap://ldap-srvr \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    -b "dc=lab,dc=local" \
+    <emphasis>uid=padme</emphasis></screen>
+
+<screen>dn: uid=padme,ou=users,dc=lab,dc=local
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: padme
+cn: Padme Amidala
+givenName: Padme
+sn: Amidala
+mail: padme@lab.local
+userPassword:: e0FSR09OMn0kYXJnb24yaWQkdj0xOSRtPTcxNjgsdD01LHA9MSQvOTczeTNEanJ
+ 0SXZrcFBQNnpTcGhRJGtzNnlIVmZNUVRLMElZSXFJQkdCL3pCcFltbEduODYyd3laV2RPU0ZZSHM=
+shadowLastChange: 20586
+loginShell: /bin/bash
+uidNumber: 10000
+gidNumber: 10000
+homeDirectory: /ahome/padme
+gecos: Padme Amidala</screen>
+
+        <para>Lancez une autre requête en utilisant l'adresse IPv6 du
+        serveur.</para>
+
+<screen>ldapsearch -LLL -H ldap://[2001:678:3fc:65:baad:caff:fefe:3] \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    -b "dc=lab,dc=local" \
+    <emphasis>ou=groups</emphasis></screen>
+
+<screen>dn: ou=groups,dc=lab,dc=local
+objectClass: organizationalUnit
+ou: groups</screen>
+
+        <para>Si vous avez laissé le paramètre de configuration de la
+        journalisation <code>olcLogLevel:</code> à la valeur <code>stats</code>
+        côté serveur, vous pouvez retrouver la trace des connexions depuis le
+        serveur <acronym>LDAP</acronym>.</para>
+
+<screen>journalctl -n 10 -u slapd</screen>
+
+<screen>ldap-srvr slapd[1054]: conn=1009 op=2 UNBIND
+ldap-srvr slapd[1054]: conn=1009 fd=13 closed
+ldap-srvr slapd[1054]: conn=1010 fd=13 ACCEPT from IP=[2001:678:3fc:65:baad:caff:fefe:4]:58012 (IP=[::]:389)
+ldap-srvr slapd[1054]: conn=1010 op=0 BIND dn="cn=admin,dc=lab,dc=local" method=128
+ldap-srvr slapd[1054]: conn=1010 op=0 BIND dn="cn=admin,dc=lab,dc=local" mech=SIMPLE bind_ssf=0 ssf=0
+ldap-srvr slapd[1054]: conn=1010 op=0 RESULT tag=97 err=0 qtime=0.000031 etime=0.032708 text=
+ldap-srvr slapd[1054]: conn=1010 op=1 SRCH base="dc=lab,dc=local" scope=2 deref=0 filter="(uid=padme)"
+ldap-srvr slapd[1054]: conn=1010 op=1 SEARCH RESULT tag=101 err=0 qtime=0.000037 etime=0.002431 nentries=1 text=
+ldap-srvr slapd[1054]: conn=1010 op=2 UNBIND
+ldap-srvr slapd[1054]: conn=1010 fd=13 closed</screen>
+
+        <para>L'affichage des paramètres de la connexion révèlent un problème
+        de sécurité majeur&nbsp;: le mot de passe de connexion a transité en
+        clair sur le réseau.</para>
+
+        <itemizedlist>
+            <listitem>
+                <para>La méthode 128 correspond à la signature de la trame
+                réseau. Dans la norme d'encodage <acronym>ASN.1</acronym> du
+                protocole <acronym>LDAP</acronym>, ce choix correspond à une
+                authentification simple. Une requête SASL aurait affiché une
+                méthode différente. Le client a donc construit et envoyé une
+                requête <wordasword>Bind</wordasword> simple.</para>
+            </listitem>
+            <listitem>
+                <para><code>mech=SIMPLE</code>&nbsp;: Le serveur confirme qu'il
+                traite une authentification simple.</para>
+            </listitem>
+            <listitem>
+                <para><code>ssf=0</code> (<wordasword>Security Strength
+                Factor</wordasword>)&nbsp;: Un SSF de 0 signifie qu'aucune
+                couche de chiffrement (TLS/SSL) n'est active. Le mot de passe a
+                transité en clair dans le segment TCP.</para>
+            </listitem>
+        </itemizedlist>
+
+        <caution>
+            <para>La sécurisation des échanges entre clients et serveur
+            <acronym>LDAP</acronym> sera traitée dans les parties
+            suivantes.</para>
+        </caution>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quelle est la syntaxe d'interrogation de l'annuaire qui
-	permet d'obtenir tous les attributs de l'enregistrement correspondant à un
-	utilisateur particulier&nbsp;?</phrase></para>
+        <para><phrase>Quelle est la syntaxe de la commande
+        <command>ldappasswd</command> qui permet de changer le mot de passe
+        d'un compte utilisateur de l'annuaire&nbsp;?</phrase></para>
+
+        <para>Recherchez la liste des options à utiliser pour attribuer un
+        nouveau mot de passe.</para>
+
+        <para>Créez un script de changement de mot de passe qui regroupe toutes
+        les opérations. Ce script peut recevoir le nom d'utilisateur en
+        paramètre.</para>
 	</question>
 	<answer>
-	<para>On utilise la commande <command>ldapsearch</command> en spécifiant un
-	attribut <option>uid</option> particulier.</para>
+        <para>Créez le script <filename>new-password.sh</filename> avec le code
+        exemple ci-dessous&nbsp;:</para>
 
-<screen>sudo ldapsearch -LLL -H ldap://[2001:678:3fc:64:baad:caff:fefe:7] \
-  -b dc=lab,dc=stri -D cn=admin,dc=lab,dc=stri -W <emphasis>uid=padme</emphasis></screen>
+<programlisting><![CDATA[cat << EOF >new-password.sh
+#!/usr/bin/env bash
 
-<screen>Enter LDAP Password:
-dn: <emphasis>uid=padme,ou=people,dc=lab,dc=stri</emphasis>
+set -euo pipefail
+
+USERNAME="$1"
+if [[ -z ${USERNAME} ]]; then
+	echo "Usage: $0 <username>"
+	exit 1
+fi
+
+USER_PASS_FILE="${HOME}/.ldap_${USERNAME}_pass"
+rm -f "${USER_PASS_FILE}"
+
+USER_PASS=$(openssl rand -base64 28 | cut -c -24)
+printf "%s" "${USER_PASS}" >"${USER_PASS_FILE}"
+chmod 400 "${USER_PASS_FILE}"
+
+ldappasswd -H ldap://ldap-srvr \
+	-D cn=admin,dc=lab,dc=local \
+	-y ~/.ldap_admin_pass \
+	-S uid="${USERNAME}",ou=users,dc=lab,dc=local \
+    -s "${USER_PASS}"
+
+EOF]]></programlisting>
+
+        <para>Lancez le script pour modifier le mot de passe d'un
+        utilisateur.</para>
+
+<screen>bash new-password.sh luke</screen>
+
+        <para>Interrogez l'annuaire en utilisant l'identité qui vient d'être
+        modifiée.</para>
+
+<screen>ldapsearch -LLL -H ldap://ldap-srvr \
+    -D "uid=luke,ou=users,dc=lab,dc=local" \
+    -y .ldap_luke_pass \
+    -b "dc=lab,dc=local" \
+    uid=luke</screen>
+
+<screen>dn: uid=luke,ou=users,dc=lab,dc=local
 objectClass: inetOrgPerson
-objectClass: shadowAccount
 objectClass: posixAccount
-cn: Padme
-sn:: UGFkbcOpIEFtaWRhbGEgU2t5d2Fsa2Vy
-uid: padme
-uidNumber: 10000
-gidNumber: 10000
-loginShell: /bin/bash
-homeDirectory: /ahome/padme
-userPassword:: e1NTSEF9aEZHb3V1K3l0Zm5IMHFQeTd5OUcwTDBSYjZSNnNsWjQ=
-gecos: Padme Amidala Skywalker</screen>
-	</answer>
-	</qandaentry>
-
-	<qandaentry>
-	<question>
-	<para><phrase>Quelle est la syntaxe de la commande permettant de changer le
-	mot de passe de l'utilisateur dont on a affiché les attributs à la
-	question précédente&nbsp;?</phrase></para>
-	</question>
-	<answer>
-	<para>On utilise la commande <command>ldappasswd</command> fournie par le
-	paquet <systemitem>ldap-utils</systemitem> comme dans le cas de la commande
-	de recherche. Après consultation des pages de manuels, on obtient la
-	syntaxe suivante.</para>
-
-<screen>sudo ldappasswd -x -H ldap://[2001:678:3fc:64:baad:caff:fefe:7] \
-  -D cn=admin,dc=lab,dc=stri -W -S uid=padme,ou=people,dc=lab,dc=stri</screen>
-
-<screen>New password:
-Re-enter new password:
-Enter LDAP Password:</screen>
-
-	<para>En posant exactement la même requête que dans la question	précédente,
-	on peut vérifier que le mot de passe utilisateur a bien été modifié.</para>
-
-<screen>sudo ldapsearch -LLL -H ldap://[2001:678:3fc:64:baad:caff:fefe:7] \
-  -b dc=lab,dc=stri -D cn=admin,dc=lab,dc=stri -W uid=padme</screen>
-
-<screen>Enter LDAP Password:
-dn: uid=padme,ou=people,dc=lab,dc=stri
-objectClass: inetOrgPerson
 objectClass: shadowAccount
-objectClass: posixAccount
-cn: Padme
-sn:: UGFkbcOpIEFtaWRhbGEgU2t5d2Fsa2Vy
-uid: padme
-uidNumber: 10000
-gidNumber: 10000
+uid: luke
+cn: Luke Skywalker
+givenName: Luke
+sn: Skywalker
+mail: luke@lab.local
+shadowLastChange: 20586
 loginShell: /bin/bash
-homeDirectory: /ahome/padme
-gecos: Padme Amidala Skywalker
-userPassword:: e1NTSEF9bngwTTlpUi9QYitpaVJTbzNpN0tkejVkSTRJMVpZclM=</screen>
+uidNumber: 10003
+gidNumber: 10003
+homeDirectory: /ahome/luke
+gecos: Luke Skywalker
+userPassword:: e0FSR09OMn0kYXJnb24yaWQkdj0xOSRtPTcxNjgsdD01LHA9MSQyc1V4a1gyTHN
+0R0JxS0VjRk1ZaXN3JGJISUlxc1crSnpHdU1sRFRkU3dsdDJtZnAvQVlaU1RzTVdJMGZPT3hDN1kA</screen>
 	</answer>
 	</qandaentry>
 </qandaset>
 </sect2>
 
 <sect2 xml:id='sysadm-net.ldap.clnt.nss'>
-	<title>Configuration <wordasword>Name Service Switch</wordasword></title>
+    <title>Configurer l'accès transparent à l'annuaire LDAP sur un système
+    client</title>
 
-	<para>Les manipulations présentées ici ont pour but de rendre transparent
-	l'accès aux attributs des comptes utilisateurs. Le mécanisme
-	<wordasword>Name Service Switch</wordasword> assure un aiguillage de
-	l'accès à ces attributs entre les fichiers locaux et les différents
-	services réseau disponibles. Ici, l'annuaire <acronym>LDAP</acronym>
-	constitue un dépôt de référence pour le stockage des attributs des comptes
-	utilisateurs.</para>
+    <para>Les manipulations présentées ici couvrent plusieurs points&nbsp;:</para>
+
+    <orderedlist>
+        <listitem>
+            <formalpara>
+                <title>Le rôle d'aiguillage du Name Service Switch (NSS)</title>
+                <para>Sur les systèmes d'exploitation GNU/Linux, la résolution
+                des identités (utilisateurs, groupes, hôtes) ne se limite pas
+                aux fichiers locaux historiques, tels que
+                <filename>/etc/passwd</filename> ou
+                <filename>/etc/group</filename>. Le <wordasword>Name Service
+                Switch</wordasword> (<acronym>NSS</acronym>) joue le rôle de
+                mécanisme d'aiguillage centralisé et modulaire. Il permet
+                d'intégrer de manière transparente des sources d'informations
+                réseau, comme un annuaire <acronym>LDAP</acronym>, au processus
+                d'authentification et de résolution du système. Ainsi,
+                lorsqu'une application ou le noyau demande à identifier un
+                <acronym>UID</acronym> ou un nom d'utilisateur,
+                <acronym>NSS</acronym> redirige dynamiquement la requête vers
+                l'annuaire centralisé qui devient alors le référentiel
+                d'identité.</para>
+            </formalpara>
+        </listitem>
+        <listitem>
+            <formalpara>
+                <title>L'application du principe de moindre privilège&nbsp;: Le
+                compte de service (Proxy NSS)</title>
+                <para>Par défaut, interroger un annuaire pour résoudre des
+                identités à la volée nécessite un accès en lecture à ses
+                branches. Autoriser ces requêtes de manière anonyme constitue
+                un risque majeur pour la sécurité, car n'importe quelle machine
+                connectée au réseau pourrait alors effectuer un balayage et
+                dresser un inventaire exhaustif des ressources humaines et
+                techniques de l'organisation. Pour respecter le principe du
+                moindre privilège, notre architecture repose sur l'utilisation
+                d'un compte de service dédié (<wordasword>proxy
+                NSS</wordasword>, par exemple nslcd-proxy). Ce compte possède
+                des droits d'accès en lecture strictement limités par les
+                listes de contrôle d'accès (<acronym>ACL</acronym>) du serveur
+                <application>OpenLDAP</application>, ce qui garantit que seules
+                les machines clientes légitimes et préauthentifiées peuvent
+                consulter les attributs des utilisateurs.</para>
+            </formalpara>
+        </listitem>
+        <listitem>
+            <formalpara>
+                <title>L'automatisation et la reproductibilité</title>
+                <para>Pour dépasser l'approche de configuration manuelle
+                interactive avec les interfaces de type
+                <systemitem>debconf</systemitem>, le déploiement du
+                sous-système client (démons <systemitem>nslcd</systemitem> et
+                bibliothèques <acronym>NSS/PAM</acronym>) est réalisé par
+                injection automatisée des paramètres
+                (<wordasword>pre-seeding</wordasword>). Cette méthode non
+                interactive permet d'éviter les erreurs de saisie, de
+                documenter l'infrastructure sous forme de code
+                (<wordasword>Infrastructure as Code</wordasword>) et de
+                garantir la reproductibilité des configurations pour l'ensemble
+                des systèmes clients <acronym>LDAP</acronym>.</para>
+            </formalpara>
+        </listitem>
+    </orderedlist>
 
 <qandaset>
 	<qandadiv>
 	<qandaentry>
 	<question>
-	<para><phrase>Quel est le nom du paquet relatif au mécanisme
-	<wordasword>Name Service Switch</wordasword> permettant d'accéder aux
-	ressources de l'annuaire <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+        <para><phrase>Comment ajouter un compte de service
+        <systemitem>nslcd-proxy</systemitem> à l'annuaire
+        <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
-	<para>Rechercher dans les bases du gestionnaire de paquets un paquet dont
-	le nom débute par la chaîne <option>libnss</option>.</para>
+        <para>Recherchez la syntaxe <acronym>LDIF</acronym> de définition des
+        attributs de ce nouveau compte de service.</para>
+
+        <para>Créez le fichier <acronym>LDIF</acronym>, générez le mot de passe
+        de l'utilisateur <systemitem>nslcd-proxy</systemitem> et insérez le
+        dans ce fichier.</para>
+
+        <para>Ajoutez le nouvel utilisateur avec la commande
+        <command>ldapadd</command>.</para>
 	</question>
 	<answer>
-	<para>La liste ci-dessous permet d'identifier le paquet
-	<systemitem>libnss-ldapd</systemitem>.</para>
+        <para>Suivez la même démarche que celle suivie dans les questions
+        précédentes pour créer le script
+        <filename>create-nslcd-proxy.sh</filename>. Voici un exemple de code
+        pour ce script&nbsp;:</para>
 
-<screen>apt search --names-only ^libnss-</screen>
+<programlisting><![CDATA[#!/usr/bin/env bash
 
-<screen>apt search --names-only ^libnss-ldap</screen>
+set -euo pipefail
 
-<screen>En train de trier... Fait
-Recherche en texte intégral... Fait
-<emphasis>libnss-ldapd</emphasis>/testing 0.9.12-4 amd64
-  NSS module for using LDAP as a naming service</screen>
+readonly DOMAIN="lab.local"
+readonly BASE_DN="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
+readonly USERS_OU="ou=users,${BASE_DN}"
+readonly PROXY_UID="nslcd-proxy"
+readonly PROXY_DN="uid=${PROXY_UID},${USERS_OU}"
+
+readonly LDIF_FILE="/tmp/create_${PROXY_UID}.ldif"
+readonly PROXY_PASS_FILE="${HOME}/.ldap_${PROXY_UID}_pass"
+
+echo "=== 1. Génération du mot de passe ==="
+PROXY_PASS=$(openssl rand -base64 28 | cut -c -24)
+
+rm -f "${PROXY_PASS_FILE}"
+printf "%s" "${PROXY_PASS}" >"${PROXY_PASS_FILE}"
+chmod 400 "${PROXY_PASS_FILE}"
+
+PROXY_HASH=$(sudo slappasswd -o module-load=argon2.la -h "{ARGON2}" -s "${PROXY_PASS}")
+
+echo "=== 2. Création du fichier LDIF ==="
+rm -f "${LDIF_FILE}"
+cat <<EOF >"${LDIF_FILE}"
+dn: ${PROXY_DN}
+objectClass: inetOrgPerson
+uid: ${PROXY_UID}
+cn: NSLCD Proxy Service
+sn: Service
+description: Compte de service en lecture seule pour la resolution NSS/PAM
+userPassword: ${PROXY_HASH}
+EOF
+
+echo "=== 3. Injection dans l'annuaire LDAP ==="
+sudo ldapadd -Y EXTERNAL -H ldapi:/// -f "${LDIF_FILE}"
+
+rm -f "${LDIF_FILE}"
+
+echo ""
+echo "================================================================="
+echo " Succès : Le compte de service '${PROXY_UID}' a été créé."
+echo " DN de liaison : ${PROXY_DN}"
+echo " Mot de passe en clair (à conserver pour la configuration NSLCD) :"
+echo " -> ${PROXY_PASS}"
+echo " (Ce secret est également sauvegardé dans : ${PROXY_PASS_FILE})"
+echo "================================================================="
+]]></programlisting>
+
+        <para>Adaptez la syntaxe de la commande <command>ldapadd</command> en
+        fonction du système sur lequel vous lancez le script. Dans l'exemple
+        ci-dessus, les options de <command>ldapadd</command> supposent que un
+        lancement sur le serveur <acronym>LDAP</acronym> avec une
+        authentification système.</para>
+
+        <para>Ajoutez le nouveau compte de service à l'annuaire&nbsp;:</para>
+
+<screen>bash create-nslcd-proxy.sh</screen>
+
+<screen>=== 1. Génération du mot de passe ===
+=== 2. Création du fichier LDIF ===
+=== 3. Injection dans l'annuaire LDAP ===
+SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+adding new entry "uid=nslcd-proxy,ou=users,dc=lab,dc=local"
+
+
+=================================================================
+ Succès : Le compte de service 'nslcd-proxy' a été créé.
+ DN de liaison : uid=nslcd-proxy,ou=users,dc=lab,dc=local
+ Mot de passe en clair (à conserver pour la configuration NSLCD) :
+ -> 2d1...
+ (Ce secret est également sauvegardé dans : /home/etu/.ldap_nslcd-proxy_pass)
+=================================================================</screen>
 	</answer>
 	</qandaentry>
 
