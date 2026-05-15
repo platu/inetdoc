@@ -838,8 +838,8 @@ slapd slapd/no_configuration boolean true
 EOF
 
 # Install slapd and ldap-utils
-apt-get update -qq
-apt-get install -y --no-install-recommends slapd ldap-utils]]></programlisting>
+apt update -qq
+apt install -y --no-install-recommends slapd ldap-utils]]></programlisting>
 
     <para>Lancez le code avec les droits d'administration système.</para>
 
@@ -3097,7 +3097,7 @@ readonly PROXY_DN="uid=${PROXY_UID},${USERS_OU}"
 readonly LDIF_FILE="/tmp/create_${PROXY_UID}.ldif"
 readonly PROXY_PASS_FILE="${HOME}/.ldap_${PROXY_UID}_pass"
 
-echo "=== 1. Génération du mot de passe ==="
+echo "=== 1. Password generation ==="
 PROXY_PASS=$(openssl rand -base64 28 | cut -c -24)
 
 rm -f "${PROXY_PASS_FILE}"
@@ -3106,7 +3106,7 @@ chmod 400 "${PROXY_PASS_FILE}"
 
 PROXY_HASH=$(sudo slappasswd -o module-load=argon2.la -h "{ARGON2}" -s "${PROXY_PASS}")
 
-echo "=== 2. Création du fichier LDIF ==="
+echo "=== 2. LDIF file creation ==="
 rm -f "${LDIF_FILE}"
 cat <<EOF >"${LDIF_FILE}"
 dn: ${PROXY_DN}
@@ -3114,23 +3114,25 @@ objectClass: inetOrgPerson
 uid: ${PROXY_UID}
 cn: NSLCD Proxy Service
 sn: Service
-description: Compte de service en lecture seule pour la resolution NSS/PAM
+description: Read-only service account for NSS/PAM resolution
 userPassword: ${PROXY_HASH}
 EOF
 
-echo "=== 3. Injection dans l'annuaire LDAP ==="
+echo "=== 3. Insertion into the LDAP directory ==="
+sudo ldapdelete -Y EXTERNAL -H ldapi:/// "${PROXY_DN}" 2>/dev/null || true
 sudo ldapadd -Y EXTERNAL -H ldapi:/// -f "${LDIF_FILE}"
 
 rm -f "${LDIF_FILE}"
 
 echo ""
 echo "================================================================="
-echo " Succès : Le compte de service '${PROXY_UID}' a été créé."
-echo " DN de liaison : ${PROXY_DN}"
-echo " Mot de passe en clair (à conserver pour la configuration NSLCD) :"
+echo " Success: Service account '${PROXY_UID}' has been created."
+echo " Bind DN: ${PROXY_DN}"
+echo " Plaintext password (keep this for NSLCD configuration):"
 echo " -> ${PROXY_PASS}"
-echo " (Ce secret est également sauvegardé dans : ${PROXY_PASS_FILE})"
+echo " (This secret is also saved in: ${PROXY_PASS_FILE})"
 echo "================================================================="
+
 ]]></programlisting>
 
         <para>Adaptez la syntaxe de la commande <command>ldapadd</command> en
@@ -3143,9 +3145,9 @@ echo "================================================================="
 
 <screen>bash create-nslcd-proxy.sh</screen>
 
-<screen>=== 1. Génération du mot de passe ===
-=== 2. Création du fichier LDIF ===
-=== 3. Injection dans l'annuaire LDAP ===
+<screen>=== 1. Password generation ===
+=== 2. LDIF file creation ===
+=== 3. Insertion into the LDAP directory ===
 SASL/EXTERNAL authentication started
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
@@ -3153,221 +3155,268 @@ adding new entry "uid=nslcd-proxy,ou=users,dc=lab,dc=local"
 
 
 =================================================================
- Succès : Le compte de service 'nslcd-proxy' a été créé.
- DN de liaison : uid=nslcd-proxy,ou=users,dc=lab,dc=local
- Mot de passe en clair (à conserver pour la configuration NSLCD) :
- -> 2d1...
- (Ce secret est également sauvegardé dans : /home/etu/.ldap_nslcd-proxy_pass)
+ Success: Service account 'nslcd-proxy' has been created.
+ Bind DN: uid=nslcd-proxy,ou=users,dc=lab,dc=local
+ Plaintext password (keep this for NSLCD configuration):
+ -> ioFOFQUMOpBJTexzjRVGj4Ed
+ (This secret is also saved in: /home/etu/.ldap_nslcd-proxy_pass)
 =================================================================</screen>
 	</answer>
 	</qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quels sont les paquets supplémentaires qui sont ajoutés lors
-	de l'installation des bibliothèques <acronym>LDAP</acronym> pour le
-	mécanisme <wordasword>Name Service
-	Switch</wordasword>&nbsp;?</phrase></para>
+        <para><phrase>Quel est le paquet de bibliothèque <wordasword>Name
+        Service Switch</wordasword> à installer sur le client
+        <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
-	<para>Utiliser les informations fournies par le gestionnaire de paquets
-	pour chaque ajout.</para>
+        <para><phrase>Quel est le paquet essentiel qui dépend de cette
+        bibliothèque et quel est son rôle&nbsp;?</phrase></para>
+
+        <para>Recherchez les informations utiles à l'aide du gestionnaire de
+        paquet et installez les bibliothèques et leurs dépendances.</para>
 	</question>
 	<answer>
-	<para>Le lancement de l'installation du	paquet
-	<systemitem>libnss-ldapd</systemitem> donne la liste suivante.</para>
+        <para>Lancez un recherche avec l'empreinte
+        <code>libnss.*ldap</code>.</para>
 
-<screen>sudo apt install libnss-ldapd
-Lecture des listes de paquets... Fait
-Construction de l'arbre des dépendances... Fait
-Lecture des informations d'état... Fait
-Les paquets supplémentaires suivants seront installés :
-  <emphasis>libpam-ldapd nscd nslcd nslcd-utils</emphasis>
+<screen>apt search --names-only libnss.*lda</screen>
+
+<screen>libnss-ldapd/testing 0.9.13-2+b1 amd64
+NSS module for using LDAP as a naming service</screen>
+
+        <para>Affichez la liste des dépendance de ce paquet de
+        bibliothèques.</para>
+
+<screen>apt depends libnss-ldapd</screen>
+
+<screen><![CDATA[libnss-ldapd
+ |Dépend: debconf (>= 0.5)
+  Dépend: <debconf-2.0>
+    cdebconf
+    debconf
+  Dépend: libc6 (>= 2.17)
+ |Dépend: nslcd (>= 0.9.0)
+  Dépend: <nslcd-2>
+    nslcd
+    pynslcd
+      Est en conflit avec: <libnss-ldap>]]></screen>
+
+      <para>Affichez les informations fournies par le gestionnaire de paquets
+      sur <systemitem>nslcd</systemitem>.</para>
+
+<screen>apt show nslcd</screen>
+
+<screen><![CDATA[Package: nslcd
+Version: 0.9.13-2+b1
+Priority: optional
+Section: admin
+Source: nss-pam-ldapd (0.9.13-2)
+Maintainer: Arthur de Jong <adejong@debian.org>
+Installed-Size: 438 kB
+Provides: nslcd-2
+Pre-Depends: debconf (>= 0.5) | debconf-2.0
+Depends: libc6 (>= 2.38), libgssapi-krb5-2 (>= 1.6.dfsg.2), libldap2 (>= 2.6.2), adduser, ca-certificates
+Recommends: nscd, libnss-ldapd | libnss-ldap, libpam-ldapd | libpam-ldap | libpam-krb5 | libpam-heimdal | libpam-sss, nslcd-utils, ldap-utils, bind9-host | host
+Suggests: kstart
+Conflicts: nslcd-2
+Breaks: libnss-ldapd (<< 0.9.0), libpam-ldapd (<< 0.9.0)
+Replaces: libnss-ldapd (<< 0.7.0), nslcd-2
+Homepage: https://arthurdejong.org/nss-pam-ldapd/
+Tag: admin::login, admin::user-management, implemented-in::c,
+ interface::daemon, protocol::ldap, role::program,
+ security::authentication, use::configuring
+Download-Size: 175 kB
+APT-Sources: mirror+file:/etc/apt/mirrors/debian.list testing/main amd64 Packages
+Description: démon de recherche NSS et PAM en utilisant LDAP
+ Ce paquet fournit un démon pour retrouver les comptes d’utilisateurs et des
+ informations de système similaires à partir de LDAP. Il est utilisé par les
+ paquets libnss-ldapd et libpam-ldapd, mais n’est pas très utile en lui-même.]]></screen>
+
+        <para>Le paquet <systemitem>nslcd</systemitem> (<wordasword>Name
+        Service LDAP Connection Daemon</wordasword>) installe un démon local
+        qui agit comme un pont transparent. Il traduit les requêtes d'identité
+        du système (via <acronym>NSS</acronym>) en interrogations vers
+        l'annuaire <acronym>LDAP</acronym>, tout en gérant de manière
+        centralisée et sécurisée l'authentification et la connexion
+        réseau.</para>
+
+        <para>Installez le paquet <systemitem>libnss-ldapd</systemitem> et
+        relevez la liste des dépendances installées.</para>
+
+<screen>sudo apt install libnss-ldapd</screen>
+
+<screen>Installation de :
+  libnss-ldapd
+
+Installation de dépendances :
+  libpam-ldapd  nscd  nslcd  nslcd-utils
+
 Paquets suggérés :
   kstart
-Les NOUVEAUX paquets suivants seront installés :
-  libnss-ldapd libpam-ldapd nscd nslcd nslcd-utils
-0 mis à jour, 5 nouvellement installés, 0 à enlever et 0 non mis à jour.
-Il est nécessaire de prendre 390 ko dans les archives.
-Après cette opération, 971 ko d'espace disque supplémentaires seront utilisés.
-Souhaitez-vous continuer ? [O/n]</screen>
 
-	<para>Plusieurs paquets supplémentaires apparaissent&nbsp;:</para>
-	<itemizedlist>
-	<listitem>
-	<para><systemitem>libpam-ldapd</systemitem> fournit les fonctions
-	<acronym>PAM</acronym> nécessaires à l'authentification, aux autorisations
-	et à la gestion de session via un annuaire <acronym>LDAP</acronym>.</para>
-	</listitem>
-	<listitem>
-	<para><systemitem>nscd</systemitem> (<wordasword>Name Service Cache
-	Daemon</wordasword>) est un démon qui gère la recherche des mots de passe,
-	des groupes et hôtes des programmes en cours d’exécution, et met en cache
-	le résultat pour une prochaine recherche.</para>
-	</listitem>
-	<listitem>
-	<para><systemitem>nslcd</systemitem> fournit un autre démon pour la
-	collecte des informations sur les comptes utilisateurs depuis un serveur
-	<acronym>LDAP</acronym>.</para>
-	</listitem>
-	<listitem>
-	<para><systemitem>nslcd-utils</systemitem> fournit des outils pour
-	l'interrogation et la mise à jour des entrées d'annuaire
-	<acronym>LDAP</acronym>.</para>
-	</listitem>
-	</itemizedlist>
+Sommaire :
+  Mise à niveau de : 0. Installation de : 5, Supprimé : 0. Non mis à jour : 0
+Taille du téléchargement : 380 ko
+  Espace nécessaire : 991 ko / 118 Go disponible
 
-<warning>
-	<para>Pour les besoins des travaux pratiques ou de la mise au point de
-	l'authentification via <acronym>LDAP</acronym>, il est utile de relancer
-	les services de cache à chaque modification des conditions d'accès à
-	l'annuaire.</para>
+Continuer ? [O/n]</screen>
 
-<screen>sudo systemctl restart nslcd</screen>
-
-<screen>sudo systemctl restart nscd</screen>
-</warning>
+        <para>Appuyez sur <literal>n</literal> pour refuser l'installation
+        interactive avec <systemitem>debconf</systemitem>.</para>
 	</answer>
 	</qandaentry>
 
-	<qandaentry>
-	<question>
-	<para><phrase>Quel est le rôle de l'interface entre les fonctions
-	<acronym>PAM</acronym> (<wordasword>Pluggable Authentication
-	Modules</wordasword>) et l'annuaire
-	<acronym>LDAP</acronym>&nbsp;?</phrase></para>
-	</question>
-	<answer>
-	<para>Par définition, <acronym>PAM</acronym> est un mécanisme qui permet
-	d'intégrer différents modes d'authentification en les rendant transparents
-	vis à vis de l'utilisateur et des logiciels qui accèdent aux ressources du
-	système. Dans le contexte de ces travaux pratiques, il s'agit de permettre
-	à l'utilisateur de se connecter, d'accéder au système de fichiers, de
-	changer son mot de passe, etc sans avoir à lancer des commandes
-	spécifiques.</para>
-	</answer>
-	</qandaentry>
+    <qandaentry>
+    <question>
+        <para><phrase>Comment installer le paquet libnss-ldapd et ses
+        dépendances en mode non-interactif&nbsp;?</phrase></para>
+
+        <para>Installez le paquet <systemitem>debconf-utils</systemitem>, puis
+        utilisez la commande <command>debconf-show</command> pour obtenir la
+        liste des paramètres de configuration du paquet à installer.</para>
+
+        <para>Par exemple&nbsp;:</para>
+
+<screen>sudo debconf-show libnss-ldapd</screen>
+
+        <para>Recherchez la liste des paramètres utilsés par
+        <systemitem>debconf</systemitem> pour les paquets
+        <systemitem>libnss-ldapd</systemitem> et
+        <systemitem>nslcd</systemitem>.</para>
+
+        <para>Composez un script Bash qui alimente la commande
+        <command>debconf-set-selections</command> avant le lancement de
+        l'installation des paquets.</para>
+
+        <para>Vérifiez que les utilisateurs qui appartiennent à l'annuaire
+        <acronym>LDAP</acronym> sont bien visibles par le système du
+        client.</para>
+    </question>
+    <answer>
+        <para>Copiez l'exemple de code ci-dessous dans le fichier
+        <filename>install-ldap-client.sh</filename>.</para>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "=== 1. Environment preparation ==="
+sudo apt update
+sudo apt install -y --no-install-recommends debconf-utils
+
+echo "=== 2. Centralized configuration (Pre-seeding) ==="
+PROXY_PASS=$(cat ~/.ldap_nslcd-proxy_pass)
+readonly PROXY_PASS
+
+sudo debconf-set-selections <<EOF
+# --- Directory targeting ---
+nslcd nslcd/ldap-uris string ldap://ldap-srvr
+nslcd nslcd/ldap-base string dc=lab,dc=local
+
+# --- Network security ---
+# StartTLS is disabled at this stage of the lab (it will be set to 'true' later)
+nslcd nslcd/ldap-starttls boolean false
+
+# --- Name service daemon authentication (Least privilege) ---
+nslcd nslcd/ldap-binddn string uid=nslcd-proxy,ou=users,dc=lab,dc=local
+nslcd nslcd/ldap-bindpw password ${PROXY_PASS}
+
+# --- Automatic system integration ---
+libnss-ldapd libnss-ldapd/nsswitch multiselect passwd, group, shadow
+EOF
+
+echo "=== 3. Non-interactive package installation ==="
+sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
+	libnss-ldapd \
+	libpam-ldapd \
+	nslcd \
+	nslcd-utils
+
+echo ""
+echo "================================================================="
+echo " Success: The system is now connected to the LDAP directory."
+echo " You can test name resolution with: id luke"
+echo "================================================================="
+]]></programlisting>
+
+        <para>Copiez le mot de passe du compte de service
+        <systemitem>nslcd-proxy</systemitem> dans le fichier local
+        <filename>~/.ldap_nslcd-proxy_pass</filename> avant de lancez le script
+        <filename>install-ldap-client.sh</filename>.</para>
+
+<screen>sudo bash install-ldap-client.sh</screen>
+
+        <para>Vérifiez que les utilisateurs de l'annuaire sont accessibles
+        depuis le système client.</para>
+
+<screen>id luke</screen>
+
+<screen>uid=10003(luke) gid=10003(luke) groupes=10003(luke),100(users)</screen>
+
+        <para>Pour termineri, affichez la liste des paramètres effectivement
+        appliqués lors de l'installation et la configuration des
+        paquets avec la commande
+        <command>debconf-get-selections</command>.</para>
+
+<screen>sudo debconf-get-selections | grep ^nslcd</screen>
+
+<screen>nslcd	nslcd/ldap-auth-type	select	simple
+nslcd	nslcd/ldap-base	string	dc=lab,dc=local
+nslcd	nslcd/ldap-binddn	string	uid=nslcd-proxy,ou=users,dc=lab,dc=local
+nslcd	nslcd/ldap-bindpw	password
+nslcd	nslcd/ldap-cacertfile	string	/etc/ssl/certs/ca-certificates.crt
+nslcd	nslcd/ldap-reqcert	select
+nslcd	nslcd/ldap-sasl-authcid	string
+nslcd	nslcd/ldap-sasl-authzid	string
+nslcd	nslcd/ldap-sasl-krb5-ccname	string
+nslcd	nslcd/ldap-sasl-mech	select
+nslcd	nslcd/ldap-sasl-realm	string
+nslcd	nslcd/ldap-sasl-secprops	string
+nslcd	nslcd/ldap-starttls	boolean	false
+nslcd	nslcd/ldap-uris	string	ldap://ldap-srvr</screen>
+
+        <para>À ce stade de la progression des questions, la relation entre le
+        client et le serveur <acronym>LDAP</acronym> est opérationnelle, mais
+        avec un niveau de sécurité très insuffisant.</para>
+    </answer>
+    </qandaentry>
 
 	<qandaentry>
 	<question>
-	<para><phrase>Quelles sont les principales étapes de la configuration des
-	paquets de bibliothèques <acronym>NSS</acronym> et
-	<acronym>PAM</acronym>&nbsp;?</phrase></para>
-
-	<para>Lors de l'installation des principaux paquets de bibliothèques
-	<acronym>LDAP</acronym>, on passe par une série de menus
-	<systemitem>debconf</systemitem> qu'il faut renseigner correctement pour
-	accéder au serveur <acronym>LDAP</acronym> de façon transparente.</para>
+        <para><phrase>Quel est le rôle du sous-système <acronym>PAM</acronym>
+        (<wordasword>Pluggable Authentication Modules</wordasword>) dans une
+        architecture d'annuaire centralisée, et en quoi ses fonctions
+        diffèrent-elles de celles du <wordasword>Name Service
+        Switch</wordasword> (<acronym>NSS</acronym>)&nbsp;?</phrase></para>
 	</question>
-	<answer>
+    <answer>
+        <itemizedlist>
+        <listitem>
+            <para><emphasis><acronym>NSS</acronym> (<wordasword>Name Service
+            Switch</wordasword>) gère l'identité</emphasis>&nbsp;: "Qui est cet
+            utilisateur&nbsp;?" (Quel est son <acronym>UID</acronym>, son
+            <acronym>GID</acronym>, son répertoire d'accueil ?).
+            <acronym>NSS</acronym> agit comme un annuaire téléphonique.</para>
+        </listitem>
+        <listitem>
+            <para><emphasis><acronym>PAM</acronym> (<wordasword>Pluggable
+            Authentication Modules</wordasword>) gère l'authentification et la
+            session</emphasis>&nbsp;: "Cet utilisateur a-t-il le droit d'entrer
+            ?" (Le mot de passe est-il correct ? Le compte est-il expiré ?
+            Faut-il créer son répertoire personnel à la volée ?).
+            <acronym>PAM</acronym> agit comme un agent de sécurité à l'entrée
+            du système.</para>
+        </listitem>
+        </itemizedlist>
 
-<warning>
-	<para>En cas d'erreur de saisie dans la série de menus ci-dessous, il faut
-	reprendre la configuration de chacun des deux paquets individuellement.
-	Classiquement, on passe par la commande
-	<command>dpkg-reconfigure</command>.</para>
-</warning>
-
-<screen>sudo dpkg-reconfigure libnss-ldapd</screen>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/libnss-ldapd.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/libnss-ldapd.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/libnss-ldapd.png'>Copie
-	d'écran configuration libnss-ldapd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<screen>sudo dpkg-reconfigure nslcd</screen>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/nslcd1.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/nslcd1.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/nslcd1.png'>Copie
-	d'écran configuration nslcd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/nslcd2.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/nslcd2.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/nslcd2.png'>Copie
-	d'écran configuration nslcd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/nslcd3.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/nslcd3.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/nslcd3.png'>Copie
-	d'écran configuration nslcd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/nslcd4.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/nslcd4.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/nslcd4.png'>Copie
-	d'écran configuration nslcd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/nslcd5.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/nslcd5.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/nslcd5.png'>Copie
-	d'écran configuration nslcd - vue complète</link></para>
-	</caption>
-</mediaobject>
-
-<mediaobject>
-	<imageobject role="html">
-	<imagedata fileref='images/nslcd6.png' format='PNG' width='480px'/>
-	</imageobject>
-	<imageobject role="fo-fop">
-	<imagedata fileref='images/nslcd6.png' format='PNG' width='10cm'/>
-	</imageobject>
-	<caption>
-	<para><link xmlns="http://docbook.org/ns/docbook"
-	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/nslcd6.png'>Copie
-	d'écran configuration nslcd - vue complète</link></para>
-	</caption>
-</mediaobject>
+        <para>Le rôle de l'interface <acronym>PAM/LDAP</acronym> (via le paquet
+        <systemitem>libpam-ldapd</systemitem>) est donc d'intercepter la saisie
+        du mot de passe par l'utilisateur (lors d'un <command>ssh</command>,
+        d'un <command>su</command> ou sur un écran de connexion), et de
+        demander au démon <systemitem>nslcd</systemitem> de tenter un
+        <wordasword>Bind</wordasword> <acronym>LDAP</acronym> sur le serveur
+        avec ces identifiants.</para>
 	</answer>
 	</qandaentry>
 
