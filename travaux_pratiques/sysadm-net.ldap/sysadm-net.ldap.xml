@@ -3624,7 +3624,7 @@ anakin@ldap-clnt:/$</screen>
         <entry>Sécurité</entry>
         <entry>Nécessite TLS pour protéger le mot de passe</entry>
         <entry>Sécurisé par nature (chiffrement Kerberos de la charge utile des
-        segments)</entry>
+        segments TCP)</entry>
       </row>
     </tbody>
     </tgroup>
@@ -3645,21 +3645,168 @@ anakin@ldap-clnt:/$</screen>
         correspond pas exactement au nom présent dans le ticket Kerberos,
         l'authentification échouera systématiquement.</para>
 
+        <para>Dans le cadre de travaux pratiques, on ne dispose pas d'un
+        service DNS complet. Il faut donc procéder à une résolution locale des
+        noms sur le serveur et sur le client.</para>
+
 <qandaset>
     <qandaentry>
     <question>
         <para>Quelles sont les étapes à suivre pour configurer le client et le
-        serveur <acronym>LDAP</acronym> afin d'assurer une résolution locale du
-        nom d'hôtes&nbsp;?</para>
+        serveur <acronym>LDAP</acronym> afin d'assurer une résolution locale
+        des noms d'hôtes&nbsp;?</para>
 
-        <para>Référez-vous aux pages de manuels de la table de recherche
-        statique des noms d'hôtes&nbsp;: <command>man hosts</command>.</para>
+        <para>Consultez les pages de manuel de la table de recherche statique
+        des noms d'hôtes &nbsp;: <command>man hosts</command>.</para>
 
-        <para>Codez un script qui ajoute les enregistrements du client et du
-        serveur dans le fichier <filename>/etc/hosts</filename> en évitant les
-        doublons.</para>
+        <para>Créez un script qui ajoute les enregistrements du client et du
+        serveur dans le fichier <filename>/etc/hosts</filename>, tout en
+        évitant les doublons.</para>
     </question>
+    <answer>
+        <para>Copiez l'exemple de code ci-dessous dans le fichier
+        <filename>update-hosts.sh</filename>.</para>
+
+    <caution>
+        <para>Éditez le script pour utiliser vos adresses
+        <acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+    </caution>
+
+<programlisting><![CDATA[#!/bin/bash
+
+DOMAIN="lab.local"
+HOSTS_FILE="/etc/hosts"
+CLIENT_IPS=(
+	"172.28.101.4"
+	"2001:678:3fc:65:baad:caff:fefe:4"
+)
+CLIENT_NAME="ldap-clnt"
+SERVER_IPS=(
+	"172.28.101.3"
+	"2001:678:3fc:65:baad:caff:fefe:3"
+)
+SERVER_NAME="ldap-srvr"
+
+if [[ ${EUID} -ne 0 ]]; then
+	echo "This script must be run as root." >&2
+	exit 1
+fi
+
+# Escape the characters that are special in a sed basic regular expression.
+escape_sed_bre() {
+	sed 's/[][\\.^$*]/\\&/g'
+}
+
+update_host_entry() {
+	local ip="$1"
+	local name="$2"
+	# Escape the IP before using it inside a sed search pattern.
+	local escaped_ip
+	escaped_ip=$(printf '%s\n' "${ip}" | escape_sed_bre)
+	sed -i "/^${escaped_ip}[[:space:]]/d" "${HOSTS_FILE}"
+	echo "${ip} ${name}.${DOMAIN} ${name}" >>"${HOSTS_FILE}"
+}
+
+for ip in "${CLIENT_IPS[@]}"; do
+	update_host_entry "${ip}" "${CLIENT_NAME}"
+done
+
+for ip in "${SERVER_IPS[@]}"; do
+	update_host_entry "${ip}" "${SERVER_NAME}"
+done
+
+exit 0
+]]></programlisting>
+
+        <para>Lancez le script sur le client et sur le serveur.</para>
+
+<screen>sudo bash update-hosts.sh</screen>
+
+        <para>Testez la résolution locale des noms du client et du
+        serveur.</para>
+
+<screen>host ldap-clnt.lab.local</screen>
+
+<screen>ldap-clnt.lab.local has address 172.28.101.4
+ldap-clnt.lab.local has IPv6 address 2001:678:3fc:65:baad:caff:fefe:4</screen>
+
+<screen>host ldap-srvr.lab.local</screen>
+
+<screen>ldap-srvr.lab.local has address 172.28.101.3
+ldap-srvr.lab.local has IPv6 address 2001:678:3fc:65:baad:caff:fefe:3</screen>
+
+        <para>Testez aussi la résolution inverse.</para>
+
+<screen>for ip in 172.28.101.3 172.28.101.4 \
+    2001:678:3fc:65:baad:caff:fefe:3 2001:678:3fc:65:baad:caff:fefe:4; do
+        host $ip
+done</screen>
+
+<screen>3.101.28.172.in-addr.arpa domain name pointer ldap-srvr.lab.local.
+3.101.28.172.in-addr.arpa domain name pointer ldap-srvr.
+4.101.28.172.in-addr.arpa domain name pointer ldap-clnt.lab.local.
+4.101.28.172.in-addr.arpa domain name pointer ldap-clnt.
+3.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.5.6.0.0.c.f.3.0.8.7.6.0.1.0.0.2.ip6.arpa domain name pointer ldap-srvr.lab.local.
+3.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.5.6.0.0.c.f.3.0.8.7.6.0.1.0.0.2.ip6.arpa domain name pointer ldap-srvr.
+4.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.5.6.0.0.c.f.3.0.8.7.6.0.1.0.0.2.ip6.arpa domain name pointer ldap-clnt.lab.local.
+4.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.5.6.0.0.c.f.3.0.8.7.6.0.1.0.0.2.ip6.arpa domain name pointer ldap-clnt.</screen>
+    </answer>
     </qandaentry>
+</qandaset>
+    </sect2>
+
+    <sect2 xml:id='sysadm-net.ldap.krb5.realm'>
+        <title>Installer et configurer le serveur Kerberos</title>
+
+        <para>Contrairement au service <acronym>LDAP</acronym>, pour lequel on
+        a séparé l'installation des paquets de la configuration avec le script
+        de «&nbsp;<wordasword>bootstrap</wordasword>&nbsp;», le service
+        Kerberos ne le permet pas.</para>
+
+        <para>Vous devrez donc réer un script de bootstrap dédié à Kerberos qui
+        procédera à l'installation des paquets avec une configuration fournie
+        en mode «&nbsp;<wordasword>pre-seeding</wordasword>&nbsp;» en utilisant
+        les mêmes outils <systemitem>debconf</systemitem> que pour la
+        configuration de l'accès transparent à l'annuaire
+        <acronym>LDAP</acronym> côté client.</para>
+
+    <qandaset>
+        <qandaentry>
+        <question>
+            <para><phrase>Quels sont les paquets à installer pour configurer le
+            serveur <acronym>KDC</acronym>&nbsp;?</phrase></para>
+
+            <para>Recherchez la liste des paquets dont le nom débute par
+            <literal>krb5</literal>.</para>
+        </question>
+        <answer>
+            <para>Lancez la recherche avec le gestionnaire de paquets.</para>
+
+<screen>apt search --names-only ^krb5</screen>
+
+            <para>On obtient ainsi une longue liste de paquets. Affichez les
+            informations de chaque paquet pour décider s'il faut le retenir
+            dans le contexte d'un serveur <acronym>KDC</acronym>.</para>
+
+            <para>Au minimum, on retient deux paquets&nbsp;:</para>
+
+            <itemizedlist>
+            <listitem>
+                <para><systemitem>krb5-kdc</systemitem>&nbsp;: Installe le
+                Centre de Distribution des Clés (<acronym>KDC</acronym>), le
+                moteur principal qui vérifie les identités et distribue les
+                tickets d'accès.</para>
+            </listitem>
+            <listitem>
+                <para><systemitem>krb5-admin-server</systemitem>&nbsp;: Fournit
+                le démon d'administration (<systemitem>kadmind</systemitem>)
+                nécessaire pour gérer la base de données Kerberos (création de
+                comptes, génération de <systemitem>keytabs</systemitem>) via le
+                réseau.</para>
+            </listitem>
+            </itemizedlist>
+        </answer>
+        </qandaentry>
 </qandaset>
     </sect2>
 </sect1>
