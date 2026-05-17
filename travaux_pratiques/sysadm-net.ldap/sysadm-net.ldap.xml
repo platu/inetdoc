@@ -3906,7 +3906,11 @@ done</screen>
                     fichier de <code>stash</code> contenant la clé maître pour
                     permettre au KDC de redémarrer sans interaction. Utilisez
                     aussi <code>-P "${KDC_MASTER_PWD}"</code> pour injecter le
-                    mot de passe maître de manière non interactive.</para>
+                    mot de passe maître de manière non interactive.
+                    <?custom-linebreak?>
+                    Appliquez aussi une règle de contrôle d'accès minimale dans
+                    le fichier <filename>/etc/krb5kdc/kadm5.acl</filename> pour
+                    permettre le lancement du service sans erreur.</para>
                 </formalpara>
                 </listitem>
                 <listitem>
@@ -3988,6 +3992,8 @@ echo "=== 5. Initializing cryptographic database ==="
 # The -s option creates a 'stash' file to allow the KDC to restart automatically
 # The -P option allows passing the password non-interactively
 sudo kdb5_util create -s -r "${REALM}" -P "${KDC_MASTER_PWD}"
+# Create the basic ACL to ensure the service restarts without errors
+echo "*/admin@${REALM} *" | sudo tee /etc/krb5kdc/kadm5.acl >/dev/null
 
 echo "=== 6. Restarting services ==="
 sudo systemctl enable krb5-kdc krb5-admin-server
@@ -4005,9 +4011,461 @@ echo "================================================================="
             <acronym>LDAP</acronym>.</para>
 
 <screen>bash bootstrap-kdc.sh</screen>
+
+            <para>Vérifiez que les deux services sont actifs et sont
+            initialisés correctement.</para>
+
+<screen>systemctl status krb5-kdc krb5-admin-server</screen>
         </answer>
         </qandaentry>
-</qandaset>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Comment créer le principal pour administrer le
+            domaine Kerberos&nbsp;?</phrase></para>
+
+            <para>Donnez une définition du rôle de
+            <emphasis>principal</emphasis> dans l'architecture Kerberos.</para>
+
+            <para>Créez et testez le principal d'administration du KDC.</para>
+        </question>
+        <answer>
+            <para>Dans l'environnement Kerberos, un
+            <emphasis>principal</emphasis> est un identifiant cryptographique
+            unique attribué à chaque entité du réseau (utilisateur, machine ou
+            service). Il permet à cette entité de prouver son identité au
+            centre de distribution de clés (<acronym>KDC</acronym>) et
+            d'obtenir des tickets d'accès sécurisés.</para>
+
+            <para>L'administration à distance du KDC requiert la création d'un
+            principal dédié disposant de privilèges étendus.</para>
+
+            <para>Copiez l'exemple de script Bash ci-dessous dans le fichier
+            <filename>kadmin-princ-setup.sh</filename>.</para>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "=== 1. Create KAdmin Password ==="
+KADMIN_PASS=$(openssl rand -base64 28 | cut -c -24)
+rm -f "${HOME}"/.kadmin_pass
+echo -n "${KADMIN_PASS}" | tee "${HOME}"/.kadmin_pass >/dev/null
+chmod 400 "${HOME}"/.kadmin_pass
+
+echo "=== 2. Add KAdmin Principal ==="
+sudo kadmin.local -q "addprinc -pw ${KADMIN_PASS} admin/admin"
+
+echo "=== 3. List Principals ==="
+sudo kadmin.local -q "listprincs"
+]]></programlisting>
+
+            <para>Lancez le script de création du principal
+            d'administration.</para>
+
+<screen>bash kadmin-princ-setup.sh</screen>
+
+<screen>=== 1. Create KAdmin Password ===
+=== 2. Add KAdmin Principal ===
+Authenticating as principal root/admin@LAB.LOCAL with password.
+No policy specified for admin/admin@LAB.LOCAL; defaulting to no policy
+Principal "admin/admin@LAB.LOCAL" created.
+=== 3. List Principals ===
+Authenticating as principal root/admin@LAB.LOCAL with password.
+K/M@LAB.LOCAL
+admin/admin@LAB.LOCAL
+kadmin/admin@LAB.LOCAL
+kadmin/changepw@LAB.LOCAL
+krbtgt/LAB.LOCAL@LAB.LOCAL</screen>
+
+            <para>Maintenant que vous savez comment administrer la base
+            Kerberos, vous pouvez passer à la création des principaux de l'hôte
+            serveur, du service <acronym>LDAP</acronym> lui-même, puis des
+            utilisateurs de cet annuaire.</para>
+        </answer>
+        </qandaentry>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Quels principaux Kerberos faut-il créer pour intégrer
+            l’annuaire&nbsp;?</phrase></para>
+
+            <para>Vous devez créer les principaux des trois familles
+            suivantes&nbsp;:</para>
+
+            <itemizedlist>
+            <listitem>
+            <formalpara>
+                <title>Hôte serveur</title>
+                <para><code>host/ldap-server.lab.local@LAB.LOCAL</code>&nbsp;:
+                Il sert aux échanges de niveau hôte (ssh GSSAPI, etc.). Le
+                principal de l'hôte client sera généré avec sa
+                configuration.</para>
+            </formalpara>
+            </listitem>
+            <listitem>
+            <formalpara>
+                <title>Service LDAP</title>
+                <para><code>ldap/ldap-server.lab.local@LAB.LOCAL</code>&nbsp;:
+                Ce principal est utilisé par <systemitem>slapd</systemitem>
+                pour s’authentifier auprès des clients et pour valider les
+                tickets présentés par les clients.</para>
+            </formalpara>
+            </listitem>
+            <listitem>
+            <formalpara>
+                <title>Utilisateurs</title>
+                <para>Ces principaux permettent à chaque utilisateur de
+                demander un ticket auprès du <acronym>KDC</acronym> avec
+                <command>kinit</command>.</para>
+            </formalpara>
+            </listitem>
+            </itemizedlist>
+
+            <para>Générez le principal du serveur LDAP en une commande.</para>
+
+            <para>Créez les scripts de génération des principaux des deux
+            autres familles en réutilisant les variables et les mots de passe
+            déjà définis.</para>
+        </question>
+        <answer>
+            <para>Commencez par le plus simple&nbsp;: la génération du principa
+            du serveur <acronym>LDAP</acronym>.</para>
+
+<screen>sudo kadmin.local -q "addprinc -randkey host/ldap-server.lab.local@LAB.LOCAL"</screen>
+
+<screen>Authenticating as principal root/admin@LAB.LOCAL with password.
+No policy specified for host/ldap-server.lab.local@LAB.LOCAL; defaulting to no policy
+Principal "host/ldap-server.lab.local@LAB.LOCAL" created.</screen>
+
+        <note>
+            <formalpara>
+                <title>Le message « defaulting to no policy » s'affiche.</title>
+                <para>Lors de la création du principal, Kerberos affiche un
+                message indiquant qu'aucune politique n'a été spécifiée. Dans
+                Kerberos, une « politique » sert à imposer des règles relatives
+                aux mots de passe, comme une expiration tous les 30 jours ou
+                une complexité minimale.
+                <?custom-linebreak?>
+
+                Pour un compte de service ou de machine, l'absence de politique
+                est la configuration standard et souhaitée. Cela garantit en
+                effet que la clé cryptographique de la machine n'expirera pas
+                subitement au milieu de l'année, ce qui provoquerait une panne
+                générale de l'authentification sur le poste client.</para>
+            </formalpara>
+        </note>
+
+        <para>Copiez l'exemple de code de génération du pricnipal du service
+        <acronym>LDAP</acronym> dans le fichier
+        <filename>create-ldap-service-princ.sh</filename>.</para>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly DOMAIN="lab.local"
+readonly REALM="${DOMAIN^^}"
+readonly LDAP_HOST="ldap-srvr.${DOMAIN}"
+
+# SPN respects standard format: service/fqdn@ROYAUME
+readonly SPN="ldap/${LDAP_HOST}@${REALM}"
+readonly KEYTAB_FILE="/etc/ldap/ldap.keytab"
+
+echo "=== 1. Create the Service Principal Name (SPN) ==="
+# The -randkey option generates a strong random key that will never be knonw or asked.
+sudo kadmin.local -q "addprinc -randkey ${SPN}"
+
+echo "=== 2. Extraction of the key in the Keytab file ==="
+# The ktadd command extracts the key from the database and copies it to the local file.
+sudo kadmin.local -q "ktadd -k ${KEYTAB_FILE} ${SPN}"
+
+echo "=== 3. Securing the Keytab file ==="
+# The slapd daemon runs under the 'openldap' user.
+# It is crucial that it be the only owner and reader of this secret.
+sudo chown openldap:openldap "${KEYTAB_FILE}"
+sudo chmod 400 "${KEYTAB_FILE}"
+
+echo ""
+echo "================================================================="
+echo " Success : The service ${SPN} has been created."
+echo " The secret key has been exported and secured in : ${KEYTAB_FILE}"
+echo "================================================================="
+]]></programlisting>
+
+        <para>Lancez le script.</para>
+
+<screen>bash create-ldap-service-princ.sh</screen>
+
+<screen>=== 1. Create the Service Principal Name (SPN) ===
+Authenticating as principal root/admin@LAB.LOCAL with password.
+No policy specified for ldap/ldap-srvr.lab.local@LAB.LOCAL; defaulting to no policy
+Principal "ldap/ldap-srvr.lab.local@LAB.LOCAL" created.
+=== 2. Extraction of the key in the Keytab file ===
+Authenticating as principal root/admin@LAB.LOCAL with password.
+Entry for principal ldap/ldap-srvr.lab.local@LAB.LOCAL with kvno 2, encryption type aes256-cts-hmac-sha1-96 added to keytab WRFILE:/etc/ldap/ldap.keytab.
+Entry for principal ldap/ldap-srvr.lab.local@LAB.LOCAL with kvno 2, encryption type aes128-cts-hmac-sha1-96 added to keytab WRFILE:/etc/ldap/ldap.keytab.
+=== 3. Securing the Keytab file ===
+
+=================================================================
+ Success : The service ldap/ldap-srvr.lab.local@LAB.LOCAL has been created.
+ The secret key has been exported and secured in : /etc/ldap/ldap.keytab
+=================================================================</screen>
+
+        <para>L'exemple de code ci-dessous, génère les principaux des
+        utilisateurs de l'annuaire <acronym>LDAP</acronym>&nbsp;: les membres
+        de la famille Skywalker. Copiez le dans le fichier
+        <filename>provision-users-kdc.sh</filename>.</para>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly REALM="LAB.LOCAL"
+# Usernames to provision in the KDC, matching those in LDAP
+readonly USERS=("luke" "leia" "anakin" "padme")
+
+echo "=== 1. Provision Kerberos principals from LDAP secrets ==="
+
+for USER in "${USERS[@]}"; do
+	PASS_FILE="${HOME}/.ldap_${USER}_pass"
+
+	# Check if the password file exists before attempting to read it
+	if [[ ! -f ${PASS_FILE} ]]; then
+		echo " ⚠️ Avertissement : Le fichier ${PASS_FILE} est introuvable. Principal ${USER} ignoré."
+		continue
+	fi
+
+	PASSWORD=$(head -n 1 "${PASS_FILE}")
+	PRINCIPAL="${USER}@${REALM}"
+
+	echo " 🔑 Creation of the principal : ${PRINCIPAL}"
+
+	# Silent creation of the principal by injecting the password read from the file
+	sudo kadmin.local -q "addprinc -pw ${PASSWORD} ${USER}" >/dev/null 2>&1
+done
+
+echo ""
+echo "=== 2. Check principals in the KDC database ==="
+sudo kadmin.local -q "listprincs" | grep -E "luke|leia|anakin|padme"
+
+echo ""
+echo "================================================================="
+echo " Success : The users have been added to the Kerberos database."
+echo " Their passwords are strictly identical to those in the directory."
+echo "================================================================="
+]]></programlisting>
+
+        <para>Lancez le script.</para>
+
+<screen>bash provision-users-kdc.sh</screen>
+
+<screen>=== 1. Provision Kerberos principals from LDAP secrets ===
+ 🔑 Creation of the principal : luke@LAB.LOCAL
+ 🔑 Creation of the principal : leia@LAB.LOCAL
+ 🔑 Creation of the principal : anakin@LAB.LOCAL
+ 🔑 Creation of the principal : padme@LAB.LOCAL
+
+=== 2. Check principals in the KDC database ===
+anakin@LAB.LOCAL
+leia@LAB.LOCAL
+luke@LAB.LOCAL
+padme@LAB.LOCAL
+
+=================================================================
+ Success : The users have been added to the Kerberos database.
+ Their passwords are strictly identical to those in the directory.
+=================================================================</screen>
+        </answer>
+        </qandaentry>
+    </qandaset>
+    </sect2>
+
+    <sect2 xml:id='sysadm-net.ldap.krb5.client'>
+        <title>Installer et configurer le client Kerberos</title>
+
+        <para>Dans cette section, vous devez configurer le poste client
+        (<systemitem>ldap-clnt.lab.local</systemitem>) pour accéder aux objets
+        que l'on vient de créer sur le serveur <acronym>KDC</acronym> et
+        activer le mécanisme de résolution d'identité.</para>
+
+    <qandaset>
+        <qandaentry>
+        <question>
+            <para><phrase>Quels sont les paquets à installer sur le client
+            Kerberos&nbsp;?</phrase></para>
+
+            <para>Recherchez, dans la liste des paquets Kerberos dont le nom
+            contien <code>krb5</code>, ceux qui sont relatifs aux outils
+            utilisateurs et à l'authentification
+            (<acronym>PAM</acronym>).</para>
+        </question>
+        <answer>
+<screen>apt search --names-only krb5</screen>
+
+            <para>De cette longue liste, on retient deux paquets essentiels
+            pour notre maquette&nbsp;:</para>
+
+            <itemizedlist>
+                <listitem>
+                    <para><systemitem>krb5-user</systemitem>&nbsp;: commandes
+                    de diagnostic.</para>
+                </listitem>
+                <listitem>
+                    <para><systemitem>libpam-krb5</systemitem>&nbsp;: module de
+                    pont entre le système d'exploitation et Kerberos.</para>
+                </listitem>
+            </itemizedlist>
+
+            <para>Installez les paquets identifiés avec une configuration
+            prédéfinie dans un script. Copiez l'exemple de code ci-dessous dans
+            le fichier <filename>client-krb5-setup.sh</filename>.</para>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly DOMAIN="lab.local"
+readonly REALM="${DOMAIN^^}"
+readonly KDC_SERVER="ldap-srvr.${DOMAIN}"
+
+echo "=== 1. Pre seed Kerberos configuration ==="
+sudo debconf-set-selections <<EOF
+krb5-config krb5-config/default_realm string ${REALM}
+krb5-config krb5-config/kerberos_servers string ${KDC_SERVER}
+krb5-config krb5-config/admin_server string ${KDC_SERVER}
+krb5-config krb5-config/add_servers boolean true
+EOF
+
+echo "=== 2. Install Kerberos client packages ==="
+sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
+	krb5-user \
+	libpam-krb5
+]]></programlisting>
+
+            <para>Lancez le script.</para>
+
+<screen>bash client-krb5-setup.sh</screen>
+        </answer>
+        </qandaentry>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Quel doit être le contenu du fichier
+            <filename>/etc/krb5.conf</filename> d'un client
+            Kerberos&nbsp;?</phrase></para>
+
+            <para>Recherchez les informations sur les bonnes pratiques de
+            gestion des fichiers de configuration Kerberos.</para>
+        </question>
+        <answer>
+            <para>Le serveur <acronym>KDC</acronym> et les clients doivent être
+            parfaitement d'accord sur le domaine par défaut, les emplacements
+            des <acronym>KDC</acronym> (noms de domaine complets et ports)
+            ainsi que sur les règles de chiffrement. Toute incompatibilité peut
+            entraîner des échecs silencieux d'authentification.</para>
+
+            <para>Il est donc essentiel que le fichier
+            <filename>/etc/krb5.conf</filename> soit identique sur le
+            <acronym>KDC</acronym> et sur les clients pour garantir
+            l'interopérabilité. Remplacez le contenu du fichier
+            <filename>/etc/krb5.conf</filename> du client par celui du serveur
+            <acronym>LDAP</acronym>.</para>
+
+<screen><![CDATA[cat << EOF | sudo tee /etc/krb5.conf >/dev/null
+[libdefaults]
+        default_realm = LAB.LOCAL
+        kdc_timesync = 1
+        ccache_type = 4
+        forwardable = true
+        proxiable = true
+        rdns = false
+        allow_weak_crypto = false
+        default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+        default_tgs_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+        permitted_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+
+[realms]
+        LAB.LOCAL = {
+                kdc = ldap-srvr.lab.local
+                admin_server = ldap-srvr.lab.local
+                default_domain = lab.local
+        }
+
+[domain_realm]
+        .lab.local = LAB.LOCAL
+        lab.local = LAB.LOCAL
+ EOF]]></screen>
+        </answer>
+        </qandaentry>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Comment générer le principal Kerberos du système
+            client LDAP&nbsp;?</phrase></para>
+
+            <para>Copiez le mot de passe d'administration Kerberos sur le poste
+            client et créez un script qui utilise la commande
+            <command>kadmin</command> en lieu et place de la commande
+            <command>kadmin.local</command> utilisée pour générer les
+            principaux côté serveur.</para>
+        </question>
+        <answer>
+            <para>Copiez l'exemple de code ci-dessous dans le fichier
+            <filename>create-client-princ.sh</filename>.</para>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly DOMAIN="lab.local"
+readonly CLIENT_NAME="ldap-clnt"
+readonly REALM="${DOMAIN^^}"
+
+readonly KADMIN_PASS_FILE="${HOME}/.kadmin_pass"
+readonly KEYTAB_FILE="/etc/krb5.keytab"
+
+echo "=== 1. Read Kerberos password from file ==="
+if [[ ! -f ${KADMIN_PASS_FILE} ]]; then
+	echo "Error: Kerberos admin password file not found: ${KADMIN_PASS_FILE}" >&2
+	exit 1
+fi
+
+KADMIN_PASS=$(head -n 1 "${KADMIN_PASS_FILE}")
+
+echo "=== 2. Create the client machine principal remotely ==="
+sudo kadmin -p admin/admin -w "${KADMIN_PASS}" -q "addprinc -randkey host/${CLIENT_NAME}.${DOMAIN}@${REALM}"
+
+echo "=== 3. Extract and automatically retrieve the key (Keytab) ==="
+sudo kadmin -p admin/admin -w "${KADMIN_PASS}" -q "ktadd -k ${KEYTAB_FILE} host/${CLIENT_NAME}.${DOMAIN}@${REALM}"
+
+echo "=== 4. Secure file access on the client ==="
+sudo chown root:root "${KEYTAB_FILE}"
+sudo chmod 600 "${KEYTAB_FILE}"
+]]></programlisting>
+
+            <para>Notez que le mot de passe d'administration Kerberos est copié
+            dans le fichier <filename>~/.kadmin_pass</filename> et que le nom
+            d'hôte est&nbsp;:
+            <systemitem>ldap-clnt.lab.local</systemitem>.</para>
+
+            <para>Lancez le script.</para>
+
+<screen>bash create-client-princ.sh</screen>
+
+<screen>=== 1. Read Kerberos password from file ===
+=== 2. Create the client machine principal remotely ===
+Authenticating as principal admin/admin with password.
+No policy specified for host/ldap-clnt.lab.local@LAB.LOCAL; defaulting to no policy
+Principal "host/ldap-clnt.lab.local@LAB.LOCAL" created.
+=== 3. Extract and automatically retrieve the key (Keytab) ===
+Authenticating as principal admin/admin with password.
+Entry for principal host/ldap-clnt.lab.local@LAB.LOCAL with kvno 2, encryption type aes256-cts-hmac-sha1-96 added to keytab WRFILE:/etc/krb5.keytab.
+Entry for principal host/ldap-clnt.lab.local@LAB.LOCAL with kvno 2, encryption type aes128-cts-hmac-sha1-96 added to keytab WRFILE:/etc/krb5.keytab.
+=== 4. Secure file access on the client ===</screen>
+        </answer>
+        </qandaentry>
+    </qandaset>
     </sect2>
 </sect1>
 
