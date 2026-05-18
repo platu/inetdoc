@@ -4467,6 +4467,286 @@ Entry for principal host/ldap-clnt.lab.local@LAB.LOCAL with kvno 2, encryption t
         </qandaentry>
     </qandaset>
     </sect2>
+
+    <sect2 xml:id='sysadm-net.ldap.krb5.ldap'>
+        <title>Intégrer Kerberos au service d'annuaire LDAP</title>
+
+        <para>Maintenant que le serveur et le client sont configurés pour
+        utiliser Kerberos, le service <acronym>LDAP</acronym> doit utiliser
+        cette fonction pour sécuriser les échanges entre serveur et
+        client. L'intégration se fait en trois étapes&nbsp;:</para>
+
+        <orderedlist>
+            <listitem>
+                <para>Indiquez au serveur LDAP comment utiliser le fichier
+                Keytab que vous avez généré, puis assurez-vous qu'il écoute les
+                requêtes <acronym>GSSAPI</acronym>.</para>
+            </listitem>
+            <listitem>
+                <para>Apprenez au serveur <acronym>LDAP</acronym> à traduire
+                une identité Kerberos en une identité
+                <acronym>LDAP</acronym>.</para>
+            </listitem>
+            <listitem>
+                <para>Testez et validez les échanges entre client et
+                serveur.</para>
+            </listitem>
+        </orderedlist>
+
+    <qandaset>
+        <qandaentry>
+        <question>
+            <para><phrase>Comment configurer <systemitem>slapd</systemitem>
+            pour qu'il utilise l'identité cryptographique
+            <filename>/etc/ldap/ldap.keytab</filename> et qu'il accepte
+            les connexions Kerberos
+            (<acronym>GSSAPI</acronym>)&nbsp;?</phrase></para>
+
+            <orderedlist>
+                <listitem>
+                    <para>Recherchez le mode de déclaration d'emplacement du
+                    <systemitem>Keytab</systemitem>.</para>
+
+                    <para>Par défaut, les bibliothèques Kerberos du système
+                    d'exploitation cherchent toujours les clés dans le fichier
+                    global <filename>/etc/krb5.keytab</filename>. Or, pour des
+                    raisons de sécurité, vous avez isolé la clé d'OpenLDAP dans
+                    <filename>/etc/ldap/ldap.keytab</filename> (accessible
+                    uniquement par l'utilisateur openldap).</para>
+                </listitem>
+                <listitem>
+                    <para>Recherchez la syntaxe <acronym>LDIF</acronym> des
+                    instructions de configuration dans la base
+                    <code>cn=config</code> du nom d'hôte SASL et du
+                    royaume.</para>
+                </listitem>
+            </orderedlist>
+
+            <para>Créez un script qui rassemble les deux traitements.</para>
+        </question>
+        <answer>
+            <para>Utilisez la variable d'environnement <code>KRB5_KTNAME</code>
+            dans le fichier <filename>/etc/default/slapd</filename> pour
+            forcer le processus <systemitem>slapd</systemitem> à lire le
+            bon <systemitem>Keytab</systemitem>.</para>
+
+            <para>Copiez l'exemple de code ci-dessous dans le fichier
+            <filename>configure-slapd-gssapi.sh</filename>.</para>
+
+<programlisting><![CDATA[i#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly DOMAIN="lab.local"
+readonly REALM="${DOMAIN^^}"
+readonly LDAP_HOST="ldap-srvr.${DOMAIN}"
+readonly KEYTAB_FILE="/etc/ldap/ldap.keytab"
+
+echo "=== 1. Set KRB5_KTNAME in /etc/default/slapd ==="
+
+if ! grep -q "^KRB5_KTNAME" /etc/default/slapd; then
+	# Add the KRB5_KTNAME variable to /etc/default/slapd
+	sudo sed -i "s|^#\?KRB5_KTNAME.*|KRB5_KTNAME=${KEYTAB_FILE}|" /etc/default/slapd
+	echo "export KRB5_KTNAME=${KEYTAB_FILE}" | sudo tee -a /etc/default/slapd >/dev/null
+	echo " KRB5_KTNAME added to /etc/default/slapd."
+else
+	echo " The KRB5_KTNAME variable is already configured."
+fi
+
+echo "=== 2. Install the GSSAPI SASL module and restart slapd ==="
+sudo apt -y install libsasl2-modules-gssapi-mit
+
+# Restart slapd service to apply changes
+sudo systemctl restart slapd
+
+echo "=== 3. Insert the SASL configuration into the directory ==="
+
+# Creation of a temporary LDIF file
+TMP_LDIF=$(mktemp)
+
+cat <<EOF >"${TMP_LDIF}"
+dn: cn=config
+changetype: modify
+replace: olcSaslHost
+olcSaslHost: ${LDAP_HOST}
+-
+replace: olcSaslRealm
+olcSaslRealm: ${REALM}
+EOF
+
+# Apply LDIF file via the local connection (root)
+sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f "${TMP_LDIF}"
+
+# Cleanup
+rm -f "${TMP_LDIF}"
+
+echo ""
+echo "================================================================="
+echo " Success: The slapd daemon is configured to use GSSAPI."
+echo "================================================================="
+]]>></programlisting>
+
+            <para>Lancez le script.</para>
+
+<screen>bash configure-slapd-gssapi.sh</screen>
+
+<screen>=== 1. Set KRB5_KTNAME in /etc/default/slapd ===
+ The KRB5_KTNAME variable is already configured.
+=== 2. Install the GSSAPI SASL module and restart slapd ===
+libsasl2-modules-gssapi-mit est déjà la version la plus récente (2.1.28+dfsg1-11).
+Sommaire :
+  Mise à niveau de : 0. Installation de : 0, Supprimé : 0. Non mis à jour : 0
+=== 3. Insert the SASL configuration into the directory ===
+SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+modifying entry "cn=config"
+
+
+=================================================================
+ Success: The slapd daemon is configured to use GSSAPI.
+=================================================================</screen>
+        </answer>
+        </qandaentry>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Comment établir la correspondance entre les
+            principaux et le <acronym>DIT</acronym>&nbsp;?</phrase></para>
+
+            <para>Recherchez la syntaxe du fichier <acronym>LDIF</acronym> qui
+            insère les expressions rationnelles de la clé
+            <code>olcAuthzRegexp</code> dans la base de configuration
+            <code>cn=config</code>.</para>
+        </question>
+        <answer>
+            <para>Copiez l'exemple de code ci-dessous dans le fichier
+            <filename>configure-identity-mapping.sh</filename>.</para>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly DOMAIN="lab.local"
+readonly REALM="${DOMAIN^^}"
+readonly BASE_DN="dc=lab,dc=local"
+readonly USERS_OU="ou=people,${BASE_DN}"
+readonly HOSTS_OU="ou=hosts,${BASE_DN}"
+
+echo "=== 1. Set the translation rules (Authz-Regexp) ==="
+
+TMP_LDIF=$(mktemp)
+
+# Regex explanation:
+# - replace : Ensures idempotency (overwrites existing rules safely instead of failing)
+# - cn=[^,]+ : Makes the realm matching case-insensitive (lab.local or LAB.LOCAL)
+# - Rule {0} (Humans) : uid=([^/,]+) captures the username, explicitly excluding '/' to avoid overlap.
+# - Rule {1} (Machines): uid=host/([^,]+) specifically captures machine identities.
+cat <<EOF >"${TMP_LDIF}"
+dn: cn=config
+changetype: modify
+replace: olcAuthzRegexp
+olcAuthzRegexp: {0}uid=([^/,]+),cn=[^,]+,cn=gssapi,cn=auth uid=\$1,${USERS_OU}
+olcAuthzRegexp: {1}uid=host/([^,]+),cn=[^,]+,cn=gssapi,cn=auth cn=\$1,${HOSTS_OU}
+EOF
+
+echo "=== 2. Insert the rules into cn=config ==="
+sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f "${TMP_LDIF}"
+
+rm -f "${TMP_LDIF}"
+
+echo ""
+echo "================================================================="
+echo " Success: The identity mapping (Identity Mapping) is configured."
+echo " Kerberos 'user@${REALM}'          -> LDAP 'uid=user,${USERS_OU}'"
+echo " Kerberos 'host/machine@${REALM}'  -> LDAP 'cn=machine,${HOSTS_OU}'"
+echo "================================================================="
+]]></programlisting>
+
+            <para>Lancez le script.</para>
+
+<screen>bash configure-identity-mapping.sh</screen>
+
+<screen>=== 1. Set the translation rules (Authz-Regexp) ===
+=== 2. Insert the rules into cn=config ===
+SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+modifying entry "cn=config"
+
+
+=================================================================
+ Success: The identity mapping (Identity Mapping) is configured.
+ Kerberos 'user@LAB.LOCAL'          -> LDAP 'uid=user,ou=people,dc=lab,dc=local'
+ Kerberos 'host/machine@LAB.LOCAL'  -> LDAP 'cn=machine,ou=hosts,dc=lab,dc=local'
+================================================================</screen>
+        </answer>
+        </qandaentry>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Comment tester la correspondance entre principal et
+            <acronym>DIT</acronym>&nbsp;?</phrase></para>
+
+            <para>Recherchez comment utiliser les commandes
+            <command>kinit</command> et <command>klist</command> avec une
+            identité d'utilisateur de l'annuaire. Cherchez ensuite comment
+            appeler la commande <command>ldapwhoami</command> pour valider
+            cette identité.</para>
+        </question>
+        <answer>
+            <para>Voici un exemple de séquence de test en trois
+            étapes&nbsp;:</para>
+            <orderedlist>
+                <listitem>
+                    <para>Demandez un ticket Kerberos pour
+                    <systemitem>Leia</systemitem>.</para>
+
+<screen>kinit leia</screen>
+
+<screen>Password for leia@LAB.LOCAL:</screen>
+
+                    <para>Utilisez le mot de passe généré lors de la création
+                    des comptes utilisateurs de l'annuaire.</para>
+                </listitem>
+                <listitem>
+                    <para>Vérifiez que le ticket est dans le cache.</para>
+
+<screen>klist</screen>
+
+<screen>Ticket cache: FILE:/tmp/krb5cc_1000
+Default principal: leia@LAB.LOCAL
+
+Valid starting       Expires              Service principal
+18/05/2026 11:03:34  18/05/2026 21:03:34  krbtgt/LAB.LOCAL@LAB.LOCAL
+    renew until 19/05/2026 11:03:25</screen>
+                </listitem>
+                <listitem>
+                    <para>Interrogez <acronym>LDAP</acronym> avec le mécanisme
+                    <acronym>GSSAPI</acronym>.</para>
+
+<screen>ldapwhoami -Y GSSAPI</screen>
+
+<screen>SASL/GSSAPI authentication started
+SASL username: leia@LAB.LOCAL
+SASL SSF: 256
+SASL data security layer installed.
+dn:uid=leia,ou=people,dc=lab,dc=local</screen>
+                </listitem>
+            </orderedlist>
+
+            <para>Le résultat de la commande <command>ldapwhoami</command>
+            prouve non seulement que l'authentification Kerberos est
+            acceptée via un canal sécurisé (<code>SASL SSF:
+            256</code>), mais aussi que le moteur <acronym>LDAP</acronym>
+            a parfaitement traduit le principal Kerberos entrant
+            (<code>leia@LAB.LOCAL</code>) vers son identité annuaire exacte
+            (<code>dn:uid=leia,ou=people,dc=lab,dc=local</code>) grâce aux
+            règles de correspondance.</para>
+        </answer>
+        </qandaentry>
+    </qandaset>
+    </sect2>
 </sect1>
 
 <sect1 xml:id='sysadm-net.ldap.web'>
