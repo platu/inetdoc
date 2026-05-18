@@ -1843,6 +1843,7 @@ SASL SSF: 0
 </sect2>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='sysadm-net.ldap.srvr.build'>
     <title>Composer un nouvel annuaire LDAP</title>
 
@@ -2771,6 +2772,7 @@ dn: cn=users,ou=groups,dc=lab,dc=local</screen>
 </sect2>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='sysadm-net.ldap.clnt'>
 	<title>Configurer l'accès client au serveur LDAP</title>
 
@@ -3576,13 +3578,60 @@ anakin@ldap-clnt:/$</screen>
     que l'environnement de travail de l'utilisateur soit pleinement
     opérationnel. Cette partie système de fichiers réseau sera traitée dans le
     prochain énoncé de travaux pratiques avec l'intégration de l'automontage
-    NFSv4 dans l'annuaire <acronym>LDAP</acronym>.</para>
+    <acronym>NFSv4</acronym> dans l'annuaire <acronym>LDAP</acronym>.</para>
+
+    <para>On pourrait se satisfaire de l'état actuel de la configuration et en
+    rester là. Cependant, un aspect essentiel a été négligé&nbsp;: <emphasis>la
+    sécurisation des échanges entre le client et le serveur
+    LDAP</emphasis>.</para>
+
+    <para>Pour vous convaincre de la gravité de cette négligence, procédez à
+    une capture de trafic côté serveur pendant qu'une requête est lancée depuis
+    le client.</para>
+
+    <para>Si nécessaire, installez le paquet <systemitem>tshark</systemitem>,
+    puis lancez une capture de trafic réseau sur le serveur
+    <acronym>LDAP</acronym>.</para>
+
+<screen>tshark -i enp0s1 -Y "ldap" -V >ldapi-simple-bind.trace</screen>
+
+    <para>Maintenant, côté client, lancez une requête de consultation de
+    l'annuaire.</para>
+
+<screen>ldapsearch -LLL -x -H ldap://ldap-srvr \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    -b "dc=lab,dc=local" \
+    uid=padme</screen>
+
+    <para>Arrêtez la capture avec <code>Ctrl+c</code>, ouvrez le fichier
+    <filename>ldapi-simple-bind.trace</filename> et cherchez le mot clé
+    <code>authentication</code>.</para>
+
+<screen>grep -A8 -i bindrequest ldap-simple-bind.trace</screen>
+
+<screen>    LDAPMessage bindRequest(1) "cn=admin,dc=lab,dc=local" simple
+        messageID: 1
+        protocolOp: bindRequest (0)
+            bindRequest
+                version: 3
+                name: cn=admin,dc=lab,dc=local
+                authentication: simple (0)
+                    simple: ADMIN_PASSWORD_IN_CLEAR_TEXT</screen>
+
+    <para>C'est la catastrophe&nbsp;! Il suffit en effet d'une simple capture
+    de trafic pour obtenir le mot de passe de l'administrateur de l'annuaire
+    <acronym>LDAP</acronym>. Il n'est donc pas question de s'arrêter là.</para>
+
+    <para>L'objectif des parties suivantes de l'énoncé est donc tout
+    trouvé&nbsp;: sécuriser les échanges entre le client et le serveur
+    <acronym>LDAP</acronym>.</para>
 </sect2>
 </sect1>
 
-<sect1 xml:id='sysadm-net.ldap.krb5'>
-    <title>Sécuriser les échanges entre clients et serveur LDAP avec
-    Kerberos</title>
+<?custom-pagebreak?>
+<sect1 xml:id='sysadm-net.ldap.krb5-tls'>
+    <title>Sécuriser les échanges entre clients et serveur LDAP</title>
 
     <para>L'introduction de <emphasis>Kerberos</emphasis> modifie le dialogue
     entre les clients et l'annuaire en profondeur. On passe du
@@ -3630,7 +3679,7 @@ anakin@ldap-clnt:/$</screen>
     </tgroup>
     </table>
 
-    <sect2 xml:id='sysadm-net.ldap.krb5.hosts'>
+    <sect2 xml:id='sysadm-net.ldap.krb5-tls.hosts'>
         <title>Assurer la résolution des noms d'hôtes</title>
 
         <para>Pour Kerberos, l'identité d'un service est étroitement liée à son
@@ -3755,7 +3804,7 @@ done</screen>
 </qandaset>
     </sect2>
 
-    <sect2 xml:id='sysadm-net.ldap.krb5.realm'>
+    <sect2 xml:id='sysadm-net.ldap.krb5-tls.realm'>
         <title>Installer et configurer le serveur Kerberos</title>
 
         <para>Contrairement au service <acronym>LDAP</acronym>, pour lequel on
@@ -4281,7 +4330,7 @@ padme@LAB.LOCAL
     </qandaset>
     </sect2>
 
-    <sect2 xml:id='sysadm-net.ldap.krb5.client'>
+    <sect2 xml:id='sysadm-net.ldap.krb5-tls.krb5-client'>
         <title>Installer et configurer le client Kerberos</title>
 
         <para>Dans cette section, vous devez configurer le poste client
@@ -4468,7 +4517,7 @@ Entry for principal host/ldap-clnt.lab.local@LAB.LOCAL with kvno 2, encryption t
     </qandaset>
     </sect2>
 
-    <sect2 xml:id='sysadm-net.ldap.krb5.ldap'>
+    <sect2 xml:id='sysadm-net.ldap.krb5-tls.ldap-clnt'>
         <title>Intégrer Kerberos au service d'annuaire LDAP</title>
 
         <para>Maintenant que le serveur et le client sont configurés pour
@@ -4488,8 +4537,8 @@ Entry for principal host/ldap-clnt.lab.local@LAB.LOCAL with kvno 2, encryption t
                 <acronym>LDAP</acronym>.</para>
             </listitem>
             <listitem>
-                <para>Testez et validez les échanges entre client et
-                serveur.</para>
+                <para>Intérgrez l'utilisation de Kerberos par le service
+                <systemitem>nslcd</systemitem> sur le système client.</para>
             </listitem>
         </orderedlist>
 
@@ -4618,6 +4667,9 @@ modifying entry "cn=config"
             insère les expressions rationnelles de la clé
             <code>olcAuthzRegexp</code> dans la base de configuration
             <code>cn=config</code>.</para>
+
+            <para>Créez un script qui applique les nouvelles règles de
+            correspondance.</para>
         </question>
         <answer>
             <para>Copiez l'exemple de code ci-dessous dans le fichier
@@ -4745,10 +4797,503 @@ dn:uid=leia,ou=people,dc=lab,dc=local</screen>
             règles de correspondance.</para>
         </answer>
         </qandaentry>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Comment intégrer l'utilisation de Kerberos dans
+            l'accès transparent à l'annuaire depuis le système
+            client&nbsp;?</phrase></para>
+
+            <para>Créez le principal associé au compte de service
+            <systemitem>nslcd-proxy</systemitem> déjà créé lors des étapes
+            précédentes.</para>
+
+            <para>Recherchez les paramètres à utiliser pour reconfigurer le
+            service <systemitem>nslcd</systemitem> afin qu'il fasse appel à la
+            gestion de tickets Kerberos à partir de son identité propre.</para>
+
+            <para>Rassemblez les instructions dans un script.</para>
+        </question>
+        <answer>
+            <para>Copiez l'exemple de code ci-dessous dans le fichier
+            <filename>configure-nslcd-proxy.sh</filename>.</para>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+# Enable strict mode
+set -euo pipefail
+
+readonly REALM="LAB.LOCAL"
+readonly PROXY_PRINC="nslcd-proxy@${REALM}"
+readonly KEYTAB_DIR="/etc/nslcd"
+readonly KEYTAB_FILE="${KEYTAB_DIR}/nslcd.keytab"
+readonly NSLCD_CONFIG="/etc/nslcd.conf"
+readonly NLSCD_DEFAULTS="/etc/default/nslcd"
+
+echo "=== 1. Installing dependencies (kstart and SASL/GSSAPI) ==="
+sudo apt update
+sudo DEBIAN_FRONTEND=noninteractive apt install -y kstart libsasl2-modules-gssapi-mit
+
+echo "=== 2. Creating service account and extracting key ==="
+# Retrieve the Kerberos admin secret
+KADMIN_PASS=$(head -n 1 ~/.kadmin_pass)
+
+# Create the key directory
+sudo mkdir -p "${KEYTAB_DIR}"
+
+# Create principal (|| true prevents script failure if principal already exists)
+sudo kadmin -p admin/admin -w "${KADMIN_PASS}" -q "addprinc -randkey ${PROXY_PRINC}" >/dev/null 2>&1 || true
+
+# Extract keytab directly to its final location
+sudo kadmin -p admin/admin -w "${KADMIN_PASS}" -q "ktadd -k ${KEYTAB_FILE} ${PROXY_PRINC}"
+
+echo "=== 3. Cryptographic isolation (least privilege) ==="
+# Directory and file are owned exclusively by nslcd
+sudo chown -R nslcd:nslcd "${KEYTAB_DIR}"
+# 700: Only nslcd can access the directory
+sudo chmod 700 "${KEYTAB_DIR}"
+# 400: Only nslcd can read the key
+sudo chmod 400 "${KEYTAB_FILE}"
+
+echo "=== 4. Configuring k5start / nslcd integration ==="
+# Inject configuration so Debian manages the ticket automatically
+if ! grep -q "^K5START_START=" "${NLSCD_DEFAULTS}"; then
+	sudo tee -a "${NLSCD_DEFAULTS}" >/dev/null <<EOF
+
+# --- Kerberos automatic configuration ---
+K5START_START="yes"
+K5START_KEYTAB="${KEYTAB_FILE}"
+K5START_PRINCIPAL="${PROXY_PRINC}"
+EOF
+	echo " k5start configuration added to ${NLSCD_DEFAULTS}."
+else
+	echo " k5start configuration already present."
+fi
+
+echo "=== 5. Reconfiguring authentication in nslcd.conf ==="
+# Remove old clear-text authentication directives
+sudo sed -i '/^binddn/d' "${NSLCD_CONFIG}"
+sudo sed -i '/^bindpw/d' "${NSLCD_CONFIG}"
+
+# Enable GSSAPI mechanism
+if ! sudo grep -q "^sasl_mech GSSAPI" "${NSLCD_CONFIG}"; then
+	echo "sasl_mech GSSAPI" | sudo tee -a "${NSLCD_CONFIG}" >/dev/null
+fi
+
+# Set the ticket cache path generated by k5start
+if ! sudo grep -q "^krb5_ccname" "${NSLCD_CONFIG}"; then
+	echo "krb5_ccname /tmp/krb5cc_nslcd" | sudo tee -a "${NSLCD_CONFIG}" >/dev/null
+fi
+
+echo "=== 6. Applying configuration ==="
+sudo systemctl restart nslcd
+]]></programlisting>
+
+            <para>Lancez le script.</para>
+
+<screen>bash configure-nslcd-proxy.sh</screen>
+
+<screen>=== 1. Installing dependencies (kstart and SASL/GSSAPI) ===
+Réception de : 1 file:/etc/apt/mirrors/debian.list Mirrorlist [30 B]
+Réception de : 2 file:/etc/apt/mirrors/debian-security.list Mirrorlist [39 B]
+Atteint : 3 https://deb.debian.org/debian testing InRelease
+Atteint : 4 https://deb.debian.org/debian testing-updates InRelease
+Atteint : 5 https://deb.debian.org/debian testing-backports InRelease
+Atteint : 6 https://deb.debian.org/debian-security testing-security InRelease
+Tous les paquets sont à jour.
+kstart est déjà la version la plus récente (4.3-1).
+libsasl2-modules-gssapi-mit est déjà la version la plus récente (2.1.28+dfsg1-11).
+Sommaire :
+  Mise à niveau de : 0. Installation de : 0, Supprimé : 0. Non mis à jour : 0
+=== 2. Creating service account and extracting key ===
+Authenticating as principal admin/admin with password.
+Entry for principal nslcd-proxy@LAB.LOCAL with kvno 5, encryption type aes256-cts-hmac-sha1-96 added to keytab WRFILE:/etc/nslcd/nslcd.keytab.
+Entry for principal nslcd-proxy@LAB.LOCAL with kvno 5, encryption type aes128-cts-hmac-sha1-96 added to keytab WRFILE:/etc/nslcd/nslcd.keytab.
+=== 3. Cryptographic isolation (least privilege) ===
+=== 4. Configuring k5start / nslcd integration ===
+ k5start configuration already present.
+=== 5. Reconfiguring authentication in nslcd.conf ===
+=== 6. Applying configuration ===</screen>
+
+            <para>Vérifiez l'état du service <systemitem>nslcd</systemitem>
+            avant de passer à la suite.</para>
+
+<screen>systemctl status nslcd.service</screen>
+        </answer>
+        </qandaentry>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Comment tester et valider la tranparence des accès
+            sécurisés à l'annuaire
+            <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+
+            <para>Reprenez les mêmes tests que ceux effectués avant la mise en
+            place de Kerberos.</para>
+        </question>
+        <answer>
+            <para>Le plus simple consiste à utiliser la bascule d'identité
+            locale avec la commande <command>su -</command>.</para>
+
+            <para>Copiez le mot de passe du compte
+            <systemitem>leia</systemitem> par exemple.</para>
+
+<screen>cat .ldap_leia_pass</screen>
+
+            <para>Prenez l'identité de ce compte.</para>
+
+<screen>su - leia</screen>
+
+<screen>Password:
+su: warning: cannot change directory to /ahome/leia: Aucun fichier ou dossier de ce nom
+leia@ldap-clnt:/home/etu$</screen>
+
+            <para>Vérifiez dans le journal du service que la requête sur ce
+            compte a bien été émise.</para>
+
+<screen>journalctl -n 8 -u nslcd.service</screen>
+
+<screen><![CDATA[ldap-clnt systemd[1]: Starting nslcd.service - LDAP connection daemon...
+ldap-clnt nslcd[8083]: Starting Keep alive Kerberos ticket: k5start.
+ldap-clnt nslcd[8096]: version 0.9.13 starting
+ldap-clnt nslcd[8096]: accepting connections
+ldap-clnt nslcd[8083]: Starting LDAP connection daemon: nslcd.
+ldap-clnt systemd[1]: Started nslcd.service - LDAP connection daemon.
+ldap-clnt nslcd[8096]: [b0dc51] <passwd="luke"> (re)loading /etc/nsswitch.conf
+ldap-clnt nslcd[8096]: [7b8ddc] <passwd="leia"> (re)loading /etc/nsswitch.conf]]></screen>
+        </answer>
+        </qandaentry>
     </qandaset>
+
+    <para>L'intégration de l'accès à l'annuaire est à nouveau fonctionnelle.
+    Arrêtons nous un instant pour relancer une capture de trafic réseau et
+    observer le résultat.</para>
+
+    <para>Lancez une capture de trafic côté serveur.</para>
+
+<screen>tshark -i enp0s1 -Y "ldap" -V >ldap-krb5.trace</screen>
+
+    <para>Procédez à nouveau à un changement d'identité côté client pour
+    alimenter la capture.</para>
+
+<screen>su - leia</screen>
+
+    <para>Arrêtez la capture avec <code>Ctrl+c</code>, ouvrez le fichier
+    <filename>ldap-krb5.trace</filename> et recherchez les informations sur
+    l'authentification.</para>
+
+<screen>grep -A8 -i bindrequest ldap-krb5.trace</screen>
+
+<screen><![CDATA[    LDAPMessage bindRequest(1) "<ROOT>" sasl
+        messageID: 1
+        protocolOp: bindRequest (0)
+            bindRequest
+                version: 3
+                name: <MISSING>
+                authentication: sasl (3)
+                    sasl
+                        mechanism: GSSAPI
+                        credentials […]: 6082...
+                        GSS-API Generic Security Service Application Program Interface
+                    OID: 1.2.840.113554.1.2.2 (KRB5 - Kerberos 5)]]></screen>
+
+    <para>C'est déjà nettement mieux&nbsp;! Avec Kerberos, il n'est plus
+    question d'échanger des identités et des mots de passe, mais des tickets.
+    De plus, le contenu des segments TCP (<wordasword>payload</wordasword>) est
+    chiffré.</para>
+
+    <para>Le vol d'identité n'est donc plus possible. Toutefois, la
+    sécurisation des transactions entre le client et le serveur n'est pas
+    totalement satisfaisante, car la capture montre que le service
+    <acronym>LDAP</acronym> est utilisé.</para>
+
+    <para>Vous devez donc mettre en place un mécanisme de sécurisation
+    supplémentaire&nbsp;: <acronym>TLS</acronym>.</para>
+    </sect2>
+
+    <sect2 xml:id='sysadm-net.ldap.krb5-tls.tls'>
+        <title>Sécuriser les échanges avec TLS</title>
+
+    <para>Partant d’un service <acronym>LDAP</acronym> fonctionnel, on sécurise
+    maintenant les échanges entre le serveur et ses clients à l’aide du
+    protocole <wordasword>Transport Layer Security</wordasword>
+    (<acronym>TLS</acronym>). Cette section met en place une autorité de
+    certification locale, génère les certificats <acronym>X.509</acronym> du
+    serveur et configure la couche dynamique <code>cn=config</code> du démon
+    <systemitem>slapd</systemitem>.</para>
+
+    <para>En situation réelle de production, on ferait appel à une autorité de
+    certification tierce publique comme <citetitle>Let’s Encrypt</citetitle>,
+    ou à une <acronym>PKI</acronym> interne d’entreprise. Dans le contexte
+    d’une maquette d’enseignement, une <acronym>CA</acronym> auto-signée est
+    suffisante.</para>
+
+    <para>Avant de passer à la gestion de certificats et de clés, il faut
+    préciser comment le service <acronym>LDAP</acronym> utilise
+    <acronym>TLS</acronym>.</para>
+
+    <qandaset>
+        <qandaentry>
+        <question>
+            <para><phrase>Quelle est la différence entre <code>ldaps://</code>
+            et <code>StartTLS</code> pour sécuriser l'accès à un annuaire
+            LDAP&nbsp;?</phrase></para>
+
+            <para>Recherchez les avantages et inconvénients des deux
+            approches. Vous allez découvrir qu'il n'est pas facile de trancher
+            entre les deux choix.</para>
+        </question>
+        <answer>
+            <para>Il existe une contradiction apparente entre les standards
+            <acronym>RFC</acronym> qui définissent la théorie et la réalité
+            opérationnelle de la production.</para>
+
+            <itemizedlist>
+            <listitem>
+                <formalpara>
+                    <title>ldaps:// (port 636/tcp)</title>
+                    <para>Établit immédiatement le tunnel
+                    <acronym>TLS</acronym> avant tout dialogue
+                    <acronym>LDAP</acronym> (comme <acronym>HTTPS</acronym>).
+                    C'est aujourd'hui la norme recommandée en production car
+                    elle facilite le routage via des répartiteurs de charge
+                    (<wordasword>Load Balancers</wordasword>) et empêche les
+                    attaques par repli (<wordasword>downgrade
+                    attacks</wordasword>).</para>
+                </formalpara>
+            </listitem>
+            <listitem>
+                <formalpara>
+                    <title>StartTLS (port 389/tcp)</title>
+                    <para>Ouvre la connexion en clair, puis bascule en
+                    <acronym>TLS</acronym> après une requête spécifique. La
+                    documentation officielle
+                    d'<application>OpenLDAP</application> présente
+                    <acronym>StartTLS</acronym> comme &laquo;&nbsp;la
+                    norme&nbsp;&raquo; en partant du principe que le seul le
+                    port numéro 389 fait référence. Cependant, les pare-feux et
+                    les répartiteurs de charge doivent avoir une connaissance
+                    fine du protocole de couche application pour traiter
+                    correctement les flux ; ce qui va à l'encontre de la
+                    simplicité offerte un seul numéro de port.</para>
+                </formalpara>
+            </listitem>
+            </itemizedlist>
+
+            <para>Dans le cadre de ces travaux pratiques, il est essentiel de
+            maintenir les deux numéros de port ouverts afin d'assurer des
+            possibilités d'analyse réseau ultérieures.</para>
+        </answer>
+        </qandaentry>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Comment répartir les certificats et les clés privées
+            associées sur le serveur et le client LDAP&nbsp;?</phrase></para>
+
+            <para>Proposez un tableau respectant la règle selon laquelle chaque
+            extrémité de la session <acronym>TLS</acronym> détient sa propre
+            clé privée, tandis que les certificats publics (et celui de
+            l'autorité) sont partagés.</para>
+        </question>
+        <answer>
+        <table xml:id="table-repartition-certs-ldap" frame="all">
+            <title>Répartition des certificats et des clés privées pour le service LDAP (TLS)</title>
+        <tgroup cols="3">
+            <colspec colname="c1" colnum="1" colwidth="1.5*"/>
+            <colspec colname="c2" colnum="2" colwidth="1.2*"/>
+            <colspec colname="c3" colnum="3" colwidth="1.2*"/>
+            <thead>
+                <row>
+		        <?dbfo bgcolor="#333"&nbsp;?>
+                <?dbfo color="#fff"&nbsp;?>
+                <entry align="center">Répertoire</entry>
+                <entry align="center">Client (<filename>ldap-clnt</filename>)</entry>
+                <entry align="center">Serveur (<filename>ldap-srvr</filename>)</entry>
+                </row>
+            </thead>
+            <tbody>
+                <row>
+                <entry><filename>/etc/ssl/certs/</filename></entry>
+                <entry>
+                    <para><filename>ldap-ca.crt</filename></para>
+                    <para><filename>ldap-clnt.crt</filename></para>
+                    <para><filename>ldap-srvr.crt</filename></para>
+                </entry>
+                <entry>
+                    <para><filename>ldap-ca.crt</filename></para>
+                    <para><filename>ldap-clnt.crt</filename></para>
+                    <para><filename>ldap-srvr.crt</filename></para>
+                </entry>
+                </row>
+                <row>
+                <entry><filename>/etc/ssl/private/</filename></entry>
+                <entry>
+                    <para><filename>ldap-clnt.key</filename></para>
+                </entry>
+                <entry>
+                    <para><filename>ldap-srvr.key</filename></para>
+                </entry>
+                </row>
+            </tbody>
+        </tgroup>
+        </table>
+        </answer>
+        </qandaentry>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Comment générer les certificats et la clé privée du
+            serveur et du client <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+
+            <para>Recherchez les propriétés de l'option <option>-x509</option>
+            de la commande <command>openssl</command> qui permet de générer
+            directement un certificat de type <acronym>CA</acronym>. Ce
+            certificat signera ensuite les demandes (<acronym>CSR</acronym>) du
+            serveur et du client.</para>
+
+            <note>
+                <para>Dans le cadre de <acronym>TLS</acronym> moderne,
+                l'intégration de l'extension <acronym>SAN</acronym>
+                (<wordasword>Subject Alternative Name</wordasword>) dans les
+                certificats est nécessaire. Cette recommandation fait suite à
+                une observation du comportement des clients
+                <acronym>LDAP</acronym> récents, qui ont tendance à rejeter les
+                certificats ne contenant que le <acronym>CN</acronym>
+                (<wordasword>Common Name</wordasword>).</para>
+            </note>
+
+            <para>Codez un script qui rassemble tous les traitements et stocke
+            les clés et les certificats dans un répertoire dédié. Si le code du
+            script qui suit est enregistré sur le serveur dans le fichier
+            <filename>generate-ldap-certs.sh</filename>, on lance le traitement
+            en tant qu'utilisateur normal.</para>
+        </question>
+        <answer>
+            <para>Copiez l'exemple de code ci-dessous dans le fichier
+            <filename>generate-ldap-certs.sh</filename>.</para>
+
+<programlisting><![CDATA[#!/bin/bash
+set -e
+
+LDAP_CA="ldap-ca"
+LDAP_SRVR="ldap-srvr"
+LDAP_CLNT="ldap-clnt"
+DOMAIN="lab.local"
+CERT_DIR="${HOME}/certs"
+
+# 1. Create the certificates directory if needed
+mkdir -p "${CERT_DIR}"
+chmod 700 "${CERT_DIR}"
+cd "${CERT_DIR}"
+
+# 2. Create the OpenSSL configuration files for the extensions
+cat >ca_extensions.conf <<EOF
+[v3_ca]
+basicConstraints = critical,CA:TRUE
+keyUsage = critical,keyCertSign,cRLSign
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+EOF
+
+cat >server_extensions.conf <<EOF
+[v3_server]
+basicConstraints = CA:FALSE
+extendedKeyUsage = serverAuth
+keyUsage = critical,digitalSignature
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+subjectAltName = DNS:${LDAP_SRVR}.${DOMAIN},DNS:${LDAP_SRVR}
+EOF
+
+cat >client_extensions.conf <<EOF
+[v3_client]
+basicConstraints = CA:FALSE
+extendedKeyUsage = clientAuth
+keyUsage = critical,digitalSignature
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+EOF
+
+cat >ca_req.conf <<EOF
+[v3_ca]
+basicConstraints = critical,CA:TRUE
+keyUsage = critical,keyCertSign,cRLSign
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+[req]
+distinguished_name=req
+EOF
+
+# Note: 'keyEncipherment' was removed from keyUsage for the client and server
+# because Ed25519 is a pure signature algorithm, not a key encipherment one (unlike RSA).
+
+# 3. Generate the CA private key (Ed25519)
+openssl genpkey -algorithm ed25519 -out "${LDAP_CA}".key
+
+# 4. Generate the self-signed CA certificate with X.509 extensions
+openssl req -x509 -new -nodes -key "${LDAP_CA}".key \
+	-days 3650 -subj "/CN=LDAP-CA" \
+	-out "${LDAP_CA}".crt \
+	-extensions v3_ca \
+	-config ca_req.conf
+
+# 5. Generate the server private key and CSR (Ed25519)
+openssl genpkey -algorithm ed25519 -out "${LDAP_SRVR}".key
+openssl req -new -key "${LDAP_SRVR}".key -out "${LDAP_SRVR}".csr -subj "/CN=${LDAP_SRVR}.${DOMAIN}"
+
+# 6. Sign the server certificate with the CA using TLS server extensions
+openssl x509 -req -in "${LDAP_SRVR}".csr -CA "${LDAP_CA}".crt -CAkey "${LDAP_CA}".key -CAcreateserial \
+	-out "${LDAP_SRVR}".crt -days 730 \
+	-extfile server_extensions.conf -extensions v3_server
+
+# 7. Generate the client private key and CSR (Ed25519)
+openssl genpkey -algorithm ed25519 -out "${LDAP_CLNT}".key
+openssl req -new -key "${LDAP_CLNT}".key -out "${LDAP_CLNT}".csr -subj "/CN=${LDAP_CLNT}.${DOMAIN}"
+
+# 8. Sign the client certificate with the CA using TLS client extensions
+openssl x509 -req -in "${LDAP_CLNT}".csr -CA "${LDAP_CA}".crt -CAkey "${LDAP_CA}".key -CAcreateserial \
+	-out "${LDAP_CLNT}".crt -days 730 \
+	-extfile client_extensions.conf -extensions v3_client
+
+echo "Certificates and keys generated in ${CERT_DIR}"
+echo "Transfer ${LDAP_CA}.crt, ${LDAP_CLNT}.key, ${LDAP_CLNT}.crt, and ${LDAP_SRVR}.crt to the client."
+
+# 9. Remove temporary configuration files
+rm -f -- ./*_extensions.conf ./*.csr ./ca_req.conf
+
+exit 0
+]]></programlisting>
+
+            <para>Lancez le script et affichez la liste des fichiers du dossier
+            <filename class='directory'>~/certs/</filename>.</para>
+
+<screen>bash generate-ldap-certs.sh</screen>
+
+<screen>Certificate request self-signature ok
+subject=CN=ldap-srvr.lab.local
+Certificate request self-signature ok
+subject=CN=ldap-clnt.lab.local
+Certificates and keys generated in /home/etu/certs
+Transfer ldap-ca.crt, ldap-clnt.key, ldap-clnt.crt, and ldap-srvr.crt to the client.</screen>
+
+<screen>ls -1 certs/</screen>
+
+<screen>ldap-ca.crt
+ldap-ca.key
+ldap-ca.srl
+ldap-clnt.crt
+ldap-clnt.key
+ldap-srvr.crt
+ldap-srvr.key</screen>
+        </answer>
+        </qandaentry>
+    </qandaset>
+
     </sect2>
 </sect1>
 
+<?custom-pagebreak?>
 <sect1 xml:id='sysadm-net.ldap.web'>
 	<title>accès à l'annuaire LDAP depuis un service web</title>
 
@@ -5046,71 +5591,7 @@ EOF</screen>
 </qandaset>
 </sect1>
 
-<sect1 xml:id='sysadm-net.ldap.tls'>
-	<title>Sécurisation des échanges avec TLS</title>
-
-	<para>Partant d'un service <acronym>LDAP</acronym> fonctionnel, nous allons
-	maintenant sécuriser les échanges entre le serveur et ses clients en
-	utilisant la sécurité de couche transport ou <wordasword>Transport Layer
-	Security</wordasword> (<acronym>TLS</acronym>).</para>
-
-	<para>Dans ce but, nous devons installer et configurer une autorité de
-	certification locale dans ce contexte de travaux pratiques.</para>
-
-	<para>En "situation réelle", on ferait appel à une autorité de certification
-	tierce publique comme &url.letsencrypt;.</para>
-
-<sect2 xml:id='sysadm-net.ldap.tls.easyrsa'>
-	<title>Génération des certificats avec easyrsa</title>
-
-	<para>Cette étape débute par l'installation du paquet
-	<systemitem>easy-rsa</systemitem>, l'initialisation d'une nouvelle autorité
-	(<acronym>CA</acronym>) et la génération d'un paire de clés.</para>
-
-	<para>Une fois le paquet <systemitem>easy-rsa</systemitem> installé, toutes
-	les opérations de mise en place de l'autorité de certification se font à
-	partir d'une session administrateur. C'est la raison de la présence de la
-	commande <command>sudo -i</command> ci-dessous.</para>
-
-	<orderedlist>
-		<listitem>
-		<para>Installation du paquet.</para>
-
-<screen>sudo apt install easy-rsa</screen>
-		</listitem>
-		<listitem>
-		<para>Création de l'arborescence de l'autorité de certification.</para>
-
-<screen>sudo -i
-make-cadir ldap-pki
-cd ldap-pki</screen>
-
-<screen><prompt>root@ldap-server:~/ldap-pki#</prompt> ls -lAh
-total 20K
-lrwxrwxrwx 1 root root   27  6 sept. 18:54 easyrsa -> /usr/share/easy-rsa/easyrsa
--rw-r--r-- 1 root root 5,1K  6 sept. 18:54 openssl-easyrsa.cnf
--rw-r--r-- 1 root root 8,9K  6 sept. 18:54 vars
-lrwxrwxrwx 1 root root   30  6 sept. 18:54 x509-types -> /usr/share/easy-rsa/x509-types</screen>
-		</listitem>
-		<listitem>
-		<para>Initialisation du gestionnaire de clés.</para>
-
-<screen>./easyrsa init-pki</screen>
-		</listitem>
-		<listitem>
-		<para>Construction de l'autorité de certification.</para>
-
-<screen>./easyrsa build-ca nopass</screen>
-		</listitem>
-		<listitem>
-		<para>Génération des certificats</para>
-
-<screen>./easyrsa build-server-full ldap.lab.stri nopass</screen>
-		</listitem>
-	</orderedlist>
-</sect2>
-</sect1>
-
+<?custom-pagebreak?>
 <sect1 xml:id='sysadm-net.ldap.refdocs'>
 	<title>documents de référence</title>
 
