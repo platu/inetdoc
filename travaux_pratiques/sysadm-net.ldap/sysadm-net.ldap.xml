@@ -760,10 +760,28 @@
 <sect1 xml:id='sysadm-net.ldap.srvr'>
 	<title>Installer et configurer le serveur LDAP</title>
 
-    <para>Dans cette partie, vous allez installer les paquets
-    <application>OpenLDAP</application>, vérifier l’état du service puis
-    préparer le terrain pour une configuration propre du serveur
-    <acronym>LDAP</acronym>.</para>
+    <para>Dans cette partie, vous allez installer les paquets du service
+    <application>OpenLDAP</application>, vérifier son état, puis
+    préparer une configuration reproductible.</para>
+
+<mediaobject role="center">
+	<imageobject role='fo'>
+    <imagedata fileref='images/LDAP_srvr_Install_red.png' align='center' format='PNG'
+    contentwidth='16cm' width='16.5cm'/>
+	</imageobject>
+	<imageobject role='html'>
+    <imagedata fileref='images/LDAP_srvr_Install_red.png' align='center' format='PNG'
+    contentwidth='720px' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie logique</phrase>
+	</textobject>
+	<caption>
+	<para><link xmlns="http://docbook.org/ns/docbook"
+    xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/LDAP_srvr_Install_full.png'>Serveur
+    LDAP - vue complète</link></para>
+	</caption>
+</mediaobject>
 
 <sect2 xml:id='sysadm-net.ldap.srvr.install'>
 	<title>Installer le service LDAP</title>
@@ -1864,6 +1882,25 @@ SASL SSF: 0
     </listitem>
     </itemizedlist>
 
+<mediaobject role="center">
+	<imageobject role='fo'>
+    <imagedata fileref='images/LDAP_users_ou_red.png' align='center' format='PNG'
+    contentwidth='16cm' width='16.5cm'/>
+	</imageobject>
+	<imageobject role='html'>
+    <imagedata fileref='images/LDAP_users_ou_red.png' align='center' format='PNG'
+    contentwidth='720px' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie logique</phrase>
+	</textobject>
+	<caption>
+	<para><link xmlns="http://docbook.org/ns/docbook"
+    xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/LDAP_users_ou_full.png'>Serveur
+    LDAP - vue complète</link></para>
+	</caption>
+</mediaobject>
+
 <qandaset defaultlabel='number'>
     <qandaentry>
     <question>
@@ -2776,10 +2813,29 @@ dn: cn=users,ou=groups,dc=lab,dc=local</screen>
 <sect1 xml:id='sysadm-net.ldap.clnt'>
 	<title>Configurer l'accès client au serveur LDAP</title>
 
-	<para>Dans cette section, on suppose qu'un annuaire <acronym>LDAP</acronym>
-	existe et qu'il contient des utilisateurs. On se propose de configurer un
-	poste client pour qu'il obtienne de façon transparente les informations sur
-	les comptes utilisateurs desservis par l'annuaire.</para>
+    <para>Ici, on part du principe qu'un annuaire <acronym>LDAP</acronym>
+    existe et qu'il contient des utilisateurs. Vous allez configurer un système
+    client pour qu'il obtienne les informations sur les comptes
+    utilisateurs de l'annuaire de façon tranparente.</para>
+
+<mediaobject role="center">
+	<imageobject role='fo'>
+    <imagedata fileref='images/LDAP_client_access_red.png' align='center' format='PNG'
+    contentwidth='16cm' width='16.5cm'/>
+	</imageobject>
+	<imageobject role='html'>
+    <imagedata fileref='images/LDAP_client_access_red.png' align='center' format='PNG'
+    contentwidth='720px' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie logique</phrase>
+	</textobject>
+	<caption>
+	<para><link xmlns="http://docbook.org/ns/docbook"
+    xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/LDAP_client_access_full.png'>Client
+    LDAP - vue complète</link></para>
+	</caption>
+</mediaobject>
 
 <sect2 xml:id='sysadm-net.ldap.clnt.query'>
 	<title>Interroger l'annuaire LDAP à distance</title>
@@ -5288,6 +5344,77 @@ ldap-srvr.crt
 ldap-srvr.key</screen>
         </answer>
         </qandaentry>
+
+        <qandaentry>
+        <question>
+            <para><phrase>Comment déposer ou transférer les certificats et les
+            clés dans les répertoires définis&nbsp;?</phrase></para>
+
+            <para>Connaissant les répertoires cibles, copiez directement les
+            fichiers sur le serveur. Dans le cas du client, vous devez d'abord
+            les transférer avant de les copier.</para>
+        </question>
+        <answer>
+            <itemizedlist>
+            <listitem>
+                <para>Copiez les fichiers directement du dossier local sur le
+                serveur. Quand le démon slapd démarre, il perd ses privilèges
+                root et devient l'utilisateur système
+                <systemitem>openldap</systemitem>. C'est cet utilisateur qui
+                doit posséder la clé privée.</para>
+
+                <para>Lancez cette série de commandes sur le serveur&nbsp;:</para>
+
+<screen># 1. Copiez les certificats publics dans le magasin standard
+sudo cp ~/certs/ldap-ca.crt /etc/ssl/certs/
+sudo cp ~/certs/ldap-srvr.crt /etc/ssl/certs/
+
+# Ces certificats restent la propriété de root, lisibles par tous
+sudo chown root:root /etc/ssl/certs/ldap-ca.crt /etc/ssl/certs/ldap-srvr.crt
+sudo chmod 644 /etc/ssl/certs/ldap-ca.crt /etc/ssl/certs/ldap-srvr.crt
+
+# 2. Copiez et verrouillez de la clé privée du serveur
+sudo cp ~/certs/ldap-srvr.key /etc/ssl/private/
+
+# Cette clé est la propriété exclusive du propriétaire du service OpenLDAP
+sudo chown openldap:openldap /etc/ssl/private/ldap-srvr.key
+sudo chmod 400 /etc/ssl/private/ldap-srvr.key</screen>
+            </listitem>
+            <listitem>
+                <para>Commencez par transférer le dossier
+                <filename>~/certs</filename> sur le client via
+                <command>scp</command> dans um répertoire temporaire identique.
+                Appliquez ensuite une politique similaire, mais adaptée au
+                démon de résolution <systemitem>nslcd</systemitem>.</para>
+
+                <para>Lancez cette séquence de commandes sur le système
+                cliente&nbsp;:</para>
+
+<screen># 1. Copiez le dossier ~/certs du serveur sur le client
+scp -r ldap-srvr:~/certs ~
+
+# 2. Copiez les certificats publics
+sudo cp ~/certs/ldap-ca.crt /etc/ssl/certs/
+sudo cp ~/certs/ldap-clnt.crt /etc/ssl/certs/
+sudo cp ~/certs/ldap-srvr.crt /etc/ssl/certs/
+
+# Appliquez les droits standards de lecture système pour les certificats
+sudo chown root:root /etc/ssl/certs/ldap-ca.crt /etc/ssl/certs/ldap-clnt.crt /etc/ssl/certs/ldap-srvr.crt
+sudo chmod 644 /etc/ssl/certs/ldap-ca.crt /etc/ssl/certs/ldap-clnt.crt /etc/ssl/certs/ldap-srvr.crt
+
+# 3. Copiez et verrouillez la clé privée du client
+sudo cp ~/certs/ldap-clnt.key /etc/ssl/private/
+
+# Transférez la propriété exclusive au propriétaire du démon nslcd
+sudo chown nslcd:nslcd /etc/ssl/private/ldap-clnt.key
+sudo chmod 400 /etc/ssl/private/ldap-clnt.key
+
+# 4. Nettoyez le répertoire temporaire de l'utilisateur normal
+rm -rf ~/certs</screen>
+            </listitem>
+            </itemizedlist>
+        </answer>
+    </qandaentry>
     </qandaset>
 
     </sect2>
