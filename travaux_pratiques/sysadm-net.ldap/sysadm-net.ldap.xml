@@ -840,7 +840,7 @@ serveur OpenLDAP (slapd)</screen>
 	<systemitem>ldap-utils</systemitem> et
 	<systemitem>slapd</systemitem>.</para>
 
-    <para>Créez le script <filename>01-slapd-install.sh</filename> avec le code
+    <para>Créez le script <filename>slapd-install.sh</filename> avec le code
     ci-dessous&nbsp;:</para>
 
 <programlisting><![CDATA[#!/usr/bin/env bash
@@ -861,7 +861,7 @@ apt install -y --no-install-recommends slapd ldap-utils]]></programlisting>
 
     <para>Lancez le code avec les droits d'administration système.</para>
 
-<screen>sudo bash 01-slapd-install.sh</screen>
+<screen>sudo bash slapd-install.sh</screen>
 	</answer>
 	</qandaentry>
 
@@ -2048,7 +2048,8 @@ SASL SSF: 0
         les connexions, les opérations et les résultats. Voici un exemple  de
         fichier&nbsp;:</para>
 
-<screen><![CDATA[cat << EOF > setolcLogLevel2stats.ldif
+<screen><![CDATA[rm -f setolcLogLevel2stats.ldif
+cat << EOF >setolcLogLevel2stats.ldif
 # Set olcLogLevel to "stats"
 dn: cn=config
 changetype: modify
@@ -2137,15 +2138,19 @@ EOF]]></screen>
     permet de créer l'arbre et les branches de l'annuaire
     <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
-    <para>Recherchez la synyaxe de définition d'une organisation
-    (<code>o:</code>) et des deux unités organisationnelles (<code>ou:</code>)
+    <para>Recherchez la syntaxe de définition d'une organisation
+    (<code>o:</code>) et des unités organisationnelles (<code>ou:</code>)
     demandées.</para>
+
+    <para>Déclarez trois branches&nbsp;: <code>users</code>,
+    <code>groups</code> et <code>hosts</code>.</para>
 	</question>
 	<answer>
 	<para>Voici un exemple de fichier <acronym>LDIF</acronym> contenant les
-	déclarations des deux unités organisationnelles à ajouter.</para>
+	déclarations des trois unités organisationnelles à ajouter.</para>
 
-<screen><![CDATA[cat <<EOF >add_tree.ldif
+<screen><![CDATA[rm -f add_tree.ldif
+cat <<EOF >add_tree.ldif
 # DIT root (Base DN)
 dn: dc=lab,dc=local
 objectClass: top
@@ -2163,6 +2168,11 @@ ou: users
 dn: ou=groups,dc=lab,dc=local
 objectClass: organizationalUnit
 ou: groups
+
+# Hosts branch
+dn: ou=hosts,dc=lab,dc=local
+objectClass: organizationalUnit
+ou: hosts
 EOF]]></screen>
 	</answer>
 	</qandaentry>
@@ -2190,7 +2200,9 @@ EOF]]></screen>
 
 adding new entry "ou=users,dc=lab,dc=local"
 
-adding new entry "ou=groups,dc=lab,dc=local"</screen>
+adding new entry "ou=groups,dc=lab,dc=local"
+
+adding new entry "ou=hosts,dc=lab,dc=local"</screen>
 
     <para>Vérifiez ensuite la présence des branches dans l'annuaire avec la
     commande <command>ldapsearch</command>.</para>
@@ -2213,7 +2225,11 @@ ou: users
 
 dn: ou=groups,dc=lab,dc=local
 objectClass: organizationalUnit
-ou: groups</screen>
+ou: groups
+
+dn: ou=hosts,dc=lab,dc=local
+objectClass: organizationalUnit
+ou: hosts</screen>
 	</answer>
 	</qandaentry>
 
@@ -2232,7 +2248,12 @@ ou: groups</screen>
     suppressions des unités organisationnelles et de l'organisation
     racine.</para>
 
-<screen><![CDATA[cat <<EOF >delete_tree.ldif
+<screen><![CDATA[rm -f delete_tree.ldif
+cat <<EOF >delete_tree.ldif
+# Hosts branch
+dn: ou=hosts,dc=lab,dc=local
+changetype: delete
+
 # Users branch
 dn: ou=users,dc=lab,dc=local
 changetype: delete
@@ -2266,7 +2287,9 @@ changetype: delete]]></screen>
     -y .ldap_admin_pass \
     -f delete_tree.ldif</screen>
 
-<screen>deleting entry "ou=users,dc=lab,dc=local"
+<screen>deleting entry "ou=hosts,dc=lab,dc=local"
+
+deleting entry "ou=users,dc=lab,dc=local"
 
 deleting entry "ou=groups,dc=lab,dc=local"
 
@@ -3011,7 +3034,19 @@ ldappasswd -H ldap://ldap-srvr \
 	-D cn=admin,dc=lab,dc=local \
 	-y ~/.ldap_admin_pass \
 	-S uid="${USERNAME}",ou=users,dc=lab,dc=local \
-    -s "${USER_PASS}"
+	-s "${USER_PASS}"
+
+# Sync the new password into the Kerberos KDC only when Kerberos tooling is available.
+if command -v kadmin >/dev/null 2>&1; then
+	if [[ -f ${HOME}/.kadmin_pass ]]; then
+		KADMIN_PASS=$(head -n 1 "${HOME}/.kadmin_pass")
+		kadmin -p admin/admin -w "${KADMIN_PASS}" -q "cpw -pw ${USER_PASS} ${USERNAME}"
+	else
+		echo "Warning: Kerberos admin password file not found; LDAP password updated only." >&2
+	fi
+else
+	echo "Warning: kadmin not available; LDAP password updated only." >&2
+fi
 
 EOF]]></programlisting>
 
@@ -3362,7 +3397,14 @@ echo "=== 1. Environment preparation ==="
 sudo apt update
 sudo apt install -y --no-install-recommends debconf-utils
 
-echo "=== 2. Centralized configuration (Pre-seeding) ==="
+echo "=== 2. Configure ldap-utils defaults ==="
+sudo install -d /etc/ldap
+sudo tee /etc/ldap/ldap.conf >/dev/null <<'EOF'
+URI ldap://ldap-srvr.lab.local
+BASE dc=lab,dc=local
+EOF
+
+echo "=== 3. Centralized configuration (Pre-seeding) ==="
 PROXY_PASS=$(cat ~/.ldap_nslcd-proxy_pass)
 readonly PROXY_PASS
 
@@ -3383,7 +3425,7 @@ nslcd nslcd/ldap-bindpw password ${PROXY_PASS}
 libnss-ldapd libnss-ldapd/nsswitch multiselect passwd, group, shadow
 EOF
 
-echo "=== 3. Non-interactive package installation ==="
+echo "=== 4. Non-interactive package installation ==="
 sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
 	libnss-ldapd \
 	libpam-ldapd \
@@ -4346,8 +4388,9 @@ for USER in "${USERS[@]}"; do
 
 	echo " 🔑 Creation of the principal : ${PRINCIPAL}"
 
-	# Silent creation of the principal by injecting the password read from the file
-	sudo kadmin.local -q "addprinc -pw ${PASSWORD} ${USER}" >/dev/null 2>&1
+	# Create the principal, or update its password if it already exists
+	sudo kadmin.local -q "addprinc -pw ${PASSWORD} ${USER}" >/dev/null 2>&1 ||
+		sudo kadmin.local -q "cpw -pw ${PASSWORD} ${USER}" >/dev/null 2>&1
 done
 
 echo ""
@@ -4500,7 +4543,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
 [domain_realm]
         .lab.local = LAB.LOCAL
         lab.local = LAB.LOCAL
- EOF]]></screen>
+EOF]]></screen>
         </answer>
         </qandaentry>
 
@@ -5363,23 +5406,47 @@ ldap-srvr.key</screen>
                 <systemitem>openldap</systemitem>. C'est cet utilisateur qui
                 doit posséder la clé privée.</para>
 
-                <para>Lancez cette série de commandes sur le serveur&nbsp;:</para>
+            <para>Lancez le script
+            <filename>copy-install-tls-certs.sh</filename> sur le
+            serveur&nbsp;:</para>
 
-<screen># 1. Copiez les certificats publics dans le magasin standard
-sudo cp ~/certs/ldap-ca.crt /etc/ssl/certs/
-sudo cp ~/certs/ldap-srvr.crt /etc/ssl/certs/
+<programlisting><![CDATA[cat << EOF >copy-install-tls-certs.sh
+#!/usr/bin/env bash
 
-# Ces certificats restent la propriété de root, lisibles par tous
-sudo chown root:root /etc/ssl/certs/ldap-ca.crt /etc/ssl/certs/ldap-srvr.crt
-sudo chmod 644 /etc/ssl/certs/ldap-ca.crt /etc/ssl/certs/ldap-srvr.crt
+set -euo pipefail
 
-# 2. Copiez et verrouillez de la clé privée du serveur
-sudo cp ~/certs/ldap-srvr.key /etc/ssl/private/
+DEST_DIR="/etc/ldap/certs"
+SRC_DIR="${HOME}/certs"
 
-# Cette clé est la propriété exclusive du propriétaire du service OpenLDAP
-sudo chown openldap:openldap /etc/ssl/private/ldap-srvr.key
-sudo chmod 400 /etc/ssl/private/ldap-srvr.key</screen>
+# 1. Create the dedicated directory if it does not exist
+sudo mkdir -p "${DEST_DIR}"
+
+# 2. Copy files from the source (your certificate generation directory)
+# Copy the CA, the server certificate, and the private key
+for cert in ldap-ca.crt ldap-srvr.crt ldap-srvr.key; do
+	sudo cp "${SRC_DIR}/${cert}" "${DEST_DIR}/"
+done
+
+# 3. Grant full ownership to the openldap user
+# This solves the "Permission denied" issue when leaving the root-owned directory
+sudo chown -R openldap:openldap "${DEST_DIR}"
+
+# 4. Apply strict permissions:
+# - 700: Only openldap can access the directory (traverse/list)
+# - 400: Only openldap can read the private key
+# - 444: Read-only for public certificates
+sudo chmod 700 "${DEST_DIR}"
+sudo chmod 400 "${DEST_DIR}/ldap-srvr.key"
+for cert in ldap-ca.crt ldap-srvr.crt; do
+	sudo chmod 444 "${DEST_DIR}/${cert}"
+done
+
+echo "Certificates deployed and secured in ${DEST_DIR}"
+EOF
+
+bash copy-install-tls-certs.sh]]></programlisting>
             </listitem>
+
             <listitem>
                 <para>Commencez par transférer le dossier
                 <filename>~/certs</filename> sur le client via
@@ -5388,33 +5455,223 @@ sudo chmod 400 /etc/ssl/private/ldap-srvr.key</screen>
                 démon de résolution <systemitem>nslcd</systemitem>.</para>
 
                 <para>Lancez cette séquence de commandes sur le système
-                cliente&nbsp;:</para>
+                client&nbsp;:</para>
 
-<screen># 1. Copiez le dossier ~/certs du serveur sur le client
+<screen># 1. Copy the certs folder from the server to the client.
 scp -r ldap-srvr:~/certs ~
 
-# 2. Copiez les certificats publics
+# 2. Copy the public certificates.
 sudo cp ~/certs/ldap-ca.crt /etc/ssl/certs/
 sudo cp ~/certs/ldap-clnt.crt /etc/ssl/certs/
 sudo cp ~/certs/ldap-srvr.crt /etc/ssl/certs/
 
-# Appliquez les droits standards de lecture système pour les certificats
+# 3. Apply standard system read permissions to the certificates.
 sudo chown root:root /etc/ssl/certs/ldap-ca.crt /etc/ssl/certs/ldap-clnt.crt /etc/ssl/certs/ldap-srvr.crt
 sudo chmod 644 /etc/ssl/certs/ldap-ca.crt /etc/ssl/certs/ldap-clnt.crt /etc/ssl/certs/ldap-srvr.crt
 
-# 3. Copiez et verrouillez la clé privée du client
+# 4. Copy and secure the client's private key.
 sudo cp ~/certs/ldap-clnt.key /etc/ssl/private/
 
-# Transférez la propriété exclusive au propriétaire du démon nslcd
+# 5. Transfer full ownership to the owner of the nslcd daemon.
 sudo chown nslcd:nslcd /etc/ssl/private/ldap-clnt.key
 sudo chmod 400 /etc/ssl/private/ldap-clnt.key
 
-# 4. Nettoyez le répertoire temporaire de l'utilisateur normal
+# 6. Clean up the standard user's temporary directory.
 rm -rf ~/certs</screen>
             </listitem>
             </itemizedlist>
         </answer>
-    </qandaentry>
+        </qandaentry>
+
+        <qandaentry>
+            <question>
+                <para><phrase>Comment fonctionnent les seuils du mécanisme
+                <wordasword>Security Strength
+                Factor</wordasword>&nbsp;?</phrase></para>
+
+                <para>Recherchez dans la documentation OpenLDAP, la
+                présentation de l'indicateur de la force de protection
+                <acronym>SSF</acronym>.</para>
+            </question>
+            <answer>
+                <para>Voici un résumé.</para>
+
+                <para>
+                Le <firstterm>Security Strength Factor</firstterm> (SSF) est
+                une valeur entière qu'OpenLDAP associe à chaque connexion
+                entrante pour quantifier son niveau de protection
+                cryptographique. Un SSF de <literal>0</literal> désigne une
+                connexion en clair, sans authentification forte ni chiffrement.
+                Un SSF de <literal>128</literal> correspond approximativement à
+                une session TLS avec AES-128, et une valeur de
+                <literal>256</literal> à AES-256 ou à une connexion locale dont
+                la sécurité est garantie par le système d'exploitation.
+                </para>
+
+                <para>
+                La directive <literal>olcSecurity</literal> fixe le seuil
+                minimum que doit atteindre le SSF d'une connexion pour qu'elle
+                soit acceptée. Si le SSF effectif est inférieur à ce seuil, le
+                serveur retourne l'erreur <acronym>LDAP</acronym>
+                <errorcode>13</errorcode> (<errortext>Confidentiality
+                required</errortext>).
+                </para>
+
+                <para>
+                Le socket Unix local (<literal>ldapi:///</literal>) n'établit
+                pas de session TLS.  Son SSF brut est <literal>0</literal>. La
+                directive <literal>olcLocalSSF</literal> permet de lui
+                attribuer une valeur conventionnelle, qui reflète la protection
+                implicite apportée par le système d'exploitation (contrôle des
+                droits Unix, isolation des processus). Cette valeur est prise
+                en compte au démarrage de <command>slapd</command> et ne peut
+                pas être modifiée à chaud.
+                </para>
+            </answer>
+        </qandaentry>
+
+        <qandaentry>
+            <question>
+                <para><phrase>Comment paramétrer les seuils&nbsp;?</phrase></para>
+            </question>
+            <answer>
+                 <para>
+        Les attributs suivants sont définis sur l'entrée racine de la configuration
+        dynamique et s'appliquent à toutes les connexions, quelle que soit la base
+        interrogée.
+      </para>
+      <table frame="all" rowsep="1" colsep="1">
+          <title>Choix</title>
+        <tgroup cols="3" align="left">
+          <colspec colname="attribut"  colwidth="3*"/>
+          <colspec colname="valeur"    colwidth="2*"/>
+          <colspec colname="role"      colwidth="5*"/>
+          <thead>
+            <row>
+              <entry>Attribut</entry>
+              <entry>Valeur</entry>
+              <entry>Rôle</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><literal>olcLocalSSF</literal></entry>
+              <entry><literal>256</literal></entry>
+              <entry>SSF implicite attribué aux connexions via
+                <literal>ldapi:///</literal> (socket Unix local).
+                Pris en compte uniquement au démarrage de <command>slapd</command>.
+              </entry>
+            </row>
+            <row>
+              <entry><literal>olcSecurity</literal></entry>
+              <entry><literal>ssf=128</literal></entry>
+              <entry>Seuil SSF minimum requis pour toute connexion.
+                Les connexions dont le SSF effectif est inférieur à 128
+                reçoivent l'erreur <errorcode>13</errorcode>
+                (<errortext>Confidentiality required</errortext>).
+              </entry>
+            </row>
+            <row>
+              <entry><literal>olcTLSCACertificateFile</literal></entry>
+              <entry><filename>/etc/ldap/certs/ldap-ca.crt</filename></entry>
+              <entry>Certificat de l'autorité de certification interne du laboratoire.</entry>
+            </row>
+            <row>
+              <entry><literal>olcTLSCertificateFile</literal></entry>
+              <entry><filename>/etc/ldap/certs/ldap-srvr.crt</filename></entry>
+              <entry>Certificat X.509 du serveur LDAP, présenté aux clients lors du handshake TLS.</entry>
+            </row>
+            <row>
+              <entry><literal>olcTLSCertificateKeyFile</literal></entry>
+              <entry><filename>/etc/ldap/certs/ldap-srvr.key</filename></entry>
+              <entry>Clé privée associée au certificat serveur.</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+            </answer>
+        </qandaentry>
+
+        <qandaentry>
+            <question>
+                <para><phrase>Comment activer l'utilisation de
+                <acronym>TLS</acronym> côté serveur
+                <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+
+                <para>Recherchez les paramètres de la base de configuration
+                <code>cn=config</code> à utiliser, puis créez le fichier
+                <acronym>LDIF</acronym> qui applique les paramètres choisis
+                avec les chemins vers la clé et les certificats du
+                serveur.</para>
+            </question>
+            <answer>
+                <para>Suivez une démarche en deux temps.</para>
+
+                <orderedlist>
+                <listitem>
+                    <para>Commencez par enregistrer les certificats dans la
+                    base de configuration <code>cn=config</code>.</para>
+
+                    <para>Créez le fichier
+                    <filename>configure-tls-certs.ldif</filename> qui indique
+                    au serveur où trouver la clé et les certificats.</para>
+
+<screen>dn: cn=config
+changetype: modify
+replace: olcTLSCACertificateFile
+olcTLSCACertificateFile: /etc/ldap/certs/ldap-ca.crt
+-
+replace: olcTLSCertificateFile
+olcTLSCertificateFile: /etc/ldap/certs/ldap-srvr.crt
+-
+replace: olcTLSCertificateKeyFile
+olcTLSCertificateKeyFile: /etc/ldap/certs/ldap-srvr.key</screen>
+
+                    <para>Lancez la modification de configuration&nbsp;:</para>
+
+<screen>sudo ldapmodify -Y EXTERNAL \
+    -H ldapi:/// \
+    -f configure-tls-certs.ldif</screen>
+
+<screen>SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+modifying entry "cn=config"</screen>
+                </listitem>
+
+                <listitem>
+                    <para>Vérifiez l'index de votre base utilisateur
+                    <code>mdb</code>.</para>
+
+<screen>sudo ls /etc/ldap/slapd.d/cn=config/ | grep mdb</screen>
+
+<screen>olcDatabase={1}mdb.ldif</screen>
+
+                    <para>Dans cet exemple, l'index est&nbsp;:
+                    <literal>1</literal>. Vous pouvez donc composez le fichier
+                    <filename>enable-tls-security.ldif</filename> comme
+                    suit&nbsp;:</para>
+
+<screen>dn: olcDatabase={1}mdb,cn=config
+changetype: modify
+add: olcSecurity
+olcSecurity: tls=1</screen>
+
+                    <para>Lancez la modification de configuration cibléesur la
+                    base utilisateur&nbsp;:</para>
+
+<screen>sudo ldapmodify -Y EXTERNAL \
+    -H ldapi:/// \
+    -f enable-tls-security.ldif</screen>
+
+<screen>SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+modifying entry "olcDatabase={1}mdb,cn=config"</screen>
+                </listitem>
+                </orderedlist>
+            </answer>
+        </qandaentry>
     </qandaset>
 
     </sect2>
