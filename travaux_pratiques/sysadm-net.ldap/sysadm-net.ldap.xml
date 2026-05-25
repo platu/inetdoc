@@ -5406,9 +5406,9 @@ ldap-srvr.key</screen>
                 <systemitem>openldap</systemitem>. C'est cet utilisateur qui
                 doit posséder la clé privée.</para>
 
-            <para>Lancez le script
-            <filename>copy-install-tls-certs.sh</filename> sur le
-            serveur&nbsp;:</para>
+                <para>Lancez le script
+                <filename>copy-install-tls-certs.sh</filename> sur le
+                serveur&nbsp;:</para>
 
 <programlisting><![CDATA[cat << EOF >copy-install-tls-certs.sh
 #!/usr/bin/env bash
@@ -5432,10 +5432,8 @@ done
 sudo chown -R openldap:openldap "${DEST_DIR}"
 
 # 4. Apply strict permissions:
-# - 700: Only openldap can access the directory (traverse/list)
 # - 400: Only openldap can read the private key
 # - 444: Read-only for public certificates
-sudo chmod 700 "${DEST_DIR}"
 sudo chmod 400 "${DEST_DIR}/ldap-srvr.key"
 for cert in ldap-ca.crt ldap-srvr.crt; do
 	sudo chmod 444 "${DEST_DIR}/${cert}"
@@ -5454,10 +5452,16 @@ bash copy-install-tls-certs.sh]]></programlisting>
                 Appliquez ensuite une politique similaire, mais adaptée au
                 démon de résolution <systemitem>nslcd</systemitem>.</para>
 
-                <para>Lancez cette séquence de commandes sur le système
+                <para>Lancez le script
+                <filename>copy-install-tls-certs.sh</filename> sur le
                 client&nbsp;:</para>
 
-<screen># 1. Copy the certs folder from the server to the client.
+<programlisting><![CDATA[cat << EOF >copy-install-tls-certs.sh
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# 1. Copy the certs folder from the server to the client.
 scp -r ldap-srvr:~/certs ~
 
 # 2. Copy the public certificates.
@@ -5477,7 +5481,26 @@ sudo chown nslcd:nslcd /etc/ssl/private/ldap-clnt.key
 sudo chmod 400 /etc/ssl/private/ldap-clnt.key
 
 # 6. Clean up the standard user's temporary directory.
-rm -rf ~/certs</screen>
+rm -rf ~/certs
+
+# 7. Update the system's trusted certificate store to include the new CA certificate.
+sudo cp /etc/ssl/certs/ldap-ca.crt /usr/local/share/ca-certificates/ldap-ca.crt
+sudo update-ca-certificates
+EOF
+
+bash copy-install-tls-certs.sh]]></programlisting>
+
+                <para>Les commandes du point 7 ajoutent le certificat de
+                l'autorité <acronym>LDAP</acronym> au magasin de
+                <acronym>CA</acronym> du système en copiant
+                <filename>ldap-ca.crt</filename> dans <filename
+                class='directory'>/usr/local/share/ca-certificates/</filename>
+                puis en régénérant le bundle
+                <filename>/etc/ssl/certs/ca-certificates.crt</filename> avec
+                <command>update-ca-certificates</command>, afin que tous les
+                clients <acronym>TLS</acronym> du système puissent vérifier et
+                faire confiance au certificat du serveur
+                <acronym>LDAP</acronym>.</para>
             </listitem>
             </itemizedlist>
         </answer>
@@ -5494,7 +5517,10 @@ rm -rf ~/certs</screen>
                 <acronym>SSF</acronym>.</para>
             </question>
             <answer>
-                <para>Voici un résumé.</para>
+                <para>Voici une présentation résumée qui met en relation les
+                valeurs de l'indicateur <acronym>SSF</acronym> avec les
+                paramètres à régler dans la base de configuration
+                <code>cn=config</code>.</para>
 
                 <para>
                 Le <firstterm>Security Strength Factor</firstterm> (SSF) est
@@ -5532,89 +5558,89 @@ rm -rf ~/certs</screen>
 
         <qandaentry>
             <question>
-                <para><phrase>Comment paramétrer les seuils&nbsp;?</phrase></para>
+                <para><phrase>Quels sont les attributs de la base de
+                configuration de l'annuaire LDAP à utiliser pour activer le
+                chiffrement TLS&nbsp;?</phrase></para>
+
+                <para><phrase>Quelles sont les valeurs associées à cahcun des
+                attributs retenus&nbsp;?</phrase></para>
+
+                <para>Recherchez les attributs relatifs à l'indicateur
+                <acronym>SSF</acronym> et à la désignation des
+                certificats.</para>
             </question>
             <answer>
-                 <para>
-        Les attributs suivants sont définis sur l'entrée racine de la configuration
-        dynamique et s'appliquent à toutes les connexions, quelle que soit la base
-        interrogée.
-      </para>
-      <table frame="all" rowsep="1" colsep="1">
-          <title>Choix</title>
-        <tgroup cols="3" align="left">
-          <colspec colname="attribut"  colwidth="3*"/>
-          <colspec colname="valeur"    colwidth="2*"/>
-          <colspec colname="role"      colwidth="5*"/>
-          <thead>
-            <row>
-              <entry>Attribut</entry>
-              <entry>Valeur</entry>
-              <entry>Rôle</entry>
-            </row>
-          </thead>
-          <tbody>
-            <row>
-              <entry><literal>olcLocalSSF</literal></entry>
-              <entry><literal>256</literal></entry>
-              <entry>SSF implicite attribué aux connexions via
-                <literal>ldapi:///</literal> (socket Unix local).
-                Pris en compte uniquement au démarrage de <command>slapd</command>.
-              </entry>
-            </row>
-            <row>
-              <entry><literal>olcSecurity</literal></entry>
-              <entry><literal>ssf=128</literal></entry>
-              <entry>Seuil SSF minimum requis pour toute connexion.
-                Les connexions dont le SSF effectif est inférieur à 128
-                reçoivent l'erreur <errorcode>13</errorcode>
-                (<errortext>Confidentiality required</errortext>).
-              </entry>
-            </row>
-            <row>
-              <entry><literal>olcTLSCACertificateFile</literal></entry>
-              <entry><filename>/etc/ldap/certs/ldap-ca.crt</filename></entry>
-              <entry>Certificat de l'autorité de certification interne du laboratoire.</entry>
-            </row>
-            <row>
-              <entry><literal>olcTLSCertificateFile</literal></entry>
-              <entry><filename>/etc/ldap/certs/ldap-srvr.crt</filename></entry>
-              <entry>Certificat X.509 du serveur LDAP, présenté aux clients lors du handshake TLS.</entry>
-            </row>
-            <row>
-              <entry><literal>olcTLSCertificateKeyFile</literal></entry>
-              <entry><filename>/etc/ldap/certs/ldap-srvr.key</filename></entry>
-              <entry>Clé privée associée au certificat serveur.</entry>
-            </row>
-          </tbody>
-        </tgroup>
-      </table>
+                <para>Les attributs suivants doivent être définis à la racine
+                de la configuration globale et s'appliquent à toutes les
+                connexions, quelle que soit la base interrogée.</para>
+
+                <table frame="all" rowsep="1" colsep="1">
+                    <title>Attributs TLS de la configuration OpenLDAP</title>
+                <tgroup cols="3" align="left">
+                <colspec colname="attribut"  colwidth="3*"/>
+                <colspec colname="valeur"    colwidth="2*"/>
+                <colspec colname="role"      colwidth="5*"/>
+                <thead>
+                    <row>
+		                <?dbfo bgcolor="#333"&nbsp;?>
+                        <?dbfo color="#fff"&nbsp;?>
+                        <entry>Attribut</entry>
+                        <entry>Valeur</entry>
+                        <entry>Rôle</entry>
+                    </row>
+                </thead>
+                <tbody>
+                    <row>
+                        <entry><literal>olcLocalSSF</literal></entry>
+                        <entry><literal>256</literal></entry>
+                        <entry>SSF implicite attribué aux connexions via
+                        <literal>ldapi:///</literal> (socket Unix local).Pris
+                        en compte uniquement au démarrage de
+                        <command>slapd</command>.</entry>
+                    </row>
+                    <row>
+                        <entry><literal>olcSecurity</literal></entry>
+                        <entry><literal>ssf=128</literal></entry>
+                        <entry>Seuil SSF minimum requis pour toute connexion.
+                        Les connexions avec une valeur SSF inférieure à 128
+                        provoquent l'erreur <errorcode>13</errorcode>
+                        (<errortext>Confidentiality
+                        required</errortext>).</entry>
+                    </row>
+                    <row>
+                        <entry><literal>olcTLSCACertificateFile</literal></entry>
+                        <entry><filename>/etc/ldap/certs/ldap-ca.crt</filename></entry>
+                        <entry>Certificat de l'autorité de certification.</entry>
+                    </row>
+                    <row>
+                        <entry><literal>olcTLSCertificateFile</literal></entry>
+                        <entry><filename>/etc/ldap/certs/ldap-srvr.crt</filename></entry>
+                        <entry>Certificat X.509 du serveur LDAP, présenté aux
+                        clients lors du handshake TLS.</entry>
+                    </row>
+                    <row>
+                        <entry><literal>olcTLSCertificateKeyFile</literal></entry>
+                        <entry><filename>/etc/ldap/certs/ldap-srvr.key</filename></entry>
+                        <entry>Clé privée associée au certificat serveur.</entry>
+                    </row>
+                </tbody>
+                </tgroup>
+                </table>
             </answer>
         </qandaentry>
 
         <qandaentry>
             <question>
-                <para><phrase>Comment activer l'utilisation de
-                <acronym>TLS</acronym> côté serveur
-                <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+                <para><phrase>Comment activer l'utilisation des certificats sur
+                le serveur <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
-                <para>Recherchez les paramètres de la base de configuration
-                <code>cn=config</code> à utiliser, puis créez le fichier
-                <acronym>LDIF</acronym> qui applique les paramètres choisis
-                avec les chemins vers la clé et les certificats du
-                serveur.</para>
+                <para>Recherchez la syntaxe de configuration des attributs
+                d'affectation des certificats, puis créez et appliquez le
+                fichier <acronym>LDIF</acronym>.</para>
             </question>
             <answer>
-                <para>Suivez une démarche en deux temps.</para>
-
-                <orderedlist>
-                <listitem>
-                    <para>Commencez par enregistrer les certificats dans la
-                    base de configuration <code>cn=config</code>.</para>
-
-                    <para>Créez le fichier
-                    <filename>configure-tls-certs.ldif</filename> qui indique
-                    au serveur où trouver la clé et les certificats.</para>
+                <para>Voici un exemple de fichier
+                <filename>configure-tls-certs.ldif</filename>.</para>
 
 <screen>dn: cn=config
 changetype: modify
@@ -5627,7 +5653,7 @@ olcTLSCertificateFile: /etc/ldap/certs/ldap-srvr.crt
 replace: olcTLSCertificateKeyFile
 olcTLSCertificateKeyFile: /etc/ldap/certs/ldap-srvr.key</screen>
 
-                    <para>Lancez la modification de configuration&nbsp;:</para>
+                <para>Lancez la modification de configuration&nbsp;:</para>
 
 <screen>sudo ldapmodify -Y EXTERNAL \
     -H ldapi:/// \
@@ -5637,43 +5663,219 @@ olcTLSCertificateKeyFile: /etc/ldap/certs/ldap-srvr.key</screen>
 SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
 SASL SSF: 0
 modifying entry "cn=config"</screen>
-                </listitem>
+            </answer>
+        </qandaentry>
 
-                <listitem>
-                    <para>Vérifiez l'index de votre base utilisateur
-                    <code>mdb</code>.</para>
+        <qandaentry>
+            <question>
+                <para><phrase>Comment régler les seuils <acronym>SSF</acronym>
+                dans la configuration du serveur
+                <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
-<screen>sudo ls /etc/ldap/slapd.d/cn=config/ | grep mdb</screen>
+                <para>Recherchez la syntaxe <acronym>LDIF</acronym>
+                d'application des seuils <acronym>SSF</acronym>, puis
+                appliuqez les valeurs définies dans le tableau
+                ci-dessus.</para>
+            </question>
+            <answer>
+                <para>Voici un exemple de fichier
+                <filename>enable-TLS-SSF.ldif</filename>.</para>
 
-<screen>olcDatabase={1}mdb.ldif</screen>
-
-                    <para>Dans cet exemple, l'index est&nbsp;:
-                    <literal>1</literal>. Vous pouvez donc composez le fichier
-                    <filename>enable-tls-security.ldif</filename> comme
-                    suit&nbsp;:</para>
-
-<screen>dn: olcDatabase={1}mdb,cn=config
+<screen>dn: cn=config
 changetype: modify
+replace: olcLocalSSF
+olcLocalSSF: 256
+-
 add: olcSecurity
-olcSecurity: tls=1</screen>
+olcSecurity: ssf=128</screen>
 
-                    <para>Lancez la modification de configuration cibléesur la
-                    base utilisateur&nbsp;:</para>
+                <para>Lancez la modification de configuration&nbsp;:</para>
 
 <screen>sudo ldapmodify -Y EXTERNAL \
     -H ldapi:/// \
-    -f enable-tls-security.ldif</screen>
+    -f configure-tls-certs.ldif</screen>
 
-<screen>SASL/EXTERNAL authentication started
-SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
-SASL SSF: 0
-modifying entry "olcDatabase={1}mdb,cn=config"</screen>
-                </listitem>
-                </orderedlist>
+            <caution>
+                <para>L'attribut <code>olcLocalSSF</code> est particulier. Sa
+                valeur n'est pas prise en charge dynamiquement. Il faut
+                redémarrer le service après modification.</para>
+
+                <para><command>sudo systemctl restart slapd.service</command></para>
+            </caution>
+            </answer>
+        </qandaentry>
+
+        <qandaentry>
+            <question>
+                <para><phrase>Quelles sont les modifications à apporter au
+                fichier <filename>/etc/ldap/ldap.conf</filename> pour désigner
+                l'autorité de certification locale&nbsp;?</phrase></para>
+
+                <para>Installez le paquet
+                <systemitem>libldap-common</systemitem> et consultez la page de
+                manuel du fichier de configuration
+                <filename>ldap.conf</filename> pour trouvez les entrées
+                relatives à l'utilisation de <acronym>TLS</acronym>.</para>
+            </question>
+            <answer>
+                <para>Vérifiez que le paquet
+                <systemitem>libldap-common</systemitem> est installé.</para>
+
+<screen>sudo apt install -y libldap-common</screen>
+
+                <para>Consultez la page de manuel et sélectionnez les deux
+                paramètres nécessaires dans le contexte des travaux
+                pratiques.</para>
+
+<screen>man ldap.conf</screen>
+
+                <para>Ce fichier définit le comportement par défaut des outils
+                en ligne de commande comme <command>ldapsearch</command>. Il
+                assure la vérification stricte du certificat serveur
+                <acronym>TLS</acronym> via <code>TLS_CACERT</code> et
+                <code>TLS_REQCERT</code>, ce qui impose que toute connexion
+                chiffrée utilise un certificat signé par la
+                <acronym>CA</acronym> locale avant d’être acceptée.</para>
+
+                <para>Complétez la configuration avec ces deux
+                paramètres.</para>
+
+<screen><![CDATA[sudo touch /etc/ldap/ldap.conf
+cat << EOF | sudo tee -a /etc/ldap/ldap.conf
+URI ldap://ldap-srvr.lab.local
+BASE dc=lab,dc=local
+
+TLS_CACERT /etc/ldap/certs/ldap-ca.crt
+TLS_REQCERT demand
+EOF]]></screen>
+            </answer>
+        </qandaentry>
+
+        <qandaentry>
+            <question>
+                <para><phrase>Comment tester l'utilisation de
+                <acronym>TLS</acronym> lors de l'envoi d'une requête
+                <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+
+                <para>Recherchez dans la liste des options de la commande
+                <command>ldapsearch</command> celle qui impose l'utilisation de
+                <acronym>TLS</acronym>.</para>
+            </question>
+            <answer>
+                <para>Commencez par lancer une requête avec les mêmes options
+                que dans les parties précédentes.</para>
+
+<screen>ldapsearch -H ldap://ldap-srvr.lab.local \
+    -b "dc=lab,dc=local" \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    uid=anakin</screen>
+
+<screen>ldap_bind: Confidentiality required (13)
+additional info: confidentiality required</screen>
+
+                <para>La requête sans utilisation de <acronym>TLS</acronym>
+                échoue. La valeur <acronym>SSF</acronym> de cette requête
+                est insuffisante.</para>
+
+                <para>Lancez la même requête en ajoutant l'option
+                <option>-ZZ</option> pour déclencher le recours à
+                <emphasis>StartTLS</emphasis>.</para>
+
+<screen>ldapsearch -ZZ -LLL -H ldap://ldap-srvr.lab.local \
+    -b "dc=lab,dc=local" \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    uid=anakin</screen>
+
+<screen>dn: uid=anakin,ou=users,dc=lab,dc=local
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: anakin
+cn: Anakin Skywalker
+givenName: Anakin
+sn: Skywalker
+mail: anakin@lab.local
+userPassword:: e0FSR09OMn0kYXJnb24yaWQkdj0xOSRtPTcxNjgsdD01LHA9MSRZc2xGeXU5Wjl
+ hS2lvSENWMjgvT0NBJEFnUWRBRnhrODlIMW1mdW1zaFpuMThYSFgvTVlmZ0ZHa05pTW9NR1pPaTA=
+shadowLastChange: 20597
+loginShell: /bin/bash
+uidNumber: 10001
+gidNumber: 10001
+homeDirectory: /ahome/anakin
+gecos: Anakin Skywalker</screen>
+
+                <para>Cette fois-ci, la requête est acceptée par le serveur et
+                vous obtenez une réponse.</para>
+
+                <para>Vous pouvez aussi afficher les détails de la transaction
+                <emphasis>StartTLS</emphasis> avec la syntaxe de requête
+                suivante&nbsp;:</para>
+
+<screen><![CDATA[LDAPTLS_REQCERT=allow \
+ldapsearch -d 1 -ZZ -LLL -H ldap://ldap-srvr.lab.local \
+    -b "dc=lab,dc=local" \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    uid=anakin \
+    2>&1 | grep -i tls]]></screen>
+
+<screen>TLS trace: SSL_connect:before SSL initialization
+TLS trace: SSL_connect:SSLv3/TLS write client hello
+TLS trace: SSL_connect:SSLv3/TLS write client hello
+TLS trace: SSL_connect:SSLv3/TLS read server hello
+TLS trace: SSL_connect:TLSv1.3 read encrypted extensions
+TLS certificate verification: depth: 1, err: 0, subject: /CN=LDAP-CA, issuer: /CN=LDAP-CA
+TLS certificate verification: depth: 0, err: 0, subject: /CN=ldap-srvr.lab.local, issuer: /CN=LDAP-CA
+TLS trace: SSL_connect:SSLv3/TLS read server certificate
+TLS trace: SSL_connect:TLSv1.3 read server certificate verify
+TLS trace: SSL_connect:SSLv3/TLS read finished
+TLS trace: SSL_connect:SSLv3/TLS write change cipher spec
+TLS trace: SSL_connect:SSLv3/TLS write finished
+TLS trace: SSL_connect:SSL negotiation finished successfully
+TLS trace: SSL_connect:SSL negotiation finished successfully
+TLS trace: SSL_connect:SSLv3/TLS read server session ticket
+TLS trace: SSL_connect:SSL negotiation finished successfully
+TLS trace: SSL_connect:SSL negotiation finished successfully
+TLS trace: SSL_connect:SSLv3/TLS read server session ticket
+TLS trace: SSL3 alert write:warning:close notify</screen>
+            </answer>
+        </qandaentry>
+
+        <qandaentry>
+            <question>
+                <para><phrase>Comment activer le service
+                <code>ldaps://</code>&nbsp;?</phrase></para>
+
+                <para>Recherchez la modification à effectuer dans le fichier
+                <filename>/etc/default/slapd</filename>.</para>
+            </question>
+            <answer>
+                <para>Complétez la liste de la variable
+                <code>SLAPD_SERVICES</code> avec l'<acronym>URI</acronym>
+                <code>ldaps:///</code>.</para>
+
+<screen>sudo sed -i '/^SLAPD_SERVICES=/{
+  /ldaps:\/\//! s/"$/ ldaps:\/\/\/"/
+}' /etc/default/slapd</screen>
+
+                <para>Redémarrez le service pour que la modification soit prise
+                en compte.</para>
+
+<screen>sudo systemctl restart slapd.service</screen>
+
+                <para>Vérifiez que le service est bien en écoute sur le port
+                636.</para>
+
+<screen>sudo ss -tlnp 'sport = :636'</screen>
+
+<screen>State      Recv-Q      Send-Q      Local Address:Port     Peer Address:Port  Process
+LISTEN     0           2048              0.0.0.0:636           0.0.0.0:*      users:(("slapd",pid=16653,fd=10))
+LISTEN     0           2048                 [::]:636              [::]:*      users:(("slapd",pid=16653,fd=11))</screen>
             </answer>
         </qandaentry>
     </qandaset>
-
     </sect2>
 </sect1>
 
