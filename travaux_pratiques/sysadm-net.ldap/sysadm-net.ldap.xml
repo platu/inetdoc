@@ -3731,47 +3731,82 @@ anakin@ldap-clnt:/$</screen>
 <sect1 xml:id='sysadm-net.ldap.krb5-tls'>
     <title>Sécuriser les échanges entre clients et serveur LDAP</title>
 
-    <para>L'introduction de <emphasis>Kerberos</emphasis> modifie le dialogue
-    entre les clients et l'annuaire en profondeur. On passe du
-    <wordasword>Simple Bind</wordasword> au
-    <acronym>SASL/GSSAPI</acronym>.</para>
+    <para>La sécurisation des échanges entre les clients et le serveur
+    <acronym>LDAP</acronym> repose sur deux mécanismes complémentaires, que
+    cette partie met en place successivement.</para>
 
-    <table frame="all">
-        <title>Évolution de l'authentification LDAP avec Kerberos</title>
-    <tgroup cols="3">
-        <colspec colname="c1" colwidth="1*"/>
-        <colspec colname="c2" colwidth="1.5*"/>
-        <colspec colname="c3" colwidth="1.5*"/>
+    <para>Le premier est <emphasis>Kerberos</emphasis>. Son introduction
+    modifie en profondeur le dialogue entre les clients et l'annuaire, passant
+    du <wordasword>Simple Bind</wordasword> au <acronym>SASL/GSSAPI</acronym>.
+    Au lieu d'échanger un identifiant et un mot de passe en clair, le client
+    présente un ticket de service (<acronym>TGS</acronym>) préalablement signé
+    par le <acronym>KDC</acronym>. Le serveur <acronym>LDAP</acronym> vérifie
+    la signature du ticket auprès du <acronym>KDC</acronym> sans jamais
+    manipuler de mot de passe. Le contenu des segments <acronym>TCP</acronym>
+    (<wordasword>payload</wordasword>) est chiffré par
+    <emphasis>Kerberos</emphasis>, ce qui rend le vol d'identité
+    impossible.</para>
+
+    <para>Cependant, <emphasis>Kerberos</emphasis> ne dissimule pas la nature
+    des échanges&nbsp;: une capture réseau révèle que c'est bien le service
+    <acronym>LDAP</acronym> qui est interrogé. Un second mécanisme est donc
+    nécessaire&nbsp;: <acronym>TLS</acronym> (<wordasword>Transport Layer
+    Security</wordasword>). Ce protocole chiffre l'intégralité du flux au
+    niveau du transport, indépendamment du protocole applicatif. Deux modes
+    coexistent dans <application>OpenLDAP</application>&nbsp;:
+    <emphasis>StartTLS</emphasis>, qui bascule vers <acronym>TLS</acronym> sur
+    le port <literal>389/TCP</literal> après une requête d'initialisation, et
+    <acronym>LDAPS</acronym>, qui établit immédiatement un tunnel
+    <acronym>TLS</acronym> sur le port <literal>636/TCP</literal>, à la manière
+    de <acronym>HTTPS</acronym>.</para>
+
+    <table xml:id="tbl.securite-ldap-comparaison" frame="all">
+        <title>Comparaison des niveaux de sécurité LDAP</title>
+    <tgroup cols="4" align="left">
+    <colspec colname="c1" colwidth="1.8*"/>
+    <colspec colname="c2" colwidth="1.5*"/>
+    <colspec colname="c3" colwidth="1.5*"/>
+    <colspec colname="c4" colwidth="1.8*"/>
     <thead>
       <row>
 		<?dbfo bgcolor="#333"&nbsp;?>
 		<?dbfo color="#fff"&nbsp;?>
         <entry>Caractéristique</entry>
         <entry>Avant (Simple Bind)</entry>
-        <entry>Après (SASL/GSSAPI)</entry>
+        <entry>Avec Kerberos seul</entry>
+        <entry>Avec Kerberos + TLS</entry>
       </row>
     </thead>
     <tbody>
       <row>
         <entry>Preuve d'identité</entry>
-        <entry>Mot de passe en clair (ou haché)</entry>
+        <entry>Mot de passe</entry>
+        <entry>Ticket de service (TGS)</entry>
         <entry>Ticket de service (TGS)</entry>
       </row>
       <row>
-        <entry>Rôle du client</entry>
-        <entry>Envoie <literal>uid=nslcd-proxy</literal> + mot de passe</entry>
-        <entry>Présente un ticket Kerberos</entry>
+        <entry>Contenu TCP</entry>
+        <entry>En clair</entry>
+        <entry>Chiffré par Kerberos</entry>
+        <entry>Chiffré par TLS</entry>
       </row>
       <row>
-        <entry>Rôle du serveur</entry>
-        <entry>Vérifie le mot de passe en local</entry>
-        <entry>Vérifie la signature du ticket (KDC)</entry>
+        <entry>Visibilité du protocole</entry>
+        <entry>LDAP observable</entry>
+        <entry>LDAP observable</entry>
+        <entry>LDAP masqué</entry>
       </row>
       <row>
-        <entry>Sécurité</entry>
-        <entry>Nécessite TLS pour protéger le mot de passe</entry>
-        <entry>Sécurisé par nature (chiffrement Kerberos de la charge utile des
-        segments TCP)</entry>
+        <entry>Certificat serveur</entry>
+        <entry>Non</entry>
+        <entry>Non</entry>
+        <entry>Oui (X.509)</entry>
+      </row>
+      <row>
+        <entry>Résistance au rejeu</entry>
+        <entry>Non</entry>
+        <entry>Oui</entry>
+        <entry>Oui</entry>
       </row>
     </tbody>
     </tgroup>
@@ -5754,8 +5789,8 @@ EOF]]></screen>
         <qandaentry>
             <question>
                 <para><phrase>Comment tester l'utilisation de
-                <acronym>TLS</acronym> lors de l'envoi d'une requête
-                <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+                <acronym>TLS</acronym> avec StartTLS lors de l'envoi d'une
+                requête <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
                 <para>Recherchez dans la liste des options de la commande
                 <command>ldapsearch</command> celle qui impose l'utilisation de
@@ -5875,7 +5910,226 @@ LISTEN     0           2048              0.0.0.0:636           0.0.0.0:*      us
 LISTEN     0           2048                 [::]:636              [::]:*      users:(("slapd",pid=16653,fd=11))</screen>
             </answer>
         </qandaentry>
+
+        <qandaentry>
+            <question>
+                <para><phrase>Comment tester l'utilisation de
+                <acronym>TLS</acronym> avec l'<acronym>URL</acronym>
+                <code>ldaps://</code>&nbsp;?</phrase></para>
+
+                <para>Reprenez l'exemple de requête
+                <command>ldapsearch</command> en adaptant les options.</para>
+            </question>
+            <answer>
+                <para>Voici un exemple de requête directe sur le port numéro
+                636 du service <acronym>LDAP</acronym>.</para>
+
+<screen>ldapsearch -LLL -H ldaps://ldap-srvr.lab.local \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    uid=anakin</screen>
+
+<screen>dn: uid=anakin,ou=users,dc=lab,dc=local
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: anakin
+cn: Anakin Skywalker
+givenName: Anakin
+sn: Skywalker
+mail: anakin@lab.local
+userPassword:: e0FSR09OMn0kYXJnb24yaWQkdj0xOSRtPTcxNjgsdD01LHA9MSRZc2xGeXU5Wjl
+ hS2lvSENWMjgvT0NBJEFnUWRBRnhrODlIMW1mdW1zaFpuMThYSFgvTVlmZ0ZHa05pTW9NR1pPaTA=
+shadowLastChange: 20597
+loginShell: /bin/bash
+uidNumber: 10001
+gidNumber: 10001
+homeDirectory: /ahome/anakin
+gecos: Anakin Skywalker</screen>
+
+                <para>Cette question termine les manipulations côté serveur.
+                Vous pouvez donc logiquement passer à la configuration et aux
+                tests côté client <acronym>LDAP</acronym>.</para>
+            </answer>
+        </qandaentry>
+
+        <qandaentry>
+            <question>
+                <para><phrase>Quelles sont les modifications à apporter au
+                fichier <filename>/etc/ldap/ldap.conf</filename> pour utiliser
+                l'autorité de certification locale&nbsp;?</phrase></para>
+
+                <para>Reprenez la démarche suivie sur le serveur côté
+                client.</para>
+            </question>
+            <answer>
+                <para>Vérifiez que le paquet libldap-common est bien
+                installé.</para>
+
+<screen>sudo apt install -y libldap-common</screen>
+
+                <para>Les paramètres de ce fichier garantissent une
+                vérification stricte du certificat du serveur
+                <acronym>TLS</acronym> via les paramètres
+                <code>TLS_CACERT</code> et <code>TLS_REQCERT</code>, ce qui
+                implique que toute connexion chiffrée doit utiliser un
+                certificat signé par la <acronym>CA</acronym> locale pour être
+                acceptée.</para>
+
+<screen><![CDATA[sudo touch /etc/ldap/ldap.conf
+cat << EOF | sudo tee -a /etc/ldap/ldap.conf
+URI ldap://ldap-srvr.lab.local
+BASE dc=lab,dc=local
+
+TLS_CACERT /etc/ssl/certs/ldap-ca.crt
+TLS_REQCERT demand
+EOF]]></screen>
+            </answer>
+        </qandaentry>
+
+        <qandaentry>
+            <question>
+                <para><phrase>Comment tester les différentes utilisations de
+                <acronym>TLS</acronym> lors de l'envoi d'une requête
+                LDAP&nbsp;?</phrase></para>
+
+                <para>Reprenez les mêmes tests que ceux effectués côté
+                serveur.</para>
+            </question>
+            <answer>
+                <itemizedlist>
+                    <listitem>
+                        <para>Requête sans demande de chiffrement&nbsp;:</para>
+
+<screen>ldapsearch -LLL -H ldap://ldap-srvr \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    -b "dc=lab,dc=local" \
+    uid=padme</screen>
+
+<screen>ldap_bind: Confidentiality required (13)
+    additional info: confidentiality required</screen>
+                    </listitem>
+                    <listitem>
+                        <para>Requête avec ouverture StartTLS&nbsp;:</para>
+
+<screen>ldapsearch -LLL -ZZ -H ldap://ldap-srvr \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    -b "dc=lab,dc=local" \
+    uid=padme</screen>
+
+<screen>dn: uid=padme,ou=users,dc=lab,dc=local
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: padme
+cn: Padme Amidala
+givenName: Padme
+sn: Amidala
+mail: padme@lab.local
+userPassword:: e0FSR09OMn0kYXJnb24yaWQkdj0xOSRtPTcxNjgsdD01LHA9MSRDMzJtb0xLbEE
+ 1ZVFNZVVwWlNybXF3JFg0M1FMOVdrWGxGdW1Eak9pOGtmc3BxY1Nsc2Q1Q1QwZXRKUExiTUE3bVU=
+shadowLastChange: 20597
+loginShell: /bin/bash
+uidNumber: 10000
+gidNumber: 10000
+homeDirectory: /ahome/padme
+gecos: Padme Amidala</screen>
+                    </listitem>
+                    <listitem>
+                        <para>Requête directe
+                        <code>ldaps://</code>&nbsp;:</para>
+
+<screen>ldapsearch -LLL -H ldaps://ldap-srvr \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    -b "dc=lab,dc=local" \
+    uid=padme</screen>
+
+<screen>dn: uid=padme,ou=users,dc=lab,dc=local
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: padme
+cn: Padme Amidala
+givenName: Padme
+sn: Amidala
+mail: padme@lab.local
+userPassword:: e0FSR09OMn0kYXJnb24yaWQkdj0xOSRtPTcxNjgsdD01LHA9MSRDMzJtb0xLbEE
+ 1ZVFNZVVwWlNybXF3JFg0M1FMOVdrWGxGdW1Eak9pOGtmc3BxY1Nsc2Q1Q1QwZXRKUExiTUE3bVU=
+shadowLastChange: 20597
+loginShell: /bin/bash
+uidNumber: 10000
+gidNumber: 10000
+homeDirectory: /ahome/padme
+gecos: Padme Amidala</screen>
+                    </listitem>
+                </itemizedlist>
+            </answer>
+        </qandaentry>
     </qandaset>
+
+    <para>La sécurisation des échange entre clients et serveur
+    <acronym>LDAP</acronym> est maintenant complètement validée. Voici un
+    tableau récapitulatif des modaltés de connexion.</para>
+
+    <table frame="all" rowsep="1" colsep="1" xml:id="table-ssf">
+        <title>Comportement des connexions selon l'indicateur SSF</title>
+        <tgroup cols="5" align="left">
+        <colspec colname="type"      colwidth="3*"/>
+        <colspec colname="protocole" colwidth="3*"/>
+        <colspec colname="ssf"       colwidth="2*"/>
+        <colspec colname="seuil"     colwidth="2*"/>
+        <colspec colname="resultat"  colwidth="3*"/>
+        <thead>
+          <row>
+		    <?dbfo bgcolor="#333"&nbsp;?>
+		    <?dbfo color="#fff"&nbsp;?>
+            <entry>Type de connexion</entry>
+            <entry>Protocole / Transport</entry>
+            <entry>SSF effectif</entry>
+            <entry>Seuil requis</entry>
+            <entry>Résultat</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>Administration root locale serveur</entry>
+            <entry><literal>ldapi:///</literal> + SASL EXTERNAL</entry>
+            <entry>256 (via <literal>olcLocalSSF</literal>)</entry>
+            <entry>128</entry>
+            <entry><emphasis role="bold">Autorisé</emphasis> —
+              SSF local (256) ≥ seuil (128)</entry>
+          </row>
+          <row>
+            <entry>Client réseau avec StartTLS</entry>
+            <entry><literal>ldap://</literal> + <option>-ZZ</option></entry>
+            <entry>128 à 256 selon le cipher AES</entry>
+            <entry>128</entry>
+            <entry><emphasis role="bold">Autorisé</emphasis> —
+              SSF TLS ≥ seuil (128)</entry>
+          </row>
+          <row>
+            <entry>Client réseau avec LDAPS</entry>
+            <entry><literal>ldaps://</literal></entry>
+            <entry>128 à 256 selon le cipher AES</entry>
+            <entry>128</entry>
+            <entry><emphasis role="bold">Autorisé</emphasis> —
+              SSF TLS ≥ seuil (128)</entry>
+          </row>
+          <row>
+            <entry>Client réseau sans TLS</entry>
+            <entry><literal>ldap://</literal> sans <option>-ZZ</option></entry>
+            <entry>0</entry>
+            <entry>128</entry>
+            <entry><emphasis role="bold">Refusé</emphasis> —
+              erreur <errorcode>13</errorcode>
+              (<errortext>Confidentiality required</errortext>)</entry>
+          </row>
+        </tbody>
+        </tgroup>
+    </table>
     </sect2>
 </sect1>
 
