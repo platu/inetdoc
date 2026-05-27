@@ -6696,7 +6696,17 @@ Syntax OK
 </mediaobject>
 	</answer>
 	</qandaentry>
+</qandaset>
+</sect2>
 
+<sect2 xml:id='sysadm-net.ldap.web.photos'>
+    <title>Ajouter des photos au trombinoscope</title>
+
+    <para>l'objectif de cette section est d'enrichir le service Web à partir de
+    manipulations sur les attributs des utilisateurs de l'annuaire
+    <acronym>LDAP</acronym>.</para>
+
+<qandaset>
 	<qandaentry>
 	    <question>
             <para><phrase>Quel est l'attribut de la classe
@@ -6767,46 +6777,285 @@ ferredLanguage $ userSMIMECertificate $ userPKCS12 ) )</screen>
 	    </answer>
 	</qandaentry>
 
+    <qandaentry>
+        <question>
+            <para><phrase>Comment garantir l'intégrité du fichier
+            <acronym>JPEG</acronym> à insérer dans l'annuaire
+            <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+
+            <para>Recherchez dans la liste des outils fournis avec le paquet
+            <systemitem>imagemagick</systemitem> celui qui permet de convertir
+            toute image en un fichier <acronym>JPEG</acronym> correctement
+            formaté.</para>
+        </question>
+        <answer>
+            <para>Commencez par installer le paquet
+            <systemitem>imagemagick</systemitem>.</para>
+
+<screen>sudo apt install -y imagemagick</screen>
+
+            <para>Utilisez ensuite la commande <command>magick</command> pour
+            produire un fichier <acronym>JPEG</acronym> conforme.</para>
+
+<screen>magick leia-organa.jpg \
+    -resize 300x300^ \
+    -gravity center -extent 300x300 -strip \
+    -interlace Plane -quality 90 \
+    leia-organa.jpeg</screen>
+
+            <para>Pour obtenir un carré parfait sans déformation, la commande
+            redimensionne l'image pour qu'elle couvre la zone cible avec
+            <option>-resize 300x300^</option> avant de la recadrer au centre
+            aux dimensions exactes via <option>-gravity center -extent
+            300x300</option>.</para>
+
+            <para>Enfin, vérifiez que le fichier converti est correctement
+            identifié avec la commande <command>identify</command>.</para>
+
+<screen>identify leia-organa.jpeg</screen>
+
+<screen>leia-organa.jpeg <emphasis>JPEG</emphasis> 443x544 443x544+0+0 8-bit sRGB 54923B 0.000u 0:00.000</screen>
+
+            <para>La présence de la clé <literal>JPEG</literal> confirme que le
+            fichier est au bon format et peut être utilisé pour me
+            trombinoscope.</para>
+        </answer>
+    </qandaentry>
+
 	<qandaentry>
-	<question>
-	<para><phrase>Quelle est la syntaxe du fichier <acronym>LDIF</acronym> qui
-	permet de modifier l'attribut <systemitem>jpegphoto</systemitem> d'un
-	utilisateur de l'annuaire&nbsp;?</phrase></para>
+	    <question>
+            <para><phrase>Comment ajouter ou supprimer la photo d'un
+            utilisateur de l'annuaire
+            <acronym>LDAP</acronym>&nbsp;?</phrase></para>
 
-	<para>Rechercher un exemple de modification d'attribut avec la commande
-	<command>ldapmodify</command>.</para>
+            <para>Créez un script <filename>manage-jpegphoto.sh</filename> qui
+            débute par les traitements communs suivants&nbsp;:</para>
 
-	<para>Rechercher aussi un fichier <acronym>JPEG</acronym> qui fasse office
-	de photo d'identité.</para>
-	</question>
-	<answer>
-	<para>Tout d'abord, on dépose le fichier <acronym>jpeg</acronym> à utiliser
-	dans le dossier <filename class='directory'>/var/tmp</filename> à titre
-	d'exemple.</para>
+            <orderedlist>
+            <listitem>
+                <para>Définir le jeu des variables communes à partir du code
+                des scripts précédents de ce document</para>
+            </listitem>
+            <listitem>
+                <para>Analysez les options de la ligne de commande avec
+                <code>getopt</code> pour choisir une action&nbsp;:</para>
+                <itemizedlist>
+                <listitem>
+                    <para><code>--add USER JPEG_FILE</code></para>
+                </listitem>
+                <listitem>
+                    <para><code>--delete USER</code></para>
+                </listitem>
+                </itemizedlist>
+            </listitem>
+            <listitem>
+                <para>Valider les arguments obligatoires (action, utilisateur,
+                et image pour l’ajout).</para>
+            </listitem>
+            <listitem>
+                <para>Vérifier que l’utilisateur <acronym>LDAP</acronym> cible
+                existe (<command>ldapsearch</command> sur
+                <code>uid</code>).</para>
+            </listitem>
+            </orderedlist>
 
-<screen>ls -l /var/tmp/leia.jpg
-	-rw-r--r-- 1 etu etu 83837 19 août  03:15 /var/tmp/leia.jpg</screen>
+            <para>Pour l'ajout d'une photo&nbsp;:</para>
 
-	<para>La syntaxe du fichier <acronym>LDIF</acronym> est relativement simple
-	une fois que l'on a bien identifié le contexte.</para>
+            <orderedlist>
+            <listitem>
+                <para>Vérifier que le fichier image existe et n’est pas vide.</para>
+            </listitem>
+            <listitem>
+                <para>Vérifier que le contenu est bien au format
+                <acronym>JPEG</acronym>.</para>
+            </listitem>
+            <listitem>
+                <para>Résoudre le chemin absolu de l’image
+                (<command>realpath</command>).</para>
+            </listitem>
+            <listitem>
+                <para>Générer un fichier <acronym>LDIF</acronym> de
+                modification avec <code>replace: jpegPhoto</code> et inclure le
+                contenu de l'image <code>jpegPhoto:&lt;...</code>.</para>
+            </listitem>
+            </orderedlist>
 
-<screen>cat > leia-photo.ldif &lt;&lt; EOF
-dn: uid=leia,ou=people,dc=lab,dc=stri
-changetype: modify
-add: jpegphoto
-jpegphoto:&lt;file:///var/tmp/leia.jpg
-EOF</screen>
+            <para>Pour la suppression d'une photo&nbsp;:</para>
 
-	<para>Enfin, on applique la modification dans l'annuaire
-	<acronym>LDAP</acronym>.</para>
+            <orderedlist>
+            <listitem>
+                <para>Générer un fichier <acronym>LDIF</acronym> avec
+                <code>delete: jpegPhoto</code>.</para>
+            </listitem>
+            </orderedlist>
 
-<screen>sudo ldapmodify -x -H ldap:/// -D "cn=admin,dc=lab,dc=stri" -W -f leia-photo.ldif</screen>
+            <para>Pour terminer, appliquer la modification
+            <acronym>LDAP</acronym> via <command>ldapmodify</command>.</para>
+        </question>
+	    <answer>
+            <para>Voici un exemple de code pour le script
+            <filename>manage-jpegphoto.sh</filename>.</para>
 
-	<para>Le résultat est visible sur la copie d'écran de navigateur web
-	ci-dessus.</para>
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly DOMAIN="lab.local"
+readonly BASE_DN="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
+readonly USERS_OU="ou=users,${BASE_DN}"
+readonly LDAP_URI="ldap://ldap-srvr.lab.local"
+readonly ADMIN_DN="cn=admin,${BASE_DN}"
+readonly ADMIN_PASS_FILE="${HOME}/.ldap_admin_pass"
+
+# LDAP common options
+readonly LDAP_OPTS=(-ZZ -H "${LDAP_URI}" -D "${ADMIN_DN}" -y "${ADMIN_PASS_FILE}")
+
+# --- Functions ---
+die() {
+	echo "Error: $*" >&2
+	exit 1
+}
+
+usage() {
+	cat <<EOF
+Usage: $(basename "$0") -a|--add USER JPEG_FILE | -d|--delete USER
+EOF
+}
+
+check_user_exists() {
+	ldapsearch "${LDAP_OPTS[@]}" -LLL -b "${USERS_OU}" "(uid=$1)" dn | grep -q '^dn:' || die "User $1 not found."
+}
+
+validate_jpeg() {
+	[[ -f $1 && -s $1 ]] || die "Image missing or empty: $1"
+	identify -format '%m' "$1" 2>/dev/null | grep -qi '^JPEG$' || die "$1 is not a valid JPEG."
+}
+
+# --- Main ---
+main() {
+	local action="" user="" jpeg_file=""
+	local opts
+	opts=$(getopt -o ad -l add,delete -- "$@") || {
+		usage
+		exit 1
+	}
+	eval set -- "${opts}"
+
+	while true; do
+		case "$1" in
+		-a | --add)     action="add";    shift  ;;
+		-d | --delete)  action="delete"; shift  ;;
+		--)             shift;           break  ;;
+		*)              usage;  	 exit 1 ;;
+		esac
+	done
+
+	user="${1-}"
+	jpeg_file="${2-}"
+
+	[[ -n ${action} && -n ${user} ]] || {
+		usage
+		exit 1
+	}
+	[[ ${action} == "add" && -z ${jpeg_file} ]] && die "Add requires a JPEG file."
+
+	check_user_exists "${user}"
+
+	# LDIF file creation
+	local ldif
+	ldif=$(mktemp)
+	trap 'rm -f "${ldif:-}"' EXIT
+
+	echo "dn: uid=${user},${USERS_OU}" >"${ldif}"
+	echo "changetype: modify" >>"${ldif}"
+
+	if [[ ${action} == "add" ]]; then
+		local jpeg_path
+		validate_jpeg "${jpeg_file}"
+		jpeg_path=$(realpath -- "${jpeg_file}") || die "Unable to resolve image path: ${jpeg_file}"
+		echo "replace: jpegPhoto" >>"${ldif}"
+		echo "jpegPhoto:< file://${jpeg_path}" >>"${ldif}"
+	else
+		echo "delete: jpegPhoto" >>"${ldif}"
+	fi
+
+	echo "=== Applying LDAP modification ==="
+	ldapmodify "${LDAP_OPTS[@]}" -f "${ldif}"
+	echo "Success: Photo ${action}ed for ${user}."
+}
+
+main "$@"
+]]></programlisting>
+
+            <para>Voici un exemple d'utilisation du script&nbsp;:</para>
+
+<screen>bash manage-jpegphoto.sh --add luke luke-skywalker.jpeg</screen>
+
+<screen>=== Applying LDAP modification ===
+modifying entry "uid=luke,ou=users,dc=lab,dc=local"
+
+Success: Photo added for luke.</screen>
+
+            <para>Affichez le résultat du traitement sur un navigateur.</para>
+
+<mediaobject>
+	<imageobject role="html">
+	<imagedata fileref='images/who-s-who.png' format='PNG' width='640px'/>
+	</imageobject>
+	<imageobject role="fo-fop">
+	<imagedata fileref='images/who-s-who.png' format='PNG' width='12cm'/>
+	</imageobject>
+	<textobject>
+	<phrase>Copie d'écran trombinoscope</phrase>
+	</textobject>
+	<caption>
+	<para><link xmlns="http://docbook.org/ns/docbook"
+	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/who-s-who.png'>
+	Copie d'écran trombinoscope - vue complète</link></para>
+	</caption>
+</mediaobject>
+
+            <para>Affichez le résultat brut de l'ajout d'une photo.</para>
+
+<screen>ldapsearch -LLL -H ldaps://ldap-srvr.lab.local \
+    -D "cn=admin,dc=lab,dc=local" \
+    -y .ldap_admin_pass \
+    uid=luke</screen>
+
+<screen>dn: uid=luke,ou=users,dc=lab,dc=local
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: luke
+cn: Luke Skywalker
+givenName: Luke
+sn: Skywalker
+mail: luke@lab.local
+shadowLastChange: 20597
+loginShell: /bin/bash
+uidNumber: 10003
+gidNumber: 10003
+homeDirectory: /ahome/luke
+gecos: Luke Skywalker
+userPassword:: e0FSR09OMn0kYXJnb24yaWQkdj0xOSRtPTcxNjgsdD01LHA9MSRuNDc5UGZhTVZ
+ NY1FWU05iTVE3eHR3JE9HMURFYTJUTU9Ta25CK2ZLVU5ZamFtVFd5dmhNS05aZWdJdUo2b1JiNjAA
+jpegPhoto:: /9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBw
+ YIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQs
+ ...</screen>
 	</answer>
 	</qandaentry>
 </qandaset>
+
+    <para>Dans cette partie, vous avez montré que l'annuaire
+    <acronym>LDAP</acronym> ne se limite pas à un référentiel d'identités pour
+    les systèmes Unix. En déployant le service <wordasword>White
+    Pages</wordasword> du projet <citetitle>LDAP Tool Box</citetitle>, en le
+    configurant pour qu'il interroge l'annuaire exclusivement via
+    <literal>ldaps://</literal>, et en automatisant la gestion de l'attribut
+    <code>jpegPhoto</code> à l'aide d'un script Bash paramétré, vous avez
+    exposé les comptes publiés dans un trombinoscope accessible depuis
+    n'importe quel navigateur, tout en conservant la chaîne de confiance
+    <acronym>TLS</acronym> établie dans la partie précédente.</para>
 </sect2>
 </sect1>
 
