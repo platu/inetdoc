@@ -40,7 +40,7 @@
 %w3centities-f;
 ]>
 
-<article xmlns="http://docbook.org/ns/docbook" version="5.0"
+<article xmlns="http://docbook.org/ns/docbook" version="5.2"
     xmlns:xlink="http://www.w3.org/1999/xlink"
     xml:id="sysadm-net.autofs-ldap-nfs" xml:lang="fr">
 
@@ -52,8 +52,8 @@
   <para>
   <informaltable frame='none' pgwide='1'>
   <tgroup cols='2' align='left' colsep='0' rowsep='0'>
-  <colspec colwidth='5*'/>
-  <colspec colwidth='220px'/>
+  <colspec colwidth='4*'/>
+  <colspec colwidth='5.5cm'/>
   <tbody>
     <row>
     <entry valign='top'>
@@ -69,10 +69,12 @@
     <entry>
     <inlinemediaobject>
     <imageobject role='html'>
-      <imagedata fileref='images/thumb012.png' format='PNG' width='220px' scalefit='1'/>
+      <imagedata fileref='images/autofs-ldap-mapping-red.png' format='PNG'
+      width='320px' scalefit='1'/>
     </imageobject>
     <imageobject role='fo'>
-      <imagedata fileref='images/ldap-automount.png' format='PNG' width='4.5cm' scalefit='1'/>
+      <imagedata fileref='images/autofs-ldap-mapping-full.png' format='PNG'
+      contentwidth='5cm' scalefit='1'/>
     </imageobject>
     </inlinemediaobject>
     </entry>
@@ -87,13 +89,13 @@
     <keyword>LDAP</keyword>
     <keyword>LDIF</keyword>
     <keyword>schema</keyword>
-    <keyword>slaptest</keyword>
     <keyword>autofs</keyword>
     <keyword>automount</keyword>
-    <keyword>auto.master</keyword>
-    <keyword>auto.home</keyword>
     <keyword>nsswitch</keyword>
     <keyword>PAM</keyword>
+    <keyword>SASL</keyword>
+    <keyword>GSSAPI</keyword>
+    <keyword>Kerberos</keyword>
   </keywordset>
 </info>
 
@@ -110,6 +112,210 @@
 	GNU/Linux</citetitle></link>. Il est disponible en version imprimable
 	au format PDF : <link
 	xlink:href="https://www.inetdoc.net/pdf/__printbasename__"><literal>__printbasename__</literal></link>.</para>
+
+    <para>Les infographies sont réalisées avec Google NotebookLM ou avec l'aide
+    de Gemini.</para>
+</sect1>
+
+<sect1 xml:id='sysadm-net.autofs-ldap-nfs.objectives'>
+  <title>Objectifs</title>
+
+  <para>Après avoir réalisé les manipulations proposées dans ce support, vous
+  serez en mesure de&nbsp;:</para>
+
+    <itemizedlist>
+        <listitem>
+            <para>Concevoir une architecture minimale de service où
+            <emphasis>identités</emphasis> et <emphasis>stockage</emphasis>
+            sont fournis par une seule machine virtuelle.</para>
+        </listitem>
+        <listitem>
+            <para>Publier dans LDAP les correspondances
+            (<wordasword>maps</wordasword>) <systemitem>autofs</systemitem> au
+            format conforme à la RFC 2307bis étendue par le schéma
+            <filename>autofs.schema</filename>.</para>
+        </listitem>
+        <listitem>
+            <para>Diagnostiquer une chaîne d’authentification complète&nbsp;:
+            pam_krb5 → nss_ldap → idmapd → mount NFSv4.</para>
+        </listitem>
+        <listitem>
+            <para>Sécuriser de bout en bout les flux d’identification (GSSAPI +
+            StartTLS) et de stockage (krb5p + xprtsec=mtls).</para>
+        </listitem>
+    </itemizedlist>
+</sect1>
+
+<?custom-pagebreak?>
+<sect1 xml:id='sysadm-net.autofs-ldap-nfs.plan'>
+	<title>Topologie, scénario et plan d'adressage</title>
+
+	<bridgehead xml:id='sysadm-net.autofs-ldap-nfs.logical-topology'
+	renderas='sect2'>Topologie logique</bridgehead>
+
+	<para>Les manipulations présentées dans ce support utilisent un domaine de
+	diffusion unique (<acronym>VLAN</acronym>) dans lequel on trouve au moins
+	deux systèmes virtuels ou physiques avec deux rôles distincts.</para>
+
+	<itemizedlist>
+	<listitem>
+        <para>Le système serveur cumule l'hébergement des services d'identités
+        et de stockage. Il est le centre de distribution de clés Kerberos
+        (<acronym>KDC</acronym>) et l'autorité de certification locale.</para>
+	</listitem>
+	<listitem>
+        <para>Le système client interroge l'annuaire et présente les comptes
+        ainsi que les points de montages des répertoires personnels de ces
+        comptes.</para>
+	</listitem>
+	</itemizedlist>
+
+<mediaobject role="center">
+	<imageobject role='fo'>
+    <imagedata fileref='images/autofs-ldap-nfs-topology-full.png' align='center' format='PNG'
+    contentwidth='16cm' width='16.5cm'/>
+	</imageobject>
+	<imageobject role='html'>
+    <imagedata fileref='images/autofs-ldap-nfs-topology-red.png' align='center' format='PNG'
+    contentwidth='720px' scalefit='1'/>
+	</imageobject>
+	<textobject>
+	<phrase>Topologie logique</phrase>
+	</textobject>
+	<caption>
+	<para><link xmlns="http://docbook.org/ns/docbook"
+	xlink:href='https://www.inetdoc.net/travaux_pratiques/sysadm-net.ldap/images/autofs-ldap-nfs-topology-full.png'>Topologie
+	logique - vue complète</link></para>
+	</caption>
+</mediaobject>
+
+	<bridgehead xml:id='sysadm-net.autofs-ldap-nfs.scenario'
+	renderas='sect2'>Scénario</bridgehead>
+
+    <para>Pour mettre en œuvre progressivement un annuaire
+    <acronym>LDAP</acronym>, de son installation à son exposition sécurisée
+    vers les clients et les services applicatifs, le séquencement des
+    opérations est présenté dans le tableau ci-dessous. Après le traitement des
+    parties communes, les deux systèmes jouent un rôle distinct.</para>
+
+	<table frame='all' pgwide='1'>
+	<title>Attribution des rôles LDAP</title>
+	<tgroup cols='2' align='left' colsep='1' rowsep='1'>
+	<colspec colnum='1' colname='c1' colwidth='1*'/>
+	<colspec colnum='2' colname='c2' colwidth='1*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333"&nbsp;?>
+		<?dbfo color="#fff"&nbsp;?>
+	<entry>Client</entry>
+	<entry>Serveur</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+    <entry>—</entry>
+    <entry>Installez le paquet <systemitem>slapd</systemitem>, analysez la
+    configuration <code>cn=config</code>, réinitialisez la base et composez le
+    nouvel annuaire.</entry>
+	</row>
+    <row>
+    <entry>Installez les outils LDAP, interrogez l'annuaire à distance.</entry>
+    <entry>Activez la journalisation des transactions et publiez les comptes
+    utilisateurs.</entry>
+    </row>
+    <row>
+    <entry>Configurez <systemitem>libnss-ldapd</systemitem> et
+    <systemitem>libpam-ldapd</systemitem> pour l'accès transparent.</entry>
+    <entry>Validez la connexion <command>getent passwd</command> depuis le
+    client.</entry>
+    </row>
+    <row>
+    <entry>Installez <systemitem>libsasl2-modules-gssapi-mit</systemitem> et
+    <systemitem>krb5-user</systemitem> pour l'authentification
+    Kerberos.</entry>
+    <entry>Installez le KDC, créez le royaume <code>LAB.LOCAL</code>, créez les
+    principaux et le keytab dédié à <systemitem>slapd</systemitem>. Activez
+    <acronym>SASL/GSSAPI</acronym>.</entry>
+    </row>
+    <row>
+    <entry>Importez l'autorité de certification locale et validez les liaisons
+    <code>ldaps://</code> et <emphasis>StartTLS</emphasis>.</entry>
+    <entry>Générez les certificats, déposez-les dans <code>/etc/ssl/</code> et
+    activez <code>olcTLS*</code> dans la configuration dynamique du démon
+    <systemitem>slapd</systemitem>.</entry>
+    </row>
+    <row>
+    <entry>Installez le service web <citetitle>White Pages</citetitle>,
+    configurez l'accès à l'annuaire et alimentez le trombinoscope via
+    l'attribut <code>jpegPhoto</code>.</entry>
+    <entry>—</entry>
+    </row>
+	</tbody>
+	</tgroup>
+	</table>
+
+<?custom-pagebreak?>
+	<bridgehead xml:id='sysadm-net.autofs-ldap-nfs.addressing'
+	renderas='sect2'>Plan d'adressage</bridgehead>
+
+    <para>Le tableau ci-dessous correspond au plan d’adressage de la maquette
+    qui a servi à traiter les questions des sections suivantes. Lors des
+    séances de travaux pratiques, un plan d’adressage spécifique est fourni à
+    chaque binôme d’étudiants. Il faut se référer au document
+    &url.infra.moodle;.</para>
+
+	<table xml:id='sysadm-net.autofs-ldap-nfs.mockup-addressing' frame='all' pgwide='1'>
+        <title>Plan d'adressage de la maquette «&nbsp;Introduction aux
+        annuaires LDAP avec OpenLDAP&nbsp;»</title>
+	<tgroup cols='5'>
+	<colspec colnum='1' colwidth='1*'/>
+	<colspec colnum='2' colwidth='3*'/>
+	<colspec colnum='3' colwidth='1*'/>
+	<colspec colnum='4' colwidth='4*'/>
+	<colspec colnum='5' colwidth='1*'/>
+	<thead>
+	<row>
+		<?dbfo bgcolor="#333"&nbsp;?>
+		<?dbfo color="#fff"&nbsp;?>
+		<entry>Rôle</entry>
+		<entry>Nom</entry>
+		<entry>VLAN</entry>
+		<entry>Adresses IP</entry>
+		<entry>Interface tap</entry>
+	</row>
+	</thead>
+	<tbody>
+	<row>
+		<entry>Serveur</entry>
+        <entry><systemitem>srvr.lab.local</systemitem></entry>
+		<entry>101</entry>
+		<entry>
+		<systemitem class='ipaddress'>172.28.101.5/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:65:baad:caff:fefe:5/64</systemitem>
+		</entry>
+		<entry>5</entry>
+	</row>
+	<row>
+		<entry>Client</entry>
+        <entry><systemitem>clnt.lab.local</systemitem></entry>
+		<entry>101</entry>
+		<entry>
+		<systemitem class='ipaddress'>172.28.101.6/24</systemitem><?custom-linebreak?>
+		<systemitem class='ipaddress'>2001:678:3fc:65:baad:caff:fefe:6/64</systemitem>
+		</entry>
+		<entry>6</entry>
+	</row>
+	</tbody>
+	</tgroup>
+	</table>
+
+    <para>Le nom de domaine DNS <code>lab.local</code> correspond au royaume
+    Kerberos <code>LAB.LOCAL</code> et au contexte de nommage
+    <acronym>LDAP</acronym> <code>dc=lab,dc=local</code>.  Cette correspondance
+    est essentielle à la fois pour la résolution automatique du
+    <wordasword>realm</wordasword> Kerberos et pour la cohérence des
+    identifiants distinctifs <acronym>LDAP</acronym> avec les noms
+    <acronym>DNS</acronym>.</para>
 </sect1>
 
 <sect1 xml:id='sysadm-net.autofs-ldap-nfs.ldap'>

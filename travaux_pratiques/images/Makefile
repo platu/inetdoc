@@ -10,7 +10,7 @@ SYMLINKS = \
 	$(MAIN_DIR)/travaux_pratiques/intro.analyse/images/wireshark-thumb.png \
 	$(MAIN_DIR)/travaux_pratiques/sysadm-net.iscsi/images/targetcli.png \
 	$(MAIN_DIR)/travaux_pratiques/sysadm-net.ldap/images/LDAP-tree.png \
-	$(MAIN_DIR)/travaux_pratiques/sysadm-net.autofs-ldap-nfs/images/ldap-automount.png \
+	$(MAIN_DIR)/travaux_pratiques/sysadm-net.autofs-ldap-nfs/images/autofs-ldap-mapping*.png \
 	$(MAIN_DIR)/travaux_pratiques/interco_01.inter-vlan-iaas/images/*.png \
 	$(MAIN_DIR)/travaux_pratiques/interco_02.pppoe/images/pppoe-logical-topology.png \
 	$(MAIN_DIR)/travaux_pratiques/interco_02.pppoe/images/pppoe-hypervisor-topology.png \
