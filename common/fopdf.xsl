@@ -952,11 +952,10 @@ up into multiple documents.
     <xsl:attribute name="space-before.maximum">0.3em</xsl:attribute>
   </xsl:attribute-set>
 
-	<!-- emphasis italic and underline font style -->
+  <!-- emphasis bold style -->
 	<xsl:template match="d:emphasis">
-		<fo:inline font-style="italic"
-			text-decoration="underline"
-			font-family="IBMPlexMono-Italic">
+    <fo:inline font-weight="bold"
+      font-family="IBMPlexSans-Bold">
 			<xsl:apply-templates/>
 		</fo:inline>
 	</xsl:template>
