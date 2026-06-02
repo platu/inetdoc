@@ -192,14 +192,60 @@
 	<bridgehead xml:id='sysadm-net.autofs-ldap-nfs.scenario'
 	renderas='sect2'>Scénario</bridgehead>
 
-    <para>Pour mettre en œuvre progressivement un annuaire
-    <acronym>LDAP</acronym>, de son installation à son exposition sécurisée
-    vers les clients et les services applicatifs, le séquencement des
-    opérations est présenté dans le tableau ci-dessous. Après le traitement des
-    parties communes, les deux systèmes jouent un rôle distinct.</para>
+    <para>Ce support de travaux pratiques constitue la <emphasis>synthèse des
+    deux énoncés qui le précèdent</emphasis> dans la série
+    &url.sysadm-net;&nbsp;:</para>
 
+    <itemizedlist>
+        <listitem>
+            <para>&url.sysadm-net.nfs;&nbsp;: Installer et configurer un
+            serveur <acronym>NFSv4</acronym> avec sécurité Kerberos
+            (<code>sec=krb5p</code>) et chiffrement des échanges au niveau
+            transport avec <acronym>TLS</acronym>
+            (<code>xprtsec=tls:mtls</code>).</para>
+        </listitem>
+        <listitem>
+            <para>&url.sysadm-net.ldap;&nbsp;: Déployer un annuaire
+            <citetitle>OpenLDAP</citetitle> avec une authentification forte
+            <acronym>SASL/GSSAPI</acronym> (Kerberos) et un chiffrement des
+            échanges au niveau transport avec StartTLS ou
+            <code>ldaps://</code>.</para>
+        </listitem>
+    </itemizedlist>
+
+    <para>L’objectif de ce support est de mutualiser les deux services sur le
+    même couple serveur/client afin de reproduire un cas d’usage classique en
+    environnement de production&nbsp;: un utilisateur s’authentifie via
+    <acronym>LDAP</acronym>, puis son répertoire personnel est monté
+    automatiquement à la connexion depuis un partage <acronym>NFS</acronym>
+    sécurisé.</para>
+
+    <para>Cette mutualisation soulève deux nouvelles problématiques, traitées
+    en détail dans cette synthèse&nbsp;:</para>
+
+    <orderedlist>
+        <listitem>
+            <para>La coexistence, sur le même hôte, des services
+            <systemitem>slapd</systemitem>, <systemitem>krb5-kdc</systemitem>,
+            <systemitem>nfs-kernel-server</systemitem> et
+            <systemitem>idmapd</systemitem>, qui partagent le même royaume
+            Kerberos <code>LAB.LOCAL</code> et la même autorité de
+            certification <acronym>X509</acronym>.</para>
+        </listitem>
+        <listitem>
+            <para>La publication des cartes de montage automatique
+            (<systemitem>auto.master</systemitem>,
+            <systemitem>auto.home</systemitem>) dans le <acronym>DIT</acronym>
+            <acronym>LDAP</acronym> plutôt que dans des fichiers locaux, afin
+            que tout client <systemitem>autofs</systemitem> configuré pour
+            interroger l'annuaire dispose automatiquement des règles de montage
+            à jour.</para>
+        </listitem>
+    </orderedlist>
+
+<?custom-pagebreak?>
 	<table frame='all' pgwide='1'>
-	<title>Attribution des rôles LDAP</title>
+	<title>Répartition des rôles entre client et serveur</title>
 	<tgroup cols='2' align='left' colsep='1' rowsep='1'>
 	<colspec colnum='1' colname='c1' colwidth='1*'/>
 	<colspec colnum='2' colname='c2' colwidth='1*'/>
@@ -213,15 +259,20 @@
 	</thead>
 	<tbody>
 	<row>
-    <entry>—</entry>
-    <entry>Installez le paquet <systemitem>slapd</systemitem>, analysez la
-    configuration <code>cn=config</code>, réinitialisez la base et composez le
-    nouvel annuaire.</entry>
+        <entry>—</entry>
+        <entry>Installez et initialisez le service d'annuaire
+        <systemitem>slapd</systemitem>&nbsp;: Initialisez la base
+        <code>cn=config</code>, créez le contexte de nommage
+        <code>dc=lab,dc=local</code>, puis implantez les unités
+        organisationnelles et les comptes utilisateurs.</entry>
 	</row>
     <row>
-    <entry>Installez les outils LDAP, interrogez l'annuaire à distance.</entry>
-    <entry>Activez la journalisation des transactions et publiez les comptes
-    utilisateurs.</entry>
+        <entry>Installez les outils <acronym>LDAP</acronym>r
+        (<systemitem>ldap-utils</systemitem>) et validez l'accès à l'annuaire
+        distant par requêtes <command>ldapsearch</command>.</entry>
+        <entry>Activez la journalisation des transactions (<code>olcLogLevel:
+        stats</code>) et vérifiez la publication des comptes avec
+        <command>ldapsearch</command>.</entry>
     </row>
     <row>
     <entry>Configurez <systemitem>libnss-ldapd</systemitem> et
@@ -254,7 +305,6 @@
 	</tgroup>
 	</table>
 
-<?custom-pagebreak?>
 	<bridgehead xml:id='sysadm-net.autofs-ldap-nfs.addressing'
 	renderas='sect2'>Plan d'adressage</bridgehead>
 
@@ -309,13 +359,220 @@
 	</tgroup>
 	</table>
 
-    <para>Le nom de domaine DNS <code>lab.local</code> correspond au royaume
-    Kerberos <code>LAB.LOCAL</code> et au contexte de nommage
-    <acronym>LDAP</acronym> <code>dc=lab,dc=local</code>.  Cette correspondance
-    est essentielle à la fois pour la résolution automatique du
+    <para>Le nom de domaine <acronym>DNS</acronym> <code>lab.local</code>
+    correspond au royaume Kerberos <code>LAB.LOCAL</code> et au contexte de
+    nommage <acronym>LDAP</acronym> <code>dc=lab,dc=local</code>. Cette
+    correspondance est essentielle à la fois pour la résolution automatique du
     <wordasword>realm</wordasword> Kerberos et pour la cohérence des
     identifiants distinctifs <acronym>LDAP</acronym> avec les noms
     <acronym>DNS</acronym>.</para>
+</sect1>
+
+<sect1 xml:id='sysadm-net.autofs-ldap-nfs.prepare'>
+    <title>Préparer le déploiement des services</title>
+
+    <para>Phrase d'intro</para>
+
+<sect2 xml:id='sysadm-net.autofs-ldap-nfs.prepare.names'>
+    <title>Planifier les noms de services</title>
+
+    <para>Pour mutualiser les services tout en respectant le principe de
+    moindre privilège, vous devez définir des noms spécifiques.</para>
+
+<qandaset>
+    <qandaentry>
+        <question>
+            <para><phrase>Pourquoi utiliser des noms de service distincts
+            <acronym>NFSv4</acronym> et <acronym>LDAP</acronym> sur le même
+            système&nbsp;?</phrase></para>
+        </question>
+        <answer>
+            <para>Il est essentiel d'émettre des identités distinctes pour les
+            deux fonctions de sécurité&nbsp;:</para>
+
+            <itemizedlist>
+                <listitem>
+                    <para>Deux <wordasword>principals</wordasword> Kerberos distincts&nbsp;:</para>
+                    <itemizedlist>
+                        <listitem>
+                            <para><code>nfs/nfs-srvr.lab.local@LAB.LOCAL</code></para>
+                        </listitem>
+                        <listitem>
+                            <para><code>ldap/ldap-srvr.lab.local@LAB.LOCAL</code></para>
+                        </listitem>
+                    </itemizedlist>
+                </listitem>
+                <listitem>
+                    <para>Si deux certificats <acronym>X509</acronym> distincts
+                    sont signés par la même autorité, la maquette peut être
+                    transposée à un déploiement multi-hôtes
+                    ultérieurement.</para>
+                </listitem>
+            </itemizedlist>
+        </answer>
+    </qandaentry>
+
+    <qandaentry>
+        <question>
+            <para><phrase>Comment assurer une résolution locale des noms
+            d'hôtes pour le client et le serveur&nbsp;?</phrase></para>
+
+            <para>Consultez les pages de manuel de la table de recherche
+            statique des noms d'hôtes&nbsp;: <command>man
+            hosts</command>.</para>
+
+            <para>Créez un script qui ajoute les enregistrements du client et
+            du serveur dans le fichier <filename>/etc/hosts</filename>, tout en
+            évitant les doublons.</para>
+        </question>
+        <answer>
+            <para>Copiez l'exemple de code ci-dessous dans le fichier
+            <filename>update-hosts.sh</filename>.</para>
+
+        <caution>
+            <para>Éditez le script pour utiliser vos adresses
+            <acronym>IPv4</acronym> et <acronym>IPv6</acronym>.</para>
+        </caution>
+
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
+
+DOMAIN="lab.local"
+HOSTS_FILE="/etc/hosts"
+
+CLIENT_IPS=(
+	"172.28.101.6"
+	"2001:678:3fc:65:baad:caff:fefe:6"
+)
+CLIENT_NAME="clnt"
+
+SERVER_IPS=(
+	"172.28.101.5"
+	"2001:678:3fc:65:baad:caff:fefe:5"
+)
+SERVER_NAME="srvr"
+SERVER_ALIASES="ldap-srvr.${DOMAIN} nfs-srvr.${DOMAIN}"
+
+if [[ ${EUID} -ne 0 ]]; then
+	echo "This script must be run as root." >&2
+	exit 1
+fi
+
+escape_sed_bre() {
+	sed 's/[][\\.^$*]/\\&/g'
+}
+
+update_host_entry() {
+	local ip="$1"
+	local name="$2"
+	local extra_aliases="${3-}"
+	local escaped_ip
+	escaped_ip=$(printf '%s\n' "${ip}" | escape_sed_bre)
+	sed -i "/^${escaped_ip}[[:space:]]/d" "${HOSTS_FILE}"
+	if [[ -n ${extra_aliases} ]]; then
+		echo "${ip} ${name}.${DOMAIN} ${name} ${extra_aliases}" >>"${HOSTS_FILE}"
+	else
+		echo "${ip} ${name}.${DOMAIN} ${name}" >>"${HOSTS_FILE}"
+	fi
+}
+
+for ip in "${CLIENT_IPS[@]}"; do
+	update_host_entry "${ip}" "${CLIENT_NAME}"
+done
+
+for ip in "${SERVER_IPS[@]}"; do
+	update_host_entry "${ip}" "${SERVER_NAME}" "${SERVER_ALIASES}"
+done
+
+exit 0
+]]></programlisting>
+
+            <para>Lancez le script sur le client et sur le serveur.</para>
+
+<screen>sudo bash update-hosts.sh</screen>
+
+            <para>Testez la résolution locale des noms depuis le client.</para>
+
+<screen>host ldap-srvr.lab.local</screen>
+
+<screen>ldap-srvr.lab.local is an alias for srvr.lab.local.
+srvr.lab.local has address 172.28.101.5
+srvr.lab.local has IPv6 address 2001:678:3fc:65:baad:caff:fefe:5</screen>
+
+<screen>host nfs-srvr.lab.local</screen>
+
+<screen>nfs-srvr.lab.local is an alias for srvr.lab.local.
+srvr.lab.local has address 172.28.101.5
+srvr.lab.local has IPv6 address 2001:678:3fc:65:baad:caff:fefe:5</screen>
+
+<screen>for ip in 172.28.101.5 2001:678:3fc:65:baad:caff:fefe:5; do
+    host $ip
+done</screen>
+
+<screen>5.101.28.172.in-addr.arpa domain name pointer srvr.lab.local.
+5.101.28.172.in-addr.arpa domain name pointer srvr.
+5.101.28.172.in-addr.arpa domain name pointer nfs-srvr.lab.local.
+5.101.28.172.in-addr.arpa domain name pointer ldap-srvr.lab.local.
+5.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.5.6.0.0.c.f.3.0.8.7.6.0.1.0.0.2.ip6.arpa domain name pointer srvr.lab.local.
+5.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.5.6.0.0.c.f.3.0.8.7.6.0.1.0.0.2.ip6.arpa domain name pointer srvr.
+5.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.5.6.0.0.c.f.3.0.8.7.6.0.1.0.0.2.ip6.arpa domain name pointer nfs-srvr.lab.local.
+5.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.5.6.0.0.c.f.3.0.8.7.6.0.1.0.0.2.ip6.arpa domain name pointer ldap-srvr.lab.local.</screen>
+        </answer>
+    </qandaentry>
+
+    <qandaentry>
+        <question>
+            <para><phrase>Quelles sont les conséquences de l'utilisation de
+            deux noms de service pour résoudre deux principaux Kerberos vers la
+            même adresse IP&nbsp;?</phrase></para>
+        </question>
+        <answer>
+            <para>Le démon <systemitem>slapd</systemitem> n’expose pas le même
+            <filename>keytab</filename> que le démon
+            <systemitem>nfs-kernel-server</systemitem>.</para>
+
+            <para>Chaque service charge son principal depuis son fichier
+            <filename>>keytab</filename> (par défaut&nbsp;:
+            <filename>/etc/krb5.keytab</filename> pour <acronym>NFS</acronym>
+            et <filename>/etc/ldap/ldap.keytab</filename> pour
+            <acronym>LDAP</acronym>). Les deux services peuvent ainsi cohabiter
+            sur le même hôte sans partager leurs clés cryptographiques, ce qui
+            respecte le principe de moindre privilège.</para>
+        </answer>
+    </qandaentry>
+</qandaset>
+</sect2>
+
+<sect2 xml:id='sysadm-net.autofs-ldap-nfs.prepare.certs'>
+    <title>Configurer l'autorité de certification</title>
+
+    <para>Pour mutualiser la gestion des certificats, vous devez définir une
+    <acronym>CA</acronym> commune aux deux services.</para>
+
+<qandaset>
+    <qandaentry>
+        <question>
+            <para><phrase>L'autorité de certification
+            <citetitle>OpenSSL</citetitle> générée pour le service
+            <acronym>NFS</acronym> peut-elle être réutilisée pour le service
+            <acronym>LDAP</acronym>&nbsp;?</phrase></para>
+        </question>
+        <answer>
+            <para>C’est précisément l'un des objectifs de la mutualisation. Une
+            seule clé privée d’autorité (<filename>labCA.key</filename>) signe
+            successivement deux paires (certificat, clé)&nbsp;: l'une pour
+            <systemitem>nfs-server.lab.local</systemitem>, l'autre pour
+            <systemitem>ldap-server.lab.local</systemitem>. Les clients
+            (<acronym>NFS</acronym> et <acronym>LDAP</acronym>) n'ont alors
+            qu'un seul fichier, <filename>labCA.crt</filename>, à installer en
+            <wordasword>trust anchor</wordasword> dans <filename
+            class='directory'>/usr/local/share/ca-certificates/</filename> puis
+            à régénérer via <command>update-ca-certificates</command>.</para>
+        </answer>
+    </qandaentry>
+</qandaset>
+</sect2>
 </sect1>
 
 <sect1 xml:id='sysadm-net.autofs-ldap-nfs.ldap'>

@@ -967,6 +967,14 @@ up into multiple documents.
 		</fo:inline>
 	</xsl:template>
 
+  <!-- citetitle bold style -->
+  <xsl:template match="d:citetitle">
+    <fo:inline font-weight="bold"
+      font-family="IBMPlexSans-Bold">
+      <xsl:apply-templates/>
+    </fo:inline>
+  </xsl:template>
+
   <!-- Glossary properties -->
   <xsl:param name="glossentry.show.acronym">yes</xsl:param>
 
