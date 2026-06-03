@@ -3417,7 +3417,7 @@ Continuer ? [O/n]</screen>
     </question>
     <answer>
         <para>Copiez l'exemple de code ci-dessous dans le fichier
-        <filename>install-ldap-client.sh</filename>.</para>
+        <filename>install-ldap-clnt.sh</filename>.</para>
 
 <programlisting><![CDATA[#!/usr/bin/env bash
 
@@ -3472,9 +3472,9 @@ echo "================================================================="
         <para>Copiez le mot de passe du compte de service
         <systemitem>nslcd-proxy</systemitem> dans le fichier local
         <filename>~/.ldap_nslcd-proxy_pass</filename> avant de lancez le script
-        <filename>install-ldap-client.sh</filename>.</para>
+        <filename>install-ldap-clnt.sh</filename>.</para>
 
-<screen>sudo bash install-ldap-client.sh</screen>
+<screen>sudo bash install-ldap-clnt.sh</screen>
 
         <para>Vérifiez que les utilisateurs de l'annuaire sont accessibles
         depuis le système client.</para>
@@ -4328,7 +4328,7 @@ krbtgt/LAB.LOCAL@LAB.LOCAL</screen>
             <listitem>
             <formalpara>
                 <title>Hôte serveur</title>
-                <para><code>host/ldap-server.lab.local@LAB.LOCAL</code>&nbsp;:
+                <para><code>host/ldap-srvr.lab.local@LAB.LOCAL</code>&nbsp;:
                 Il sert aux échanges de niveau hôte (ssh GSSAPI, etc.). Le
                 principal de l'hôte client sera généré avec sa
                 configuration.</para>
@@ -4337,7 +4337,7 @@ krbtgt/LAB.LOCAL@LAB.LOCAL</screen>
             <listitem>
             <formalpara>
                 <title>Service LDAP</title>
-                <para><code>ldap/ldap-server.lab.local@LAB.LOCAL</code>&nbsp;:
+                <para><code>ldap/ldap-srvr.lab.local@LAB.LOCAL</code>&nbsp;:
                 Ce principal est utilisé par <systemitem>slapd</systemitem>
                 pour s’authentifier auprès des clients et pour valider les
                 tickets présentés par les clients.</para>
@@ -4363,11 +4363,11 @@ krbtgt/LAB.LOCAL@LAB.LOCAL</screen>
             <para>Commencez par le plus simple&nbsp;: la génération du principa
             du serveur <acronym>LDAP</acronym>.</para>
 
-<screen>sudo kadmin.local -q "addprinc -randkey host/ldap-server.lab.local@LAB.LOCAL"</screen>
+<screen>sudo kadmin.local -q "addprinc -randkey host/ldap-srvr.lab.local@LAB.LOCAL"</screen>
 
 <screen>Authenticating as principal root/admin@LAB.LOCAL with password.
-No policy specified for host/ldap-server.lab.local@LAB.LOCAL; defaulting to no policy
-Principal "host/ldap-server.lab.local@LAB.LOCAL" created.</screen>
+No policy specified for host/ldap-srvr.lab.local@LAB.LOCAL; defaulting to no policy
+Principal "host/ldap-srvr.lab.local@LAB.LOCAL" created.</screen>
 
         <note>
             <formalpara>
@@ -5356,96 +5356,80 @@ ldap-clnt nslcd[8096]: [7b8ddc] <passwd="leia"> (re)loading /etc/nsswitch.conf]]
             <para>Copiez l'exemple de code ci-dessous dans le fichier
             <filename>generate-ldap-certs.sh</filename>.</para>
 
-<programlisting><![CDATA[#!/bin/bash
-set -e
+<programlisting><![CDATA[#!/usr/bin/env bash
+
+set -euo pipefail
 
 LDAP_CA="ldap-ca"
-LDAP_SRVR="ldap-srvr"
-LDAP_CLNT="ldap-clnt"
+LDAP_SERVER="ldap-srvr"
+LDAP_CLIENT="ldap-clnt"
 DOMAIN="lab.local"
 CERT_DIR="${HOME}/certs"
+CA_REQ_CONF="ca_req.conf"
 
-# 1. Create the certificates directory if needed
 mkdir -p "${CERT_DIR}"
 chmod 700 "${CERT_DIR}"
 cd "${CERT_DIR}"
 
-# 2. Create the OpenSSL configuration files for the extensions
-cat >ca_extensions.conf <<EOF
-[v3_ca]
-basicConstraints = critical,CA:TRUE
-keyUsage = critical,keyCertSign,cRLSign
-subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid:always,issuer
-EOF
+gen_key() {
+	local name="$1"
+	local algo="$2"
+	case "${algo}" in
+	ed25519) openssl genpkey -algorithm ed25519 -out "${name}.key" ;;
+	rsa) openssl genpkey -algorithm rsa -pkeyopt rsa_keygen_bits:4096 -out "${name}.key" ;;
+	*)
+		echo "Unsupported algorithm: ${algo}" >&2
+		exit 1
+		;;
+	esac
+}
 
-cat >server_extensions.conf <<EOF
-[v3_server]
-basicConstraints = CA:FALSE
-extendedKeyUsage = serverAuth
-keyUsage = critical,digitalSignature
-subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid,issuer
-subjectAltName = DNS:${LDAP_SRVR}.${DOMAIN},DNS:${LDAP_SRVR}
-EOF
+issue_cert() {
+	local ca_name="$1"
+	local cert_name="$2"
+	local usage="$3"
+	local algo="$4"
+	local ext
 
-cat >client_extensions.conf <<EOF
-[v3_client]
-basicConstraints = CA:FALSE
-extendedKeyUsage = clientAuth
-keyUsage = critical,digitalSignature
-subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid,issuer
-EOF
+	gen_key "${cert_name}" "${algo}"
+	openssl req -new -key "${cert_name}.key" -out "${cert_name}.csr" -subj "/CN=${cert_name}.${DOMAIN}"
 
-cat >ca_req.conf <<EOF
-[v3_ca]
-basicConstraints = critical,CA:TRUE
-keyUsage = critical,keyCertSign,cRLSign
-subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid:always,issuer
+	if [[ ${usage} == "server" ]]; then
+		ext="extendedKeyUsage=serverAuth\nsubjectAltName=DNS:${cert_name}.${DOMAIN},DNS:${cert_name}"
+	else
+		ext="extendedKeyUsage=clientAuth"
+	fi
+
+	openssl x509 -req -in "${cert_name}.csr" -CA "${ca_name}.crt" -CAkey "${ca_name}.key" -CAcreateserial \
+		-out "${cert_name}.crt" -days 730 -extensions v3 -extfile <(printf '%b\n' "[v3]" \
+			"basicConstraints=CA:FALSE" "keyUsage=critical,digitalSignature" \
+			"subjectKeyIdentifier=hash" "authorityKeyIdentifier=keyid,issuer" "${ext}")
+}
+
+gen_key "${LDAP_CA}" ed25519
+cat >"${CA_REQ_CONF}" <<'EOF'
 [req]
 distinguished_name=req
+[v3_ca]
+basicConstraints=critical,CA:TRUE
+keyUsage=critical,keyCertSign,cRLSign
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid:always,issuer
 EOF
+openssl req -x509 -new -nodes -key "${LDAP_CA}.key" -days 3650 -subj "/CN=LDAP-CA" -out "${LDAP_CA}.crt" \
+	-extensions v3_ca -config "${CA_REQ_CONF}"
 
-# Note: 'keyEncipherment' was removed from keyUsage for the client and server
-# because Ed25519 is a pure signature algorithm, not a key encipherment one (unlike RSA).
+issue_cert "${LDAP_CA}" "${LDAP_SERVER}" server ed25519
+issue_cert "${LDAP_CA}" "${LDAP_CLIENT}" client ed25519
 
-# 3. Generate the CA private key (Ed25519)
-openssl genpkey -algorithm ed25519 -out "${LDAP_CA}".key
-
-# 4. Generate the self-signed CA certificate with X.509 extensions
-openssl req -x509 -new -nodes -key "${LDAP_CA}".key \
-	-days 3650 -subj "/CN=LDAP-CA" \
-	-out "${LDAP_CA}".crt \
-	-extensions v3_ca \
-	-config ca_req.conf
-
-# 5. Generate the server private key and CSR (Ed25519)
-openssl genpkey -algorithm ed25519 -out "${LDAP_SRVR}".key
-openssl req -new -key "${LDAP_SRVR}".key -out "${LDAP_SRVR}".csr -subj "/CN=${LDAP_SRVR}.${DOMAIN}"
-
-# 6. Sign the server certificate with the CA using TLS server extensions
-openssl x509 -req -in "${LDAP_SRVR}".csr -CA "${LDAP_CA}".crt -CAkey "${LDAP_CA}".key -CAcreateserial \
-	-out "${LDAP_SRVR}".crt -days 730 \
-	-extfile server_extensions.conf -extensions v3_server
-
-# 7. Generate the client private key and CSR (Ed25519)
-openssl genpkey -algorithm ed25519 -out "${LDAP_CLNT}".key
-openssl req -new -key "${LDAP_CLNT}".key -out "${LDAP_CLNT}".csr -subj "/CN=${LDAP_CLNT}.${DOMAIN}"
-
-# 8. Sign the client certificate with the CA using TLS client extensions
-openssl x509 -req -in "${LDAP_CLNT}".csr -CA "${LDAP_CA}".crt -CAkey "${LDAP_CA}".key -CAcreateserial \
-	-out "${LDAP_CLNT}".crt -days 730 \
-	-extfile client_extensions.conf -extensions v3_client
+rm -f -- ./*.csr ./*.srl "${CA_REQ_CONF}"
 
 echo "Certificates and keys generated in ${CERT_DIR}"
-echo "Transfer ${LDAP_CA}.crt, ${LDAP_CLNT}.key, ${LDAP_CLNT}.crt, and ${LDAP_SRVR}.crt to the client."
-
-# 9. Remove temporary configuration files
-rm -f -- ./*_extensions.conf ./*.csr ./ca_req.conf
+echo "Transfer to the client: ${LDAP_CA}.crt"
+echo "  LDAP: ${LDAP_SERVER}.crt  ${LDAP_CLIENT}.key  ${LDAP_CLIENT}.crt"
 
 exit 0
+
 ]]></programlisting>
 
             <para>Lancez le script et affichez la liste des fichiers du dossier
