@@ -571,6 +571,162 @@ done</screen>
             à régénérer via <command>update-ca-certificates</command>.</para>
         </answer>
     </qandaentry>
+
+    <qandaentry>
+        <question>
+            <para><phrase>Comment répartir les certificats et les clés privées
+            associées sur le serveur et le client&nbsp;?</phrase></para>
+
+            <para>Proposez un tableau respectant la règle selon laquelle chaque
+            extrémité de la session TLS détient sa propre clé privée, tandis
+            que les certificats publics (y compris celui de l'autorité) sont
+            partagés.</para>
+        </question>
+        <answer>
+            <table xml:id="cert-distribution-autofs-ldap-nfs" frame="all">
+  <title>Répartition des certificats et des clés privées pour les services LDAP et NFS mutualisés</title>
+  <tgroup cols="3" align="left" colsep="1" rowsep="1">
+      <colspec colname="c1" colwidth="2*"/>
+    <colspec colname="c2" colwidth="3*"/>
+    <colspec colname="c3" colwidth="3*"/>
+    <thead>
+      <row>
+		<?dbfo bgcolor="#333"&nbsp;?>
+		<?dbfo color="#fff"&nbsp;?>
+        <entry>Fichier</entry>
+        <entry>Serveur&nbsp;: <systemitem class="fqdomainname">srvr.lab.local</systemitem></entry>
+        <entry>Client&nbsp;: <systemitem class="fqdomainname">clnt.lab.local</systemitem></entry>
+      </row>
+    </thead>
+    <tbody>
+      <row>
+        <entry namest="c1" nameend="c3">
+          <emphasis role="bold">Autorité de certification commune</emphasis>
+        </entry>
+      </row>
+      <row>
+        <entry><filename>labCA.crt</filename></entry>
+        <entry>
+          <simplelist>
+            <member>Racine de confiance commune</member>
+            <member>Démon <systemitem class="daemon">slapd</systemitem> :
+              <filename>/etc/ldap/certs/labCA.crt</filename>
+              <phrase role="attr">(olcTLSCACertificateFile)</phrase></member>
+            <member>Démon <systemitem class="daemon">tlshd</systemitem> :
+              <filename>/etc/tlshd.d/labCA.crt</filename></member>
+          </simplelist>
+        </entry>
+        <entry>
+          <simplelist>
+            <member>Racine de confiance commune</member>
+            <member>Démon <systemitem class="daemon">nslcd</systemitem> :
+              <filename>/etc/ssl/certs/labCA.crt</filename>
+              <phrase role="attr">(tls_cacertfile)</phrase></member>
+            <member>Démon <systemitem class="daemon">tlshd</systemitem> :
+              <filename>/etc/tlshd.d/labCA.crt</filename></member>
+            <member>Magasin système :
+              <filename>/usr/local/share/ca-certificates/labCA.crt</filename></member>
+          </simplelist>
+        </entry>
+      </row>
+      <row>
+        <entry namest="c1" nameend="c3">
+          <emphasis role="bold">Certificats et clés du service LDAP</emphasis>
+          (algorithme Ed25519 — handshake OpenSSL espace utilisateur via
+          <systemitem class="daemon">slapd</systemitem> /
+          <systemitem class="daemon">nslcd</systemitem>)
+        </entry>
+      </row>
+      <row>
+        <entry><filename>ldap-srvr.crt</filename></entry>
+        <entry>
+          <filename>/etc/ldap/certs/ldap-srvr.crt</filename>
+          <phrase role="attr">(olcTLSCertificateFile)</phrase>
+        </entry>
+        <entry>
+          <filename>/etc/ssl/certs/ldap-srvr.crt</filename>
+          <phrase role="attr">(vérification du serveur par nslcd)</phrase>
+        </entry>
+      </row>
+      <row>
+        <entry><filename>ldap-srvr.key</filename></entry>
+        <entry>
+          <filename>/etc/ldap/certs/ldap-srvr.key</filename>
+          <phrase role="attr">(olcTLSCertificateKeyFile — propriétaire
+          <systemitem class="username">openldap</systemitem>, mode 400)</phrase>
+        </entry>
+        <entry>—</entry>
+      </row>
+      <row>
+        <entry><filename>ldap-clnt.crt</filename></entry>
+        <entry>
+          <phrase role="note">(non requis côté serveur)</phrase>
+        </entry>
+        <entry>
+          <filename>/etc/ssl/certs/ldap-clnt.crt</filename>
+          <phrase role="attr">(tls_cert dans nslcd.conf)</phrase>
+        </entry>
+      </row>
+      <row>
+        <entry><filename>ldap-clnt.key</filename></entry>
+        <entry>—</entry>
+        <entry>
+          <filename>/etc/ssl/private/ldap-clnt.key</filename>
+          <phrase role="attr">(tls_key dans nslcd.conf — propriétaire
+          <systemitem class="username">nslcd</systemitem>, mode 400)</phrase>
+        </entry>
+      </row>
+      <row>
+        <entry namest="c1" nameend="c3">
+          <emphasis role="bold">Certificats et clés du service NFS</emphasis>
+          (algorithme RSA 4096 — chiffrement kTLS noyau via
+          <systemitem class="daemon">tlshd</systemitem>)
+        </entry>
+      </row>
+      <row>
+        <entry><filename>nfs-srvr.crt</filename></entry>
+        <entry>
+          <filename>/etc/tlshd.d/nfs-srvr.crt</filename>
+          <phrase role="attr">(x509.certificate dans tlshd.conf)</phrase>
+        </entry>
+        <entry>
+          <filename>/etc/tlshd.d/nfs-srvr.crt</filename>
+          <phrase role="attr">(vérification du serveur NFS par tlshd)</phrase>
+        </entry>
+      </row>
+      <row>
+        <entry><filename>nfs-srvr.key</filename></entry>
+        <entry>
+          <filename>/etc/tlshd.d/nfs-srvr.key</filename>
+          <phrase role="attr">(x509.private_key dans tlshd.conf — propriétaire
+          <systemitem class="username">root</systemitem>, mode 400)</phrase>
+        </entry>
+        <entry>—</entry>
+      </row>
+      <row>
+        <entry><filename>nfs-clnt.crt</filename></entry>
+        <entry>
+          <phrase role="note">(non requis côté serveur)</phrase>
+        </entry>
+        <entry>
+          <filename>/etc/tlshd.d/nfs-clnt.crt</filename>
+          <phrase role="attr">(x509.certificate dans tlshd.conf)</phrase>
+        </entry>
+      </row>
+      <row>
+        <entry><filename>nfs-clnt.key</filename></entry>
+        <entry>—</entry>
+        <entry>
+          <filename>/etc/tlshd.d/nfs-clnt.key</filename>
+          <phrase role="attr">(x509.private_key dans tlshd.conf — propriétaire
+          <systemitem class="username">root</systemitem>, mode 400)</phrase>
+        </entry>
+      </row>
+    </tbody>
+  </tgroup>
+</table>
+        </answer>
+    </qandaentry>
 </qandaset>
 </sect2>
 </sect1>

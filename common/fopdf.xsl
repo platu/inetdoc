@@ -50,6 +50,8 @@
     <xsl:param name="hyphenate">false</xsl:param>
     <xsl:param name="ulink.show" select="0" />
     <xsl:param name="ulink.footnotes" select="0" />
+    <xsl:param name="link.color" select="'#ad5568'" />
+    <xsl:param name="link.color.contrast" select="'#7a2736'" />
 
 	<xsl:attribute-set name="root.properties">
 	  <xsl:attribute name="id">fo_root_element_id</xsl:attribute>
@@ -66,7 +68,9 @@
     </xsl:template>
 
     <xsl:attribute-set name="xref.properties">
-      <xsl:attribute name="color">#d03</xsl:attribute>
+      <xsl:attribute name="color">
+        <xsl:value-of select="$link.color"/>
+      </xsl:attribute>
     </xsl:attribute-set>
 
     <xsl:param name="qanda.inherit.numeration" select="0" />
@@ -1018,7 +1022,7 @@ up into multiple documents.
         </xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
-    <fo:basic-link xlink:href="{$href}">
+    <fo:basic-link xlink:href="{$href}" color="{$link.color.contrast}">
       <xsl:apply-templates/>
     </fo:basic-link>
   </xsl:template>
