@@ -2616,26 +2616,21 @@ EOF]]></screen>
 
     <para>Répétez cette opération pour les autres paquets de la liste.</para>
 
-    <para>Installez les paquets suivants&nbsp;:</para>
-
-<screen>sudo apt install krb5-kdc krb5-admin-server krb5-user</screen>
-
-    <para>Lors de l'installation de ces paquets, une série de questions
-    apparaît. Voici ce qu'il faut saisir pour rester conforme au contexte de
-    ces manipulations.</para>
+    <para>Au minimum, on retient deux paquets&nbsp;:</para>
 
     <itemizedlist>
     <listitem>
-    <para><literal>Default Kerberos version 5 realm</literal>&nbsp;:
-    <emphasis>LAB.LOCAL</emphasis></para>
+        <para><systemitem>krb5-kdc</systemitem>&nbsp;: Installe le
+        Centre de Distribution des Clés (<acronym>KDC</acronym>), le
+        moteur principal qui vérifie les identités et distribue les
+        tickets d'accès.</para>
     </listitem>
     <listitem>
-    <para><literal>Kerberos servers for your realm</literal>&nbsp;:
-    <emphasis>nfs-srvr.lab.local</emphasis></para>
-    </listitem>
-    <listitem>
-    <para><literal>Administrative server for your Kerberos
-    realm</literal>&nbsp;: <emphasis>nfs-srvr.lab.local</emphasis></para>
+        <para><systemitem>krb5-admin-server</systemitem>&nbsp;: Fournit
+        le démon d'administration (<systemitem>kadmind</systemitem>)
+        nécessaire pour gérer la base de données Kerberos (création de
+        comptes, génération de <systemitem>keytabs</systemitem>) via le
+        réseau.</para>
     </listitem>
     </itemizedlist>
     </answer>
@@ -2643,110 +2638,164 @@ EOF]]></screen>
 
     <qandaentry>
     <question>
-    <para><phrase>Comment créer et définir le mot de passe d'administration du
-    nouveau royaume Kerberos&nbsp;?</phrase></para>
+        <para><phrase>Comment installer et configurer le <wordasword>Key
+        Distribution Center</wordasword> (<acronym>KDC</acronym>) sur le
+        serveur <acronym>NFS</acronym>&nbsp;?</phrase></para>
 
-    <para>Lancez une recherche dans les pages de manuels.</para>
+        <para>Contrairement au service <acronym>NFS</acronym>, pour lequel on a
+        séparé l'installation des paquets de la configuration, le service
+        Kerberos ne le permet pas nativement. Vous devez donc créer un script
+        de bootstrap dédié à Kerberos qui procède à l'installation des paquets
+        avec une configuration fournie en mode
+        <wordasword>pre-seeding</wordasword>, en utilisant les outils
+        <systemitem>debconf</systemitem>.</para>
 
-    <para>Recherchez les options de la commande <command>openssl</command> qui
-    permettent de générer un mot de passe suffisamment solide.</para>
+        <para>Créez le script Bash <filename>bootstrap-kdc.sh</filename> avec
+        les parties suivantes&nbsp;:</para>
+
+        <orderedlist>
+            <listitem>
+            <formalpara>
+                <title>Charger les variables et le secret maître</title>
+                <para>Définissez le domaine <code>lab.local</code>, le royaume
+                Kerberos et le nom du serveur <acronym>KDC</acronym>
+                <systemitem>nfs-srvr.LAB.LOCAL</systemitem>, puis récupérer de
+                manière sécurisée le mot de passe maître stocké dans
+                <filename>.kdc_master_pass</filename>.</para>
+            </formalpara>
+            </listitem>
+            <listitem>
+            <formalpara>
+                <title>Pré-configurer Debconf pour une installation non interactive</title>
+                <para>Préparez l'injection via
+                <systemitem>debconf-set-selections</systemitem> du nom du
+                royaume, du serveur <acronym>KDC</acronym> et du serveur
+                d'administration.</para>
+            </formalpara>
+            </listitem>
+            <listitem>
+            <formalpara>
+                <title>Installer les paquets du serveur Kerberos</title>
+                <para>Installez les paquest <systemitem>krb5-kdc</systemitem>
+                et <systemitem>krb5-admin-server</systemitem> en mode non
+                interactif.</para>
+            </formalpara>
+            </listitem>
+            <listitem>
+            <formalpara>
+                <title>Déployer la configuration kerberos</title>
+                <para>Créez le fichier de configuration système
+                <filename>/etc/krb5.conf</filename> en désactivant les
+                chiffrements faibles et en forçant
+                <acronym>AES-256/128</acronym> pour les tickets et les
+                <acronym>TGS</acronym>.</para>
+            </formalpara>
+            </listitem>
+            <listitem>
+            <formalpara>
+                <title>Initialiser la base cryptographique du KDC</title>
+                <para>Appelez <command>kdb5_util</command> en injectant le mot
+                de passe maître de manière non interactive via l'option
+                <option>-P</option>.</para>
+            </formalpara>
+            </listitem>
+            <listitem>
+            <formalpara>
+                <title>Redémarrer et activer les services Kerberos</title>
+                <para>Activez et redémarrez les services
+                <systemitem>krb5-kdc</systemitem> et
+                <systemitem>krb5-admin-server</systemitem> avec la commande
+                <command>systemctl</command>.</para>
+            </formalpara>
+            </listitem>
+        </orderedlist>
     </question>
     <answer>
-    <para>Lancez une recherche par mot clé dans les pages de manuels.</para>
+        <para>Copiez l'exemple de code ci-dessous dans le fichier
+        <filename>bootstrap-kdc.sh</filename>.</para>
 
-<screen>man -k kerberos | grep realm</screen>
-<screen>krb5_newrealm (8)    - Create a new Kerberos Realm</screen>
+<programlisting><![CDATA[#!/usr/bin/env bash
 
-<screen>man krb5_newrealm</screen>
+set -euo pipefail
 
-    <para>Générez le mot de passe de l'administrateur Kerberos.</para>
+echo "1. Loading variables and secrets"
+readonly DOMAIN="lab.local"
+readonly REALM="${DOMAIN^^}"
+readonly KDCSERVER="nfs-srvr.${DOMAIN}"
+readonly ADMINPASSFILE="${HOME}/.kdc_master_pass"
 
-<screen>openssl rand -base64 8 > krb-admin.password</screen>
-<screen>chmod 600 krb-admin.password</screen>
-<screen>cat krb-admin.password</screen>
+if [[ ! -f ${ADMINPASSFILE} ]]; then
+	openssl rand -base64 28 | cut -c -24 >"${ADMINPASSFILE}"
+	chmod 400 "${ADMINPASSFILE}"
+	echo "Master password generated in ${ADMINPASSFILE}"
+fi
 
-    <para>Copiez le mot de passe et Lancez la commande
-    <command>krb5_newrealm</command></para>
+KDCMASTERPWD="$(head -n 1 "${ADMINPASSFILE}")"
+readonly KDCMASTERPWD
 
-<screen>sudo krb5_newrealm</screen>
-<screen>This script should be run on the master KDC/admin server to initialize
-a Kerberos realm.  It will ask you to type in a master key password.
-This password will be used to generate a key that is stored in
-/etc/krb5kdc/stash.  You should try to remember this password, but it
-is much more important that it be a strong password than that it be
-remembered.  However, if you lose the password and /etc/krb5kdc/stash,
-you cannot decrypt your Kerberos database.
-Initializing database '/var/lib/krb5kdc/principal' for realm 'LAB.LOCAL',
-master key name 'K/M@LAB.LOCAL'
-You will be prompted for the database Master Password.
-It is important that you NOT FORGET this password.</screen>
-<screen>Enter KDC database master key: <emphasis>Collez le mot de passe</emphasis></screen>
-<screen>Re-enter KDC database master key to verify: <emphasis>Collez le mot de passe à nouveau</emphasis></screen>
-<screen>Now that your realm is set up you may wish to create an administrative
-principal using the addprinc subcommand of the kadmin.local program.
-Then, this principal can be added to /etc/krb5kdc/kadm5.acl so that
-you can use the kadmin program on other computers.  Kerberos admin
-principals usually belong to a single user and end in /admin.  For
-example, if jruser is a Kerberos administrator, then in addition to
-the normal jruser principal, a jruser/admin principal should be
-created.
+echo "2. Pre-configure Debconf for silent installation"
+sudo debconf-set-selections <<EOF
+krb5-config krb5-config/default_realm string ${REALM}
+krb5-config krb5-config/kerberos_servers string ${KDCSERVER}
+krb5-config krb5-config/admin_server string ${KDCSERVER}
+krb5-config krb5-config/add_servers boolean true
+EOF
 
-Don't forget to set up DNS information so your clients can find your
-KDC and admin servers.  Doing so is documented in the administration
-guide.</screen>
+echo "3. Installing Kerberos packages"
+sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
+	krb5-kdc krb5-admin-server
 
-    <para>Redémarrez le service <application>Kerberos</application>.</para>
-
-<screen>sudo systemctl restart krb5-kdc</screen>
-
-    <para>Vérifiez l'état du service.</para>
-
-<screen>systemctl status krb5-kdc</screen>
-    </answer>
-    </qandaentry>
-
-    <qandaentry>
-    <question>
-    <para><phrase>Comment créer le fichier de configuration utilisé par les
-    outils <application>Kerberos</application>&nbsp;?</phrase></para>
-
-    <para>Consultez le fichier <filename>/etc/krb5.conf</filename> installé
-    avec les paquets <application>Kerberos</application> et adaptez le au
-    contexte de ces travaux pratiques en précisant les choix effectués.</para>
-
-    <para>Recherchez des informations sur les jeux d'algorithmes de
-    cryptographie recommandés pour NFSv4.2</para>
-    </question>
-    <answer>
-    <para>Remplacez le modèle de fichier <filename>/etc/krb5.conf</filename>
-    par votre propre fichier.</para>
-
-<screen>cat &lt;&lt; EOF | sudo tee /etc/krb5.conf
+echo "4. Deploying system configuration /etc/krb5.conf"
+cat <<EOF | sudo tee /etc/krb5.conf >/dev/null
 [libdefaults]
-        default_realm = LAB.LOCAL
-        kdc_timesync = 1
-        ccache_type = 4
-        forwardable = true
-        proxiable = true
-        rdns = false
-        allow_weak_crypto = false
-        default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
-        default_tgs_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
-        permitted_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+    default_realm = ${REALM}
+    kdc_timesync = 1
+    ccache_type = 4
+    forwardable = true
+    proxiable = true
+    rdns = true
+    allow_weak_crypto = false
+    default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+    default_tgs_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+    permitted_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
 
 [realms]
-        LAB.LOCAL = {
-                kdc = nfs-srvr.lab.local
-                admin_server = nfs-srvr.lab.local
-                default_domain = lab.local
-        }
+    ${REALM} = {
+        kdc = ${KDCSERVER}
+        admin_server = ${KDCSERVER}
+        default_domain = ${DOMAIN}
+    }
 
 [domain_realm]
-    .lab.local = LAB.LOCAL
-    lab.local = LAB.LOCAL
-EOF</screen>
+    .${DOMAIN} = ${REALM}
+    ${DOMAIN} = ${REALM}
+EOF
 
-    <para>Expliquez le choix des différents paramètres.</para>
+echo "5. Initializing cryptographic database"
+sudo kdb5_util create -s -r "${REALM}" -P "${KDCMASTERPWD}"
+
+echo "6. Create minimal ACL and restart services"
+echo "*/admin@${REALM} *" | sudo tee /etc/krb5kdc/kadm5.acl >/dev/null
+sudo systemctl enable krb5-kdc krb5-admin-server
+sudo systemctl restart krb5-kdc krb5-admin-server
+
+echo ""
+echo "Success — Kerberos KDC is installed and configured."
+echo "  Active realm  : ${REALM}"
+echo "  Master server : ${KDCSERVER}"
+echo "  Master password stored in : ${ADMINPASSFILE}"
+]]></programlisting>
+
+    <para>Lancez le script sur le serveur <acronym>NFS</acronym>.</para>
+
+<screen>bash bootstrap-kdc.sh</screen>
+
+    <para>Vérifiez que les deux services sont actifs et sont initialisés
+    correctement.</para>
+
+<screen>systemctl status krb5-kdc krb5-admin-server</screen>
+
+    <para>Expliquez le choix des différents paramètres de configuration.</para>
 
     <variablelist>
     <varlistentry>
@@ -2775,8 +2824,8 @@ EOF</screen>
     utilisateur.</para>
     </listitem>
     <listitem>
-    <para><option>rdns = false</option>&nbsp;: désactive la résolution inverse
-    DNS des hôtes lors de l'utilisation de
+    <para><option>rdns = true</option>&nbsp;: active la résolution inverse
+    <acronym>DNS</acronym> des hôtes lors de l'utilisation de
     <application>Kerberos</application>.</para>
     </listitem>
     <listitem>
@@ -3130,7 +3179,7 @@ KVNO Timestamp           Principal
         ccache_type = 4
         forwardable = true
         proxiable = true
-        rdns = false
+        rdns = true
         allow_weak_crypto = false
         default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
         default_tgs_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
