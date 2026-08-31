@@ -227,8 +227,8 @@
 
     <orderedlist>
       <listitem>
-        <para>La coexistence, sur le même hôte, des services
-        <systemitem>slapd</systemitem>, <systemitem>krb5-kdc</systemitem>,
+        <para>La coexistence, sur le même hôte, des services <systemitem
+        class='daemon'>slapd</systemitem>, <systemitem>krb5-kdc</systemitem>,
         <systemitem>nfs-kernel-server</systemitem> et
         <systemitem>idmapd</systemitem>, qui partagent le même royaume Kerberos
         <code>LAB.LOCAL</code> et la même autorité de certification
@@ -262,8 +262,8 @@
           <row>
             <entry>—</entry>
 
-            <entry>Installez et initialisez le service d'annuaire
-            <systemitem>slapd</systemitem>&nbsp;: Initialisez la base
+            <entry>Installez et initialisez le service d'annuaire <systemitem
+            class='daemon'>slapd</systemitem>&nbsp;: Initialisez la base
             <code>cn=config</code>, créez le contexte de nommage
             <code>dc=lab,dc=local</code>, puis implantez les unités
             organisationnelles et les comptes utilisateurs.</entry>
@@ -293,8 +293,8 @@
             Kerberos.</entry>
 
             <entry>Installez le KDC, créez le royaume <code>LAB.LOCAL</code>,
-            créez les principaux et le keytab dédié à
-            <systemitem>slapd</systemitem>. Activez
+            créez les principaux et le keytab dédié à <systemitem
+            class='daemon'>slapd</systemitem>. Activez
             <acronym>SASL/GSSAPI</acronym>.</entry>
           </row>
           <row>
@@ -304,8 +304,8 @@
 
             <entry>Générez les certificats, déposez-les dans
             <code>/etc/ssl/</code> et activez <code>olcTLS*</code> dans la
-            configuration dynamique du démon
-            <systemitem>slapd</systemitem>.</entry>
+            configuration dynamique du démon <systemitem
+            class='daemon'>slapd</systemitem>.</entry>
           </row>
           <row>
             <entry>Installez le service web <citetitle>White Pages</citetitle>,
@@ -351,20 +351,20 @@
           <row>
             <entry>Serveur</entry>
             <entry><systemitem>srvr.lab.local</systemitem></entry>
-            <entry>101</entry>
+            <entry>VVV</entry>
             <entry>
-              <systemitem class='ipaddress'>172.28.101.5/24</systemitem><?custom-linebreak?>
-              <systemitem class='ipaddress'>2001:db8:65::baad:caff:fefe:5/64</systemitem>
+              <systemitem class='ipaddress'>172.28.VVV.XXX/24</systemitem><?custom-linebreak?>
+              <systemitem class='ipaddress'>2001:db8:VVVV::baad:caff:fefe:XXXX/64</systemitem>
             </entry>
             <entry>5</entry>
           </row>
           <row>
             <entry>Client</entry>
             <entry><systemitem>clnt.lab.local</systemitem></entry>
-            <entry>101</entry>
+            <entry>VVV</entry>
             <entry>
-              <systemitem class='ipaddress'>172.28.101.6/24</systemitem><?custom-linebreak?>
-              <systemitem class='ipaddress'>2001:db8:65::baad:caff:fefe:6/64</systemitem>
+              <systemitem class='ipaddress'>172.28.VVV.YYY/24</systemitem><?custom-linebreak?>
+              <systemitem class='ipaddress'>2001:db8:VVVV::baad:caff:fefe:YYYY/64</systemitem>
             </entry>
             <entry>6</entry>
           </row>
@@ -384,7 +384,23 @@
   <sect1 xml:id='sysadm-net.autofs-ldap-nfs.prepare'>
     <title>Préparer le déploiement des services</title>
 
-    <para>Phrase d'intro</para>
+    <para>Cette partie comprend deux étapes partagées entre les services
+    <acronym>LDAP</acronym> et <acronym>NFSv4</acronym>.</para>
+
+    <itemizedlist>
+      <listitem>
+        <para>Définir un plan de nommage distinct pour les identités
+        <acronym>LDAP</acronym> et <acronym>NFSv4</acronym> (noms DNS,
+        principaux Kerberos, fichiers keytab), conforme au principe de moindre
+        privilège.</para>
+      </listitem>
+      <listitem>
+        <para>Mettre en place une autorité de certification commune aux deux
+        services, pour sécuriser au niveau transport les échanges
+        <acronym>LDAP</acronym> (<option>StartTLS/ldaps://</option>) et
+        <acronym>NFSv4</acronym> (<option>xprtsec=tls:mtls</option>).</para>
+      </listitem>
+    </itemizedlist>
 
     <sect2 xml:id='sysadm-net.autofs-ldap-nfs.prepare.names'>
       <title>Planifier les noms de services</title>
@@ -455,14 +471,14 @@ DOMAIN="lab.local"
 HOSTS_FILE="/etc/hosts"
 
 CLIENT_IPS=(
-  "172.28.101.6"
-  "2001:678:3fc:65:baad:caff:fefe:6"
+  "172.28.VVV.XXX"
+  "2001:db8:VVVV::baad:caff:fefe:XXXX"
 )
 CLIENT_NAME="clnt"
 
 SERVER_IPS=(
-  "172.28.101.5"
-  "2001:678:3fc:65:baad:caff:fefe:5"
+  "172.28.VVV.YYY"
+  "2001:db8:VVVV::baad:caff:fefe:YYYY"
 )
 SERVER_NAME="srvr"
 SERVER_ALIASES="ldap-srvr.${DOMAIN} nfs-srvr.${DOMAIN}"
@@ -497,8 +513,6 @@ done
 for ip in "${SERVER_IPS[@]}"; do
   update_host_entry "${ip}" "${SERVER_NAME}" "${SERVER_ALIASES}"
 done
-
-exit 0
 ]]></programlisting>
 
             <para>Lancez le script sur le client et sur le serveur.</para>
@@ -510,27 +524,27 @@ exit 0
 <screen>host ldap-srvr.lab.local</screen>
 
 <screen>ldap-srvr.lab.local is an alias for srvr.lab.local.
-srvr.lab.local has address 172.28.101.5
-srvr.lab.local has IPv6 address 2001:db8:65::baad:caff:fefe:5</screen>
+srvr.lab.local has address 172.28.VVV.YYY
+srvr.lab.local has IPv6 address 2001:db8:VVVV::baad:caff:fefe:YYYY</screen>
 
 <screen>host nfs-srvr.lab.local</screen>
 
 <screen>nfs-srvr.lab.local is an alias for srvr.lab.local.
-srvr.lab.local has address 172.28.101.5
-srvr.lab.local has IPv6 address 2001:db8:65::baad:caff:fefe:5</screen>
+srvr.lab.local has address 172.28.VVV.XXX
+srvr.lab.local has IPv6 address 2001:db8:VVVV::baad:caff:fefe:XXXX</screen>
 
-<screen>for ip in 172.28.101.5 2001:db8:65::baad:caff:fefe:5; do
+<screen>for ip in 172.28.VVV.XXX 2001:db8:65::baad:caff:fefe:XXXX; do
   host $ip
 done</screen>
 
-<screen>5.101.28.172.in-addr.arpa domain name pointer srvr.lab.local.
-5.101.28.172.in-addr.arpa domain name pointer srvr.
-5.101.28.172.in-addr.arpa domain name pointer nfs-srvr.lab.local.
-5.101.28.172.in-addr.arpa domain name pointer ldap-srvr.lab.local.
-5.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.0.0.0.0.5.6.0.0.8.b.d.0.1.0.0.2.ip6.arpa domain name pointer srvr.lab.local.
-5.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.0.0.0.0.5.6.0.0.8.b.d.0.1.0.0.2.ip6.arpa domain name pointer srvr.
-5.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.0.0.0.0.5.6.0.0.8.b.d.0.1.0.0.2.ip6.arpa domain name pointer nfs-srvr.lab.local.
-5.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.0.0.0.0.5.6.0.0.8.b.d.0.1.0.0.2.ip6.arpa domain name pointer ldap-srvr.lab.local.</screen>
+<screen>5.VVV.28.172.in-addr.arpa domain name pointer srvr.lab.local.
+XXX.VVV.28.172.in-addr.arpa domain name pointer srvr.
+XXX.VVV.28.172.in-addr.arpa domain name pointer nfs-srvr.lab.local.
+XXX.VVV.28.172.in-addr.arpa domain name pointer ldap-srvr.lab.local.
+XXXX.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.0.0.0.0.5.6.0.0.8.b.d.0.1.0.0.2.ip6.arpa domain name pointer srvr.lab.local.
+XXXX.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.0.0.0.0.5.6.0.0.8.b.d.0.1.0.0.2.ip6.arpa domain name pointer srvr.
+XXXX.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.0.0.0.0.5.6.0.0.8.b.d.0.1.0.0.2.ip6.arpa domain name pointer nfs-srvr.lab.local.
+XXXX.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.0.0.0.0.5.6.0.0.8.b.d.0.1.0.0.2.ip6.arpa domain name pointer ldap-srvr.lab.local.</screen>
           </answer>
         </qandaentry>
 
@@ -541,9 +555,9 @@ done</screen>
             même adresse IP&nbsp;?</phrase></para>
           </question>
           <answer>
-            <para>Le démon <systemitem>slapd</systemitem> n’expose pas le même
-            <filename>keytab</filename> que le démon
-            <systemitem>nfs-kernel-server</systemitem>.</para>
+            <para>Le démon <systemitem class='daemon'>slapd</systemitem>
+              n’expose pas le même <filename>keytab</filename> que le démon
+              <systemitem>nfs-kernel-server</systemitem>.</para>
 
             <para>Chaque service charge son principal depuis son fichier
             <filename>>keytab</filename> (par défaut&nbsp;:
@@ -558,7 +572,7 @@ done</screen>
     </sect2>
 
     <sect2 xml:id='sysadm-net.autofs-ldap-nfs.prepare.certs'>
-      <title>Configurer l'autorité de certification</title>
+      <title>Définir les objets gérés par l'autorité de certification</title>
 
       <para>Pour mutualiser la gestion des certificats, vous devez définir une
       <acronym>CA</acronym> commune aux deux services.</para>
@@ -623,11 +637,11 @@ done</screen>
                     <entry>
                       <simplelist>
                         <member>Racine de confiance commune</member>
-                        <member>Démon <systemitem class="daemon">slapd</systemitem>&nbsp;:
+                        <member>Démon <systemitem class='daemon'>slapd</systemitem>&nbsp;:
                         <filename>/etc/ldap/certs/labCA.crt</filename>
                         <phrase role="attr">(olcTLSCACertificateFile)</phrase></member>
-                        <member>Démon <systemitem class="daemon">tlshd</systemitem>&nbsp;:
-                        <filename>/etc/tlshd.d/labCA.crt</filename></member>
+                        <member>Démon <systemitem class='daemon'>tlshd</systemitem>&nbsp;:
+                        <filename>/etc/ssl/certs/labCA.crt</filename></member>
                       </simplelist>
                     </entry>
                     <entry>
@@ -637,7 +651,7 @@ done</screen>
                         <filename>/etc/ssl/certs/labCA.crt</filename>
                         <phrase role="attr">(tls_cacertfile)</phrase></member>
                         <member>Démon <systemitem class="daemon">tlshd</systemitem>&nbsp;:
-                        <filename>/etc/tlshd.d/labCA.crt</filename></member>
+                        <filename>/etc/ssl/certs/labCA.crt</filename></member>
                         <member>Magasin système&nbsp;:
                         <filename>/usr/local/share/ca-certificates/labCA.crt</filename></member>
                       </simplelist>
@@ -700,18 +714,18 @@ done</screen>
                   <row>
                     <entry><filename>nfs-srvr.crt</filename></entry>
                     <entry>
-                      <filename>/etc/tlshd.d/nfs-srvr.crt</filename>
+                      <filename>/etc/ssl/certs/nfs-srvr.crt</filename>
                       <phrase role="attr">(x509.certificate dans tlshd.conf)</phrase>
                     </entry>
                     <entry>
-                      <filename>/etc/tlshd.d/nfs-srvr.crt</filename>
+                      <filename>/etc/ssl/certs/nfs-srvr.crt</filename>
                       <phrase role="attr">(vérification du serveur NFS par tlshd)</phrase>
                     </entry>
                   </row>
-                  <row>
+                <row>
                     <entry><filename>nfs-srvr.key</filename></entry>
                     <entry>
-                      <filename>/etc/tlshd.d/nfs-srvr.key</filename>
+                      <filename>/etc/ssl/private/nfs-srvr.key</filename>
                       <phrase role="attr">(x509.private_key dans tlshd.conf&nbsp;- propriétaire
                       <systemitem class="username">root</systemitem>, mode 400)</phrase>
                     </entry>
@@ -723,7 +737,7 @@ done</screen>
                       <phrase role="note">(non requis côté serveur)</phrase>
                     </entry>
                     <entry>
-                      <filename>/etc/tlshd.d/nfs-clnt.crt</filename>
+                      <filename>/etc/ssl/certs/nfs-clnt.crt</filename>
                       <phrase role="attr">(x509.certificate dans tlshd.conf)</phrase>
                     </entry>
                   </row>
@@ -731,7 +745,7 @@ done</screen>
                     <entry><filename>nfs-clnt.key</filename></entry>
                     <entry>—</entry>
                     <entry>
-                      <filename>/etc/tlshd.d/nfs-clnt.key</filename>
+                      <filename>/etc/ssl/private/nfs-clnt.key</filename>
                       <phrase role="attr">(x509.private_key dans tlshd.conf&nbsp;- propriétaire
                       <systemitem class="username">root</systemitem>, mode 400)</phrase>
                     </entry>
@@ -743,10 +757,401 @@ done</screen>
         </qandaentry>
       </qandaset>
     </sect2>
+
+    <sect2 xml:id='sysadm-net.autofs-ldap-nfs.generate.certs'>
+      <title>Installer les paquets et générer les certificats</title>
+
+      <para>Le tableau de la section précédente définit la répartition cible
+      des certificats et des clés. Il reste à installer le seul paquet manquant
+      pour le chiffrement de transport et à produire l'ensemble des clés et
+      certificats depuis l'autorité commune
+      <citetitle>labCA</citetitle>.</para>
+      <itemizedlist>
+        <listitem>
+          <para>Le service <acronym>LDAP</acronym> n'a besoin d'aucun paquet
+          supplémentaire&nbsp;: le chiffrement <acronym>TLS</acronym> est
+          directement porté par les bibliothèques OpenSSL liées à
+          <systemitem>slapd</systemitem> (serveur) et à
+          <systemitem>nslcd</systemitem> (client), qui seront installés dans
+          les parties suivantes de l'énoncé.</para>
+        </listitem>
+        <listitem>
+          <para>Seul <acronym>NFSv4</acronym> a besoin d'un paquet dédié à la
+          prise en charge <acronym>TLS</acronym> au niveau noyau
+          (<systemitem>kTLS</systemitem>).</para>
+        </listitem>
+      </itemizedlist>
+
+      <qandaset>
+        <qandaentry>
+          <question>
+            <para><phrase>Quels paquets faut-il installer sur le serveur et sur
+            le client pour utiliser le chiffrement <acronym>TLS</acronym> avec
+            <acronym>NFSv4</acronym>&nbsp;?</phrase></para>
+
+            <para>Comment utiliser les chemins <filename
+            class='directory'>/etc/ssl/certs/</filename> et <filename
+            class='directory'>/etc/ssl/private/</filename> définis dans le
+            tableau ci-dessus pour compléter le fichier
+            <filename>/etc/tlshd/config</filename>&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Recherchez le paquet dans le catalogue.</para>
+
+<screen>apt search tls.*nfs</screen>
+<screen>ktls-utils/testing 1.4.0-1 amd64
+TLS handshake support for NFS and other in-kernel TLS users</screen>
+
+            <para>Installez le paquet sur le client et le serveur.</para>
+
+<screen>sudo apt install ktls-utils</screen>
+
+            <para>L'installation du paquet crée automatiquement le dossier
+            <filename class='directory'>/etc/tlshd/</filename> avec un exemple
+            de fichier de configuration config commenté.</para>
+
+<screen>ls -l /etc/tlshd/
+cat /etc/tlshd/config</screen>
+
+            <para>Complétez le contenu de ce fichier de configuration sur le
+            client et le serveur avec les définitions données dans le tableau
+            de préparation.</para>
+
+            <itemizedlist>
+              <listitem>
+                <para>Serveur <acronym>NFS</acronym>&nbsp;:</para>
+
+<screen><![CDATA[sudo sed -i '/^\[authenticate\.server\]/,$ {
+  s|^#x509\.truststore=.*|x509.truststore=/etc/ssl/certs/labCA.crt|
+  s|^#x509\.certificate=.*|x509.certificate=/etc/ssl/certs/nfs-srvr.crt|
+  s|^#x509\.private_key=.*|x509.private_key=/etc/ssl/private/nfs-srvr.key|
+}' /etc/tlshd/config]]></screen>
+              </listitem>
+              <listitem>
+                <para>Client <acronym>NFS</acronym>&nbsp;:</para>
+
+<screen><![CDATA[sudo sed -i '/^\[authenticate\.client\]/,/^\[authenticate\.server\]/ {
+  s|^#x509\.truststore=.*|x509.truststore=/etc/ssl/certs/labCA.crt|
+  s|^#x509\.certificate=.*|x509.certificate=/etc/ssl/certs/nfs-clnt.crt|
+  s|^#x509\.private_key=.*|x509.private_key=/etc/ssl/private/nfs-clnt.key|
+}' /etc/tlshd/config]]></screen>
+              </listitem>
+            </itemizedlist>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Comment générer, à partir de l'autorité de certification
+            commune <systemitem>labCA</systemitem>, l'ensemble des clés et des
+            certificats des services <acronym>LDAP</acronym> (Ed25519) et
+            <acronym>NFS</acronym> (RSA 4096) répertoriés dans le tableau de
+            préparation&nbsp;?</para>
+
+            <para>Reprenez et regroupez les traitements des questions
+            «&nbsp;Comment générer les certificats et les clés privées du
+            serveur et du client NFS&nbsp;?&nbsp;» et «&nbsp;Comment générer
+            les certificats et la clé privée du serveur et du client
+            LDAP&nbsp;?&nbsp;», qui figurent dans les deux supports précédents.
+            Les fonctions <code>gen_key()</code> et <code>issue_cert()</code>
+            restent identiques dans les deux scripts d'origine. Seule la liste
+            des certificats à émettre et leur algorithme diffèrent.</para>
+
+            <note>
+              <para>L'autorité <systemitem>labCA</systemitem> est générée en
+              RSA 4096&nbsp;: l'algorithme de la <acronym>CA</acronym> est
+              indépendant de celui des certificats qu'elle signe, et RSA reste
+              le choix le plus compatible pour la racine de confiance partagée
+              entre le handshake OpenSSL de l'espace utilisateur
+              (<systemitem>slapd</systemitem>/<systemitem>nslcd</systemitem>)
+              et le handshake <acronym>kTLS</acronym> du noyau
+              (<systemitem>tlshd</systemitem>).</para>
+            </note>
+          </question>
+          <answer>
+            <para>Codez un script qui rassemble tous les traitements et stocke
+            les clés et les certificats dans le répertoire dédié
+            <code>$HOME/certs</code>.</para>
+
+            <para>Si le code du script qui suit est enregistré sur le serveur
+            dans le fichier <filename>generate-lab-certs.sh</filename>, on
+            lance le traitement en tant qu'utilisateur normal.</para>
+
+<screen>bash generate-lab-certs.sh</screen>
+
+<screen><![CDATA[#!/usr/bin/env bash
+set -euo pipefail
+
+LAB_CA="labCA"
+LDAP_SERVER="ldap-srvr"
+LDAP_CLIENT="ldap-clnt"
+NFS_SERVER="nfs-srvr"
+NFS_CLIENT="nfs-clnt"
+DOMAIN="lab.local"
+CERT_DIR="${HOME}/certs"
+CA_REQ_CONF="ca_req.conf"
+
+mkdir -p "${CERT_DIR}"
+chmod 700 "${CERT_DIR}"
+cd "${CERT_DIR}"
+
+gen_key() {
+	local name="$1"
+	local algo="$2"
+	case "${algo}" in
+	ed25519) openssl genpkey -algorithm ed25519 -out "${name}.key" ;;
+	rsa) openssl genpkey -algorithm rsa -pkeyopt rsa_keygen_bits:4096 -out "${name}.key" ;;
+	*)
+		echo "Unsupported algorithm: ${algo}" >&2
+		exit 1
+		;;
+	esac
+}
+
+issue_cert() {
+	local ca_name="$1"
+	local cert_name="$2"
+	local usage="$3"
+	local algo="$4"
+	local ext
+
+	gen_key "${cert_name}" "${algo}"
+	openssl req -new -key "${cert_name}.key" -out "${cert_name}.csr" -subj "/CN=${cert_name}.${DOMAIN}"
+
+	if [[ ${usage} == "server" ]]; then
+		ext="extendedKeyUsage=serverAuth\nsubjectAltName=DNS:${cert_name}.${DOMAIN},DNS:${cert_name}"
+	else
+		ext="extendedKeyUsage=clientAuth"
+	fi
+
+	openssl x509 -req -in "${cert_name}.csr" -CA "${ca_name}.crt" -CAkey "${ca_name}.key" -CAcreateserial \
+		-out "${cert_name}.crt" -days 730 -extensions v3 -extfile <(printf '%b\n' "[v3]" \
+			"basicConstraints=CA:FALSE" "keyUsage=critical,digitalSignature" \
+			"subjectKeyIdentifier=hash" "authorityKeyIdentifier=keyid,issuer" "${ext}")
+}
+
+# 1. Common CA for the lab (RSA 4096)
+gen_key "${LAB_CA}" rsa
+cat >"${CA_REQ_CONF}" <<'EOF'
+[req]
+distinguished_name=req
+[v3_ca]
+basicConstraints=critical,CA:TRUE
+keyUsage=critical,keyCertSign,cRLSign
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid:always,issuer
+EOF
+openssl req -x509 -new -nodes -key "${LAB_CA}.key" -days 3650 -subj "/CN=LAB-CA" -out "${LAB_CA}.crt" \
+	-extensions v3_ca -config "${CA_REQ_CONF}"
+
+# 2. LDAP certificates and keys (Ed25519 - slapd / nslcd)
+issue_cert "${LAB_CA}" "${LDAP_SERVER}" server ed25519
+issue_cert "${LAB_CA}" "${LDAP_CLIENT}" client ed25519
+
+# 3. NFS certificates and keys (RSA 4096 - kTLS kernel via tlshd)
+issue_cert "${LAB_CA}" "${NFS_SERVER}" server rsa
+issue_cert "${LAB_CA}" "${NFS_CLIENT}" client rsa
+
+rm -f -- ./*.csr ./*.srl "${CA_REQ_CONF}"
+
+echo "Certificates and keys generated in ${CERT_DIR}"
+echo "Transfer to the client: ${LAB_CA}.crt"
+echo "  LDAP: ${LDAP_SERVER}.crt  ${LDAP_CLIENT}.key  ${LDAP_CLIENT}.crt"
+echo "  NFS:  ${NFS_SERVER}.crt   ${NFS_CLIENT}.key   ${NFS_CLIENT}.crt"
+]]></screen>
+
+            <para>Affichez la liste des fichiers générés pour confirmer que
+            tous les éléments donnés dans le tableau préparatoire sont bien
+            présents.</para>
+
+<screen>ls -1 certs/</screen>
+
+<screen>labCA.crt
+labCA.key
+ldap-clnt.crt
+ldap-clnt.key
+ldap-srvr.crt
+ldap-srvr.key
+nfs-clnt.crt
+nfs-clnt.key
+nfs-srvr.crt
+nfs-srvr.key</screen>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para><phrase>Comment déposer ou transférer les certificats et les
+            clés dans les répertoires choisis pour le serveur et le
+            client&nbsp;?</phrase></para>
+
+            <para>Reprenez et regroupez les traitements des questions des
+            supports précédents. Sur le serveur, les fichiers produits à la
+            question précédente sont copiés directement depuis le dossier
+            <filename class='directory'>$HOME/certs/</filename>. Sur le client,
+            ils doivent d'abord être transférés, puis copiés dans les
+            répertoires système.</para>
+          </question>
+          <answer>
+            <bridgehead renderas='sect3'>Placer les certificats et les clés
+            côté serveur</bridgehead>
+
+            <para>Côté serveur, le démon <systemitem
+            class='daemon'>slapd</systemitem> perd ses privilèges
+            <systemitem>root</systemitem> au démarrage et prend l'identité
+            système <systemitem>openldap</systemitem>, qui doit posséder la clé
+            privée <acronym>LDAP</acronym>. Ce changement de propriétaire de la
+            clé privée impose une installation préalable du paquet
+            <systemitem>slapd</systemitem> pour que l'identité
+            <systemitem>openldap</systemitem> existe avant le transfert.</para>
+
+            <para>Les fichiers <acronym>NFS</acronym> suivent la convention
+            <filename class='directory'>/etc/ssl/</filename> retenue pour
+            <systemitem class='daemon'>tlshd</systemitem>. Les dossiers de
+            dépôt sont déjà présents.</para>
+
+            <para>Commencez par installer le paquet
+            <systemitem>slapd</systemitem> sans aucune configuration.</para>
+
+<screen><![CDATA[cat << SCRIPT_EOF >slapd-install.sh
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Non-interactive installation of slapd
+export DEBIAN_FRONTEND=noninteractive
+
+# Silent empty configuration of slapd
+debconf-set-selections <<'EOF'
+slapd slapd/no_configuration boolean true
+EOF
+
+# Install slapd and ldap-utils
+apt update -qq
+apt install -y --no-install-recommends slapd ldap-utils
+SCRIPT_EOF
+
+sudo bash slapd-install.sh]]></screen>
+
+            <para>Vérifiez que l'identité système
+            <systemitem>openldap</systemitem> est bien ajoutée suite à
+            l'installation du paquet.</para>
+
+<screen>grep openldap /etc/passwd</screen>
+<screen><emphasis>openldap</emphasis>:x:982:982:OpenLDAP Server Account:/var/lib/ldap:/usr/sbin/nologin</screen>
+
+            <para>Une fois cette vérification faite, lancez le script de
+            transfert suivant&nbsp;:</para>
+
+<screen><![CDATA[cat << 'EOF' >deploy-lab-certs-srvr.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+LAB_CA="labCA"
+LDAP_SERVER="ldap-srvr"
+NFS_SERVER="nfs-srvr"
+SRC_DIR="${HOME}/certs"
+LDAP_DIR="/etc/ldap/certs"
+SSL_CERTS_DIR="/etc/ssl/certs"
+SSL_PRIVATE_DIR="/etc/ssl/private"
+
+# 1. Dedicated directory for slapd certificates (does not exist by default)
+sudo mkdir -p "${LDAP_DIR}"
+
+# 2. Transfer LDAP files (CA + certificate + server key)
+sudo install -o openldap -g openldap -m 0444 "${SRC_DIR}/${LAB_CA}.crt" "${LDAP_DIR}/"
+sudo install -o openldap -g openldap -m 0444 "${SRC_DIR}/${LDAP_SERVER}.crt" "${LDAP_DIR}/"
+sudo install -o openldap -g openldap -m 0400 "${SRC_DIR}/${LDAP_SERVER}.key" "${LDAP_DIR}/"
+
+# 3. Transfer NFS files: public certificates in system zone, key in private zone
+sudo install -o root -g root -m 0644 "${SRC_DIR}/${LAB_CA}.crt" "${SSL_CERTS_DIR}/"
+sudo install -o root -g root -m 0644 "${SRC_DIR}/${NFS_SERVER}.crt" "${SSL_CERTS_DIR}/"
+sudo install -o root -g root -m 0400 "${SRC_DIR}/${NFS_SERVER}.key" "${SSL_PRIVATE_DIR}/"
+
+echo "Certificates and keys deployed on the server."
+EOF
+
+bash deploy-lab-certs-srvr.sh]]></screen>
+
+            <para>Ensuite, transférez le dossier <filename
+            class='directory'>$HOME/certs</filename> sur le client via
+            <command>scp</command>, puis appliquez une politique similaire,
+            adaptée aux démons <systemitem class='daemon'>nslcd</systemitem> et
+            <systemitem class='daemon'>tlshd</systemitem> côté client.</para>
+
+<screen>scp -r $HOME/certs/ clnt:~</screen>
+
+            <bridgehead renderas='sect3'>Placer les certificats et les clés
+            côté client</bridgehead>
+
+            <para>Connectez-vous au client pour effectuer les opérations de
+            dépôt de la clé et du certificat. Sur le client, il est nécessaire
+            d'affecter la propriété de la clé privée à un compte système
+            particulier. Dans ce cas, le compte du démon <systemitem
+            class='daemon'>nslcd</systemitem> est désigné comme propriétaire
+            exclusif de la clé <acronym>LDAP</acronym>.</para>
+
+            <para>Il est donc nécessaire d'installer au préalable les paquets
+            <acronym>LDAP</acronym> du client. Comme indiqué dans le support de
+            travaux pratiques <acronym>LDAP</acronym>, installez le paquet
+            <systemitem>libnss-ldapd</systemitem> en mode
+            non-interactif sans aucune configuration.</para>
+
+<screen>sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
+  nslcd libnss-ldapd libpam-ldapd nslcd-utils</screen>
+
+            <para>Vérifiez la présence du compte système.</para>
+
+<screen>grep nslcd /etc/passwd</screen>
+
+<screen><emphasis>nslcd</emphasis>:x:101:101:nslcd name service LDAP connection daemon:/run/nslcd:/usr/sbin/nologin</screen>
+
+            <para>Une fois la présence du compte système confirmée, lancez le
+            script de placement des clés et des certificats.</para>
+
+<screen><![CDATA[cat << 'EOF' >deploy-lab-certs-clnt.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+LAB_CA="labCA"
+LDAP_SERVER="ldap-srvr"
+LDAP_CLIENT="ldap-clnt"
+NFS_SERVER="nfs-srvr"
+NFS_CLIENT="nfs-clnt"
+SRC_DIR="${HOME}/certs"
+SSL_CERTS_DIR="/etc/ssl/certs"
+SSL_PRIVATE_DIR="/etc/ssl/private"
+
+# 1. Public certificates: shared CA + server certificates (verification) + client certificates
+for cert in "${LAB_CA}.crt" "${LDAP_SERVER}.crt" "${LDAP_CLIENT}.crt" "${NFS_SERVER}.crt" "${NFS_CLIENT}.crt"; do
+	sudo install -o root -g root -m 0644 "${SRC_DIR}/${cert}" "${SSL_CERTS_DIR}/"
+done
+
+# 2. LDAP private key: owner nslcd (client resolution daemon)
+sudo install -o nslcd -g nslcd -m 0400 "${SRC_DIR}/${LDAP_CLIENT}.key" "${SSL_PRIVATE_DIR}/"
+
+# 3. NFS private key: owner root (tlshd runs as root)
+sudo install -o root -g root -m 0400 "${SRC_DIR}/${NFS_CLIENT}.key" "${SSL_PRIVATE_DIR}/"
+
+# 4. System trust store: labCA becomes a recognized authority for all TLS clients
+sudo install -o root -g root -m 0644 "${SRC_DIR}/${LAB_CA}.crt" /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+
+# 5. Clean up temporary directory
+rm -rf "${SRC_DIR}"
+
+echo "Certificates and keys deployed on the client"
+EOF
+
+bash deploy-lab-certs-clnt.sh]]></screen>
+          </answer>
+        </qandaentry>
+      </qandaset>
+    </sect2>
   </sect1>
 
 <sect1 xml:id='sysadm-net.autofs-ldap-nfs.ldap'>
-  <title>Mise en œuvre de l'annuaire LDAP</title>
+  <title>Déployer l'annuaire LDAP</title>
 
   <para>Cette partie reprend les étapes décrites dans le support
     &url.sysadm-net.ldap;. Il s'agit d'installer les paquets
