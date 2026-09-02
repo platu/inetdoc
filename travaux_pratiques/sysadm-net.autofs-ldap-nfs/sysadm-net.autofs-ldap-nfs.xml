@@ -417,18 +417,27 @@
           </question>
           <answer>
             <para>Il est essentiel d'émettre des identités distinctes pour les
-            deux fonctions de sécurité&nbsp;:</para>
+            deux fonctions de sécurité, qu'elle soit portée par un service ou
+            par la machine elle-même &nbsp;:</para>
 
             <itemizedlist>
               <listitem>
-                <para>Deux <wordasword>principals</wordasword> Kerberos
+                <para>Trois <wordasword>principals</wordasword> Kerberos
                 distincts&nbsp;:</para>
                 <itemizedlist>
                   <listitem>
-                    <para><code>nfs/nfs-srvr.lab.local@LAB.LOCAL</code></para>
+                    <para><code>nfs/nfs-srvr.lab.local@LAB.LOCAL</code>, pour le
+                    service <acronym>NFSv4</acronym></para>
                   </listitem>
                   <listitem>
-                    <para><code>ldap/ldap-srvr.lab.local@LAB.LOCAL</code></para>
+                    <para><code>ldap/ldap-srvr.lab.local@LAB.LOCAL</code>, pour
+                    le service <acronym>LDAP</acronym></para>
+                  </listitem>
+                  <listitem>
+                    <para><code>host/clnt.lab.local@LAB.LOCAL</code>, pour la
+                    machine cliente elle-même, indépendamment de tout service
+                    (<xref
+                    linkend="sysadm-net.autofs-ldap-nfs.host-principal"/>)</para>
                   </listitem>
                 </itemizedlist>
               </listitem>
@@ -1196,7 +1205,7 @@ set -euo pipefail
 echo "1. Loading variables and secrets"
 readonly DOMAIN="lab.local"
 readonly REALM="${DOMAIN^^}"
-readonly KDCSERVER="nfs-srvr.${DOMAIN}"
+readonly KDCSERVER="srvr.${DOMAIN}"
 readonly ADMINPASSFILE="${HOME}/.kdc_master_pass"
 
 if [[ ! -f "${ADMINPASSFILE}" ]]; then
@@ -1228,7 +1237,7 @@ sudo tee /etc/krb5.conf >/dev/null <<EOF
     ccache_type = 4
     forwardable = true
     proxiable = true
-    rdns = true
+    rdns = false
     allow_weak_crypto = false
     default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
     default_tgs_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
@@ -1269,6 +1278,13 @@ sudo bash bootstrap-kdc.sh]]></screen>
             actifs.</para>
 
 <screen>systemctl status krb5-kdc krb5-admin-server --no-pager</screen>
+
+            <para>Copiez le fichier de configuration Kerberos
+            <filename>/etc/krb5.conf/</filename> du serveur sur le
+            client.</para>
+
+<screen>cat /etc/krb5.conf | ssh clnt "sudo tee /etc/krb5.conf > /dev/null"</screen>
+
           </answer>
         </qandaentry>
 
@@ -1355,21 +1371,21 @@ Keytab name: FILE:/etc/krb5.keytab
 KVNO Timestamp           Principal
 ---- ------------------- ------------------------------------------------------
    2 02/09/2026 10:36:16 nfs/nfs-srvr.lab.local@LAB.LOCAL
-2 02/09/2026 10:36:16 nfs/nfs-srvr.lab.local@LAB.LOCAL</screen>
+   2 02/09/2026 10:36:16 nfs/nfs-srvr.lab.local@LAB.LOCAL</screen>
           </answer>
         </qandaentry>
 
         <qandaentry>
           <question>
-            <para>Quels paquets faut-il installer sur le client pour utiliser l'authentification
-          Kerberos ?
-        </para>
-      </question>
-      <answer>
-        <para>À la différence de l'installation «&nbsp;sans
-        configuration&nbsp;» retenue pour <package>nslcd</package>, le client
-        Kerberos a besoin de connaître le royaume et ses serveurs dès
-        l'installation. Entrez les mêmes valeurs que sur le serveur.</para>
+            <para>Quels paquets faut-il installer sur le client pour utiliser
+            l'authentification Kerberos&nbsp;?</para>
+          </question>
+          <answer>
+            <para>À la différence de l'installation «&nbsp;sans
+            configuration&nbsp;» retenue pour <package>nslcd</package>, le
+            client Kerberos a besoin de connaître le royaume et ses serveurs
+            dès l'installation. Entrez les mêmes valeurs que sur le
+            serveur.</para>
 
 <screen><![CDATA[cat << 'SCRIPT_EOF' > krb5-client-install.sh
 #!/usr/bin/env bash
@@ -1378,13 +1394,13 @@ set -euo pipefail
 
 readonly DOMAIN="lab.local"
 readonly REALM="${DOMAIN^^}"
-readonly KDC_SERVER="ldap-srvr.${DOMAIN}"
+readonly KDCSERVER="srvr.${DOMAIN}"
 
 echo "=== 1. Pre seed Kerberos configuration ==="
 sudo debconf-set-selections <<EOF
 krb5-config krb5-config/default_realm string ${REALM}
-krb5-config krb5-config/kerberos_servers string ${KDC_SERVER}
-krb5-config krb5-config/admin_server string ${KDC_SERVER}
+krb5-config krb5-config/kerberos_servers string ${KDCSERVER}
+krb5-config krb5-config/admin_server string ${KDCSERVER}
 krb5-config krb5-config/add_servers boolean true
 EOF
 
@@ -1397,32 +1413,125 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
 SCRIPT_EOF
 bash krb5-client-install.sh]]></screen>
 
-        <note>
-          <para>Aucun principal utilisateur n'a encore été créé à ce
-          stade&nbsp;: cette étape reste à la charge des sections suivantes,
-          lors de l'implantation des comptes dans l'annuaire
-          <acronym>LDAP</acronym>. Cette opération permettra ensuite de valider
-          l'authentification <acronym>GSSAPI</acronym> de <systemitem
-          class="daemon">slapd</systemitem> (partie 5) et le montage
-          <literal>sec=krb5p</literal> du partage <acronym>NFSv4</acronym>
-          (partie 6).</para>
-        </note>
-      </answer>
-    </qandaentry>
+            <note>
+              <para>Aucun principal utilisateur n'a encore été créé à ce
+              stade&nbsp;: cette étape reste à la charge des sections
+              suivantes, lors de l'implantation des comptes dans l'annuaire
+              <acronym>LDAP</acronym>. Cette opération permettra ensuite de
+              valider l'authentification <acronym>GSSAPI</acronym> de
+              <systemitem class="daemon">slapd</systemitem> (<xref
+              linkend='sysadm-net.autofs-ldap-nfs.ldap' />) et le montage
+              <literal>sec=krb5p</literal> du partage <acronym>NFSv4</acronym>
+              (<xref linkend='sysadm-net.autofs-ldap-nfs.nfs' />).</para>
+            </note>
+          </answer>
+        </qandaentry>
 
-  </qandaset>
+        <qandaentry xml:id="sysadm-net.autofs-ldap-nfs.host-principal">
+          <question>
+            <para>Comment déployer un principal Kerberos dédié à la machine
+            cliente&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Les principaux dont le nom commence par
+            <literal>ldap/...</literal> et <literal>nfs/...</literal>, et qui
+            ont été créés précédemment, authentifient les services du serveur.
+            Cependant, le client a lui aussi besoin d'informations
+            d'identification propres à la machine&nbsp;: le démon <systemitem
+            class="daemon">rpc.gssd</systemitem> s'en sert pour établir un
+            contexte de sécurité <acronym>RPCSEC_GSS</acronym> en dehors de
+            toute session utilisateur (renouvellement de ticket en
+            arrière-plan, montages <package>autofs</package> déclenchés avant
+            l'ouverture de session).  Créez donc un principal
+            <literal>host/clnt.lab.local@LAB.LOCAL</literal> dédié, extrayez-le
+            dans un keytab, puis déployez ce dernier sur le client selon le
+            même schéma que les certificats.</para>
 
+            <para>Sur le serveur, créez le principal et extrayez sa clé dans un
+            <filename>keytab</filename> destiné au transfert.</para>
+
+<screen><![CDATA[cat << 'SCRIPT_EOF' >deploy-lab-host-principal.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly REALM="LAB.LOCAL"
+readonly HOST_PRINCIPAL="host/clnt.lab.local@${REALM}"
+readonly KEYTAB_DIR="${HOME}/keytabs"
+
+echo "1. Creating the client host principal"
+sudo kadmin.local -q "addprinc -randkey ${HOST_PRINCIPAL}"
+
+echo "2. Extracting the key into a transferable keytab"
+mkdir -p "${KEYTAB_DIR}"
+sudo kadmin.local -q "ktadd -k ${KEYTAB_DIR}/clnt.keytab ${HOST_PRINCIPAL}"
+sudo chown "${USER}" "${KEYTAB_DIR}/clnt.keytab"
+
+echo "Keytab ready for transfer: ${KEYTAB_DIR}/clnt.keytab"
+SCRIPT_EOF
+bash deploy-lab-host-principal.sh]]></screen>
+
+            <para>Transférez le keytab vers le client, comme pour le dossier
+            <filename class='directory'>$HOME/certs/</filename>.</para>
+
+<screen>scp ${HOME}/keytabs/clnt.keytab clnt:~</screen>
+
+            <para>Sur le client, installez la clé dans l'emplacement système
+            attendu par <systemitem class="daemon">rpc.gssd</systemitem>, avec
+            un propriétaire et un mode restrictifs.</para>
+
+<screen><![CDATA[cat << 'SCRIPT_EOF' >install-lab-host-keytab.sh
+#!/usr/bin/env bash
+set -euo pipefail
+sudo install -o root -g root -m 600 "${HOME}/clnt.keytab" /etc/krb5.keytab
+rm -f "${HOME}/clnt.keytab"
+echo "Host keytab deployed on the client."
+SCRIPT_EOF
+
+bash install-lab-host-keytab.sh]]></screen>
+
+            <para>Vérifiez le contenu du keytab, puis validez l'obtention d'un
+            ticket avec les informations d'identification machine.</para>
+
+<screen>sudo klist -kt /etc/krb5.keytab</screen>
+
+<screen>Keytab name: FILE:/etc/krb5.keytab
+KVNO Timestamp           Principal
+---- ------------------- ------------------------------------------------------
+   2 02/09/2026 15:17:44 host/clnt.lab.local@LAB.LOCAL
+   2 02/09/2026 15:17:44 host/clnt.lab.local@LAB.LOCAL</screen>
+
+<screen><![CDATA[sudo kinit -k -t /etc/krb5.keytab host/clnt.lab.local && \
+sudo klist]]></screen>
+
+<screen>Ticket cache: FILE:/tmp/krb5cc_0
+Default principal: host/clnt.lab.local@LAB.LOCAL
+
+Valid starting       Expires              Service principal
+02/09/2026 15:39:17  03/09/2026 01:39:17  krbtgt/LAB.LOCAL@LAB.LOCAL
+        renew until 03/09/2026 15:39:17</screen>
+
+            <note>
+              <para>Ce principal <literal>host/</literal> joue, pour Kerberos,
+              le même rôle que le certificat client déployé à la question
+              précédente pour <acronym>TLS</acronym>. Il constitue une identité
+              propre à la machine, distincte des identités de service, et
+              permet au client de prouver son appartenance au royaume
+              indépendamment de tout compte utilisateur.</para>
+            </note>
+          </answer>
+        </qandaentry>
+      </qandaset>
     </sect2>
   </sect1>
 
-<sect1 xml:id='sysadm-net.autofs-ldap-nfs.ldap'>
-  <title>Déployer l'annuaire LDAP</title>
+  <sect1 xml:id='sysadm-net.autofs-ldap-nfs.ldap'>
+    <title>Déployer l'annuaire LDAP</title>
 
-  <para>Cette partie reprend les étapes décrites dans le support
-    &url.sysadm-net.ldap;. Il s'agit d'installer les paquets
-  correspondants au logiciel <citetitle>OpenLDAP</citetitle>, d'initialiser une
-  base avec le bon contexte de nommage puis d'implanter les deux unités
-    organisationnelles et les entrées des comptes utilisateurs.</para>
+    <para>Cette partie reprend les étapes décrites dans le support
+    &url.sysadm-net.ldap;. Il s'agit d'installer les paquets correspondants au
+    logiciel <citetitle>OpenLDAP</citetitle>, d'initialiser une base avec le
+    bon contexte de nommage puis d'implanter les deux unités organisationnelles
+    et les entrées des comptes utilisateurs.</para>
 
   <qandaset defaultlabel='number'>
     <qandadiv xml:id='sysadm-net.autofs-ldap-nfs.service.q1'>
