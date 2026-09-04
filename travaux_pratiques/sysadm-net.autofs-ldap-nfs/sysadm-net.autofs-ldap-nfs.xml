@@ -417,8 +417,8 @@
           </question>
           <answer>
             <para>Il est essentiel d'émettre des identités distinctes pour les
-            deux fonctions de sécurité, qu'elle soit portée par un service ou
-            par la machine elle-même &nbsp;:</para>
+            deux fonctions de sécurité, qu'elles soientt portée par un service
+            ou par la machine elle-même &nbsp;:</para>
 
             <itemizedlist>
               <listitem>
@@ -768,7 +768,7 @@ XXXX.0.0.0.e.f.e.f.f.f.a.c.d.a.a.b.0.0.0.0.5.6.0.0.8.b.d.0.1.0.0.2.ip6.arpa doma
     </sect2>
 
     <sect2 xml:id='sysadm-net.autofs-ldap-nfs.generate.certs'>
-      <title>Installer les paquets et générer les certificats</title>
+      <title>Installer les paquets TLS et générer les certificats</title>
 
       <para>Le tableau de la section précédente définit la répartition cible
       des certificats et des clés. Il reste à installer le seul paquet manquant
@@ -1164,8 +1164,8 @@ bash deploy-lab-certs-clnt.sh]]></screen>
       <para>Les questions <xref linkend="sysadm-net.autofs-ldap-nfs.q1"/> et
       <xref linkend="sysadm-net.autofs-ldap-nfs.q3"/> ont déjà fixé le plan de
       nommage des identités Kerberos&nbsp;: un royaume unique
-      <literal>LAB.LOCAL</literal> partagé par les deux services, mais deux
-      <emphasis>principaux</emphasis> et deux fichiers
+      <literal>LAB.LOCAL</literal> partagé par les deux services, mais trois
+      <emphasis>principaux</emphasis> et autant de fichiers
       <filename>keytab</filename> distincts. Comme pour l'autorité de
       certification, il reste à déployer la ressource commune, à savoir le
       centre de distribution de clés (<acronym>KDC</acronym>), puis à en
@@ -1527,116 +1527,700 @@ Valid starting       Expires              Service principal
   <sect1 xml:id='sysadm-net.autofs-ldap-nfs.ldap'>
     <title>Déployer l'annuaire LDAP</title>
 
+    <para>Le paquet <systemitem>slapd</systemitem> a déjà été installé
+    «&nbsp;sans configuration&nbsp;» dans la partie <xref
+    linkend='sysadm-net.autofs-ldap-nfs.generate.certs'/>, uniquement pour
+    disposer du compte système <systemitem>openldap</systemitem> nécessaire au
+    dépôt des certificats <acronym>TLS</acronym>. Les certificats (<filename
+    class='directory'>/etc/ldap/certs/</filename>) et le fichier
+    <filename>/etc/ldap/ldap.keytab</filename> sont donc déjà en place, mais le
+    démon <systemitem class='daemon'>slapd</systemitem> n'a encore aucune
+    configuration <code>cn=config</code>. Il reste en échec de démarrage tant
+    que le contexte de nommage n'est pas défini.</para>
+
     <para>Cette partie reprend les étapes décrites dans le support
-    &url.sysadm-net.ldap;. Il s'agit d'installer les paquets correspondants au
-    logiciel <citetitle>OpenLDAP</citetitle>, d'initialiser une base avec le
-    bon contexte de nommage puis d'implanter les deux unités organisationnelles
-    et les entrées des comptes utilisateurs.</para>
+    &url.sysadm-net.ldap; et les adapte à ce scénario en trois
+    sous-parties&nbsp;:</para>
 
-  <qandaset defaultlabel='number'>
-    <qandadiv xml:id='sysadm-net.autofs-ldap-nfs.service.q1'>
+    <itemizedlist>
+      <listitem>
+        <para>Initialiser une configuration minimale du service avec le
+        contexte de nommage <literal>dc=lab,dc=local</literal>.</para>
+      </listitem>
+      <listitem>
+        <para>Activer le chiffrement <acronym>TLS</acronym> et
+        l'authentification forte
+        <acronym>SASL</acronym>/<acronym>GSSAPI</acronym>, à partir des
+        certificats et du <filename>keytab</filename> déjà déployés.</para>
+      </listitem>
+      <listitem>
+        <para>Construire l'arbre de l'annuaire (unités organisationnelles
+        <literal>users</literal>, <literal>groups</literal> et
+        <literal>hosts</literal>) puis y implanter les comptes
+        utilisateurs.</para>
+      </listitem>
+    </itemizedlist>
 
-      <qandaentry xml:id='sysadm-net.autofs-ldap-nfs.service.install'>
-        <question>
-          <para><phrase>Comment installer le service d'annuaire
-          <acronym>LDAP</acronym> sur le poste serveur&nbsp;?</phrase></para>
+    <sect2 xml:id='sysadm-net.autofs-ldap-nfs.ldap.install'>
+      <title>Installer et initialiser le service d'annuaire</title>
 
-      <para>Choisir les paquets à installer et valider le bon fonctionnement du
-      service en contrôlant la liste des processus et des numéros de ports
-        ouverts.</para>
-    </question>
-    <answer>
-      <para>Reprendre les questions des parties
-      <link xmlns="http://docbook.org/ns/docbook"
-        xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.install">Installation du serveur LDAP</link>
-        et
-      <link xmlns="http://docbook.org/ns/docbook"
-        xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.config">Analyse de la configuration du service LDAP</link>
-    </para>
-  </answer>
-</qandaentry>
+      <para>Contrairement au support &url.sysadm-net.ldap;, il ne reste ici
+      qu'à générer la configuration <code>cn=config</code> et à l'injecter
+      dans le paquet déjà installé.</para>
 
-<qandaentry xml:id='sysadm-net.autofs-ldap-nfs.service.init'>
-  <question>
-    <para><phrase>Comment initialiser une nouvelle base et un nouveau
-      contexte de nommage pour ce service d'annuaire ?</phrase></para>
+      <qandaset>
+        <qandaentry>
+          <question>
+            <para>Comment générer et appliquer une configuration minimale pour
+            ce nouveau contexte de nommage&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Créez le script <filename>prepare-apply-bootstrap-ldif.sh</filename>
+            avec le code ci-dessous. Il reprend la structure du fichier
+            <acronym>LDIF</acronym> de bootstrap déjà étudiée dans le support
+            &url.sysadm-net.ldap;, avec deux adaptations&nbsp;: le contexte de
+            nommage <literal>dc=lab,dc=local</literal> retenu pour ce scénario,
+            et le niveau de journalisation <option>stats</option> activé dès le
+            démarrage plutôt que dans une étape séparée.</para>
 
-  <para>Réinitialiser la configuration du démon <systemitem
-    class='daemon'>slapd</systemitem> avec le contexte de nommage demandé.</para>
-      </question>
-      <answer>
-        <para>Reprendre les questions de la partie <link
-          xmlns="http://docbook.org/ns/docbook"
-          xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.init">Réinitialisation
-          de la base de l'annuaire LDAP</link>
-      </para>
-    </answer>
-  </qandaentry>
+<screen><![CDATA[cat << 'SCRIPT_EOF' >prepare-apply-bootstrap-ldif.sh
+#!/usr/bin/env bash
+set -euo pipefail
 
-  <qandaentry xml:id='sysadm-net.autofs-ldap-nfs.service.log'>
-    <question>
-      <para><phrase>Comment activer la journalisation des transactions sur le
-        service d'annuaire&nbsp;?</phrase></para>
+# 1. Global variables
+readonly DOMAIN="lab.local"
+# Extract suffix for domain (e.g. lab.local -> dc=lab,dc=local)
+readonly SUFFIX="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
+readonly SLAPD_CONFIG_DIR="/etc/ldap/slapd.d"
+readonly SLAPD_DATA_DIR="/var/lib/ldap"
+readonly LDAP_BOOTSTRAP_FILE="${HOME}/bootstrap-config.ldif"
+readonly ADMIN_PASS_FILE="${HOME}/.ldap_admin_pass"
 
-    <para>Créer un fichier <acronym>LDIF</acronym> qui remplace la valeur par
-    défaut de l'attribut <systemitem>olcLogLevel</systemitem> par
-    <option>stats</option>.</para>
-</question>
-<answer>
-  <para>Reprendre la question
-  <link xmlns="http://docbook.org/ns/docbook"
-    xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.q4-LogLevel">Comment
-    activer la journalisation des manipulations sur les entrées de l'annuaire
-    LDAP&nbsp;?</link>
-</para>
-      </answer>
-    </qandaentry>
+echo "=== 1. Generating administrator credentials ==="
+# 18 random bytes yield exactly 24 base64 characters without padding
+ADMIN_PASS=$(openssl rand -base64 18)
+( umask 077 && printf '%s' "${ADMIN_PASS}" > "${ADMIN_PASS_FILE}" )
 
-    <qandaentry xml:id='sysadm-net.autofs-ldap-nfs.service.ou'>
-      <question>
-        <para><phrase>Comment implanter les deux unités organisationnelles
-        <systemitem>people</systemitem> et <systemitem>groups</systemitem> dans
-          le nouvel annuaire&nbsp;?</phrase></para>
+# Compute Argon2 password hash for slapd
+ROOT_HASH="$(sudo slappasswd -o module-load=argon2.la -h "{ARGON2}" -s "${ADMIN_PASS}")"
 
-      <para>Créer un fichier <acronym>LDIF</acronym> qui décrit la création des
-      deux unités organisationnelles dans le bon contexte. Ajouter ces deux
-        unités organisationnelles dans l'annuaire.</para>
-    </question>
-    <answer>
-      <para>Reprendre les questions
-      <link xmlns="http://docbook.org/ns/docbook"
-        xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.q4-ou">Quelle
-        est la syntaxe du fichier LDIF  qui permet d'ajouter les deux unités
-      organisationnelles (<wordasword>organisational unit</wordasword>) ?</link>
-      et
-    <link xmlns="http://docbook.org/ns/docbook"
-      xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.q4-ldapadd">Quelle
-      est la commande à utiliser pour ajouter une ou plusieurs entrées dans
-      l'annuaire&nbsp;?</link>
-  </para>
-</answer>
-    </qandaentry>
+echo "=== 2. Generating cn=config bootstrap LDIF ==="
+cat <<EOF >"${LDAP_BOOTSTRAP_FILE}"
+dn: cn=config
+objectClass: olcGlobal
+cn: config
+olcArgsFile: /run/slapd/slapd.args
+olcPidFile: /run/slapd/slapd.pid
+olcLogLevel: none
+olcToolThreads: 1
 
-    <qandaentry xml:id='sysadm-net.autofs-ldap-nfs.service.posixAccount'>
-      <question>
-        <para><phrase>Comment implanter les quatre comptes utilisateurs dans cet
-          annuaire&nbsp;?</phrase></para>
+dn: cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: schema
 
-      <para>Créer un fichier <acronym>LDIF</acronym> qui décrit la création des
-      des quatre comptes utilisateurs dans le bon contexte avec un jeu
-      d'attributs complet pour l'authentification et le système de fichiers.
-        Ajouter ces comptes dans l'annuaire.</para>
-    </question>
-    <answer>
-      <para>Reprendre la question
-      <link xmlns="http://docbook.org/ns/docbook"
-        xlink:href="&LDAP-root;/sysadm-net.ldap.srvr.html#sysadm-net.ldap.srvr.q4-posixAccount">Quelle
-        est la syntaxe du fichier <acronym>LDIF</acronym> qui permet d'ajouter les quatre
-          utilisateurs avec leurs attributs système&nbsp;?</link></para>
-    </answer>
-  </qandaentry>
-</qandadiv>
-  </qandaset>
+include: file:///etc/ldap/schema/core.ldif
+include: file:///etc/ldap/schema/cosine.ldif
+include: file:///etc/ldap/schema/nis.ldif
+include: file:///etc/ldap/schema/inetorgperson.ldif
+
+dn: cn=module{0},cn=config
+objectClass: olcModuleList
+cn: module{0}
+olcModulePath: /usr/lib/ldap
+olcModuleLoad: back_mdb
+olcModuleLoad: argon2
+
+dn: olcDatabase={-1}frontend,cn=config
+objectClass: olcDatabaseConfig
+objectClass: olcFrontendConfig
+olcDatabase: {-1}frontend
+olcPasswordHash: {ARGON2}
+olcAccess: {0}to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth manage by * none
+
+dn: olcDatabase={0}config,cn=config
+objectClass: olcDatabaseConfig
+olcDatabase: {0}config
+olcAccess: {0}to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth manage by * none
+
+dn: olcDatabase={1}mdb,cn=config
+objectClass: olcDatabaseConfig
+objectClass: olcMdbConfig
+olcDatabase: {1}mdb
+olcDbDirectory: ${SLAPD_DATA_DIR}
+olcDbMaxSize: 1073741824
+olcSuffix: ${SUFFIX}
+olcRootDN: cn=admin,${SUFFIX}
+olcRootPW: ${ROOT_HASH}
+olcLastMod: TRUE
+olcDbCheckpoint: 512 30
+olcAccess: {0}to * by dn.exact=gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth manage by * break
+olcAccess: {1}to attrs=userPassword by self write by anonymous auth by * none
+olcAccess: {2}to attrs=shadowLastChange by self write by * read
+olcAccess: {3}to * by users read by * none
+olcDbIndex: objectClass eq
+olcDbIndex: uid eq
+olcDbIndex: cn,sn,mail eq,sub
+olcDbIndex: uidNumber,gidNumber eq
+olcDbIndex: member,memberUid eq
+EOF
+
+echo "=== 3. Offline import and directory initialization ==="
+# Stop slapd to prevent database locking during offline import
+sudo systemctl stop slapd 2>/dev/null || true
+
+# Clear directories to guarantee idempotency across multiple runs
+sudo rm -rf "${SLAPD_CONFIG_DIR:?}"/* "${SLAPD_DATA_DIR:?}"/*
+sudo mkdir -p "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
+
+# Import LDIF into cn=config (-n0)
+sudo slapadd -F "${SLAPD_CONFIG_DIR}" -n0 -l "${LDAP_BOOTSTRAP_FILE}"
+
+# Set proper ownership for the openldap daemon
+sudo chown -R openldap:openldap "${SLAPD_CONFIG_DIR}" "${SLAPD_DATA_DIR}"
+
+echo "=== 4. Finalizing package configuration and restarting slapd ==="
+sudo dpkg --configure --pending
+sudo systemctl restart slapd
+
+echo ""
+echo "Success: OpenLDAP server is configured and running."
+echo "Base DN: ${SUFFIX}"
+echo "Admin DN: cn=admin,${SUFFIX}"
+echo "Admin password saved in: ${ADMIN_PASS_FILE}"
+SCRIPT_EOF
+bash prepare-apply-bootstrap-ldif.sh]]></screen>
+
+            <note>
+              <para>Les attributs <systemitem>olcTLS*</systemitem>
+              n'apparaissent pas dans ce fichier de démarrage, alors que les
+              certificats sont déjà déployés dans <filename
+              class='directory'>/etc/ldap/certs/</filename>. Ce choix isole
+              la mise en route du contexte de nommage de l'activation de la
+              sécurité des échanges, qui fait l'objet de la sous-partie
+              suivante <xref
+              linkend='sysadm-net.autofs-ldap-nfs.ldap.secure'/>.</para>
+            </note>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Comment vérifier que le service est bien opérationnel avec ce
+            nouveau contexte de nommage&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Contrôlez d'abord l'état du service.</para>
+
+<screen>systemctl status slapd.service --no-pager</screen>
+
+<screen><![CDATA[● slapd.service - OpenLDAP Server Daemon
+     Loaded: loaded (/usr/lib/systemd/system/slapd.service; enabled; preset: enabled)
+     Active: active (running) since Fri 2026-09-04 15:46:45 CEST; 34s ago
+ Invocation: cab64b3b59194245ae78eb78920b6db6
+       Docs: man:slapd
+             man:slapd-config
+             man:slapd-mdb
+   Main PID: 3701 (slapd)
+      Tasks: 3 (limit: 971)
+     Memory: 6.9M (peak: 6.9M)
+        CPU: 42ms
+     CGroup: /system.slice/slapd.service
+             └─3701 /usr/sbin/slapd -d0 -h "ldap:/// ldapi:///" -u openldap -g openldap
+
+sept. 04 15:46:45 srvr systemd[1]: Starting slapd.service - OpenLDAP Server Daemon...
+sept. 04 15:46:45 srvr slapd[3701]: @(#) $OpenLDAP: slapd 2.6.14+dfsg-2 (Aug 25 2026 00:46:58) $
+                                            Debian OpenLDAP Maintainers <pkg-openldap-devel@lists.alioth.debian.org>
+sept. 04 15:46:45 srvr slapd[3701]: slapd starting
+sept. 04 15:46:45 srvr systemd[1]: Started slapd.service - OpenLDAP Server Daemon.]]></screen>
+
+            <para>Vérifiez ensuite que le port <code>tcp/389</code> est bien en
+            écoute.</para>
+
+<screen>sudo ss -antlp 'sport = :389'</screen>
+
+<screen>
+State   Recv-Q  Send-Q  Local Address:Port  Peer Address:Port   Process
+LISTEN  0       2048          0.0.0.0:389        0.0.0.0:*       users:(("slapd",pid=3701,fd=7))
+LISTEN  0       2048             [::]:389           [::]:*       users:(("slapd",pid=3701,fd=8))</screen>
+
+            <para>Contrôlez enfin, via la connexion locale
+            <acronym>SASL</acronym>/<literal>EXTERNAL</literal>, que le niveau
+            de journalisation <option>stats</option> est bien actif dès ce
+            premier démarrage.</para>
+
+<screen>sudo ldapsearch -LLL \
+  -Y EXTERNAL \
+  -H ldapi:/// \
+  -b cn=config \
+  -s base olcLogLevel</screen>
+
+<screen>SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+dn: cn=config
+olcLogLevel: stats</screen>
+
+            <para>Le contexte de nommage <literal>dc=lab,dc=local</literal> est
+            désormais déclaré dans la base <literal>mdb</literal>, mais
+            l'entrée racine de l'arbre n'existe pas encore.</para>
+
+<screen>ldapsearch -x -H ldap:/// \
+  -b dc=lab,dc=local</screen>
+
+<screen><![CDATA[# extended LDIF
+#
+# LDAPv3
+# base <dc=lab,dc=local> with scope subtree
+# filter: (objectclass=*)
+# requesting: ALL
+#
+
+# search result
+search: 2
+result: 32 No such object
+
+# numResponses: 1]]></screen>
+
+            <para>C'est normal&nbsp;: la création de cette entrée racine, ainsi
+            que celle des unités organisationnelles, fait l'objet de la
+            sous-partie <xref linkend='sysadm-net.autofs-ldap-nfs.ldap.tree'/>.</para>
+          </answer>
+        </qandaentry>
+      </qandaset>
+    </sect2>
+
+    <sect2 xml:id='sysadm-net.autofs-ldap-nfs.ldap.secure'>
+      <title>Sécuriser les échanges avec TLS et l'authentification SASL/GSSAPI</title>
+
+      <para>Les certificats <acronym>TLS</acronym> (<filename
+      class='directory'>/etc/ldap/certs/</filename>) et le fichier
+      <filename>/etc/ldap/ldap.keytab</filename> ont déjà été déployés dans la
+      partie <xref linkend='sysadm-net.autofs-ldap-nfs.prepare.certs'/> et
+      <xref linkend='sysadm-net.autofs-ldap-nfs.kerberos'/>. Il ne reste donc
+      qu'à les <emphasis>activer</emphasis> dans la configuration
+      <code>cn=config</code> du service, en cinq étapes&nbsp;: chiffrement
+      <acronym>TLS</acronym>, authentification
+      <acronym>SASL</acronym>/<acronym>GSSAPI</acronym>, correspondance des
+      identités, configuration du client <acronym>LDAP</acronym> local, puis
+      vérifications croisées.</para>
+
+      <qandaset>
+        <qandaentry>
+          <question>
+            <para>Comment activer le chiffrement <acronym>TLS</acronym> à
+            partir des certificats déjà déployés&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Injectez les trois attributs de désignation des certificats
+            (<systemitem>olcTLSCACertificateFile</systemitem>,
+            <systemitem>olcTLSCertificateFile</systemitem>,
+            <systemitem>olcTLSCertificateKeyFile</systemitem>) ainsi que les
+            seuils <acronym>SSF</acronym> (<systemitem>olcLocalSSF</systemitem>,
+            <systemitem>olcSecurity</systemitem>) dans la même opération, puis
+            activez le service <code>ldaps://</code> à côté de
+            <code>ldap://</code>.</para>
+
+<screen><![CDATA[cat << 'SCRIPT_EOF' >enable-ldap-tls.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 1. Global variables
+readonly CERT_DIR="/etc/ldap/certs"
+readonly CA_CERT="${CERT_DIR}/labCA.crt"
+readonly SERVER_CERT="${CERT_DIR}/ldap-srvr.crt"
+readonly SERVER_KEY="${CERT_DIR}/ldap-srvr.key"
+readonly SLAPD_DEFAULT="/etc/default/slapd"
+
+echo "=== 1. Checking prerequisite certificates ==="
+for file in "${CA_CERT}" "${SERVER_CERT}" "${SERVER_KEY}"; do
+  if [[ ! -f "${file}" ]]; then
+    echo "Error: Required certificate or key not found: ${file}" >&2
+    exit 1
+  fi
+done
+
+echo "=== 2. Preparing and injecting dynamic TLS configuration ==="
+TMP_LDIF=$(mktemp)
+trap 'rm -f "${TMP_LDIF:-}"' EXIT
+
+cat <<EOF >"${TMP_LDIF}"
+dn: cn=config
+changetype: modify
+replace: olcTLSCACertificateFile
+olcTLSCACertificateFile: ${CA_CERT}
+-
+replace: olcTLSCertificateFile
+olcTLSCertificateFile: ${SERVER_CERT}
+-
+replace: olcTLSCertificateKeyFile
+olcTLSCertificateKeyFile: ${SERVER_KEY}
+-
+replace: olcLocalSSF
+olcLocalSSF: 256
+-
+replace: olcSecurity
+olcSecurity: ssf=128
+EOF
+
+# Apply modifications via SASL/EXTERNAL on local socket
+sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f "${TMP_LDIF}"
+
+echo "=== 3. Enabling ldaps:// endpoint in /etc/default/slapd ==="
+# Append ldaps:/// to SLAPD_SERVICES if not already declared
+sudo sed -i '/^SLAPD_SERVICES=/{
+  /ldaps:\/\//! s/"$/ ldaps:\/\/\/"/
+}' "${SLAPD_DEFAULT}"
+
+echo "=== 4. Restarting slapd service ==="
+# Single restart to take into account olcLocalSSF and new network endpoints
+sudo systemctl restart slapd
+
+echo ""
+echo "Success: TLS has been enabled for OpenLDAP."
+echo "CA certificate: ${CA_CERT}"
+echo "Server certificate: ${SERVER_CERT}"
+echo "SSF thresholds: local=256, minimum network=128"
+echo "Listening sockets:"
+sudo ss -tlnp 'sport = :389 or sport = :636'
+SCRIPT_EOF
+
+bash enable-ldap-tls.sh]]></screen>
+
+<screen>Success: TLS has been enabled for OpenLDAP.
+CA certificate: /etc/ldap/certs/labCA.crt
+Server certificate: /etc/ldap/certs/ldap-srvr.crt
+SSF thresholds: local=256, minimum network=128
+Listening sockets:
+State    Recv-Q  Send-Q  Local Address:Port   Peer Address:Port   Process
+LISTEN   0       2048          0.0.0.0:389         0.0.0.0:*       users:(("slapd",pid=4004,fd=7))
+LISTEN   0       2048          0.0.0.0:636         0.0.0.0:*       users:(("slapd",pid=4004,fd=10))
+LISTEN   0       2048             [::]:389            [::]:*       users:(("slapd",pid=4004,fd=8))
+LISTEN   0       2048             [::]:636            [::]:*       users:(("slapd",pid=4004,fd=11))</screen>
+
+            <note>
+              <para>Le seuil <literal>olcSecurity: ssf=128</literal> impose
+              désormais une confidentialité minimale à toute connexion, y
+              compris pour les accès anonymes en clair sur
+              <code>ldap://</code>.  Cette contrainte est vérifiée dans la
+              dernière question de cette sous-partie.</para>
+            </note>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Comment activer l'authentification forte
+            <acronym>SASL</acronym>/<acronym>GSSAPI</acronym> à partir du
+            <filename>keytab</filename> déjà déployé&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Comme pour le client Kerberos, le démon <systemitem
+            class='daemon'>slapd</systemitem> a besoin du greffon
+            <package>libsasl2-modules-gssapi-mit</package>. Indiquez-lui
+            ensuite, via la variable d'environnement
+            <envar>KRB5_KTNAME</envar>, le <filename>keytab</filename> dédié
+            <filename>/etc/ldap/ldap.keytab</filename> plutôt que le
+            <filename>keytab</filename> système
+            <filename>/etc/krb5.keytab</filename>, puis déclarez le nom
+            d'hôte <acronym>SASL</acronym> et le royaume dans
+            <code>cn=config</code>.</para>
+
+<screen><![CDATA[cat << 'SCRIPT_EOF' >enable-ldap-gssapi.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 1. Global variables
+readonly DOMAIN="lab.local"
+readonly REALM="${DOMAIN^^}"
+readonly LDAP_HOST="ldap-srvr.${DOMAIN}"
+readonly KEYTAB_FILE="/etc/ldap/ldap.keytab"
+readonly SLAPD_DEFAULT="/etc/default/slapd"
+
+echo "=== 1. Checking prerequisite keytab ==="
+if [[ ! -f "${KEYTAB_FILE}" ]]; then
+  echo "Error: Keytab file '${KEYTAB_FILE}' not found." >&2
+  echo "Ensure the service principal was created and extracted with ktadd." >&2
+  exit 1
+fi
+
+echo "=== 2. Installing Cyrus SASL GSSAPI plugin ==="
+sudo apt update -qq
+sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
+    libsasl2-modules-gssapi-mit
+
+echo "=== 3. Configuring environment and keytab path ==="
+# Update or append KRB5_KTNAME in /etc/default/slapd
+if grep -q "KRB5_KTNAME" "${SLAPD_DEFAULT}"; then
+  sudo sed -i "s|^#\?KRB5_KTNAME=.*|KRB5_KTNAME=${KEYTAB_FILE}|" "${SLAPD_DEFAULT}"
+else
+  echo "KRB5_KTNAME=${KEYTAB_FILE}" | sudo tee -a "${SLAPD_DEFAULT}" >/dev/null
+fi
+
+echo "=== 4. Declaring SASL host and realm in cn=config ==="
+TMP_LDIF=$(mktemp)
+trap 'rm -f "${TMP_LDIF:-}"' EXIT
+
+cat <<EOF >"${TMP_LDIF}"
+dn: cn=config
+changetype: modify
+replace: olcSaslHost
+olcSaslHost: ${LDAP_HOST}
+-
+replace: olcSaslRealm
+olcSaslRealm: ${REALM}
+EOF
+
+sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f "${TMP_LDIF}"
+
+echo "=== 5. Restarting slapd service ==="
+# Single restart to load KRB5_KTNAME and initialize the SASL GSSAPI provider
+sudo systemctl restart slapd
+
+echo ""
+echo "Success: slapd is configured to accept Kerberos (GSSAPI) binds."
+echo "Configured realm: ${REALM}"
+echo "SASL hostname: ${LDAP_HOST}"
+echo "Supported SASL mechanisms:"
+# Queried over ldapi:/// to comply with olcSecurity (ssf=128) via olcLocalSSF (256)
+sudo ldapsearch -Q -Y EXTERNAL \
+  -H ldapi:/// \
+  -b "" \
+  -s base supportedSASLMechanisms |\
+  grep -E "^supportedSASLMechanisms:"
+SCRIPT_EOF
+bash enable-ldap-gssapi.sh]]></screen>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Comment faire correspondre les principaux Kerberos aux
+            entrées du <acronym>DIT</acronym>&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Insérez deux expressions rationnelles
+            <systemitem>olcAuthzRegexp</systemitem>&nbsp;:</para>
+
+            <itemizedlist>
+              <listitem>
+                <para>la première traduit un principal utilisateur
+                <literal>uid@LAB.LOCAL</literal> en entrée
+                <literal>ou=users</literal></para>
+              </listitem>
+              <listitem>
+                <para>la seconde traduit un principal machine
+                <literal>host/nom@LAB.LOCAL</literal> en entrée
+                <literal>ou=hosts</literal>, conformément au découpage retenu
+                pour l'arbre de l'annuaire.</para>
+              </listitem>
+            </itemizedlist>
+
+<screen><![CDATA[cat << 'SCRIPT_EOF' >configure-identity-mapping.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 1. Global variables
+readonly DOMAIN="lab.local"
+readonly REALM="${DOMAIN^^}"
+# Dynamically extract Base DN (e.g. lab.local -> dc=lab,dc=local)
+readonly BASE_DN="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
+readonly USERS_OU="ou=users,${BASE_DN}"
+readonly HOSTS_OU="ou=hosts,${BASE_DN}"
+
+echo "=== 1. Checking slapd daemon availability ==="
+if ! systemctl is-active --quiet slapd; then
+  echo "Error: The slapd service is not running." >&2
+  echo "Start it with 'sudo systemctl start slapd' before applying configuration." >&2
+  exit 1
+fi
+
+echo "=== 2. Preparing and injecting identity mapping rules (olcAuthzRegexp) ==="
+TMP_LDIF=$(mktemp)
+trap 'rm -f "${TMP_LDIF:-}"' EXIT
+
+# Translation rules breakdown:
+# - replace: ensures idempotency by overwriting existing rules safely
+# - cn=[^,]+: matches the realm component regardless of case
+# - Rule {0} (Users): [^/,]+ captures the UID while strictly forbidding '/' to prevent overlap with service principals
+# - Rule {1} (Hosts): host/([^,]+) extracts the machine FQDN into cn=$1
+cat <<EOF >"${TMP_LDIF}"
+dn: cn=config
+changetype: modify
+replace: olcAuthzRegexp
+olcAuthzRegexp: {0}uid=([^/,]+),cn=[^,]+,cn=gssapi,cn=auth uid=\$1,${USERS_OU}
+olcAuthzRegexp: {1}uid=host/([^,]+),cn=[^,]+,cn=gssapi,cn=auth cn=\$1,${HOSTS_OU}
+EOF
+
+# Inject rules into cn=config using local SASL/EXTERNAL authentication
+sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f "${TMP_LDIF}"
+
+echo "=== 3. Verifying active mapping rules in cn=config ==="
+sudo ldapsearch -Q -Y EXTERNAL -H ldapi:/// \
+    -b "cn=config" \
+    "(olcAuthzRegexp=*)" olcAuthzRegexp || true
+
+echo ""
+echo "Success: Identity mapping (SASL/GSSAPI -> LDAP) is configured."
+echo "Expected transformations:"
+echo "  Kerberos 'user@${REALM}'          -> LDAP 'uid=user,${USERS_OU}'"
+echo "  Kerberos 'host/machine@${REALM}' -> LDAP 'cn=machine,${HOSTS_OU}'"
+echo ""
+echo "Verification command (after 'kinit <user>'):"
+echo "  ldapwhoami -H ldap://ldap-srvr.${DOMAIN} -Y GSSAPI"
+SCRIPT_EOF
+bash configure-identity-mapping.sh]]></screen>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Depuis le <emphasis>client</emphasis>, comment configurer les
+            outils <acronym>LDAP</acronym> (<command>ldapsearch</command>,
+            <command>ldapmodify</command>, <command>ldapwhoami</command>) pour
+            qu'ils fassent confiance à l'autorité de certification locale et se
+            connectent par défaut au serveur&nbsp;?</para>
+
+            <para>Recherchez dans la page de manuel
+            <filename>ldap.conf</filename> les paramètres de connexion et de
+            vérification <acronym>TLS</acronym> par défaut.</para>
+          </question>
+          <answer>
+            <para>Sans ce fichier, les outils clients ne connaissent pas le
+            chemin de l'autorité de certification locale et considèrent le
+            certificat du serveur comme non fiable, même si celui-ci a déjà
+            été correctement installé côté serveur. Lancez cette commande
+            depuis le <emphasis>client</emphasis>.</para>
+
+<screen>ldapsearch -H ldaps://ldap-srvr.lab.local \
+    -D "cn=admin,dc=lab,dc=local" -y ~/.ldap_admin_pass \
+    -b dc=lab,dc=local</screen>
+
+<screen>ldap_sasl_bind(SIMPLE): Can't contact LDAP server (-1)
+additional info: error:0A000086:SSL routines::certificate verify failed (self-signed certificate in certificate chain)</screen>
+
+            <para>Créez, toujours sur le <emphasis>client</emphasis>, le fichier
+            <filename>/etc/ldap/ldap.conf</filename> avec l'<acronym>URI</acronym>
+            et la base par défaut du service, le chemin du certificat de
+            l'autorité de certification locale, et l'exigence stricte de
+            vérification du certificat serveur.</para>
+
+<screen><![CDATA[sudo mkdir -p /etc/ldap
+cat << EOF | sudo tee /etc/ldap/ldap.conf >/dev/null
+URI ldaps://ldap-srvr.lab.local
+BASE dc=lab,dc=local
+TLS_CACERT /etc/ssl/certs/labCA.crt
+TLS_REQCERT demand
+EOF
+]]></screen>
+
+            <note>
+              <para>Sur le serveur, l'autorité de certification est désignée par
+              <filename>/etc/ldap/certs/labCA.crt</filename>
+              (<xref linkend='sysadm-net.autofs-ldap-nfs.prepare.certs'/>). Sur
+              le client, ce même certificat a été installé sous
+              <filename>/etc/ssl/certs/labCA.crt</filename> et ajouté au magasin
+              de confiance du système par <command>update-ca-certificates</command>
+              (<xref linkend='sysadm-net.autofs-ldap-nfs.generate.certs'/>)&nbsp;:
+              les deux chemins ne coïncident pas, d'où l'importance de bien
+              distinguer, dans chaque question de cette sous-partie, si les
+              commandes s'exécutent sur le serveur (via <code>ldapi:///</code>)
+              ou sur le client (via le réseau).</para>
+            </note>
+
+            <para>Copiez le mot de passe de l'administrateur
+            <acronym>LDAP</acronym> depuis le serveur sur le client pour
+            valider l'authentification.</para>
+
+<screen>scp .ldap_admin_pass clnt:~</screen>
+
+            <para>Relancez la même requête&nbsp;: la connexion
+            <acronym>TLS</acronym> aboutit désormais, l'entrée racine restant
+            introuvable puisque l'arbre n'a pas encore été construit.</para>
+
+<screen>ldapsearch -H ldaps://ldap-srvr.lab.local \
+    -D "cn=admin,dc=lab,dc=local" -y ~/.ldap_admin_pass \
+    -b dc=lab,dc=local</screen>
+
+<screen><![CDATA[# extended LDIF
+#
+# LDAPv3
+# base <dc=lab,dc=local> with scope subtree
+# filter: (objectclass=*)
+# requesting: ALL
+#
+
+# search result
+search: 2
+result: 32 No such object
+
+# numResponses: 1]]></screen>
+
+            <note>
+              <para>Le paramètre <code>TLS_REQCERT demand</code> impose la
+              vérification du certificat serveur, y compris son nom
+              d'hôte&nbsp;: c'est pourquoi l'<acronym>URI</acronym> utilise le
+              nom <systemitem>ldap-srvr.lab.local</systemitem>, qui figure
+              dans le <literal>subjectAltName</literal> du certificat
+              (<xref linkend='sysadm-net.autofs-ldap-nfs.generate.certs'/>),
+              plutôt que l'alias <systemitem>srvr.lab.local</systemitem>.</para>
+            </note>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Comment vérifier que le service répond bien en
+            <acronym>TLS</acronym> et via
+            <acronym>GSSAPI</acronym>&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Toutes les commandes de cette question s'exécutent depuis le
+            <emphasis>client</emphasis>. Vérifiez d'abord que le seuil
+            <acronym>SSF</acronym> rejette bien un accès anonyme en clair.</para>
+
+<screen>ldapsearch -LLL -x -H ldap://ldap-srvr.lab.local \
+  -b dc=lab,dc=local</screen>
+
+<screen>ldap_bind: Confidentiality required (13)
+additional info: confidentiality required</screen>
+
+            <para>Vérifiez ensuite qu'un bind administrateur authentifié via
+            <code>ldaps://</code> est accepté&nbsp;: le fichier
+            <filename>/etc/ldap/ldap.conf</filename> créé à l'étape précédente
+            fournit désormais l'<acronym>URI</acronym> et la base par défaut,
+            ce qui permet d'omettre l'option <option>-H</option>. L'entrée
+            racine n'existe toujours pas&nbsp;: seule l'authentification est
+            validée à ce stade.</para>
+
+<screen>ldapsearch \
+    -D "cn=admin,dc=lab,dc=local" -y ~/.ldap_admin_pass</screen>
+
+<screen><![CDATA[# extended LDIF
+#
+# LDAPv3
+# base <dc=lab,dc=local> with scope subtree
+# filter: (objectclass=*)
+# requesting: ALL
+#
+
+# search result
+search: 2
+result: 32 No such object]]></screen>
+
+          </answer>
+        </qandaentry>
+      </qandaset>
+    </sect2>
+
+    <sect2 xml:id='sysadm-net.autofs-ldap-nfs.ldap.tree'>
+      <title>Construire l'arbre et peupler l'annuaire</title>
+
+      <para><emphasis>Sous-partie à rédiger à l'étape suivante&nbsp;: unités
+      organisationnelles <literal>users</literal>, <literal>groups</literal> et
+      <literal>hosts</literal>, génération des comptes Skywalker et
+      vérifications.</emphasis></para>
+    </sect2>
+
 </sect1>
 
 <sect1 xml:id='sysadm-net.autofs-ldap-nfs.nfs'>
@@ -2298,14 +2882,16 @@ automountInformation: -fstype=nfs4 192.0.2.12:/home/&amp;</screen>
       </itemizedlist>
 
       <para>Pour le paquet <systemitem>nslcd</systemitem>, on donne les
-      paramètres pour contacter le serveur <acronym>LDAP</acronym>.</para>
+      paramètres pour contacter le serveur <acronym>LDAP</acronym>, en
+      cohérence avec le nom d'hôte du certificat et la base de l'annuaire déjà
+      déployés (<xref linkend='sysadm-net.autofs-ldap-nfs.ldap.secure'/>).</para>
 
     <itemizedlist>
       <listitem>
-        <para>URI du serveur LDAP : ldap://192.0.2.12</para>
+        <para>URI du serveur LDAP&nbsp;: ldaps://ldap-srvr.lab.local</para>
       </listitem>
       <listitem>
-        <para>Base de recherche du serveur LDAP : dc=lab,dc=stri</para>
+        <para>Base de recherche du serveur LDAP : dc=lab,dc=local</para>
       </listitem>
       <listitem>
         <para>Authentification LDAP : aucune</para>
@@ -2316,7 +2902,24 @@ automountInformation: -fstype=nfs4 192.0.2.12:/home/&amp;</screen>
       <listitem>
         <para>Faut-il utiliser StartTLS ? non</para>
       </listitem>
+      <listitem>
+        <para>Certificat de l'autorité : <filename>/etc/ssl/certs/labCA.crt</filename></para>
+      </listitem>
+      <listitem>
+        <para>Vérification du certificat du serveur : exiger (demand)</para>
+      </listitem>
     </itemizedlist>
+
+    <note>
+      <para>À ce stade, l'annuaire ne dispose pas encore d'un compte de
+      service dédié : <systemitem>nslcd</systemitem> se connecte donc de
+      façon anonyme, mais déjà chiffrée (<code>ldaps://</code>), ce qui évite
+      les tentatives en clair sur le port 389 et l'erreur <literal>confidentiality
+      required</literal> observée dans les journaux du serveur. Un compte de
+      service authentifié (voire par <acronym>GSSAPI</acronym>) sera mis en
+      place une fois l'arborescence <literal>ou=users</literal> créée
+      (<xref linkend='sysadm-net.autofs-ldap-nfs.ldap.tree'/>).</para>
+    </note>
   </answer>
 </qandaentry>
 
@@ -2347,6 +2950,17 @@ commande <command>su</command>.</para>
 <screen>su - luke
 Mot de passe :
 :/home/etu$</screen>
+
+            <note>
+              <para>Ces deux vérifications supposent que l'arborescence de
+              l'annuaire (unités organisationnelles et comptes
+              <literal>Skywalker</literal>) a déjà été construite
+              (<xref linkend='sysadm-net.autofs-ldap-nfs.ldap.tree'/>). Tant
+              que ce n'est pas le cas, <command>getent passwd</command> ne
+              renvoie que les comptes locaux (dont <systemitem>nslcd</systemitem>),
+              et <command>su - luke</command> échoue faute d'entrée
+              correspondante dans l'annuaire.</para>
+            </note>
 </answer>
     </qandaentry>
   </qandadiv>
