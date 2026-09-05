@@ -1238,6 +1238,7 @@ sudo tee /etc/krb5.conf >/dev/null <<EOF
     forwardable = true
     proxiable = true
     rdns = false
+    dns_canonicalize_hostname = false
     allow_weak_crypto = false
     default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
     default_tgs_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
@@ -2110,8 +2111,33 @@ URI ldaps://ldap-srvr.lab.local
 BASE dc=lab,dc=local
 TLS_CACERT /etc/ssl/certs/labCA.crt
 TLS_REQCERT demand
+SASL_NOCANON on
 EOF
 ]]></screen>
+
+            <note>
+              <para>Avec la directive <code>SASL_NOCANON on</code>, on
+              désactive la résolution <acronym>DNS</acronym> que la
+              bibliothèque <acronym>SASL</acronym> effectuerait sinon sur le
+              nom d'hôte fourni via <option>-H</option>, avant de construire le
+              nom de service attendu par le mécanisme
+              <acronym>GSSAPI</acronym>.  Or l'adresse du serveur porte
+              plusieurs enregistrements <acronym>PTR</acronym> (<xref
+              linkend='sysadm-net.autofs-ldap-nfs.prepare.names'/>)&nbsp;: sans
+              cette directive, le nom résolu reviendrait à
+              <systemitem>srvr.lab.local</systemitem>, et un bind
+              <acronym>SASL</acronym>/<acronym>GSSAPI</acronym> viserait alors
+              le principal <literal>ldap/srvr.lab.local@LAB.LOCAL</literal>,
+              absent du royaume. Cette précaution côté client
+              <acronym>LDAP</acronym> complète celle déjà retenue pour le
+              client Kerberos lui-même (<option>rdns = false</option> dans
+              <filename>/etc/krb5.conf</filename>, <xref
+              linkend='sysadm-net.autofs-ldap-nfs.kerberos'/>). Son effet sera
+              vérifié plus loin, lors du premier bind
+              <acronym>SASL</acronym>/<acronym>GSSAPI</acronym> réel, une fois
+              l'entrée hôte créée dans l'annuaire (<xref
+              linkend='sysadm-net.autofs-ldap-nfs.ldap.clnt-access'/>).</para>
+            </note>
 
             <note>
               <para>Sur le serveur, l'autorité de certification est désignée par
@@ -2170,8 +2196,7 @@ result: 32 No such object
         <qandaentry>
           <question>
             <para>Comment vérifier que le service répond bien en
-            <acronym>TLS</acronym> et via
-            <acronym>GSSAPI</acronym>&nbsp;?</para>
+            <acronym>TLS</acronym>&nbsp;?</para>
           </question>
           <answer>
             <para>Toutes les commandes de cette question s'exécutent depuis le
@@ -2215,12 +2240,749 @@ result: 32 No such object]]></screen>
     <sect2 xml:id='sysadm-net.autofs-ldap-nfs.ldap.tree'>
       <title>Construire l'arbre et peupler l'annuaire</title>
 
-      <para><emphasis>Sous-partie à rédiger à l'étape suivante&nbsp;: unités
-      organisationnelles <literal>users</literal>, <literal>groups</literal> et
-      <literal>hosts</literal>, génération des comptes Skywalker et
-      vérifications.</emphasis></para>
+      <para>La sous-partie <xref
+      linkend='sysadm-net.autofs-ldap-nfs.ldap.install'/> a montré que le
+      contexte de nommage <literal>dc=lab,dc=local</literal> est déclaré dans
+      la configuration <literal>cn=config</literal>, mais que l'entrée racine
+      du <acronym>DIT</acronym> n'existe pas encore. Cette sous-partie
+      construit l'arborescence retenue pour cette maquette&nbsp;: les trois
+      unités organisationnelles <literal>ou=users</literal>,
+      <literal>ou=groups</literal> et <literal>ou=hosts</literal>, puis peuple
+      l'annuaire avec les comptes de la famille Skywalker et une entrée
+      représentant l'hôte client.</para>
+
+      <qandaset>
+        <qandaentry>
+          <question>
+            <para>Comment créer l'entrée racine du <acronym>DIT</acronym> et
+            les trois unités d'organisation retenues pour cette
+            maquette&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Les opérations de cette question s'exécutent sur le
+            <emphasis>serveur</emphasis>, via la connexion locale
+            <acronym>SASL</acronym>/<literal>EXTERNAL</literal> sur
+            <code>ldapi:///</code>&nbsp;: l'identité du compte système
+            <systemitem>root</systemitem> correspond à la règle
+            <literal>{0}</literal> de <systemitem>olcAccess</systemitem>
+            (<xref linkend='sysadm-net.autofs-ldap-nfs.ldap.install'/>), qui
+            accorde un accès en écriture complet sans avoir à fournir le mot
+            de passe administrateur.</para>
+
+            <para>Créez le script <filename>build-ldap-tree.sh</filename> avec
+            le code ci-dessous.</para>
+
+<screen><![CDATA[cat << 'SCRIPT_EOF' >build-ldap-tree.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 1. Global variables
+readonly DOMAIN="lab.local"
+readonly BASE_DN="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
+readonly TREE_LDIF="${HOME}/build-tree.ldif"
+
+echo "=== 1. Generating the DIT root entry and organizational units ==="
+cat <<EOF >"${TREE_LDIF}"
+dn: ${BASE_DN}
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: Lab SysAdmNet
+dc: ${DOMAIN%%.*}
+
+dn: ou=users,${BASE_DN}
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,${BASE_DN}
+objectClass: organizationalUnit
+ou: groups
+
+dn: ou=hosts,${BASE_DN}
+objectClass: organizationalUnit
+ou: hosts
+EOF
+
+echo "=== 2. Importing the tree with local SASL/EXTERNAL authentication ==="
+sudo ldapadd -Y EXTERNAL -H ldapi:/// -f "${TREE_LDIF}"
+
+echo ""
+echo "Success: root entry and organizational units users/groups/hosts created."
+SCRIPT_EOF
+bash build-ldap-tree.sh]]></screen>
+
+            <para>Vérifiez la structure obtenue.</para>
+
+<screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// \
+    -b dc=lab,dc=local \
+    -s children dn</screen>
+
+<screen><![CDATA[SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+dn: ou=users,dc=lab,dc=local
+
+dn: ou=groups,dc=lab,dc=local
+
+dn: ou=hosts,dc=lab,dc=local]]></screen>
+
+            <caution>
+              <para>Assurez-vous que l'annuaire contient bien un arbre avec
+              les trois branches <literal>users</literal>,
+              <literal>groups</literal> et <literal>hosts</literal> avant de
+              passer aux questions suivantes.</para>
+            </caution>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Comment générer les comptes de la famille Skywalker avec un
+            mot de passe aléatoire condensé en <literal>Argon2</literal>, à
+            l'image du compte administrateur&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Chaque compte utilisateur reçoit un groupe primaire dédié
+            (<foreignphrase>private user group</foreignphrase>). Un groupe
+            secondaire partagé <literal>cn=users,ou=groups</literal>
+            (<code>gidNumber: 100</code>) rassemble les quatre comptes et sert
+            pour l'accès aux ressources communes montées sous <filename
+            class='directory'>/ahome</filename> (<xref
+            linkend='sysadm-net.autofs-ldap-nfs.local-mount'/>).</para>
+
+            <para>Créez le script
+            <filename>generate-skywalker-accounts.sh</filename> avec le code
+            ci-dessous.</para>
+
+<screen><![CDATA[cat << 'SCRIPT_EOF' >generate-skywalker-accounts.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 1. Global variables
+readonly DOMAIN="lab.local"
+readonly BASE_DN="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
+readonly USERS_OU="ou=users,${BASE_DN}"
+readonly GROUPS_OU="ou=groups,${BASE_DN}"
+readonly IMPORT_LDIF="${HOME}/import-skywalkers.ldif"
+readonly START_UID=10000
+readonly SHARED_GID=100
+
+# uid:cn:sn:givenName
+readonly ACCOUNTS=(
+    "padme:Padme Amidala:Amidala:Padme"
+    "anakin:Anakin Skywalker:Skywalker:Anakin"
+    "leia:Leia Organa:Organa:Leia"
+    "luke:Luke Skywalker:Skywalker:Luke"
+)
+
+echo "=== 1. Preparing passwords and password hashes ==="
+: >"${IMPORT_LDIF}"
+UID_NUMBER=${START_UID}
+
+for ACCOUNT in "${ACCOUNTS[@]}"; do
+    IFS=':' read -r UID_ CN SN GIVEN_NAME <<<"${ACCOUNT}"
+    PASS_FILE="${HOME}/.ldap_${UID_}_pass"
+
+    # Reuse existing password if present to maintain sync with Kerberos KDC
+    if [[ -f "${PASS_FILE}" ]]; then
+        USER_PASS=$(head -n 1 "${PASS_FILE}")
+    else
+        # 18 random bytes yield exactly 24 base64 characters without padding
+        USER_PASS=$(openssl rand -base64 18)
+        ( umask 077 && printf '%s' "${USER_PASS}" >"${PASS_FILE}" )
+    fi
+
+    USER_HASH="$(sudo slappasswd -o module-load=argon2.la -h "{ARGON2}" -s "${USER_PASS}")"
+
+    echo "=== 2. Appending entries for ${UID_} (uidNumber ${UID_NUMBER}) ==="
+    cat <<EOF >>"${IMPORT_LDIF}"
+dn: cn=${UID_},${GROUPS_OU}
+objectClass: posixGroup
+cn: ${UID_}
+gidNumber: ${UID_NUMBER}
+
+dn: uid=${UID_},${USERS_OU}
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: ${UID_}
+cn: ${CN}
+sn: ${SN}
+givenName: ${GIVEN_NAME}
+mail: ${UID_}@${DOMAIN}
+uidNumber: ${UID_NUMBER}
+gidNumber: ${UID_NUMBER}
+homeDirectory: /ahome/${UID_}
+loginShell: /bin/bash
+userPassword: ${USER_HASH}
+shadowLastChange: $(( $(date +%s) / 86400 ))
+
+EOF
+
+    UID_NUMBER=$((UID_NUMBER + 1))
+done
+
+echo "=== 3. Appending the shared secondary group ==="
+cat <<EOF >>"${IMPORT_LDIF}"
+dn: cn=users,${GROUPS_OU}
+objectClass: posixGroup
+cn: users
+gidNumber: ${SHARED_GID}
+memberUid: padme
+memberUid: anakin
+memberUid: leia
+memberUid: luke
+
+EOF
+
+echo "=== 4. Removing existing entries if present (idempotency) ==="
+# Delete leaf entries first (users and private groups), then shared group
+for ACCOUNT in "${ACCOUNTS[@]}"; do
+    IFS=':' read -r UID_ _ <<<"${ACCOUNT}"
+    sudo ldapdelete -Y EXTERNAL -H ldapi:/// "uid=${UID_},${USERS_OU}" 2>/dev/null || true
+    sudo ldapdelete -Y EXTERNAL -H ldapi:/// "cn=${UID_},${GROUPS_OU}" 2>/dev/null || true
+done
+sudo ldapdelete -Y EXTERNAL -H ldapi:/// "cn=users,${GROUPS_OU}" 2>/dev/null || true
+
+echo "=== 5. Importing accounts with local SASL/EXTERNAL authentication ==="
+sudo ldapadd -Y EXTERNAL -H ldapi:/// -f "${IMPORT_LDIF}"
+
+echo ""
+echo "Success: 4 Skywalker accounts imported (uidNumber ${START_UID}-$((UID_NUMBER - 1)))."
+echo "Individual passwords saved in \${HOME}/.ldap_<uid>_pass (mode 400)."
+SCRIPT_EOF
+bash generate-skywalker-accounts.sh]]></screen>
+
+            <caution>
+              <para>Le mot de passe individuel de chaque compte n'est stocké
+              que sur le serveur, dans les fichiers
+              <filename>~/.ldap_&lt;uid&gt;_pass</filename> (mode
+              <code>400</code>). Copiez le fichier correspondant sur tout
+              hôte depuis lequel vous devez authentifier ce compte, comme cela
+              a déjà été fait pour <filename>~/.ldap_admin_pass</filename>
+              (<xref linkend='sysadm-net.autofs-ldap-nfs.ldap.install'/>).</para>
+            </caution>
+
+            <para>Vérifiez le résultat.</para>
+
+<screen>sudo ldapsearch -LLL -Y EXTERNAL -H ldapi:/// \
+    -b ou=users,dc=lab,dc=local \
+    "(objectClass=posixAccount)" uid uidNumber homeDirectory</screen>
+
+<screen><![CDATA[dn: uid=padme,ou=users,dc=lab,dc=local
+uid: padme
+uidNumber: 10000
+homeDirectory: /ahome/padme
+
+dn: uid=anakin,ou=users,dc=lab,dc=local
+uid: anakin
+uidNumber: 10001
+homeDirectory: /ahome/anakin
+
+dn: uid=leia,ou=users,dc=lab,dc=local
+uid: leia
+uidNumber: 10002
+homeDirectory: /ahome/leia
+
+dn: uid=luke,ou=users,dc=lab,dc=local
+uid: luke
+uidNumber: 10003
+homeDirectory: /ahome/luke]]></screen>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Comment déclarer l'hôte client dans l'unité
+            <literal>ou=hosts</literal>&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Les expressions <systemitem>olcAuthzRegexp</systemitem>
+            mises en place dans la <xref
+            linkend='sysadm-net.autofs-ldap-nfs.ldap.secure'/> traduisent le
+            principal machine <literal>host/clnt.lab.local@LAB.LOCAL</literal>
+            en entrée
+            <literal>cn=clnt.lab.local,ou=hosts,dc=lab,dc=local</literal>.
+            Créez cette entrée avec la classe d'objet
+            <literal>device</literal>, qui ne porte que l'attribut
+            <code>cn</code> comme attribut obligatoire.</para>
+
+<screen><![CDATA[cat << 'SCRIPT_EOF' >register-lab-host.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 1. Global variables
+readonly DOMAIN="lab.local"
+# Dynamically compute Base DN (e.g. lab.local -> dc=lab,dc=local)
+readonly BASE_DN="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
+readonly HOSTS_OU="ou=hosts,${BASE_DN}"
+readonly CLIENT_HOSTNAME="clnt.${DOMAIN}"
+readonly HOST_DN="cn=${CLIENT_HOSTNAME},${HOSTS_OU}"
+
+echo "=== 1. Checking slapd service and parent DIT structure ==="
+if ! systemctl is-active --quiet slapd; then
+  echo "Error: The slapd service is not running." >&2
+  echo "Start it with 'sudo systemctl start slapd' before registering hosts." >&2
+  exit 1
+fi
+
+# Verify that the parent organizational unit (ou=hosts) exists
+if ! sudo ldapsearch -Q -Y EXTERNAL -H ldapi:/// -b "${BASE_DN}" -s one "(ou=hosts)" dn | grep -q "^dn:"; then
+  echo "Error: Parent container '${HOSTS_OU}' not found." >&2
+  echo "Ensure the base directory tree (add_tree.ldif) has been populated." >&2
+  exit 1
+fi
+
+echo "=== 2. Generating host entry LDIF ==="
+TMP_LDIF=$(mktemp)
+trap 'rm -f "${TMP_LDIF:-}"' EXIT
+
+cat <<EOF >"${TMP_LDIF}"
+dn: ${HOST_DN}
+objectClass: top
+objectClass: device
+cn: ${CLIENT_HOSTNAME}
+description: Client workstation for autofs/LDAP/NFSv4 lab setup
+
+EOF
+
+echo "=== 3. Removing existing entry if present (idempotency) ==="
+sudo ldapdelete -Y EXTERNAL -H ldapi:/// "${HOST_DN}" 2>/dev/null || true
+
+echo "=== 4. Importing the host entry with local SASL/EXTERNAL authentication ==="
+sudo ldapadd -Y EXTERNAL -H ldapi:/// -f "${TMP_LDIF}"
+
+echo "=== 5. Verifying host registration in the directory ==="
+sudo ldapsearch -Q -Y EXTERNAL -H ldapi:/// \
+    -b "${HOSTS_OU}" \
+    -s base \
+    -b "${HOST_DN}" \
+    cn description
+
+echo ""
+echo "Success: Host entry '${HOST_DN}' registered."
+echo "Kerberos identity mapping link:"
+echo "  Kerberos 'host/${CLIENT_HOSTNAME}@${DOMAIN^^}' -> LDAP '${HOST_DN}'"
+SCRIPT_EOF
+bash register-lab-host.sh]]></screen>
+
+            <note>
+              <para>Cette entrée est le préalable indispensable à la
+              vérification du bind <acronym>GSSAPI</acronym> reportée depuis
+              la <xref linkend='sysadm-net.autofs-ldap-nfs.ldap.secure'/>,
+              ainsi qu'à la configuration du compte de service
+              <systemitem>nslcd</systemitem> côté client&nbsp;: les deux points
+              sont traités dans la sous-partie suivante, <xref
+              linkend='sysadm-net.autofs-ldap-nfs.ldap.clnt-access'/>.</para>
+            </note>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Comment vérifier le cloisonnement des données imposé par les
+            listes de contrôle d'accès (<acronym>ACL</acronym>) déjà
+            configurées dans la <xref
+            linkend='sysadm-net.autofs-ldap-nfs.ldap.install'/>&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Les règles <systemitem>olcAccess</systemitem> {2} et {3}
+            autorisent tout compte authentifié à lire l'ensemble de
+            l'annuaire, à l'exception de l'attribut
+            <code>userPassword</code>, réservé au titulaire du compte
+            (règle {1}). Authentifiez-vous avec le compte
+            <systemitem>luke</systemitem> plutôt qu'avec le compte
+            administrateur, sur la connexion locale <code>ldapi:///</code>
+            (l'attribut <systemitem>olcLocalSSF</systemitem> y couvre le seuil
+            <literal>olcSecurity: ssf=128</literal> quel que soit le compte qui
+            s'authentifie).</para>
+
+            <para>Recherchez l'attribut <code>uid:</code> de tous les comptes
+            depuis la racine de l'annuaire&nbsp;:</para>
+
+<screen>ldapsearch -LLL -x -H ldapi:/// \
+    -D "uid=luke,ou=users,dc=lab,dc=local" \
+    -y ~/.ldap_luke_pass \
+    -b dc=lab,dc=local \
+    uid</screen>
+
+<screen><![CDATA[dn: dc=lab,dc=local
+
+dn: ou=users,dc=lab,dc=local
+
+dn: ou=groups,dc=lab,dc=local
+
+dn: ou=hosts,dc=lab,dc=local
+
+dn: cn=padme,ou=groups,dc=lab,dc=local
+
+dn: uid=padme,ou=users,dc=lab,dc=local
+uid: padme
+
+dn: cn=anakin,ou=groups,dc=lab,dc=local
+
+dn: uid=anakin,ou=users,dc=lab,dc=local
+uid: anakin
+
+dn: cn=leia,ou=groups,dc=lab,dc=local
+
+dn: uid=leia,ou=users,dc=lab,dc=local
+uid: leia
+
+dn: cn=luke,ou=groups,dc=lab,dc=local
+
+dn: uid=luke,ou=users,dc=lab,dc=local
+uid: luke
+
+dn: cn=users,ou=groups,dc=lab,dc=local
+
+dn: cn=clnt.lab.local,ou=hosts,dc=lab,dc=local]]></screen>
+
+            <para>L'utilisateur <systemitem>luke</systemitem> a la capacité de
+            parcourir l'annuaire et d'afficher l'attribut <code>uid:</code> de
+            tous les autres comptes. Recherchez à présent l'attribut
+            <code>userPassword:</code>&nbsp;:</para>
+
+<screen>ldapsearch -LLL -x -H ldapi:/// \
+    -D "uid=luke,ou=users,dc=lab,dc=local" \
+    -y ~/.ldap_luke_pass \
+    -b dc=lab,dc=local \
+    userPassword</screen>
+
+<screen><![CDATA[dn: dc=lab,dc=local
+
+dn: ou=users,dc=lab,dc=local
+
+dn: ou=groups,dc=lab,dc=local
+
+dn: ou=hosts,dc=lab,dc=local
+
+dn: cn=padme,ou=groups,dc=lab,dc=local
+
+dn: uid=padme,ou=users,dc=lab,dc=local
+
+dn: cn=anakin,ou=groups,dc=lab,dc=local
+
+dn: uid=anakin,ou=users,dc=lab,dc=local
+
+dn: cn=leia,ou=groups,dc=lab,dc=local
+
+dn: uid=leia,ou=users,dc=lab,dc=local
+
+dn: cn=luke,ou=groups,dc=lab,dc=local
+
+dn: uid=luke,ou=users,dc=lab,dc=local
+userPassword:: e0FSR09OMn0kYXJnb24yaWQkdj0xOSRtPTcxNjgsdD01LHA9MSR2ZkxXckNiNlV
+ Bb3BCSFhVSG5Ga2ZBJE1DbVJhRE5XbWNtcG5UaDlLSDEvRWp5QXVnbUtodDU2MHU1NXlLWW00V3c=
+
+dn: cn=users,ou=groups,dc=lab,dc=local
+
+dn: cn=clnt.lab.local,ou=hosts,dc=lab,dc=local]]></screen>
+
+            <para>L'utilisateur <systemitem>luke</systemitem> a seulement le
+            droit d'afficher le condensat de son propre mot de passe, encodé
+            en <literal>base64</literal>&nbsp;: le contenu réel dépend des
+            mots de passe générés à la question précédente et diffère donc de
+            cet exemple.</para>
+          </answer>
+        </qandaentry>
+      </qandaset>
     </sect2>
 
+    <sect2 xml:id='sysadm-net.autofs-ldap-nfs.ldap.clnt-access'>
+      <title>Configurer l'accès transparent à l'annuaire depuis le client</title>
+
+      <para>Le paquet <systemitem>nslcd</systemitem> et ses dépendances ont
+      déjà été installés <emphasis>sans configuration</emphasis> sur le client
+      dans la partie <xref linkend='sysadm-net.autofs-ldap-nfs.generate.certs'/>,
+      uniquement pour disposer du compte système <systemitem>nslcd</systemitem>
+      nécessaire au dépôt de la clé privée <acronym>LDAP</acronym>. Le fichier
+      <filename>/etc/nslcd.conf</filename> qui en résulte ne porte donc que des
+      valeurs par défaut, sans aucune information de connexion à l'annuaire.
+      L'unité <literal>ou=users</literal> existant désormais (<xref
+      linkend='sysadm-net.autofs-ldap-nfs.ldap.tree'/>), cette sous-partie
+      effectue la première configuration réelle de <systemitem>nslcd</systemitem>,
+      directement avec un compte de service dédié,
+      <systemitem>nslcd-proxy</systemitem>, dont les droits restent ceux d'un
+      compte authentifié ordinaire au regard des listes de contrôle d'accès déjà
+      en place (<xref linkend='sysadm-net.autofs-ldap-nfs.ldap.install'/>). Elle
+      complète également, à présent que l'entrée hôte existe dans
+      <literal>ou=hosts</literal>, la vérification du bind
+      <acronym>SASL</acronym>/<acronym>GSSAPI</acronym> laissée en suspens dans
+      la <xref linkend='sysadm-net.autofs-ldap-nfs.ldap.secure'/>.</para>
+
+      <qandaset>
+        <qandaentry>
+          <question>
+            <para>Comment créer le compte de service
+            <systemitem>nslcd-proxy</systemitem> dans l'annuaire&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Ce compte n'a besoin d'aucun attribut <acronym>POSIX</acronym>
+            (pas de connexion interactive, pas de répertoire personnel)&nbsp;: la
+            classe d'objet <literal>inetOrgPerson</literal> seule suffit à porter
+            l'attribut <code>userPassword</code> nécessaire à un bind simple.
+            L'opération s'exécute sur le <emphasis>serveur</emphasis>, via la
+            connexion locale <code>ldapi:///</code>, selon le même schéma
+            d'idempotence que les comptes Skywalker (<xref
+            linkend='sysadm-net.autofs-ldap-nfs.ldap.tree'/>).</para>
+
+<screen><![CDATA[cat << 'SCRIPT_EOF' >create-nslcd-proxy.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 1. Global variables
+readonly DOMAIN="lab.local"
+readonly BASE_DN="dc=${DOMAIN%%.*},dc=${DOMAIN#*.}"
+readonly USERS_OU="ou=users,${BASE_DN}"
+readonly PROXY_UID="nslcd-proxy"
+readonly PROXY_DN="uid=${PROXY_UID},${USERS_OU}"
+readonly PASS_FILE="${HOME}/.ldap_${PROXY_UID}_pass"
+TMP_LDIF=$(mktemp)
+trap 'rm -f "${TMP_LDIF:-}"' EXIT
+
+echo "=== 1. Preparing the password and its Argon2 hash ==="
+# Reuse existing password if present to maintain sync with the client configuration
+if [[ -f "${PASS_FILE}" ]]; then
+    PROXY_PASS=$(head -n 1 "${PASS_FILE}")
+else
+    # 18 random bytes yield exactly 24 base64 characters without padding
+    PROXY_PASS=$(openssl rand -base64 18)
+    ( umask 077 && printf '%s' "${PROXY_PASS}" >"${PASS_FILE}" )
+fi
+PROXY_HASH=$(sudo slappasswd -o module-load=argon2.la -h "{ARGON2}" -s "${PROXY_PASS}")
+
+echo "=== 2. Generating the LDIF entry ==="
+cat <<EOF >"${TMP_LDIF}"
+dn: ${PROXY_DN}
+objectClass: inetOrgPerson
+uid: ${PROXY_UID}
+cn: NSLCD Proxy Service
+sn: Service
+description: Read-only service account for NSS/PAM resolution
+userPassword: ${PROXY_HASH}
+EOF
+
+echo "=== 3. Removing the existing entry if present (idempotency) ==="
+sudo ldapdelete -Y EXTERNAL -H ldapi:/// "${PROXY_DN}" 2>/dev/null || true
+
+echo "=== 4. Importing the service account with local SASL/EXTERNAL authentication ==="
+sudo ldapadd -Y EXTERNAL -H ldapi:/// -f "${TMP_LDIF}"
+
+echo ""
+echo "Success: service account '${PROXY_UID}' created."
+echo "Bind DN: ${PROXY_DN}"
+echo "Password saved in: ${PASS_FILE} (mode 400)."
+SCRIPT_EOF
+bash create-nslcd-proxy.sh]]></screen>
+
+<screen><![CDATA[=== 1. Preparing the password and its Argon2 hash ===
+=== 2. Generating the LDIF entry ===
+=== 3. Removing the existing entry if present (idempotency) ===
+=== 4. Importing the service account with local SASL/EXTERNAL authentication ===
+SASL/EXTERNAL authentication started
+SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+SASL SSF: 0
+adding new entry "uid=nslcd-proxy,ou=users,dc=lab,dc=local"
+
+Success: service account 'nslcd-proxy' created.
+Bind DN: uid=nslcd-proxy,ou=users,dc=lab,dc=local
+Password saved in: /home/etu/.ldap_nslcd-proxy_pass (mode 400).]]></screen>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Comment transférer ce mot de passe sur le client, puis
+            appliquer la première configuration réelle de
+            <systemitem>nslcd</systemitem> avec cette identité&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Transférez d'abord le fichier de mot de passe, comme cela a
+            déjà été fait pour <filename>~/.ldap_admin_pass</filename> (<xref
+            linkend='sysadm-net.autofs-ldap-nfs.ldap.secure'/>).</para>
+
+<screen>scp ~/.ldap_nslcd-proxy_pass clnt:~</screen>
+
+            <para>Le script de reconfiguration s'exécute intégralement avec
+            <command>sudo bash ...</command>&nbsp;: à l'intérieur du script,
+            <envar>HOME</envar> (donc <literal>~</literal>) désigne
+            <filename class='directory'>/root</filename> et non le répertoire
+            personnel de l'utilisateur connecté en <acronym>SSH</acronym>.
+            Déplacez donc le fichier transféré vers cet emplacement avant de
+            lancer le script.</para>
+
+<screen>sudo mv ~/.ldap_nslcd-proxy_pass /root/
+sudo chmod 400 /root/.ldap_nslcd-proxy_pass</screen>
+
+            <para>Reprenez la démarche de la question <link
+            xmlns="http://docbook.org/ns/docbook"
+            xlink:href="&LDAP-root;/sysadm-net.ldap.clnt.html#sysadm-net.ldap.clnt.nss">Comment
+            installer le paquet <systemitem>libnss-ldapd</systemitem> et ses
+            dépendances en mode non-interactif&nbsp;?</link> du support
+            &url.sysadm-net.ldap;&nbsp;: la commande
+            <command>debconf-set-selections</command> est fournie par le
+            paquet <systemitem>debconf-utils</systemitem>, qui n'a pas encore
+            été installé sur ce client. Les paquets
+            <acronym>NSS</acronym>/<acronym>PAM</acronym> le sont déjà, installés
+            sans configuration dans la partie <xref
+            linkend='sysadm-net.autofs-ldap-nfs.generate.certs'/>&nbsp;: il
+            s'agit donc d'injecter, pour la première fois, l'intégralité des
+            réponses <systemitem>debconf</systemitem> du paquet
+            <systemitem>nslcd</systemitem>, identifiant et mot de passe de
+            bind compris, puis de lancer sa configuration en mode
+            non-interactif, sur le <emphasis>client</emphasis>.</para>
+
+<screen><![CDATA[cat << 'SCRIPT_EOF' >configure-nslcd-proxy.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "=== 1. Installing debconf-utils ==="
+sudo apt update -qq
+sudo apt install -y --no-install-recommends debconf-utils
+
+readonly PROXY_DN="uid=nslcd-proxy,ou=users,dc=lab,dc=local"
+readonly PROXY_PASS=$(head -n 1 /root/.ldap_nslcd-proxy_pass)
+
+echo "=== 2. Purging the default /etc/nslcd.conf left by the unconfigured install ==="
+# The nslcd package was installed without configuration (generate.certs step):
+# nslcd.config seeds debconf FROM this existing file when present, which would
+# override the values set below. Removing it forces a clean re-seed.
+sudo rm -f /etc/nslcd.conf
+
+sudo debconf-set-selections <<EOF
+nslcd nslcd/ldap-uris string ldaps://ldap-srvr.lab.local
+nslcd nslcd/ldap-base string dc=lab,dc=local
+nslcd nslcd/ldap-auth-type select simple
+nslcd nslcd/ldap-starttls boolean false
+nslcd nslcd/ldap-reqcert select demand
+nslcd nslcd/ldap-cacertfile string /etc/ssl/certs/labCA.crt
+nslcd nslcd/ldap-binddn string ${PROXY_DN}
+nslcd nslcd/ldap-bindpw password ${PROXY_PASS}
+libnss-ldapd libnss-ldapd/nsswitch multiselect passwd, group, shadow
+EOF
+
+echo "=== 3. Reconfiguring packages non-interactively ==="
+sudo dpkg-reconfigure -f noninteractive nslcd libnss-ldapd
+
+echo "=== 4. Restarting nslcd service ==="
+sudo systemctl restart nslcd
+
+echo ""
+echo "Success: nslcd configured and restarted."
+SCRIPT_EOF
+sudo bash configure-nslcd-proxy.sh]]></screen>
+
+            <para>Affichez la liste des paramètres effectivement appliqués,
+            comme dans le support &url.sysadm-net.ldap;, avec la commande
+            <command>debconf-get-selections</command>.</para>
+
+<screen>sudo debconf-get-selections | grep ^nslcd</screen>
+
+<screen>nslcd    nslcd/ldap-auth-type    select    simple
+nslcd    nslcd/ldap-base    string    dc=lab,dc=local
+nslcd    nslcd/ldap-binddn    string    uid=nslcd-proxy,ou=users,dc=lab,dc=local
+nslcd    nslcd/ldap-bindpw    password
+nslcd    nslcd/ldap-cacertfile    string    /etc/ssl/certs/labCA.crt
+nslcd    nslcd/ldap-reqcert    select    demand
+nslcd    nslcd/ldap-sasl-authcid    string
+nslcd    nslcd/ldap-sasl-authzid    string
+nslcd    nslcd/ldap-sasl-krb5-ccname    string
+nslcd    nslcd/ldap-sasl-mech    select
+nslcd    nslcd/ldap-sasl-realm    string
+nslcd    nslcd/ldap-sasl-secprops    string
+nslcd    nslcd/ldap-starttls    boolean    false
+nslcd    nslcd/ldap-uris    string    ldaps://ldap-srvr.lab.local</screen>
+
+            <para>Vérifiez enfin que la résolution des comptes reste
+            transparente pour le système.</para>
+
+<screen>id luke</screen>
+
+<screen>uid=10003(luke) gid=10003(luke) groupes=10003(luke),100(users)</screen>
+
+            <note>
+              <para>Le résultat de <command>id luke</command> confirme que la
+              résolution des comptes <acronym>POSIX</acronym> fonctionne de
+              façon transparente avec ce compte de service authentifié&nbsp;:
+              l'utilisateur <systemitem>luke</systemitem> est bien résolu avec
+              son <code>uidNumber</code>, son <code>gidNumber</code> et son
+              appartenance au groupe secondaire <literal>cn=users</literal>
+              (<xref linkend='sysadm-net.autofs-ldap-nfs.ldap.tree'/>). Seules
+              les journalisations côté serveur permettent de vérifier que les
+              requêtes portent bien l'identité
+              <literal>uid=nslcd-proxy,ou=users,dc=lab,dc=local</literal>, un
+              compte authentifié ordinaire au regard des règles
+              <systemitem>olcAccess</systemitem> déjà en place (<xref
+              linkend='sysadm-net.autofs-ldap-nfs.ldap.install'/>).</para>
+            </note>
+          </answer>
+        </qandaentry>
+
+        <qandaentry>
+          <question>
+            <para>Maintenant que l'entrée
+            <literal>cn=clnt.lab.local,ou=hosts,dc=lab,dc=local</literal> existe
+            (<xref linkend='sysadm-net.autofs-ldap-nfs.ldap.tree'/>), comment
+            vérifier que le bind <acronym>SASL</acronym>/<acronym>GSSAPI</acronym>
+            mis en place dans la <xref
+            linkend='sysadm-net.autofs-ldap-nfs.ldap.secure'/> fonctionne
+            réellement&nbsp;?</para>
+          </question>
+          <answer>
+            <para>Le principal machine <literal>host/clnt.lab.local@LAB.LOCAL</literal>
+            et son <filename>keytab</filename> ont déjà été déployés sur le
+            client (<xref linkend='sysadm-net.autofs-ldap-nfs.host-principal'/>).
+            Obtenez, sur le <emphasis>client</emphasis>, un ticket à partir de ce
+            <filename>keytab</filename>.</para>
+
+<screen><![CDATA[sudo kinit -k -t /etc/krb5.keytab host/clnt.lab.local && \
+sudo klist]]></screen>
+
+<screen>Ticket cache: FILE:/tmp/krb5cc_0
+Default principal: host/clnt.lab.local@LAB.LOCAL
+
+Valid starting       Expires              Service principal
+02/09/2026 15:39:17  03/09/2026 01:39:17  krbtgt/LAB.LOCAL@LAB.LOCAL
+        renew until 03/09/2026 15:39:17</screen>
+
+            <para>Utilisez ce ticket pour effectuer un bind
+            <acronym>SASL</acronym>/<acronym>GSSAPI</acronym> vers le serveur,
+            avec la commande déjà annoncée à la fin de la <xref
+            linkend='sysadm-net.autofs-ldap-nfs.ldap.secure'/>.</para>
+
+<screen>sudo ldapwhoami -H ldap://ldap-srvr.lab.local -Y GSSAPI</screen>
+
+<screen>SASL/GSSAPI authentication started
+SASL username: host/clnt.lab.local@LAB.LOCAL
+SASL SSF: 256
+SASL data security layer installed.
+dn:cn=clnt.lab.local,ou=hosts,dc=lab,dc=local</screen>
+
+            <para>La règle <systemitem>olcAuthzRegexp</systemitem> {1}
+            (<xref linkend='sysadm-net.autofs-ldap-nfs.ldap.secure'/>) traduit
+            bien le principal <literal>host/clnt.lab.local@LAB.LOCAL</literal>
+            en identité <literal>cn=clnt.lab.local,ou=hosts,dc=lab,dc=local</literal>,
+            confirmant que l'entrée créée dans <xref
+            linkend='sysadm-net.autofs-ldap-nfs.ldap.tree'/> est correctement
+            reconnue par <systemitem class='daemon'>slapd</systemitem>.</para>
+
+            <note>
+              <para>Cette commande utilise <code>ldap://</code> et non
+              <code>ldaps://</code>&nbsp;: le seuil <literal>olcSecurity:
+              ssf=128</literal> (<xref
+              linkend='sysadm-net.autofs-ldap-nfs.ldap.install'/>) est ici
+              satisfait par la couche de sécurité propre au mécanisme
+              <acronym>SASL</acronym>/<acronym>GSSAPI</acronym>
+              (<literal>SASL SSF: 256</literal>), indépendamment de tout
+              chiffrement <acronym>TLS</acronym>. Seul un accès anonyme en
+              clair reste rejeté par ce seuil, comme observé dans la <xref
+              linkend='sysadm-net.autofs-ldap-nfs.ldap.secure'/>.</para>
+            </note>
+          </answer>
+        </qandaentry>
+      </qandaset>
+    </sect2>
 </sect1>
 
 <sect1 xml:id='sysadm-net.autofs-ldap-nfs.nfs'>
