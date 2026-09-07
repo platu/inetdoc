@@ -252,67 +252,115 @@
         <colspec colnum='2' colname='c2' colwidth='1*'/>
         <thead>
           <row>
-            <?dbfo bgcolor="#333"&nbsp;?>
-            <?dbfo color="#fff"&nbsp;?>
+            <?dbfo bgcolor="#333" ?>
+            <?dbfo color="#fff" ?>
             <entry>Client</entry>
             <entry>Serveur</entry>
           </row>
         </thead>
         <tbody>
           <row>
-            <entry>—</entry>
+            <entry>Configurez la résolution statique des noms d'hôtes
+            (<filename>/etc/hosts</filename>). Déployez l'autorité
+            <filename>labCA.crt</filename> dans le magasin système
+            (<command>update-ca-certificates</command>). Installez
+            <systemitem>ktls-utils</systemitem> avec le certificat et la clé
+            client. Installez les paquets Kerberos client
+            (<systemitem>krb5-user</systemitem>,
+            <systemitem>libpam-krb5</systemitem>) et déployez le keytab machine
+            <filename>/etc/krb5.keytab</filename>.</entry>
 
-            <entry>Installez et initialisez le service d'annuaire <systemitem
-            class='daemon'>slapd</systemitem>&nbsp;: Initialisez la base
-            <code>cn=config</code>, créez le contexte de nommage
-            <code>dc=lab,dc=local</code>, puis implantez les unités
-            organisationnelles et les comptes utilisateurs.</entry>
+            <entry>Configurez la résolution statique des noms d'hôtes
+            (<filename>/etc/hosts</filename>). Générez l'autorité commune
+            <systemitem>labCA</systemitem> et l'ensemble des clés et
+            certificats <acronym>TLS</acronym> (<acronym>LDAP</acronym> et
+            <acronym>NFS</acronym>). Installez le <acronym>KDC</acronym>, créez
+            le royaume <code>LAB.LOCAL</code>, les principaux de service
+            (<code>ldap/...</code>, <code>nfs/...</code>) et machine
+            (<code>host/...</code>). Déployez les fichiers keytab dédiés.</entry>
           </row>
           <row>
-            <entry>Installez les outils <acronym>LDAP</acronym>
-            (<systemitem>ldap-utils</systemitem>) et validez l'accès à
-            l'annuaire distant par requêtes
-            <command>ldapsearch</command>.</entry>
+            <entry>Configurez <filename>/etc/ldap/ldap.conf</filename> avec la
+            racine de confiance et le contrôle strict <acronym>TLS</acronym>.
+            Déployez <systemitem>nslcd</systemitem>,
+            <systemitem>libnss-ldapd</systemitem> et
+            <systemitem>libpam-ldapd</systemitem> avec le compte de service
+            <systemitem>nslcd-proxy</systemitem>. Validez la résolution des
+            comptes (<command>id</command>, <command>getent</command>) et le
+            bind <acronym>GSSAPI</acronym> machine
+            (<command>ldapwhoami -Y GSSAPI</command>).</entry>
 
-            <entry>Activez la journalisation des transactions
-            (<code>olcLogLevel: stats</code>) et vérifiez la publication des
-            comptes avec <command>ldapsearch</command>.</entry>
+            <entry>Initialisez la configuration dynamique <code>cn=config</code>
+            de <systemitem class='daemon'>slapd</systemitem>
+            (<code>dc=lab,dc=local</code>). Activez <acronym>TLS</acronym>
+            (<code>ldaps://</code>, seuil <acronym>SSF</acronym> 128),
+            l'authentification <acronym>SASL/GSSAPI</acronym> et les règles
+            d'équivalence d'identités (<code>olcAuthzRegexp</code>). Implantez
+            l'arbre <acronym>DIT</acronym> (<literal>users</literal>,
+            <literal>groups</literal>, <literal>hosts</literal>), les comptes
+            Skywalker et le compte <systemitem>nslcd-proxy</systemitem>.</entry>
           </row>
           <row>
-            <entry>Configurez <systemitem>libnss-ldapd</systemitem> et
-            <systemitem>libpam-ldapd</systemitem> pour l'accès
-            transparent.</entry>
+            <entry>Installez <systemitem>nfs-common</systemitem> et vérifiez les
+            arborescences exportées par le serveur
+            (<command>showmount -e</command>). Initiez une première connexion
+            <acronym>SSH</acronym> (<command>ssh anakin@srvr.lab.local</command>)
+            pour déclencher la création physique de son répertoire personnel sur
+            le stockage du serveur.</entry>
 
-            <entry>Validez la connexion <command>getent passwd</command> depuis
-            le client.</entry>
+            <entry>Installez <systemitem>nfs-kernel-server</systemitem> et
+            exportez <filename class='directory'>/home/exports/home</filename>
+            avec les options <code>sec=krb5p</code> et
+            <code>xprtsec=tls:mtls</code>. Créez le montage local bind sur
+            <filename class='directory'>/ahome</filename>. Configurez le
+            serveur comme client de son propre annuaire et activez la création
+            automatique de répertoires
+            (<literal>pam_mkhomedir</literal>).</entry>
           </row>
           <row>
-            <entry>Installez
-            <systemitem>libsasl2-modules-gssapi-mit</systemitem> et
-            <systemitem>krb5-user</systemitem> pour l'authentification
-            Kerberos.</entry>
+            <entry>Installez le paquet <systemitem>autofs-ldap</systemitem> pour
+            disposer du démon <systemitem class='daemon'>automount</systemitem>.
+            Localisez le schéma <filename>/etc/ldap/schema/autofs.schema</filename>
+            et transférez-le sur le serveur.</entry>
 
-            <entry>Installez le KDC, créez le royaume <code>LAB.LOCAL</code>,
-            créez les principaux et le keytab dédié à <systemitem
-            class='daemon'>slapd</systemitem>. Activez
-            <acronym>SASL/GSSAPI</acronym>.</entry>
+            <entry>Convertissez <filename>autofs.schema</filename> au format
+            <acronym>LDIF</acronym> (<command>slaptest</command>) et intégrez-le
+            dans <code>cn=schema,cn=config</code>. Publiez dans l'unité
+            <code>ou=automount</code> les cartes de montage
+            <systemitem>auto.master</systemitem> et
+            <systemitem>auto.home</systemitem> avec les options de montage
+            sécurisées (<code>sec=krb5p,xprtsec=mtls</code>).</entry>
           </row>
           <row>
-            <entry>Importez l'autorité de certification locale et validez les
-            liaisons <code>ldaps://</code> et
-            <emphasis>StartTLS</emphasis>.</entry>
+            <entry>Configurez <systemitem>autofs</systemitem> pour interroger
+            l'annuaire via <code>ldaps://</code>
+            (<filename>/etc/nsswitch.conf</filename>,
+            <filename>/etc/default/autofs</filename>) avec authentification
+            <acronym>SASL/GSSAPI</acronym> machine
+            (<filename>/etc/autofs_ldap_auth.conf</filename>). Tentez une
+            ouverture de session (<command>su - anakin</command>) et constatez
+            le refus d'accès (<literal>Permission non accordée</literal>) lié à
+            l'absence de ticket utilisateur.</entry>
 
-            <entry>Générez les certificats, déposez-les dans
-            <code>/etc/ssl/</code> et activez <code>olcTLS*</code> dans la
-            configuration dynamique du démon <systemitem
-            class='daemon'>slapd</systemitem>.</entry>
+            <entry>Provisionnez dans le <acronym>KDC</acronym> les principaux
+            Kerberos pour chaque compte utilisateur
+            (<code>user@LAB.LOCAL</code>) en synchronisant leurs mots de passe
+            avec les secrets générés lors de la création des entrées
+            <acronym>LDAP</acronym>.</entry>
           </row>
           <row>
-            <entry>Installez le service web <citetitle>White Pages</citetitle>,
-            configurez l'accès à l'annuaire et alimentez le trombinoscope via
-            l'attribut <code>jpegPhoto</code>.</entry>
+            <entry>Validez l'accès transparent complet&nbsp;: ouverture de
+            session (<command>su - anakin</command>), obtention automatique du
+            ticket Kerberos via <systemitem>libpam-krb5</systemitem>,
+            déclenchement de l'automontage indirect sous <filename
+            class='directory'>/ahome/anakin</filename> et accès effectif aux
+            fichiers sur le montage chiffré de bout en bout
+            (<code>sec=krb5p,xprtsec=mtls</code>).</entry>
 
-            <entry>—</entry>
+            <entry>Supervisez et validez les transactions dans les journaux du
+            <acronym>KDC</acronym> (<systemitem>krb5kdc</systemitem>), les accès
+            à l'annuaire (<systemitem class='daemon'>slapd</systemitem>) et
+            l'état des exportations actives (<command>exportfs -v</command>).</entry>
           </row>
         </tbody>
       </tgroup>
