@@ -762,54 +762,63 @@ EOF</screen>
 <screen>for i in {1..2}; do systemctl <emphasis>status</emphasis> pppoe-server$i.service; done</screen>
 
           <para>En l'état actuel de la configuration, aucune session
-          <acronym>PPP</acronym> n'a encore été établie. Il faut maintenant
-          passer à la configuration réseau du routeur
-          <citetitle>Spoke</citetitle> pour avancer dans l'utilisation du
-          protocole <acronym>PPP</acronym>.</para>
+          <acronym>PPP</acronym> n'a encore été établie. Passez maintenant à la
+          configuration réseau du routeur <citetitle>Spoke</citetitle> pour
+          avancer dans l'utilisation du protocole
+          <acronym>PPP</acronym>.</para>
         </answer>
       </qandaentry>
     </qandaset>
+
+    <para>À l'issue de cette partie, le routeur <citetitle>Hub</citetitle>
+    joue pleinement son rôle de <acronym>BRAS</acronym>&nbsp;: le routage
+    <acronym>IPv4</acronym> et <acronym>IPv6</acronym> est activé dans le
+    noyau, la traduction d'adresses sources s'applique aux flux sortants sur le
+    VLAN rouge, et deux unités <application>systemd</application>
+    <command>pppoe-server</command> attendent, chacune sur un côté du
+    triangle, l'authentification des routeurs <citetitle>Spoke</citetitle> pour
+    leur attribuer les adresses des liens point à point.</para>
   </sect1>
 
 <?custom-pagebreak?>
-<sect1 xml:id='hub-and-spoke.spoke'>
-	<title>Routeurs Spoke</title>
+  <sect1 xml:id='hub-and-spoke.spoke'>
+	  <title>Routeurs Spoke</title>
 
     <para>Dans le scénario défini dans la <xref
     linkend='hub-and-spoke.topology'/>, un routeur de site d'extrémité ou
     <wordasword>Spoke</wordasword> ne peut accéder aux autres réseaux que via
     le routeur <wordasword>Hub</wordasword>. Son interface
-    <acronym>WAN</acronym> joue donc le rôle de route par défaut pour le réseau
-    local des hôtes hébergé sur un site distant.</para>
+    <acronym>WAN</acronym> joue donc le rôle de route par défaut pour le
+    réseau local des hôtes hébergé sur un site distant.</para>
 
     <para>Cette section, comme la précédente, reprend les éléments du support
     &url.interco.pppoe; en dédoublant les routeurs d'extrémité.</para>
 
-	<para>Les routeurs <wordasword>Spoke</wordasword> utilisent un démon
-	<systemitem class='daemon'>pppd</systemitem> dans le
-	<acronym>VLAN</acronym> <option>Data</option> (Orange) pour établir une
-	session <acronym>PPP</acronym> avec le routeur
-	<wordasword>Hub</wordasword>.</para>
+    <para>Les routeurs <wordasword>Spoke</wordasword> utilisent un démon
+    <systemitem class='daemon'>pppd</systemitem> dans le
+    <acronym>VLAN</acronym> <option>Data</option> (Orange) pour établir une
+    session <acronym>PPP</acronym> avec le routeur
+    <wordasword>Hub</wordasword>.</para>
 
-	<para>Avant d'aborder les questions ci-dessous, il faut s'assurer
-	que&nbsp;:</para>
+    <para>Avant d'aborder les questions ci-dessous, il faut s'assurer
+    que&nbsp;:</para>
 
-	<itemizedlist>
-    <listitem>
-    <para>Le nom d'hôte est correctement attribué sur chaque routeur
-    <citetitle>Spoke</citetitle>.</para>
+	  <itemizedlist>
+      <listitem>
+        <para>Attribuez un nom d'hôte explicite sur chaque routeur
+        <citetitle>Spoke</citetitle>.</para>
 
-    <itemizedlist>
-    <listitem>
+        <itemizedlist>
+          <listitem>
 <screen>sudo hostnamectl hostname spoke_1</screen>
-    </listitem>
-    <listitem>
+          </listitem>
+          <listitem>
 <screen>sudo hostnamectl hostname spoke_2</screen>
-    </listitem>
-    </itemizedlist>
-    </listitem>
-	<listitem>
-	<para>Le routage est configuré et activé.</para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+	    <listitem>
+        <para>Configurez et activez le routage au niveau système.</para>
 
 <screen>cat &lt;&lt; EOF | sudo tee /etc/sysctl.d/70-routing.conf
 net.ipv4.ip_forward=1
@@ -818,44 +827,56 @@ net.ipv4.conf.all.log_martians=1
 EOF</screen>
 
 <screen>sudo sysctl --system</screen>
-	</listitem>
-	<listitem>
-    <para>Les paquets <systemitem>ppp</systemitem> sont installés sur chaque
-    routeur <citetitle>Spoke</citetitle> via l'accès réseau temporaire. Il faut
-    donc éditer et appliquer les modifications faites dans le fichier
-    <filename>/etc/netplan/enp0s1.yaml</filename>.</para>
+	    </listitem>
+	    <listitem>
+        <para>Les paquets <package>ppp</package> doivent ête installés sur
+        chaque routeur <citetitle>Spoke</citetitle> via l'accès réseau
+        temporaire. Éditez le fichier
+        <filename>/etc/netplan/enp0s1.yaml</filename> et ouvrez l'accès
+        Internet via le <acronym>VLAN</acronym> temporaire si
+        nécessaire.</para>
+
+        <para>Installez le paquet <package>ppp</package>.</para>
 
 <screen>sudo apt -y install ppp</screen>
-	</listitem>
-	<listitem>
-    <para>Le fichier <filename>/etc/ppp/chap-secrets</filename> contenant les
-    authentifiants pour l'établissement de la session <acronym>PPP</acronym>
-    est complété.</para>
+	    </listitem>
+	    <listitem>
+        <para>Éditez le fichier <filename>/etc/ppp/chap-secrets</filename> et
+        ajoutez les authentifiants pour l'établissement de la session
+        <acronym>PPP</acronym>.</para>
 
-    <itemizedlist>
-    <listitem>
+        <para>Voici un exemple d'entrée ajoutée pour chacun des deux sites
+        distants.</para>
+
+        <itemizedlist>
+          <listitem>
 <screen># Secrets for authentication using CHAP
 # client        server  secret         IP addresses
 "spoke_site1"   *       "0r4ng3_1"     *</screen>
-    </listitem>
-    <listitem>
+          </listitem>
+          <listitem>
 <screen># Secrets for authentication using CHAP
 # client        server  secret         IP addresses
 "spoke_site2"   *       "0r4ng3_2"     *</screen>
-    </listitem>
-    </itemizedlist>
-	</listitem>
-	<listitem>
-    <para>Le fichier <filename>/etc/ppp/peers/pppoe-provider</filename> de
-    définition du profil de session <acronym>PPP</acronym> est créé.</para>
+          </listitem>
+        </itemizedlist>
+	    </listitem>
+	    <listitem>
+        <para>Créez un fichier
+        <filename>/etc/ppp/peers/pppoe-provider</filename> de définition du
+        profil de session <acronym>PPP</acronym> sur chaque routeur
+        <citetitle>Spoke</citetitle>.</para>
 
-    <warning>
-    <para>Le nom d'utilisateur doit correspondre à l'entrée du fichier
-    <filename>/etc/ppp/chap-secrets</filename>&nbsp;!</para>
+        <warning>
+          <para>Le nom d'utilisateur doit correspondre à l'entrée du fichier
+          <filename>/etc/ppp/chap-secrets</filename>&nbsp;!</para>
 
-    <para>Le numéro de <acronym>VLAN</acronym> de la sous-interface doit
-    désigner le bon côté du triangle de la topologie&nbsp;!</para>
-    </warning>
+          <para>Le numéro de <acronym>VLAN</acronym> de la sous-interface
+          doit désigner le bon côté du triangle de la topologie&nbsp;!</para>
+        </warning>
+
+        <para>Voici un exemple de création de profil de connexion
+        <acronym>PPP</acronym>&nbsp;:</para>
 
 <screen>cat &lt;&lt; 'EOF' | sudo tee /etc/ppp/peers/pppoe-provider
 # Le nom d'utilisateur désigne l'entrée du fichier /etc/ppp/chap-secrets
@@ -895,15 +916,16 @@ novj
 novjccomp
 lcp-echo-interval 10
 EOF</screen>
-	</listitem>
-	<listitem>
-    <para>Les unités <systemitem>systemd</systemitem> sont créées et activées
-    sur chaque routeur <citetitle>Spoke</citetitle>.</para>
+	    </listitem>
+	    <listitem>
+        <para>Créez et activez un service <systemitem>systemd</systemitem>
+        sur chaque routeur <citetitle>Spoke</citetitle> pour ouvrir les
+        connexions <acronym>PPP</acronym> automatiquement.</para>
 
-    <warning>
-    <para>Le numéro de <acronym>VLAN</acronym> de la sous-interface doit
-    désigner le bon côté du triangle de la topologie&nbsp;!</para>
-    </warning>
+        <warning>
+          <para>Le numéro de <acronym>VLAN</acronym> de la sous-interface
+          doit désigner le bon côté du triangle de la topologie&nbsp;!</para>
+        </warning>
 
 <screen>cat &lt;&lt; EOF | sudo tee /etc/systemd/system/ppp.service
 [Unit]
@@ -924,80 +946,83 @@ RestartSec=20
 WantedBy=multi-user.target
 EOF</screen>
 
-    <para>On active les nouvelles unités de service avec les instructions
-    suivantes.</para>
+        <para>Activez les nouvelles unités de service avec les instructions
+        suivantes.</para>
 
 <screen>sudo systemctl daemon-reload
 sudo systemctl enable --now ppp.service</screen>
-	</listitem>
-    <listitem>
-    <para>Une fois la session <acronym>PPP</acronym> établie, n'oubliez pas de
-    désactiver l'accès réseau temporaire et s'assurer que c'est bien cette
-    session qui sert de route par défaut pour accéder à tous les autres
-    réseaux.</para>
+	    </listitem>
+      <listitem>
+        <para>N'oubliez pas de désactiver l'accès réseau temporaire une fois
+        la session <acronym>PPP</acronym> établie. Assurez-vous que c'est
+        bien cette session qui sert de route par défaut pour accéder à tous
+        les autres réseaux.</para>
 
-    <para>Il faut donc éditer à nouveau et appliquer les modifications faites
-    dans le fichier <filename>/etc/netplan/enp0s1.yaml</filename>.</para>
+        <para>Éditez à nouveau le fichier
+        <filename>/etc/netplan/enp0s1.yaml</filename> et appliquez les
+        modifications faites.</para>
 
-    <para>Voici un exemple de test lancé sur le second routeur
-    <citetitle>Spoke</citetitle> de la maquette.</para>
+        <para>Voici un exemple de test lancé sur le second routeur
+        <citetitle>Spoke</citetitle> de la maquette.</para>
 
 <screen>ip route get 9.9.9.9
 9.9.9.9 dev ppp0 src 10.44.3.2 uid 1000
     cache</screen>
-    </listitem>
-    <listitem>
-    <para>On doit éditer le fichier
-    <filename>/etc/systemd/resolved.conf</filename> sur chaque routeur
-    <citetitle>Spoke</citetitle> pour affecter directement l'adresse de
-    résolution <acronym>DNS</acronym>.</para>
+      </listitem>
+      <listitem>
+        <para>Éditez le fichier
+        <filename>/etc/systemd/resolved.conf</filename> sur chaque routeur
+        <citetitle>Spoke</citetitle> pour affecter directement l'adresse de
+        résolution <acronym>DNS</acronym>.</para>
 
-    <caution>
-    <para>L'affectation de l'adresse <acronym>IPv4</acronym> ou
-    <acronym>IPv6</acronym> de résolution <acronym>DNS</acronym> pose problème.
-    En effet, si le démon <command>pppd</command> propose bien deux adresses
-    via l'option <option>usepeerdns</option>, ces propositions ne sont pas
-    prises en charge par le service
-    <application>systemd-resolved</application>.</para>
+        <caution>
+          <para>L'affectation de l'adresse <acronym>IPv4</acronym> ou
+          <acronym>IPv6</acronym> de résolution <acronym>DNS</acronym> pose
+          problème. En effet, si le démon <command>pppd</command> propose
+          bien deux adresses via l'option <option>usepeerdns</option>, ces
+          propositions ne sont pas prises en charge par le service
+          <application>systemd-resolved</application>.</para>
 
-    <para>On contourne cette difficulté en affectant une adresse
-    <acronym>IPv4</acronym> directement au service
-    <application>systemd-resolved</application>.</para>
-    </caution>
+          <para>On contourne cette difficulté en affectant une adresse
+          <acronym>IPv4</acronym> directement au service
+          <application>systemd-resolved</application>.</para>
+        </caution>
 
 <screen>grep -Ev '(^#|^$)'  /etc/systemd/resolved.conf
 [Resolve]
 DNS=172.16.0.2</screen>
 
-    <para>N'oubliez pas de relancer le service pour prendre en compte les
-    modifications du fichier.</para>
+        <para>N'oubliez pas de relancer le service pour prendre en compte les
+        modifications du fichier.</para>
 
 <screen>sudo systemctl restart systemd-resolved</screen>
-    </listitem>
-	</itemizedlist>
+      </listitem>
+	  </itemizedlist>
 
     <para>À ce stade de la configuration, les sessions <acronym>PPP</acronym>
     des deux routeurs <citetitle>Spoke</citetitle> sont en place et on peut
-    analyser les messages présents dans les journaux système et identifier les
-    traitements réalisés par les différentes fonctions des protocoles.</para>
+    analyser les messages présents dans les journaux système et identifier
+    les traitements réalisés par les différentes fonctions des
+    protocoles.</para>
 
-	<qandaset defaultlabel='number'>
-    <qandaentry>
-    <question>
-    <para><phrase>Comment vérifier que le protocole <acronym>PPPoE</acronym> a
-    bien permis d'identifier les extrémités en communication dans le réseau de
-    diffusion (<acronym>VLAN</acronym> orange) avant de lancer l'ouverture de
-    session <acronym>PPP</acronym>&nbsp;?</phrase></para>
+	  <qandaset defaultlabel='number'>
+      <qandaentry>
+        <question>
+          <para><phrase>Comment vérifier que le protocole
+          <acronym>PPPoE</acronym> a bien permis d'identifier les extrémités
+          en communication dans le réseau de diffusion
+          (<acronym>VLAN</acronym> orange) avant de lancer l'ouverture de
+          session <acronym>PPP</acronym>&nbsp;?</phrase></para>
 
-    <para>Rechercher les options de la commande <command>journalctl</command>
-    pour faire afficher les messages utiles de la journalisation
-    système.</para>
-    </question>
-    <answer>
-    <para>Dans le but de minimiser le nombre de lignes affichées, on peut
-    combiner les commandes <command>journalctl</command> et
-    <command>grep</command>. Les possibilités sont très diverses. Voici un
-    exemple côté routeur <acronym>Spoke</acronym>.</para>
+          <para>Recherchez les options de la commande
+          <command>journalctl</command> pour afficher les messages utiles de
+          la journalisation système.</para>
+        </question>
+        <answer>
+          <para>Dans le but de minimiser le nombre de lignes affichées, on
+          peut combiner les commandes <command>journalctl</command> et
+          <command>grep</command>. Les possibilités sont très diverses. Voici
+          un exemple côté routeur <acronym>Spoke</acronym>.</para>
 
 <screen>journalctl --grep pppoe | grep -i pad</screen>
 
@@ -1006,36 +1031,39 @@ spoke2 pppd[489]: Recv PPPOE Discovery V1T1 PADO session 0x0 length 44
 spoke2 pppd[489]: Send PPPOE Discovery V1T1 PADR session 0x0 length 36
 spoke2 pppd[489]: Recv PPPOE Discovery V1T1 PADS session 0x1 length 12</screen>
 
-    <para>L'extrait ci-dessus montre la séquence spécifique au protocole
-    <acronym>PPPoE</acronym>&nbsp;:</para>
+          <para>L'extrait ci-dessus montre la séquence spécifique au
+          protocole <acronym>PPPoE</acronym>&nbsp;:</para>
 
-    <itemizedlist>
-    <listitem>
-    <para>Découverte avec émission de la trame <acronym>PADI</acronym> depuis
-    le routeur <citetitle>Spoke</citetitle>.</para>
-    </listitem>
-    <listitem>
-    <para>Offre avec réception de la trame <acronym>PADO</acronym> depuis le
-    routeur <citetitle>Hub</citetitle>.</para>
-    </listitem>
-    <listitem>
-    <para>Requête avec émission de la trame <acronym>PADR</acronym> depuis le
-    routeur <citetitle>Spoke</citetitle> pour accepter l'offre.</para>
-    </listitem>
-    <listitem>
-    <para>Ouverture de session avec la trame <acronym>PADS</acronym> quand les
-    deux extrémités de la liaison point à point sont en accord.</para>
-    </listitem>
-    </itemizedlist>
+          <itemizedlist>
+            <listitem>
+              <para>Découverte avec émission de la trame
+              <acronym>PADI</acronym> depuis le routeur
+              <citetitle>Spoke</citetitle>.</para>
+            </listitem>
+            <listitem>
+              <para>Offre avec réception de la trame <acronym>PADO</acronym>
+                depuis le routeur <citetitle>Hub</citetitle>.</para>
+            </listitem>
+            <listitem>
+              <para>Requête avec émission de la trame <acronym>PADR</acronym>
+              depuis le routeur <citetitle>Spoke</citetitle> pour accepter
+              l'offre.</para>
+            </listitem>
+            <listitem>
+              <para>Ouverture de session avec la trame
+              <acronym>PADS</acronym> quand les deux extrémités de la liaison
+              point à point sont en accord.</para>
+            </listitem>
+          </itemizedlist>
 
-    <para>Côté routeur <citetitle>Hub</citetitle>, les journaux de chaque unité
-    de service <systemitem>pppoe-serverX</systemitem> permettent de vérifier
-    que les adresses <acronym>MAC</acronym> correspondent bien au bon routeur
-    <citetitle>Spoke</citetitle> pour chaque côté du triangle de la
-    topologie.</para>
+          <para>Côté routeur <citetitle>Hub</citetitle>, les journaux de
+          chaque unité de service <systemitem>pppoe-serverX</systemitem>
+          permettent de vérifier que les adresses <acronym>MAC</acronym>
+          correspondent bien au bon routeur <citetitle>Spoke</citetitle> pour
+          chaque côté du triangle de la topologie.</para>
 
-    <para>Voici deux exemples pour la maquette de rédaction de ce
-    document.</para>
+          <para>Voici deux exemples pour la maquette de rédaction de ce
+          document.</para>
 
 <screen>journalctl -u <emphasis>pppoe-server1</emphasis>.service -n 100  | grep created</screen>
 
@@ -1044,27 +1072,29 @@ spoke2 pppd[489]: Recv PPPOE Discovery V1T1 PADS session 0x1 length 12</screen>
 <screen>journalctl -u <emphasis>pppoe-server2</emphasis>.service -n 100  | grep created</screen>
 
 <screen>hub pppoe-server[673]: Session 1 created for client <emphasis>b8:ad:ca:fe:00:07</emphasis> (10.44.3.2) on <emphasis>enp0s1.443</emphasis> using Service-Name ''</screen>
-    </answer>
-    </qandaentry>
-	<qandaentry>
-	<question>
-	<para><phrase>Quels sont les messages des journaux système qui montrent que
-	la session <acronym>PPP</acronym> a bien été établie&nbsp;?</phrase></para>
+        </answer>
+      </qandaentry>
+	    <qandaentry>
+	      <question>
+          <para><phrase>Quels sont les messages des journaux système qui
+          montrent que la session <acronym>PPP</acronym> a bien été
+          établie&nbsp;?</phrase></para>
 
-	<para>Après avoir consulté la page &url.ppp-wikipedia; repérer les messages
-	relatifs aux deux sous-couches <acronym>LCP</acronym> et
-	<acronym>NCP</acronym> du protocole <acronym>PPP</acronym>.</para>
-	</question>
-	<answer>
-    <para>Les messages <acronym>PPP</acronym> sont présents sur tous les
-    routeurs de la topologie. Voici deux exemples prélevés côté
-    <citetitle>Hub</citetitle> et côté <citetitle>Spoke</citetitle>.</para>
+          <para>Après avoir consulté la page &url.ppp-wikipedia; repérez les
+          messages relatifs aux deux sous-couches <acronym>LCP</acronym> et
+          <acronym>NCP</acronym> du protocole <acronym>PPP</acronym>.</para>
+	      </question>
+	      <answer>
+          <para>Les messages <acronym>PPP</acronym> sont présents sur tous
+          les routeurs de la topologie. Voici deux exemples prélevés côté
+          <citetitle>Hub</citetitle> et côté
+          <citetitle>Spoke</citetitle>.</para>
 
-    <itemizedlist>
-	<listitem>
-    <para>extrait des négociations de paramètres et de l'authentification dans
-    la sous-couche <acronym>LCP</acronym> côté
-    <citetitle>Hub</citetitle>.</para>
+          <itemizedlist>
+            <listitem>
+              <para>Extrait des négociations de paramètres et de
+              l'authentification dans la sous-couche <acronym>LCP</acronym>
+              côté <citetitle>Hub</citetitle>.</para>
 
 <screen>journalctl -u pppoe-server2.service -n 100  | grep -E '(LCP|EAP)'</screen>
 
@@ -1085,18 +1115,19 @@ hub pppd[673]: rcvd [EAP Response id=0x96 MD5-Challenge &lt;Value cd 5d 07 6a 5b
 hub pppd[673]: sent [EAP <emphasis>Success</emphasis> id=0x97]
 hub pppd[673]: <emphasis>EAP id=0x97 'MD5Chall' -> 'Open'</emphasis></screen>
 
-    <para>Dans l'exemple ci-dessus, on repère immédiatement le dernier message
-    qui conclut la phase d'authentification du routeur
-    <citetitle>Spoke</citetitle> auprès du routeur <citetitle>Hub</citetitle>
-    avec succès.</para>
+              <para>Dans l'exemple ci-dessus, on repère immédiatement le
+              dernier message qui conclut la phase d'authentification du
+              routeur <citetitle>Spoke</citetitle> auprès du routeur
+              <citetitle>Hub</citetitle> avec succès.</para>
 
-    <para>Plus haut, on repère aussi l'identité utilisée pour cette
-    authentification&nbsp;: <systemitem>spoke_site2</systemitem>.</para>
-	</listitem>
-    <listitem>
-    <para>Extrait des mêmes négociations de paramètres et de l'authentification
-    dans la sous-couche <acronym>LCP</acronym> côté
-    <citetitle>Spoke</citetitle>.</para>
+              <para>Plus haut, on repère aussi l'identité utilisée pour cette
+              authentification&nbsp;:
+              <systemitem>spoke_site2</systemitem>.</para>
+	          </listitem>
+            <listitem>
+              <para>Extrait des mêmes négociations de paramètres et de
+              l'authentification dans la sous-couche <acronym>LCP</acronym>
+              côté <citetitle>Spoke</citetitle>.</para>
 
 <screen>journalctl -u ppp -n 100 | grep -E '(LCP|EAP)'</screen>
 
@@ -1117,17 +1148,19 @@ spoke2 pppd[489]: sent [EAP Response id=0x96 MD5-Challenge &lt;Value cd 5d 07 6a
 spoke2 pppd[489]: rcvd [EAP Success id=0x97]
 spoke2 pppd[489]: <emphasis>EAP authentication succeeded</emphasis></screen>
 
-    <para>Comme dans l'extrait précédent, on retrouve les traces de l'identité
-    utilisée et du succès de l'authentification.</para>
-    </listitem>
-	<listitem>
-    <para>On reprend le même travail pour la sous-couche <acronym>NCP</acronym>
-    dans laquelle on recherche l'attribution des adresses des liaisons point à
-    point côté <citetitle>Hub</citetitle>.</para>
+              <para>Comme dans l'extrait précédent, on retrouve les traces de
+              l'identité utilisée et du succès de l'authentification.</para>
+            </listitem>
+	          <listitem>
+              <para>Reprenez le même travail pour la sous-couche
+              <acronym>NCP</acronym> dans laquelle vous devez recherchez
+              l'attribution des adresses des liaisons point à point côté
+              <citetitle>Hub</citetitle>.</para>
 
-    <para>Dans les journaux, la lettre <option>N</option> est remplacée par
-    <acronym>IP</acronym> pour le protocole <acronym>IPv4</acronym> et
-    <acronym>IPV6</acronym> pour le protocole <acronym>IPv6</acronym>.</para>
+              <para>Dans les journaux, la lettre <option>N</option> est
+              remplacée par <acronym>IP</acronym> pour le protocole
+              <acronym>IPv4</acronym> et <acronym>IPV6</acronym> pour le
+              protocole <acronym>IPv6</acronym>.</para>
 
 <screen>journalctl -u pppoe-server1.service -n 100  | grep -E '(IP.*CP|CCP)'</screen>
 
@@ -1159,15 +1192,17 @@ hub pppd[1055]: Script /etc/ppp/<emphasis>ip-up started</emphasis> (pid 1066)
 hub pppd[1055]: Script /etc/ppp/<emphasis>ipv6-up finished</emphasis> (pid 1061), status = 0x0
 hub pppd[1055]: rcvd [CCP ConfAck id=0x2]
 hub pppd[1055]: Script /etc/ppp/<emphasis>ip-up finished</emphasis> (pid 1066), status = 0x0</screen>
-	</listitem>
-    <listitem>
-    <para>On poursuit la même démarche côté routeurs <citetitle>Spoke</citetitle>.</para>
+	          </listitem>
+            <listitem>
+              <para>Poursuivez la même démarche côté routeurs
+              <citetitle>Spoke</citetitle>.</para>
 
-    <para>Le point important ici, c'est relever le statut des scripts
-    d'application des routes par défaut vers la liaison <acronym>PPP</acronym>
-    pour les routeurs <citetitle>Spoke</citetitle>. En l'état actuel de la
-    configuration, l'attribution de la route par défaut <acronym>IPv6</acronym>
-    ne se fait pas. Il faudra donc corriger ça dans la partie suivante.</para>
+              <para>Relevez le statut des scripts d'application des routes
+              par défaut vers la liaison <acronym>PPP</acronym> pour les
+              routeurs <citetitle>Spoke</citetitle>. En l'état actuel de la
+              configuration, l'attribution de la route par défaut
+              <acronym>IPv6</acronym> ne se fait pas. Il faudra donc corriger
+              ça dans la partie suivante.</para>
 
 <screen>journalctl -u ppp.service -n 100  -f</screen>
 
@@ -1201,12 +1236,21 @@ spoke1 pppd[496]: <emphasis>secondary DNS address 172.16.0.2</emphasis>
 spoke1 pppd[496]: Script /etc/ppp/<emphasis>ip-up started</emphasis> (pid 1645)
 spoke1 pppd[496]: Script /etc/ppp/<emphasis>ipv6-up finished</emphasis> (pid 1640), status = 0x0
 spoke1 pppd[496]: Script /etc/ppp/<emphasis>ip-up finished</emphasis> (pid 1645), status = 0x0</screen>
-    </listitem>
-	</itemizedlist>
-	</answer>
-	</qandaentry>
+            </listitem>
+          </itemizedlist>
+	      </answer>
+	    </qandaentry>
     </qandaset>
-</sect1>
+
+    <para>Au terme de cette partie, chaque routeur <citetitle>Spoke</citetitle>
+    a établi sa session <acronym>PPP</acronym> avec le routeur
+    <citetitle>Hub</citetitle> après la découverte <acronym>PPPoE</acronym>
+    et l'authentification <acronym>EAP</acronym>. Ils ont obtenu leurs
+    adresses via la sous-couche <acronym>NCP</acronym> et utilisent ce lien
+    comme route par défaut <acronym>IPv4</acronym>. L'analyse des journaux
+    révèle cependant l'absence de route par défaut <acronym>IPv6</acronym>,
+    qu'il faudra corriger dans la partie suivante.</para>
+  </sect1>
 
 <?custom-pagebreak?>
 <sect1 xml:id='hub-and-spoke.interconnect'>
